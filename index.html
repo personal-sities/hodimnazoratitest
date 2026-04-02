@@ -6,1771 +6,1166 @@
 <title>AloqaPro</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  :root {
-    --bg: #f0f2f5;
-    --sidebar: #3d5068;
-    --sidebar-btn: #5a7a9a;
-    --sidebar-active: #3d5068;
-    --header: #7a93ad;
-    --card: #ffffff;
-    --border: #d0d8e0;
-    --text: #2c3e50;
-    --text-light: #6b7f90;
-    --blue: #4a7ab5;
-    --green: #27ae60;
-    --yellow: #f39c12;
-    --red: #e74c3c;
-    --input-bg: #5a7080;
-    --input-text: #ffffff;
-  }
-  body { font-family: 'Segoe UI', Tahoma, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+*{margin:0;padding:0;box-sizing:border-box;}
+:root{
+  --bg:#f0f2f5;
+  --sidebar:#3d4f63;
+  --header-bg:#7a93aa;
+  --card:#fff;
+  --border:#d0d8e0;
+  --text:#2c3e50;
+  --muted:#6b7f90;
+  --blue:#4a7ab5;
+  --green:#27ae60;
+  --yellow:#e6a817;
+  --red:#e74c3c;
+  --inp:#506070;
+}
+body{font-family:'Segoe UI',Tahoma,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
 
-  /* ===== LOGIN PAGE ===== */
-  #loginPage {
-    display: flex; flex-direction: column; align-items: center; justify-content: center;
-    min-height: 100vh; background: #e8ecf0; position: relative;
-  }
-  .lang-switcher {
-    position: fixed; top: 16px; right: 16px; display: flex; align-items: center;
-    gap: 4px; background: #d0dae4; border-radius: 10px; padding: 6px 10px; z-index: 1000;
-  }
-  .lang-btn { cursor: pointer; border: none; background: none; padding: 2px; border-radius: 4px; opacity: 0.7; transition: opacity 0.2s; }
-  .lang-btn.active { opacity: 1; box-shadow: 0 0 0 2px var(--blue); border-radius: 4px; }
-  .lang-divider { width: 2px; height: 24px; background: #8a9eb0; }
-  .flag { width: 32px; height: 22px; border-radius: 3px; display: block; }
-  .logo-wrap { display: flex; flex-direction: column; align-items: center; margin-bottom: 32px; }
-  .logo-img { width: 180px; margin-bottom: 8px; }
-  .login-card {
-    background: #c8d4e0; border-radius: 12px; padding: 28px 32px; width: 420px;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.12);
-  }
-  .login-card h2 { text-align: center; color: #2c3e50; font-size: 18px; margin-bottom: 6px; }
-  .login-card p { text-align: center; color: #4a5e6e; font-size: 13px; margin-bottom: 20px; }
-  .inp-wrap { position: relative; margin-bottom: 14px; }
-  .inp-wrap input {
-    width: 100%; padding: 12px 16px; background: var(--input-bg); color: var(--input-text);
-    border: 2px solid transparent; border-radius: 8px; font-size: 14px; outline: none;
-    transition: border-color 0.2s;
-  }
-  .inp-wrap input::placeholder { color: #a0b4c0; }
-  .inp-wrap input:focus { border-color: var(--blue); }
-  .eye-btn { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: #a0b4c0; }
-  .login-btn {
-    width: 100%; padding: 13px; background: var(--blue); color: white; border: none;
-    border-radius: 8px; font-size: 15px; font-weight: 600; cursor: pointer; margin-top: 8px;
-    transition: background 0.2s;
-  }
-  .login-btn:hover { background: #3a6aa5; }
-  .login-err { color: #e74c3c; font-size: 13px; text-align: center; margin-top: 8px; min-height: 18px; }
+/* FLAGS */
+.flag{display:inline-flex;width:34px;height:22px;border-radius:3px;overflow:hidden;flex-shrink:0;}
+.flag svg{width:100%;height:100%;display:block;}
 
-  /* ===== MAIN LAYOUT ===== */
-  #adminPage, #employeePage { display: none; }
-  .layout { display: flex; min-height: 100vh; }
-  .sidebar {
-    width: 200px; background: var(--sidebar); display: flex; flex-direction: column;
-    padding: 16px 0; flex-shrink: 0;
-  }
-  .sidebar-logo { display: flex; align-items: center; gap: 10px; padding: 8px 16px 20px; }
-  .sidebar-logo-img { width: 36px; }
-  .sidebar-logo-text { color: white; font-size: 18px; font-weight: 600; }
-  .sidebar-logo-text span { color: #a8c4d8; }
-  .sidebar-nav { display: flex; flex-direction: column; gap: 6px; padding: 0 12px; }
-  .nav-btn {
-    padding: 11px 14px; background: var(--sidebar-btn); color: white; border: none;
-    border-radius: 8px; font-size: 14px; font-weight: 500; cursor: pointer; text-align: left;
-    transition: background 0.2s; opacity: 0.8;
-  }
-  .nav-btn.active, .nav-btn:hover { background: #4a6a85; opacity: 1; }
+/* LANG SW */
+.lsw{display:flex;align-items:center;gap:5px;background:rgba(255,255,255,.2);border-radius:10px;padding:5px 8px;}
+.lsw.light{background:#cad5df;}
+.lb{cursor:pointer;border:none;background:none;padding:1px;border-radius:4px;opacity:.6;transition:opacity .2s,box-shadow .2s;}
+.lb.active{opacity:1;box-shadow:0 0 0 2px #4a7ab5;}
+.lsep{width:2px;height:22px;background:rgba(255,255,255,.45);}
+.lsep.dk{background:#8faabb;}
 
-  .main-content { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
-  .top-header {
-    background: var(--header); padding: 16px 24px; display: flex; align-items: center;
-    justify-content: space-between; flex-shrink: 0;
-  }
-  .top-header h1 { color: white; font-size: 22px; font-weight: 600; }
-  .top-header-right { display: flex; align-items: center; gap: 12px; }
-  .today-text { color: white; font-size: 14px; opacity: 0.9; }
-  .header-lang { display: flex; align-items: center; gap: 4px; background: rgba(255,255,255,0.2); border-radius: 8px; padding: 4px 8px; }
-  .header-lang .lang-btn { opacity: 0.8; }
-  .header-lang .lang-btn.active { opacity: 1; }
-  .exit-btn {
-    padding: 8px 18px; background: rgba(255,255,255,0.25); color: white; border: none;
-    border-radius: 8px; font-size: 14px; cursor: pointer; transition: background 0.2s;
-  }
-  .exit-btn:hover { background: rgba(255,255,255,0.35); }
-  .page-body { flex: 1; padding: 20px 24px; overflow-y: auto; }
+/* LOGIN */
+#loginPage{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;background:#e6edf3;position:relative;}
+.lp-lang{position:fixed;top:14px;right:14px;z-index:999;}
+.lp-lang .lsw{background:#c5d2dc;}
+.lp-lang .lsep{background:#8faabb;}
 
-  /* ===== CARDS ===== */
-  .stat-cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 20px; }
-  .stat-card {
-    background: white; border-radius: 10px; padding: 18px 20px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-  }
-  .stat-card h3 { font-size: 13px; color: var(--text-light); margin-bottom: 8px; font-weight: 500; }
-  .stat-card .stat-num { font-size: 28px; font-weight: 700; color: var(--text); }
+.logo-blk{display:flex;flex-direction:column;align-items:center;margin-bottom:26px;}
+.logo-svg{width:210px;height:136px;}
 
-  /* ===== SECTION BOX ===== */
-  .section-box {
-    background: white; border-radius: 10px; padding: 20px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.06); margin-bottom: 20px;
-  }
-  .section-title { font-size: 16px; font-weight: 600; color: var(--text); margin-bottom: 16px; }
+.login-card{background:#bfcdd9;border-radius:14px;padding:26px 30px;width:430px;box-shadow:0 6px 24px rgba(0,0,0,.13);}
+.lc h2{text-align:center;color:#1e2d3a;font-size:17px;margin-bottom:5px;font-weight:600;}
+.lc p{text-align:center;color:#445566;font-size:12.5px;margin-bottom:18px;}
+.iw{position:relative;margin-bottom:12px;}
+.iw input{width:100%;padding:11px 42px 11px 13px;background:#4e6070;color:#fff;border:2px solid transparent;border-radius:9px;font-size:13.5px;outline:none;transition:border-color .2s;}
+.iw input::placeholder{color:#8aaabb;}
+.iw input:focus{border-color:#4a7ab5;}
+.eye{position:absolute;right:11px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:#8aaabb;}
+.lbtn{width:100%;padding:12px;background:#4a7ab5;color:#fff;border:none;border-radius:9px;font-size:14px;font-weight:700;cursor:pointer;margin-top:4px;transition:background .2s;}
+.lbtn:hover{background:#3a6aa5;}
+.lerr{color:#e74c3c;font-size:12px;text-align:center;margin-top:7px;min-height:15px;}
 
-  /* ===== TABLE ===== */
-  .data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-  .data-table th { background: #f5f7fa; padding: 10px 12px; text-align: left; color: var(--text-light); font-weight: 600; border-bottom: 2px solid var(--border); }
-  .data-table td { padding: 10px 12px; border-bottom: 1px solid #eef0f3; vertical-align: middle; }
-  .data-table tr:hover td { background: #f9fbfc; }
-  .status-badge { padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; display: inline-block; }
-  .status-green { background: #d5f5e3; color: #1e8449; }
-  .status-yellow { background: #fef9e7; color: #d4ac0d; }
-  .status-red { background: #fdecea; color: #c0392b; }
-  .status-gray { background: #f0f2f5; color: #7f8c8d; }
+/* LAYOUT */
+#adminPage,#employeePage{display:none;}
+.layout{display:flex;min-height:100vh;}
+.sidebar{width:198px;background:var(--sidebar);display:flex;flex-direction:column;flex-shrink:0;}
+.sb-head{display:flex;align-items:center;gap:9px;padding:15px 13px 17px;}
+.sb-logo-txt{color:#fff;font-size:16px;font-weight:700;}
+.sb-logo-txt span{color:#9bc0d8;}
+.sb-nav{display:flex;flex-direction:column;gap:6px;padding:0 10px;}
+.nbtn{padding:10px 13px;background:#4a6070;color:#fff;border:none;border-radius:8px;font-size:13.5px;font-weight:500;cursor:pointer;text-align:left;transition:background .2s;opacity:.8;}
+.nbtn:hover,.nbtn.active{background:#5a7888;opacity:1;}
 
-  /* ===== FILTERS ===== */
-  .filter-row { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
-  .filter-row input, .filter-row select {
-    padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px;
-    font-size: 13px; background: white; color: var(--text); outline: none;
-  }
-  .filter-row input:focus, .filter-row select:focus { border-color: var(--blue); }
-  .btn-primary {
-    padding: 8px 16px; background: var(--blue); color: white; border: none;
-    border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; transition: background 0.2s;
-  }
-  .btn-primary:hover { background: #3a6aa5; }
-  .btn-secondary {
-    padding: 8px 16px; background: var(--header); color: white; border: none;
-    border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; transition: background 0.2s;
-  }
-  .btn-secondary:hover { background: #5a7888; }
-  .btn-danger {
-    padding: 5px 12px; background: var(--red); color: white; border: none;
-    border-radius: 6px; font-size: 12px; cursor: pointer;
-  }
-  .btn-success { background: var(--green); }
+.mcol{flex:1;display:flex;flex-direction:column;min-width:0;}
+.tophdr{background:var(--header-bg);padding:14px 20px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
+.tophdr h1{color:#fff;font-size:20px;font-weight:700;}
+.hdr-r{display:flex;align-items:center;gap:9px;}
+.hdr-date{color:#fff;font-size:12.5px;opacity:.93;}
+.xbtn{padding:7px 16px;background:rgba(255,255,255,.22);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;transition:background .2s;}
+.xbtn:hover{background:rgba(255,255,255,.32);}
+.pbody{flex:1;padding:16px 20px;overflow-y:auto;}
 
-  /* ===== MONTHLY REPORT ===== */
-  .monthly-stats { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 16px; }
-  .monthly-stat { background: #f5f7fa; border-radius: 8px; padding: 14px; }
-  .monthly-stat h4 { font-size: 12px; color: var(--text-light); margin-bottom: 6px; }
-  .monthly-stat .val { font-size: 18px; font-weight: 700; }
+/* STAT CARDS */
+.scards{display:grid;grid-template-columns:repeat(4,1fr);gap:13px;margin-bottom:16px;}
+.scard{background:#fff;border-radius:10px;padding:15px 17px;box-shadow:0 2px 8px rgba(0,0,0,.07);}
+.scard h4{font-size:12px;color:var(--muted);margin-bottom:7px;font-weight:500;}
+.snum{font-size:26px;font-weight:800;}
 
-  /* ===== KPI ACTIONS ===== */
-  .kpi-actions { display: flex; gap: 6px; }
-  .kpi-btn { padding: 4px 10px; border: none; border-radius: 5px; font-size: 12px; font-weight: 700; cursor: pointer; }
-  .kpi-plus { background: #d5f5e3; color: #1e8449; }
-  .kpi-minus { background: #fdecea; color: #c0392b; }
-  .kpi-reset { background: #f0f2f5; color: #555; }
+/* BOX */
+.box{background:#fff;border-radius:10px;padding:16px 18px;box-shadow:0 2px 8px rgba(0,0,0,.07);margin-bottom:16px;}
+.btitle{font-size:14.5px;font-weight:700;margin-bottom:13px;}
 
-  /* ===== SETTINGS ===== */
-  .settings-form { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
-  .settings-form input, .settings-form select {
-    padding: 9px 12px; border: 1px solid var(--border); border-radius: 8px;
-    font-size: 13px; background: white; outline: none; min-width: 130px;
-  }
-  .settings-form input:focus { border-color: var(--blue); }
+/* TABLE */
+.tbl{width:100%;border-collapse:collapse;font-size:12.5px;}
+.tbl th{background:#f4f6f9;padding:8px 10px;text-align:left;color:var(--muted);font-weight:700;border-bottom:2px solid #e4e8ed;white-space:nowrap;}
+.tbl td{padding:8px 10px;border-bottom:1px solid #eef0f3;vertical-align:middle;}
+.tbl tr:hover td{background:#f9fafb;}
+.badge{padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;display:inline-block;white-space:nowrap;}
+.bg{background:#d5f5e3;color:#1a7a40;}
+.by{background:#fef3cd;color:#9a7000;}
+.br{background:#fde8e8;color:#b02020;}
+.bgr{background:#eef0f3;color:#6b7f90;}
 
-  /* ===== KPI RULES ===== */
-  .kpi-rules-box { background: #f5f7fa; border-radius: 8px; padding: 20px; font-size: 14px; line-height: 1.8; }
-  .kpi-rules-box .rule-section { margin-bottom: 14px; }
-  .kpi-rules-box strong { font-size: 15px; }
-  .kpi-rules-box .rule-row { display: flex; gap: 20px; }
-  .kpi-rules-box .rule-item { min-width: 180px; }
+/* FILTERS */
+.frow{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:13px;}
+.frow input,.frow select{padding:7px 10px;border:1px solid var(--border);border-radius:8px;font-size:12.5px;background:#fff;color:var(--text);outline:none;}
+.frow input:focus,.frow select:focus{border-color:var(--blue);}
+.bb{padding:7px 13px;background:var(--blue);color:#fff;border:none;border-radius:8px;font-size:12.5px;font-weight:600;cursor:pointer;white-space:nowrap;}
+.bb:hover{background:#3a6aa5;}
+.bg2{padding:7px 13px;background:var(--header-bg);color:#fff;border:none;border-radius:8px;font-size:12.5px;font-weight:600;cursor:pointer;white-space:nowrap;}
+.bg2:hover{background:#6a8398;}
+.brd{padding:4px 10px;background:var(--red);color:#fff;border:none;border-radius:6px;font-size:12px;cursor:pointer;}
+.bsm{padding:4px 9px;border:none;border-radius:5px;font-size:11.5px;font-weight:700;cursor:pointer;}
+.bsm-g{background:#d5f5e3;color:#1a7a40;}
+.bsm-r{background:#fde8e8;color:#b02020;}
+.bsm-gr{background:#eef0f3;color:#555;}
 
-  /* ===== EMPLOYEE PAGE ===== */
-  .emp-layout { min-height: 100vh; background: var(--bg); }
-  .emp-header { background: var(--header); padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; }
-  .emp-header h1 { color: white; font-size: 20px; font-weight: 600; }
-  .emp-body { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; padding: 20px 24px; }
-  .emp-card { background: white; border-radius: 10px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
-  .emp-card h2 { font-size: 16px; font-weight: 700; margin-bottom: 14px; }
-  .emp-tags { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
-  .emp-tag { padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; }
-  .tag-blue { background: #d6eaf8; color: #1a5276; }
-  .tag-gray { background: #f0f2f5; color: #555; }
-  .tag-orange { background: #fef0d7; color: #d35400; }
-  .action-btns { display: flex; gap: 10px; margin-bottom: 16px; }
-  .act-btn {
-    flex: 1; padding: 13px; border: none; border-radius: 10px; font-size: 14px; font-weight: 700;
-    cursor: pointer; transition: opacity 0.2s;
-  }
-  .act-btn:hover { opacity: 0.85; }
-  .act-start { background: var(--green); color: white; }
-  .act-lunch { background: var(--yellow); color: white; }
-  .act-end { background: var(--red); color: white; }
-  .act-continue { background: var(--blue); color: white; }
-  .timer-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 10px; }
-  .timer-box h4 { font-size: 12px; color: var(--text-light); margin-bottom: 4px; }
-  .timer-val { font-size: 26px; font-weight: 700; font-family: monospace; }
-  .timer-desc { font-size: 11px; color: var(--text-light); margin-top: 2px; }
-  .emp-info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-  .emp-info-item { background: #f5f7fa; border-radius: 8px; padding: 12px; }
-  .emp-info-item h4 { font-size: 12px; color: var(--text-light); margin-bottom: 4px; }
-  .emp-info-item p { font-size: 14px; font-weight: 600; }
-  .emp-full-width { grid-column: 1 / -1; }
-  .month-filter { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; justify-content: flex-end; }
-  .month-filter input { padding: 7px 10px; border: 1px solid var(--border); border-radius: 7px; font-size: 13px; }
-  .note-text { font-size: 12px; color: var(--text-light); margin-top: 8px; }
-  .late-stat { font-size: 20px; font-weight: 700; color: var(--text); }
+/* MONTHLY */
+.mst{display:grid;grid-template-columns:repeat(5,1fr);gap:11px;margin-bottom:13px;}
+.ms{background:#f4f6f9;border-radius:8px;padding:12px;}
+.ms h5{font-size:11px;color:var(--muted);margin-bottom:4px;}
+.ms .v{font-size:16px;font-weight:800;}
 
-  /* ===== MODAL ===== */
-  .modal-overlay {
-    position: fixed; inset: 0; background: rgba(0,0,0,0.35); display: flex;
-    align-items: center; justify-content: center; z-index: 9999;
-  }
-  .modal-box {
-    background: white; border-radius: 14px; padding: 36px 40px; max-width: 500px; width: 90%;
-    text-align: center; box-shadow: 0 10px 40px rgba(0,0,0,0.2);
-  }
-  .modal-box h3 { font-size: 17px; font-weight: 700; color: var(--red); margin-bottom: 14px; line-height: 1.6; }
-  .modal-box p { font-size: 15px; color: var(--text); line-height: 1.7; margin-bottom: 24px; }
-  .modal-btns { display: flex; gap: 14px; justify-content: center; }
-  .modal-ok { padding: 13px 40px; background: var(--green); color: white; border: none; border-radius: 10px; font-size: 16px; font-weight: 700; cursor: pointer; }
-  .modal-no { padding: 13px 40px; background: var(--red); color: white; border: none; border-radius: 10px; font-size: 16px; font-weight: 700; cursor: pointer; }
-  .modal-single { padding: 13px 60px; background: var(--green); color: white; border: none; border-radius: 10px; font-size: 16px; font-weight: 700; cursor: pointer; }
+/* SETTINGS */
+.sf{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:13px;}
+.sf input,.sf select{padding:7px 10px;border:1px solid var(--border);border-radius:8px;font-size:12.5px;outline:none;min-width:115px;}
+.sf input:focus{border-color:var(--blue);}
 
-  /* ===== LOGO SVG ===== */
-  .logo-svg { width: 160px; height: 100px; }
+/* KPI RULES */
+.kbox{background:#f4f6f9;border-radius:9px;padding:18px;font-size:13px;line-height:2.1;}
+.krow{display:flex;gap:8px;}
+.kcol{min-width:150px;}
 
-  .hidden { display: none !important; }
-  .alert-info { background: #fff3cd; border: 1px solid #ffc107; border-radius: 8px; padding: 10px 14px; font-size: 13px; color: #856404; margin-bottom: 12px; }
-  
-  @media (max-width: 900px) {
-    .stat-cards { grid-template-columns: repeat(2,1fr); }
-    .monthly-stats { grid-template-columns: repeat(2,1fr); }
-    .emp-body { grid-template-columns: 1fr; }
-    .sidebar { width: 160px; }
-  }
+/* EMPLOYEE */
+.ehdr{background:var(--header-bg);padding:13px 20px;display:flex;align-items:center;justify-content:space-between;}
+.ehdr h1{color:#fff;font-size:17px;font-weight:700;}
+.ebody{display:grid;grid-template-columns:1fr 1fr;gap:16px;padding:16px 20px;}
+.ec{background:#fff;border-radius:10px;padding:16px;box-shadow:0 2px 8px rgba(0,0,0,.07);}
+.ec h2{font-size:14px;font-weight:700;margin-bottom:11px;}
+.efw{grid-column:1/-1;}
+.tags{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:11px;}
+.tag{padding:3px 10px;border-radius:20px;font-size:11.5px;font-weight:600;}
+.tb{background:#dceef8;color:#1a4f80;}
+.tg{background:#eef0f3;color:#555;}
+.to{background:#fef0da;color:#b05000;}
+.abtns{display:flex;gap:8px;margin-bottom:12px;}
+.abtn{flex:1;padding:11px 5px;border:none;border-radius:9px;font-size:12.5px;font-weight:700;cursor:pointer;transition:opacity .2s;}
+.abtn:hover{opacity:.85;}
+.ast{background:#27ae60;color:#fff;}
+.alu{background:#e6a817;color:#fff;}
+.aen{background:#e74c3c;color:#fff;}
+.aco{background:#4a7ab5;color:#fff;width:100%;display:block;padding:11px;margin-bottom:11px;border:none;border-radius:9px;font-size:13px;font-weight:700;cursor:pointer;}
+.tgrid{display:grid;grid-template-columns:1fr 1fr;gap:11px;margin-bottom:7px;}
+.tb2 h4{font-size:11px;color:var(--muted);margin-bottom:3px;}
+.tv{font-size:22px;font-weight:800;font-family:'Courier New',monospace;}
+.td{font-size:10.5px;color:var(--muted);margin-top:2px;}
+.igrid{display:grid;grid-template-columns:1fr 1fr;gap:9px;}
+.ii{background:#f4f6f9;border-radius:8px;padding:10px;}
+.ii h4{font-size:11px;color:var(--muted);margin-bottom:3px;}
+.ii p{font-size:12.5px;font-weight:700;}
+.mhdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:11px;}
+.mhdr h2{margin:0;}
+.mflt{display:flex;align-items:center;gap:7px;}
+.mflt input{padding:5px 9px;border:1px solid var(--border);border-radius:7px;font-size:12.5px;}
+.note{font-size:11px;color:var(--muted);margin-top:7px;}
+.late-big{font-size:19px;font-weight:800;margin-top:5px;}
+
+/* MODALS */
+.ov{position:fixed;inset:0;background:rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;z-index:9999;}
+.modal{background:#fff;border-radius:14px;padding:32px 36px;max-width:470px;width:90%;text-align:center;box-shadow:0 12px 40px rgba(0,0,0,.2);}
+.modal p{font-size:14.5px;color:#c0392b;font-weight:700;line-height:1.75;margin-bottom:20px;}
+.modal h3{font-size:16px;font-weight:800;margin-bottom:16px;}
+.mbtns{display:flex;gap:11px;justify-content:center;}
+.mok{padding:11px 34px;background:var(--green);color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;}
+.mno{padding:11px 34px;background:var(--red);color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;}
+.msingle{padding:11px 54px;background:var(--green);color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;}
+
+.hidden{display:none!important;}
 </style>
 </head>
 <body>
 
-<!-- ========== LOGIN PAGE ========== -->
+<!-- ════ LOGIN ════ -->
 <div id="loginPage">
-  <div class="lang-switcher" id="loginLang">
-    <button class="lang-btn active" onclick="setLang('uz')" id="loginLangUz">
-      <img class="flag" src="https://flagcdn.com/w40/uz.png" alt="UZ">
-    </button>
-    <div class="lang-divider"></div>
-    <button class="lang-btn" onclick="setLang('ru')" id="loginLangRu">
-      <img class="flag" src="https://flagcdn.com/w40/ru.png" alt="RU">
-    </button>
+  <div class="lp-lang">
+    <div class="lsw">
+      <button class="lb active" id="ll_uz" onclick="setLang('uz')">
+        <span class="flag">
+          <svg viewBox="0 0 34 22" xmlns="http://www.w3.org/2000/svg">
+            <rect width="34" height="7.33" fill="#1EB3E4"/><rect y="7.33" width="34" height="7.34" fill="#fff"/>
+            <rect y="14.67" width="34" height="7.33" fill="#32A84C"/>
+            <rect y="6.9" width="34" height=".8" fill="#CE2028"/><rect y="14.3" width="34" height=".8" fill="#CE2028"/>
+            <circle cx="9" cy="3.7" r="2.3" fill="#fff"/><circle cx="10.1" cy="3.7" r="2.3" fill="#1EB3E4"/>
+            <circle cx="13" cy="1.4" r=".55" fill="#fff"/><circle cx="14.5" cy="2.4" r=".55" fill="#fff"/>
+            <circle cx="15.5" cy="3.9" r=".55" fill="#fff"/><circle cx="14.5" cy="5.3" r=".55" fill="#fff"/>
+            <circle cx="13" cy="6.3" r=".55" fill="#fff"/>
+          </svg>
+        </span>
+      </button>
+      <span class="lsep dk"></span>
+      <button class="lb" id="ll_ru" onclick="setLang('ru')">
+        <span class="flag">
+          <svg viewBox="0 0 34 22" xmlns="http://www.w3.org/2000/svg">
+            <rect width="34" height="7.33" fill="#fff"/>
+            <rect y="7.33" width="34" height="7.34" fill="#1C3F94"/>
+            <rect y="14.67" width="34" height="7.33" fill="#CE2028"/>
+          </svg>
+        </span>
+      </button>
+    </div>
   </div>
-  <div class="logo-wrap">
-    <svg class="logo-svg" viewBox="0 0 160 100" xmlns="http://www.w3.org/2000/svg">
-      <defs>
-        <linearGradient id="lg1" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" style="stop-color:#8fa8be"/>
-          <stop offset="100%" style="stop-color:#4a6a85"/>
-        </linearGradient>
-      </defs>
-      <polygon points="80,5 40,80 60,80 80,45 100,80 120,80" fill="url(#lg1)" opacity="0.85"/>
-      <polygon points="80,35 60,80 100,80" fill="#3d5068" opacity="0.6"/>
-      <text x="12" y="95" font-family="Georgia,serif" font-size="22" fill="#3d5068" font-style="italic" font-weight="700">Aloqa</text>
-      <text x="78" y="95" font-family="Georgia,serif" font-size="22" fill="#7a93ad">Pro</text>
+
+  <div class="logo-blk">
+    <!-- EXACT AloqaPro logo like screenshot -->
+    <svg class="logo-svg" viewBox="0 0 210 136" xmlns="http://www.w3.org/2000/svg">
+      <!-- Outer light triangle -->
+      <polygon points="105,6 42,116 168,116" fill="#a8bfcc" opacity="0.72"/>
+      <!-- Left dark face -->
+      <polygon points="105,6 42,116 92,116 105,72" fill="#5d7585" opacity="0.9"/>
+      <!-- Right medium face -->
+      <polygon points="105,6 105,72 118,116 168,116" fill="#7a9aaa" opacity="0.8"/>
+      <!-- Inner bottom triangle (overlap shadow) -->
+      <polygon points="105,64 92,116 118,116" fill="#3c5060" opacity="0.6"/>
+      <!-- Aloqa text -->
+      <text x="18" y="134" font-family="Georgia,serif" font-size="33" fill="#3c5060" font-style="italic" font-weight="700" letter-spacing="0.5">Aloqa</text>
+      <!-- Pro text lighter -->
+      <text x="112" y="134" font-family="Georgia,serif" font-size="33" fill="#8aafc0" font-style="italic" letter-spacing="0.5">Pro</text>
     </svg>
   </div>
-  <div class="login-card">
-    <h2 data-uz="Nazorat tizimiga xush kelibsiz!" data-ru="Добро пожаловать в систему контроля!">Nazorat tizimiga xush kelibsiz!</h2>
-    <p data-uz="Tizimdan foydalanish uchun login parolni kiriting!" data-ru="Введите логин и пароль для входа в систему!">Tizimdan foydalanish uchun login parolni kiriting!</p>
-    <div class="inp-wrap">
-      <input type="text" id="loginInput" data-ph-uz="Login" data-ph-ru="Логин" placeholder="Login">
-    </div>
-    <div class="inp-wrap">
-      <input type="password" id="passInput" data-ph-uz="Parol" data-ph-ru="Пароль" placeholder="Parol" id="passInput">
-      <button class="eye-btn" onclick="togglePass()" type="button">
-        <svg id="eyeIcon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
+
+  <div class="login-card lc">
+    <h2 id="lc_t">Nazorat tizimiga xush kelibsiz!</h2>
+    <p id="lc_s">Tizimdan foydalanish uchun login parolni kiriting!</p>
+    <div class="iw"><input type="text" id="inp_l" placeholder="Login" autocomplete="off"></div>
+    <div class="iw">
+      <input type="password" id="inp_p" placeholder="Parol">
+      <button class="eye" onclick="toggleEye()" type="button">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M17.94 17.94A10 10 0 0 1 12 20C5 20 1 12 1 12a18 18 0 0 1 5.06-5.94"/>
+          <path d="M9.9 4.24A9 9 0 0 1 12 4c7 0 11 8 11 8a18 18 0 0 1-2.16 3.19"/>
           <line x1="1" y1="1" x2="23" y2="23"/>
         </svg>
       </button>
     </div>
-    <button class="login-btn" onclick="doLogin()" data-uz="Kirish" data-ru="Войти">Kirish</button>
-    <div class="login-err" id="loginErr"></div>
+    <button class="lbtn" id="lbtn" onclick="doLogin()">Kirish</button>
+    <div class="lerr" id="lerr"></div>
   </div>
 </div>
 
-<!-- ========== ADMIN PAGE ========== -->
+<!-- ════ ADMIN ════ -->
 <div id="adminPage">
   <div class="layout">
     <div class="sidebar">
-      <div class="sidebar-logo">
-        <svg width="36" height="36" viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg">
-          <polygon points="30,2 8,52 22,52 30,30 38,52 52,52" fill="#8fa8be" opacity="0.9"/>
-          <polygon points="30,26 22,52 38,52" fill="#fff" opacity="0.3"/>
+      <div class="sb-head">
+        <svg width="32" height="32" viewBox="0 0 210 136" xmlns="http://www.w3.org/2000/svg">
+          <polygon points="105,6 42,116 168,116" fill="#a8bfcc" opacity="0.7"/>
+          <polygon points="105,6 42,116 92,116 105,72" fill="#5d7585" opacity="0.9"/>
+          <polygon points="105,6 105,72 118,116 168,116" fill="#7a9aaa" opacity="0.8"/>
+          <polygon points="105,64 92,116 118,116" fill="#3c5060" opacity="0.6"/>
         </svg>
-        <span class="sidebar-logo-text">Aloqa<span>Pro</span></span>
+        <span class="sb-logo-txt">Aloqa<span>Pro</span></span>
       </div>
-      <div class="sidebar-nav">
-        <button class="nav-btn active" onclick="showAdminTab('main')" id="navMain" data-uz="Asosiy" data-ru="Главная">Asosiy</button>
-        <button class="nav-btn" onclick="showAdminTab('settings')" id="navSettings" data-uz="Sozlamalar" data-ru="Настройки">Sozlamalar</button>
-        <button class="nav-btn" onclick="showAdminTab('kpi')" id="navKpi" data-uz="KPI Qoidalar" data-ru="KPI Правила">KPI Qoidalar</button>
+      <div class="sb-nav">
+        <button class="nbtn active" id="nav_main" onclick="adminTab('main')">Asosiy</button>
+        <button class="nbtn" id="nav_settings" onclick="adminTab('settings')">Sozlamalar</button>
+        <button class="nbtn" id="nav_kpi" onclick="adminTab('kpi')">KPI Qoidalar</button>
       </div>
     </div>
-    <div class="main-content">
-      <div class="top-header">
-        <h1 id="adminPageTitle" data-uz="Boshqaruv paneli | Asosiy" data-ru="Панель управления | Главная">Boshqaruv paneli | Asosiy</h1>
-        <div class="top-header-right">
-          <span class="today-text" id="adminTodayText"></span>
-          <div class="header-lang">
-            <button class="lang-btn active" onclick="setLang('uz')" id="adminLangUz"><img class="flag" src="https://flagcdn.com/w40/uz.png" alt="UZ"></button>
-            <div class="lang-divider" style="background:rgba(255,255,255,0.4)"></div>
-            <button class="lang-btn" onclick="setLang('ru')" id="adminLangRu"><img class="flag" src="https://flagcdn.com/w40/ru.png" alt="RU"></button>
+    <div class="mcol">
+      <div class="tophdr">
+        <h1 id="admTitle">Boshqaruv paneli | Asosiy</h1>
+        <div class="hdr-r">
+          <span class="hdr-date" id="admDate"></span>
+          <div class="lsw">
+            <button class="lb active" id="al_uz" onclick="setLang('uz')"><span class="flag"><svg viewBox="0 0 34 22" xmlns="http://www.w3.org/2000/svg"><rect width="34" height="7.33" fill="#1EB3E4"/><rect y="7.33" width="34" height="7.34" fill="#fff"/><rect y="14.67" width="34" height="7.33" fill="#32A84C"/><rect y="6.9" width="34" height=".8" fill="#CE2028"/><rect y="14.3" width="34" height=".8" fill="#CE2028"/><circle cx="9" cy="3.7" r="2.3" fill="#fff"/><circle cx="10.1" cy="3.7" r="2.3" fill="#1EB3E4"/><circle cx="13" cy="1.4" r=".55" fill="#fff"/><circle cx="14.5" cy="2.4" r=".55" fill="#fff"/><circle cx="15.5" cy="3.9" r=".55" fill="#fff"/><circle cx="14.5" cy="5.3" r=".55" fill="#fff"/><circle cx="13" cy="6.3" r=".55" fill="#fff"/></svg></span></button>
+            <span class="lsep"></span>
+            <button class="lb" id="al_ru" onclick="setLang('ru')"><span class="flag"><svg viewBox="0 0 34 22" xmlns="http://www.w3.org/2000/svg"><rect width="34" height="7.33" fill="#fff"/><rect y="7.33" width="34" height="7.34" fill="#1C3F94"/><rect y="14.67" width="34" height="7.33" fill="#CE2028"/></svg></span></button>
           </div>
-          <button class="exit-btn" onclick="doLogout()" data-uz="Chiqish" data-ru="Выйти">Chiqish</button>
+          <button class="xbtn" id="admExit" onclick="doLogout()">Chiqish</button>
         </div>
       </div>
-      <div class="page-body">
-        <!-- MAIN TAB -->
-        <div id="tabMain">
-          <div class="stat-cards">
-            <div class="stat-card">
-              <h3 data-uz="Bugun ishda" data-ru="Сегодня на работе">Bugun ishda</h3>
-              <div class="stat-num" id="statWorking">0</div>
-            </div>
-            <div class="stat-card">
-              <h3 data-uz="Bugun kechikkan" data-ru="Сегодня опоздали">Bugun kechikkan</h3>
-              <div class="stat-num" id="statLate">0</div>
-            </div>
-            <div class="stat-card">
-              <h3 data-uz="Bugun kelmagan" data-ru="Сегодня не пришли">Bugun kelmagan</h3>
-              <div class="stat-num" id="statAbsent">0</div>
-            </div>
-            <div class="stat-card">
-              <h3 data-uz="Tanlangan sana" data-ru="Выбранная дата">Tanlangan sana</h3>
-              <div class="stat-num" id="statDate" style="font-size:16px">-</div>
-            </div>
+      <div class="pbody">
+
+        <!-- TAB MAIN -->
+        <div id="tab_main">
+          <div class="scards">
+            <div class="scard"><h4 id="sc1">Bugun ishda</h4><div class="snum" id="sw">0</div></div>
+            <div class="scard"><h4 id="sc2">Bugun kechikkan</h4><div class="snum" id="sl">0</div></div>
+            <div class="scard"><h4 id="sc3">Bugun kelmagan</h4><div class="snum" id="sa">0</div></div>
+            <div class="scard"><h4 id="sc4">Tanlangan sana</h4><div class="snum" id="sd" style="font-size:14px">-</div></div>
           </div>
-          <!-- Hodimlar nazorati -->
-          <div class="section-box">
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
-              <span class="section-title" data-uz="Hodimlar nazorati" data-ru="Контроль сотрудников" style="margin:0">Hodimlar nazorati</span>
-              <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-                <span style="font-size:13px;color:var(--text-light)" data-uz="Sana:" data-ru="Дата:">Sana:</span>
-                <input type="date" id="filterDate" onchange="loadAdminAttendance()" style="padding:6px 10px;border:1px solid var(--border);border-radius:7px;font-size:13px">
-                <button class="btn-secondary" onclick="setTodayFilter()" id="btnToday" data-uz="Bugungi kun" data-ru="Сегодня">Bugungi kun</button>
-                <button class="btn-primary" onclick="showMonthly()" id="btnMonthly" data-uz="Oylik hisobot" data-ru="Месячный отчёт">Oylik hisobot</button>
+          <div class="box">
+            <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:9px;margin-bottom:12px">
+              <span class="btitle" id="att_t" style="margin:0">Hodimlar nazorati</span>
+              <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap">
+                <span style="font-size:12px;color:var(--muted)" id="sana_l">Sana:</span>
+                <input type="date" id="fd" onchange="loadAtt()">
+                <button class="bg2" id="b_today" onclick="setToday()">Bugungi kun</button>
+                <button class="bb" id="b_monthly" onclick="toggleMonthly()">Oylik hisobot</button>
               </div>
             </div>
-            <div class="filter-row">
-              <input type="text" id="searchEmp" data-ph-uz="Ism familiya bo'yicha qidirish..." data-ph-ru="Поиск по ФИО..." placeholder="Ism familiya bo'yicha qidirish..." oninput="filterTable()" style="min-width:220px">
-              <select id="filterStatus" onchange="filterTable()">
-                <option value="" data-uz="Barcha statuslar" data-ru="Все статусы">Barcha statuslar</option>
-                <option value="keldi" data-uz="Keldi" data-ru="Пришёл">Keldi</option>
-                <option value="kechikkan" data-uz="Kechikkan" data-ru="Опоздал">Kechikkan</option>
-                <option value="kelmadi" data-uz="Kelmadi" data-ru="Не пришёл">Kelmadi</option>
+            <div class="frow">
+              <input type="text" id="fsearch" placeholder="Ism familiya bo'yicha qidirish..." oninput="filterAtt()" style="min-width:195px">
+              <select id="fstatus" onchange="filterAtt()">
+                <option value="" id="o_all">Barcha statuslar</option>
+                <option value="keldi" id="o_came">Keldi</option>
+                <option value="kechikkan" id="o_late">Kechikkan</option>
+                <option value="kelmadi" id="o_abs">Kelmadi</option>
               </select>
-              <input type="month" id="filterMonth" style="padding:6px 10px;border:1px solid var(--border);border-radius:7px;font-size:13px">
-              <button class="btn-secondary" onclick="setCurrentMonth()" id="btnCurrentMonth" data-uz="Joriy oy" data-ru="Текущий месяц">Joriy oy</button>
-              <button class="btn-primary" onclick="loadAdminAttendance()" id="btnRefresh" data-uz="Hisobotni yangilash" data-ru="Обновить отчёт">Hisobotni yangilash</button>
+              <input type="month" id="fmonth">
+              <button class="bg2" id="b_cm" onclick="setCurMonth()">Joriy oy</button>
+              <button class="bb" id="b_ref" onclick="loadAtt()">Hisobotni yangilash</button>
             </div>
             <div style="overflow-x:auto">
-              <table class="data-table" id="attendanceTable">
-                <thead>
-                  <tr>
-                    <th>#</th>
-                    <th data-uz="Ism familiya" data-ru="ФИО">Ism familiya</th>
-                    <th data-uz="Login" data-ru="Логин">Login</th>
-                    <th data-uz="Parol" data-ru="Пароль">Parol</th>
-                    <th data-uz="O'zgartirish" data-ru="Изменить">O'zgartirish</th>
-                    <th data-uz="Kelgan vaqti" data-ru="Время прихода">Kelgan vaqti</th>
-                    <th data-uz="Kechikish" data-ru="Опоздание">Kechikish</th>
-                    <th data-uz="Kunlik ishlagan soat" data-ru="Отработано часов">Kunlik ishlagan soat</th>
-                    <th data-uz="Status" data-ru="Статус">Status</th>
-                  </tr>
-                </thead>
-                <tbody id="attendanceTbody"></tbody>
+              <table class="tbl">
+                <thead><tr>
+                  <th>#</th><th id="th1">Ism familiya</th><th id="th2">Login</th><th id="th3">Parol</th>
+                  <th id="th4">O'zgartirish</th><th id="th5">Kelgan vaqti</th><th id="th6">Kechikish</th>
+                  <th id="th7">Kunlik ishlagan soat</th><th id="th8">Status</th>
+                </tr></thead>
+                <tbody id="att_body"></tbody>
               </table>
             </div>
-            <div class="alert-info hidden" id="demoNote" data-uz="Eslatma: bu hozircha demo ko'rinish. Keyingi bosqichda shu jadval Supabase ma'lumotlari bilan real ishlaydi." data-ru="Примечание: это демонстрационный вид. На следующем этапе таблица будет работать с реальными данными Supabase.">
-              Eslatma: bu hozircha demo ko'rinish.
-            </div>
           </div>
-          <!-- Monthly report -->
-          <div class="section-box hidden" id="monthlySection">
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
-              <span class="section-title" data-uz="Oylik hisobot" data-ru="Месячный отчёт" style="margin:0">Oylik hisobot</span>
-              <span style="font-size:12px;color:var(--text-light)" id="monthlyLabel"></span>
+          <div class="box hidden" id="mbox">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+              <span class="btitle" id="mth_t" style="margin:0">Oylik hisobot</span>
+              <span style="font-size:11.5px;color:var(--muted)" id="mlbl"></span>
             </div>
-            <div class="monthly-stats">
-              <div class="monthly-stat">
-                <h4 data-uz="Oy bo'yicha hodimlar" data-ru="Сотрудников за месяц">Oy bo'yicha hodimlar</h4>
-                <div class="val" id="mStatEmp">0</div>
-              </div>
-              <div class="monthly-stat">
-                <h4 data-uz="Jami kechikishlar" data-ru="Всего опозданий">Jami kechikishlar</h4>
-                <div class="val" id="mStatLate">0</div>
-              </div>
-              <div class="monthly-stat">
-                <h4 data-uz="Jami kelmagan kunlar" data-ru="Всего пропусков">Jami kelmagan kunlar</h4>
-                <div class="val" id="mStatAbsent">0</div>
-              </div>
-              <div class="monthly-stat">
-                <h4 data-uz="Jami ish soati" data-ru="Всего рабочих часов">Jami ish soati</h4>
-                <div class="val" id="mStatHours">0 soat</div>
-              </div>
-              <div class="monthly-stat">
-                <h4 data-uz="Jami KPI" data-ru="Итого KPI">Jami KPI</h4>
-                <div class="val" id="mStatKpi" style="color:var(--green)">0 UZS</div>
-              </div>
+            <div class="mst">
+              <div class="ms"><h5 id="ms1">Oy bo'yicha hodimlar</h5><div class="v" id="me">0</div></div>
+              <div class="ms"><h5 id="ms2">Jami kechikishlar</h5><div class="v" id="ml">0</div></div>
+              <div class="ms"><h5 id="ms3">Jami kelmagan kunlar</h5><div class="v" id="ma">0</div></div>
+              <div class="ms"><h5 id="ms4">Jami ish soati</h5><div class="v" id="mh">0</div></div>
+              <div class="ms"><h5 id="ms5">Jami KPI</h5><div class="v" id="mk" style="color:var(--green)">0 UZS</div></div>
             </div>
             <div style="overflow-x:auto">
-              <table class="data-table" id="monthlyTable">
-                <thead>
-                  <tr>
-                    <th>#</th>
-                    <th data-uz="Ism familiya" data-ru="ФИО">Ism familiya</th>
-                    <th data-uz="Oy davomida ishlagan soati" data-ru="Отработано часов">Oy davomida ishlagan soati</th>
-                    <th data-uz="Kech qolishlar soni" data-ru="Кол-во опозданий">Kech qolishlar soni</th>
-                    <th data-uz="Kelmagan kunlar" data-ru="Пропущенных дней">Kelmagan kunlar</th>
-                    <th data-uz="Jarima ball" data-ru="Штрафные баллы">Jarima ball</th>
-                    <th data-uz="Qo'shimcha ball" data-ru="Доп. баллы">Qo'shimcha ball</th>
-                    <th data-uz="Yakuniy KPI ball" data-ru="Итоговый балл">Yakuniy KPI ball</th>
-                    <th data-uz="KPI summasi" data-ru="Сумма KPI">KPI summasi</th>
-                    <th data-uz="Ball boshqarish" data-ru="Управление баллами">Ball boshqarish</th>
-                  </tr>
-                </thead>
-                <tbody id="monthlyTbody"></tbody>
+              <table class="tbl">
+                <thead><tr>
+                  <th>#</th><th id="mt1">Ism familiya</th><th id="mt2">Oy davomida ishlagan soati</th>
+                  <th id="mt3">Kech qolishlar soni</th><th id="mt4">Kelmagan kunlar</th>
+                  <th id="mt5">Jarima ball</th><th id="mt6">Qo'shimcha ball</th>
+                  <th id="mt7">Yakuniy KPI ball</th><th id="mt8">KPI summasi</th><th id="mt9">Ball boshqarish</th>
+                </tr></thead>
+                <tbody id="mbody"></tbody>
               </table>
             </div>
           </div>
         </div>
 
-        <!-- SETTINGS TAB -->
-        <div id="tabSettings" class="hidden">
-          <div class="section-box">
-            <div class="section-title" data-uz="Hodimlar boshqaruvi" data-ru="Управление сотрудниками">Hodimlar boshqaruvi</div>
-            <div class="settings-form">
-              <input type="text" id="newEmpName" data-ph-uz="Ism familiya" data-ph-ru="ФИО" placeholder="Ism familiya">
-              <input type="text" id="newEmpLogin" data-ph-uz="Login" data-ph-ru="Логин" placeholder="Login">
-              <input type="password" id="newEmpPass" data-ph-uz="Parol" data-ph-ru="Пароль" placeholder="Parol">
-              <select id="newEmpKpi">
-                <option value="senior" data-uz="Eski hodim (560K)" data-ru="Старый сотрудник (560K)">Eski hodim (560K)</option>
-                <option value="junior" data-uz="Yangi hodim (400K)" data-ru="Новый сотрудник (400K)">Yangi hodim (400K)</option>
+        <!-- TAB SETTINGS -->
+        <div id="tab_settings" class="hidden">
+          <div class="box">
+            <div class="btitle" id="set_t">Hodimlar boshqaruvi</div>
+            <div class="sf">
+              <input type="text" id="ne_n" placeholder="Ism familiya">
+              <input type="text" id="ne_l" placeholder="Login">
+              <input type="password" id="ne_p" placeholder="Parol">
+              <select id="ne_k">
+                <option value="senior">Eski hodim (560K)</option>
+                <option value="junior">Yangi hodim (400K)</option>
               </select>
-              <button class="btn-primary" onclick="addEmployee()" data-uz="Hodim qo'shing" data-ru="Добавить сотрудника">Hodim qo'shing</button>
+              <button class="bb" id="b_addemp" onclick="addEmp()">Hodim qo'shing</button>
             </div>
             <div style="overflow-x:auto">
-              <table class="data-table" id="empListTable">
-                <thead>
-                  <tr>
-                    <th>#</th>
-                    <th data-uz="Ism familiya" data-ru="ФИО">Ism familiya</th>
-                    <th data-uz="Login" data-ru="Логин">Login</th>
-                    <th data-uz="Parol" data-ru="Пароль">Parol</th>
-                    <th data-uz="KPI summasi" data-ru="Сумма KPI">KPI summasi</th>
-                    <th data-uz="Hodimni o'chirish" data-ru="Удалить сотрудника">Hodimni o'chirish</th>
-                  </tr>
-                </thead>
-                <tbody id="empListTbody"></tbody>
+              <table class="tbl">
+                <thead><tr>
+                  <th>#</th><th id="et1">Ism familiya</th><th id="et2">Login</th>
+                  <th id="et3">Parol</th><th id="et4">KPI summasi</th><th id="et5">Hodimni o'chirish</th>
+                </tr></thead>
+                <tbody id="emp_body"></tbody>
               </table>
             </div>
           </div>
-          <div class="section-box">
-            <div class="section-title" data-uz="Qo'shimcha dam olish kunlari" data-ru="Дополнительные выходные дни">Qo'shimcha dam olish kunlari</div>
-            <div class="settings-form">
-              <input type="date" id="holidayDate">
-              <button class="btn-primary" onclick="addHoliday()" data-uz="Dam olish kunini qo'shing!" data-ru="Добавить выходной день!">Dam olish kunini qo'shing!</button>
+          <div class="box">
+            <div class="btitle" id="hol_t">Qo'shimcha dam olish kunlari</div>
+            <div class="sf">
+              <input type="date" id="hol_d">
+              <button class="bb" id="b_addh" onclick="addHol()">Dam olish kunini qo'shing!</button>
             </div>
-            <p style="font-size:13px;color:var(--text-light)" data-uz="Standart ish kunlari: Dushanba - Shanba. Yakshanba avtomatik dam olish kuni hisoblanadi." data-ru="Стандартные рабочие дни: Понедельник - Суббота. Воскресенье — выходной автоматически.">
-              Standart ish kunlari: Dushanba - Shanba. Yakshanba avtomatik dam olish kuni hisoblanadi.
-            </p>
-            <p style="font-size:13px;color:var(--text-light);margin-top:6px" id="holidayList" data-uz="Hozircha qo'shimcha dam olish kuni belgilanmagan" data-ru="Дополнительные выходные не установлены">Hozircha qo'shimcha dam olish kuni belgilanmagan</p>
+            <p style="font-size:12px;color:var(--muted);margin-bottom:5px" id="hol_info">Standart ish kunlari: Dushanba - Shanba. Yakshanba avtomatik dam olish kuni hisoblanadi.</p>
+            <p style="font-size:12px;color:var(--muted)" id="hol_list">Hozircha qo'shimcha dam olish kuni belgilanmagan</p>
           </div>
         </div>
 
-        <!-- KPI TAB -->
-        <div id="tabKpi" class="hidden">
-          <div class="section-box">
-            <div class="section-title" data-uz="KPI Qoidalari" data-ru="Правила KPI">KPI Qoidalari</div>
-            <div class="kpi-rules-box">
-              <div class="rule-section">
-                <strong data-uz="Asosiy KPI" data-ru="Основной KPI">Asosiy KPI</strong><br>
-                <span data-uz="Davomat bo'yicha KPI 100 ballik sistemada hisoblanadi!" data-ru="KPI по посещаемости рассчитывается в 100-балльной системе!">Davomat bo'yicha KPI 100 ballik sistemada hisoblanadi!</span>
+        <!-- TAB KPI -->
+        <div id="tab_kpi" class="hidden">
+          <div class="box">
+            <div class="btitle" id="kpi_t">KPI Qoidalari</div>
+            <div class="kbox">
+              <div style="margin-bottom:11px"><strong id="k1">Asosiy KPI</strong><br><span id="k2">Davomat bo'yicha KPI 100 ballik sistemada hisoblanadi!</span></div>
+              <div style="margin-bottom:11px">
+                <strong id="k3">Jarimalar</strong><br>
+                <span id="k4">Kech qolish jarima</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- 10 ball<br>
+                <span id="k5">Sababsiz kelmaslik jarimasi</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- 20 ball
               </div>
-              <div class="rule-section">
-                <strong data-uz="Jarimalar" data-ru="Штрафы">Jarimalar</strong><br>
-                <span data-uz="Kech qolish jarima" data-ru="Штраф за опоздание">Kech qolish jarima</span> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; - 10 ball<br>
-                <span data-uz="Sababsiz kelmaslik jarimasi" data-ru="Штраф за прогул">Sababsiz kelmaslik jarimasi</span> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; - 20 ball
-              </div>
-              <div class="rule-section">
-                <strong data-uz="KPI to'lovlari" data-ru="Выплаты KPI">KPI to'lovlari</strong><br>
-                <strong data-uz="Eski hodimlar uchun" data-ru="Для старых сотрудников">Eski hodimlar uchun</strong><br>
-                <div class="rule-row">
-                  <div class="rule-item">90 - 100 ball</div><div>+560 000 UZS</div>
-                </div>
-                <div class="rule-row">
-                  <div class="rule-item">80 - 89 ball</div><div>+420 000 UZS</div>
-                </div>
-                <div class="rule-row">
-                  <div class="rule-item">70 - 79 ball</div><div>+280 000 UZS</div>
-                </div>
-                <div class="rule-row">
-                  <div class="rule-item">70 ball kami</div><div>+0 UZS</div>
-                </div>
-                <br>
-                <strong data-uz="Yangi hodimlar uchun" data-ru="Для новых сотрудников">Yangi hodimlar uchun</strong><br>
-                <div class="rule-row">
-                  <div class="rule-item">90 - 100 ball</div><div>+400 000 UZS</div>
-                </div>
-                <div class="rule-row">
-                  <div class="rule-item">80 - 89 ball</div><div>+300 000 UZS</div>
-                </div>
-                <div class="rule-row">
-                  <div class="rule-item">70 - 79 ball</div><div>+210 000 UZS</div>
-                </div>
-                <div class="rule-row">
-                  <div class="rule-item">70 ball kami</div><div>+0 UZS</div>
-                </div>
+              <div>
+                <strong id="k6">KPI to'lovlari</strong><br>
+                <strong id="k7">Eski hodimlar uchun</strong><br>
+                <div class="krow"><div class="kcol">90 - 100 ball</div><div>+560 000 UZS</div></div>
+                <div class="krow"><div class="kcol">80 - 89 ball</div><div>+420 000 UZS</div></div>
+                <div class="krow"><div class="kcol">70 - 79 ball</div><div>+280 000 UZS</div></div>
+                <div class="krow"><div class="kcol">70 ball kami</div><div>+0 UZS</div></div><br>
+                <strong id="k8">Yangi hodimlar uchun</strong><br>
+                <div class="krow"><div class="kcol">90 - 100 ball</div><div>+400 000 UZS</div></div>
+                <div class="krow"><div class="kcol">80 - 89 ball</div><div>+300 000 UZS</div></div>
+                <div class="krow"><div class="kcol">70 - 79 ball</div><div>+210 000 UZS</div></div>
+                <div class="krow"><div class="kcol">70 ball kami</div><div>+0 UZS</div></div>
               </div>
             </div>
           </div>
         </div>
-      </div>
-    </div>
+
+      </div><!-- /pbody -->
+    </div><!-- /mcol -->
   </div>
 </div>
 
-<!-- ========== EMPLOYEE PAGE ========== -->
+<!-- ════ EMPLOYEE ════ -->
 <div id="employeePage">
-  <div class="emp-layout">
-    <div class="emp-header">
-      <div style="display:flex;align-items:center;gap:14px">
-        <svg width="36" height="36" viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg">
-          <polygon points="30,2 8,52 22,52 30,30 38,52 52,52" fill="#fff" opacity="0.8"/>
-        </svg>
-        <span style="color:white;font-size:18px;font-weight:600">Aloqa<span style="color:#c8dcea">Pro</span></span>
-        <h1 data-uz="Hodimlar paneli" data-ru="Панель сотрудника">Hodimlar paneli</h1>
+  <div class="ehdr">
+    <div style="display:flex;align-items:center;gap:11px">
+      <svg width="30" height="30" viewBox="0 0 210 136" xmlns="http://www.w3.org/2000/svg">
+        <polygon points="105,6 42,116 168,116" fill="#fff" opacity="0.75"/>
+        <polygon points="105,6 42,116 92,116 105,72" fill="#fff" opacity="0.4"/>
+        <polygon points="105,64 92,116 118,116" fill="#fff" opacity="0.25"/>
+      </svg>
+      <span style="color:#fff;font-size:16px;font-weight:700">Aloqa<span style="color:#b5d5e5">Pro</span></span>
+      <h1 id="ehdr_t" style="margin:0">Hodimlar paneli</h1>
+    </div>
+    <div style="display:flex;align-items:center;gap:9px">
+      <span style="color:#fff;font-size:12px" id="empDate"></span>
+      <div class="lsw">
+        <button class="lb active" id="el_uz" onclick="setLang('uz')"><span class="flag"><svg viewBox="0 0 34 22" xmlns="http://www.w3.org/2000/svg"><rect width="34" height="7.33" fill="#1EB3E4"/><rect y="7.33" width="34" height="7.34" fill="#fff"/><rect y="14.67" width="34" height="7.33" fill="#32A84C"/><rect y="6.9" width="34" height=".8" fill="#CE2028"/><rect y="14.3" width="34" height=".8" fill="#CE2028"/><circle cx="9" cy="3.7" r="2.3" fill="#fff"/><circle cx="10.1" cy="3.7" r="2.3" fill="#1EB3E4"/><circle cx="13" cy="1.4" r=".55" fill="#fff"/><circle cx="14.5" cy="2.4" r=".55" fill="#fff"/><circle cx="15.5" cy="3.9" r=".55" fill="#fff"/><circle cx="14.5" cy="5.3" r=".55" fill="#fff"/><circle cx="13" cy="6.3" r=".55" fill="#fff"/></svg></span></button>
+        <span class="lsep"></span>
+        <button class="lb" id="el_ru" onclick="setLang('ru')"><span class="flag"><svg viewBox="0 0 34 22" xmlns="http://www.w3.org/2000/svg"><rect width="34" height="7.33" fill="#fff"/><rect y="7.33" width="34" height="7.34" fill="#1C3F94"/><rect y="14.67" width="34" height="7.33" fill="#CE2028"/></svg></span></button>
       </div>
-      <div style="display:flex;align-items:center;gap:12px">
-        <span style="color:white;font-size:13px" id="empTodayText"></span>
-        <div class="header-lang">
-          <button class="lang-btn active" onclick="setLang('uz')" id="empLangUz"><img class="flag" src="https://flagcdn.com/w40/uz.png" alt="UZ"></button>
-          <div class="lang-divider" style="background:rgba(255,255,255,0.4)"></div>
-          <button class="lang-btn" onclick="setLang('ru')" id="empLangRu"><img class="flag" src="https://flagcdn.com/w40/ru.png" alt="RU"></button>
+      <button class="xbtn" id="empExit" onclick="doLogout()">Chiqish</button>
+    </div>
+  </div>
+
+  <div class="ebody">
+    <!-- Work tracker -->
+    <div class="ec">
+      <h2 id="ew_t">Bugungi ish jarayoni</h2>
+      <div class="tags">
+        <span class="tag tb" id="e_mtag">2026-04</span>
+        <span class="tag tg" id="e_stag">Holat: Boshlanmagan</span>
+        <span class="tag to" id="e_ltag">Kechikish: 0 daqiqa</span>
+      </div>
+      <div class="abtns">
+        <button class="abtn ast" id="bs" onclick="empStart()">Ishni boshlash</button>
+        <button class="abtn alu" id="bl" onclick="empLunch()">Tushlik vaqti</button>
+        <button class="abtn aen" id="be" onclick="empEnd()">Ishni yakunlash</button>
+      </div>
+      <button class="aco hidden" id="bc" onclick="empContinue()">Ishni davom ettirish</button>
+      <div class="tgrid">
+        <div class="tb2">
+          <h4 id="ewl">Ish vaqti</h4>
+          <div class="tv" id="tw">00:00:00</div>
+          <div class="td" id="ewd">Ish boshlanganda ishlaydi, tushlikda pauza bo'ladi</div>
         </div>
-        <button class="exit-btn" onclick="doLogout()" data-uz="Chiqish" data-ru="Выйти">Chiqish</button>
+        <div class="tb2">
+          <h4 id="ell">Tushlik vaqti</h4>
+          <div class="tv" id="tl">00:00:00</div>
+          <div class="td" id="eld">Faqat tushlik vaqtida yuradi</div>
+        </div>
+      </div>
+      <div class="tgrid" style="margin-top:7px">
+        <div class="tb2">
+          <h4 id="eafkl">Ish joyida bo'lmagan vaqt</h4>
+          <div class="tv" id="tafk" style="color:var(--red)">00:00:00</div>
+          <div class="td" id="eafkd">AFK: kompyuter harakatsiz vaqt</div>
+        </div>
+      </div>
+      <p class="note" id="e_note" style="margin-top:9px">Yangi kun boshlanganida bugungi vaqtlar avtomatik 0 ga tushadi. O'tgan kunlar esa shu oyning tarixida saqlanadi.</p>
+    </div>
+    <!-- Today info -->
+    <div class="ec">
+      <h2 id="et_t">Bugungi ma'lumot</h2>
+      <div class="igrid">
+        <div class="ii"><h4 id="ei1">Ish boshlagan vaqt</h4><p id="i_s">-</p></div>
+        <div class="ii"><h4 id="ei2">Ish tugagan vaqt</h4><p id="i_e">-</p></div>
+        <div class="ii"><h4 id="ei3">Tushlik boshlangan</h4><p id="i_ls">-</p></div>
+        <div class="ii"><h4 id="ei4">Tushlik tugagan</h4><p id="i_le">-</p></div>
       </div>
     </div>
-    <div class="emp-body" style="padding:20px 24px">
-      <!-- Left: Work tracker -->
-      <div class="emp-card">
-        <h2 data-uz="Bugungi ish jarayoni" data-ru="Рабочий процесс сегодня">Bugungi ish jarayoni</h2>
-        <div class="emp-tags">
-          <span class="emp-tag tag-blue" id="empMonthTag">2026-04</span>
-          <span class="emp-tag tag-gray" id="empStatusTag" data-uz="Holat: Boshlanmagan" data-ru="Статус: Не начат">Holat: Boshlanmagan</span>
-          <span class="emp-tag tag-orange" id="empLateTag" data-uz="Kechikish: 0 daqiqa" data-ru="Опоздание: 0 мин">Kechikish: 0 daqiqa</span>
-        </div>
-        <div class="action-btns">
-          <button class="act-btn act-start" id="btnStart" onclick="empStartWork()" data-uz="Ishni boshlash" data-ru="Начать работу">Ishni boshlash</button>
-          <button class="act-btn act-lunch" id="btnLunch" onclick="empLunch()" data-uz="Tushlik vaqti" data-ru="Обеденный перерыв">Tushlik vaqti</button>
-          <button class="act-btn act-end" id="btnEnd" onclick="empEndWork()" data-uz="Ishni yakunlash" data-ru="Завершить работу">Ishni yakunlash</button>
-        </div>
-        <div id="btnContinueWrap" class="hidden">
-          <button class="act-btn act-continue" style="width:100%;margin-bottom:14px" onclick="empContinue()" data-uz="Ishni davom ettirish" data-ru="Продолжить работу">Ishni davom ettirish</button>
-        </div>
-        <div class="timer-row">
-          <div class="timer-box">
-            <h4 data-uz="Ish vaqti" data-ru="Рабочее время">Ish vaqti</h4>
-            <div class="timer-val" id="workTimer">00:00:00</div>
-            <div class="timer-desc" data-uz="Ish boshlanganda ishlaydi, tushlikda pauza bo'ladi" data-ru="Работает после начала, пауза в обед">Ish boshlanganda ishlaydi, tushlikda pauza bo'ladi</div>
-          </div>
-          <div class="timer-box">
-            <h4 data-uz="Tushlik vaqti" data-ru="Время обеда">Tushlik vaqti</h4>
-            <div class="timer-val" id="lunchTimer">00:00:00</div>
-            <div class="timer-desc" data-uz="Faqat tushlik vaqtida yuradi" data-ru="Работает только во время обеда">Faqat tushlik vaqtida yuradi</div>
-          </div>
-        </div>
-        <div class="timer-row" style="margin-top:10px">
-          <div class="timer-box">
-            <h4 data-uz="Ish joyida bo'lmagan vaqt" data-ru="Время отсутствия">Ish joyida bo'lmagan vaqt</h4>
-            <div class="timer-val" id="afkTimer" style="color:var(--red)">00:00:00</div>
-            <div class="timer-desc" data-uz="AFK: kompyuter harakatsiz vaqt" data-ru="AFK: время неактивности">AFK: kompyuter harakatsiz vaqt</div>
-          </div>
-        </div>
-        <p style="font-size:12px;color:var(--text-light);margin-top:10px" data-uz="Yangi kun boshlanganida bugungi vaqtlar avtomatik 0 ga tushadi. O'tgan kunlar esa shu oyning tarixida saqlanadi." data-ru="При начале нового дня таймеры сбрасываются. Прошлые дни сохраняются в истории.">
-          Yangi kun boshlanganida bugungi vaqtlar avtomatik 0 ga tushadi. O'tgan kunlar esa shu oyning tarixida saqlanadi.
-        </p>
-      </div>
-
-      <!-- Right: Today info -->
-      <div class="emp-card">
-        <h2 data-uz="Bugungi ma'lumot" data-ru="Сегодняшние данные">Bugungi ma'lumot</h2>
-        <div class="emp-info-grid">
-          <div class="emp-info-item">
-            <h4 data-uz="Ish boshlagan vaqt" data-ru="Время начала">Ish boshlagan vaqt</h4>
-            <p id="infoStartTime">-</p>
-          </div>
-          <div class="emp-info-item">
-            <h4 data-uz="Ish tugagan vaqt" data-ru="Время окончания">Ish tugagan vaqt</h4>
-            <p id="infoEndTime">-</p>
-          </div>
-          <div class="emp-info-item">
-            <h4 data-uz="Tushlik boshlangan" data-ru="Начало обеда">Tushlik boshlangan</h4>
-            <p id="infoLunchStart">-</p>
-          </div>
-          <div class="emp-info-item">
-            <h4 data-uz="Tushlik tugagan" data-ru="Конец обеда">Tushlik tugagan</h4>
-            <p id="infoLunchEnd">-</p>
-          </div>
+    <!-- History -->
+    <div class="ec efw">
+      <div class="mhdr">
+        <h2 id="eh_t">Oy bo'yicha tarix</h2>
+        <div class="mflt">
+          <input type="month" id="e_month" onchange="loadHist()">
+          <button class="bg2" id="e_cm" onclick="setEmpMonth()">Joriy oy</button>
         </div>
       </div>
-
-      <!-- History (full width) -->
-      <div class="emp-card emp-full-width">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
-          <h2 data-uz="Oy bo'yicha tarix" data-ru="История за месяц" style="margin:0">Oy bo'yicha tarix</h2>
-          <div class="month-filter">
-            <input type="month" id="empHistoryMonth" onchange="loadEmpHistory()">
-            <button class="btn-secondary" onclick="setEmpCurrentMonth()" data-uz="Joriy oy" data-ru="Текущий месяц">Joriy oy</button>
-          </div>
-        </div>
-        <div style="overflow-x:auto">
-          <table class="data-table" id="empHistoryTable">
-            <thead>
-              <tr>
-                <th>#</th>
-                <th data-uz="Sana" data-ru="Дата">Sana</th>
-                <th data-uz="Ish boshlagan" data-ru="Начало">Ish boshlagan</th>
-                <th data-uz="Tushlik boshlangan" data-ru="Обед начало">Tushlik boshlangan</th>
-                <th data-uz="Tushlik tugagan" data-ru="Обед конец">Tushlik tugagan</th>
-                <th data-uz="Ish tugagan" data-ru="Конец">Ish tugagan</th>
-                <th data-uz="Kechikish" data-ru="Опоздание">Kechikish</th>
-                <th data-uz="Ish vaqti" data-ru="Раб. время">Ish vaqti</th>
-                <th data-uz="Tushlik vaqti" data-ru="Обед">Tushlik vaqti</th>
-                <th data-uz="Status" data-ru="Статус">Status</th>
-              </tr>
-            </thead>
-            <tbody id="empHistoryTbody"></tbody>
-          </table>
-        </div>
-        <p class="note-text" data-uz="Bu bo'limda faqat tanlangan oy ma'lumotlari chiqadi. Oy yangilanganda yangi oy tarixlari alohida ko'rinadi." data-ru="В этом разделе отображаются данные только выбранного месяца.">
-          Bu bo'limda faqat tanlangan oy ma'lumotlari chiqadi. Oy yangilanganda yangi oy tarixlari alohida ko'rinadi.
-        </p>
-        <div style="margin-top:14px">
-          <div style="font-size:13px;color:var(--text-light);margin-bottom:4px" data-uz="Kechikishlar (oy):" data-ru="Опозданий (месяц):">Kechikishlar (oy):</div>
-          <div class="late-stat" id="empMonthLate">0</div>
-        </div>
+      <div style="overflow-x:auto">
+        <table class="tbl">
+          <thead><tr>
+            <th>#</th><th id="ht1">Sana</th><th id="ht2">Ish boshlagan</th>
+            <th id="ht3">Tushlik boshlangan</th><th id="ht4">Tushlik tugagan</th>
+            <th id="ht5">Ish tugagan</th><th id="ht6">Kechikish</th>
+            <th id="ht7">Ish vaqti</th><th id="ht8">Tushlik vaqti</th><th id="ht9">Status</th>
+          </tr></thead>
+          <tbody id="hbody"></tbody>
+        </table>
+      </div>
+      <p class="note" id="eh_note">Bu bo'limda faqat tanlangan oy ma'lumotlari chiqadi. Oy yangilanganda yangi oy tarixlari alohida ko'rinadi.</p>
+      <div style="margin-top:11px">
+        <div style="font-size:12px;color:var(--muted)" id="el_lbl">Kechikishlar (oy):</div>
+        <div class="late-big" id="e_lc">0</div>
       </div>
     </div>
   </div>
 </div>
 
-<!-- ========== MODALS ========== -->
-<!-- Welcome modal for employee -->
-<div class="modal-overlay hidden" id="welcomeModal">
-  <div class="modal-box">
-    <p id="welcomeModalText" style="font-size:15px;color:#c0392b;font-weight:600;line-height:1.7">
-      Eslatma: "Ishni yakunlash" tugmasini faqat ish kuni to'liq tugagandan keyin bosing. Uni vaqtidan oldin bosish ish kunining erta yakunlanishiga sabab bo'ladi va bu KPI natijalariga salbiy ta'sir qilishi mumkin.
-    </p>
-    <div class="modal-btns">
-      <button class="modal-single" onclick="closeWelcome()" data-uz="OK" data-ru="ОК">OK</button>
+<!-- ════ MODALS ════ -->
+<div class="ov hidden" id="m_welcome">
+  <div class="modal">
+    <p id="mw_txt">Eslatma: "Ishni yakunlash" tugmasini faqat ish kuni to'liq tugagandan keyin bosing. Uni vaqtidan oldin bosish ish kunining erta yakunlanishiga sabab bo'ladi va bu KPI natijalariga salbiy ta'sir qilishi mumkin.</p>
+    <button class="msingle" id="mw_ok" onclick="closeWelcome()">OK</button>
+  </div>
+</div>
+<div class="ov hidden" id="m_afk">
+  <div class="modal">
+    <h3 id="mafk_t">Ishlayabsizmi?</h3>
+    <div class="mbtns">
+      <button class="mok" id="mafk_y" onclick="afkYes()">Ha</button>
+      <button class="mno" id="mafk_n" onclick="afkNo()">Yo'q</button>
     </div>
   </div>
 </div>
-
-<!-- AFK modal -->
-<div class="modal-overlay hidden" id="afkModal">
-  <div class="modal-box">
-    <h3 id="afkTitle" data-uz="Ishlayabsizmi?" data-ru="Вы работаете?">Ishlayabsizmi?</h3>
-    <div class="modal-btns">
-      <button class="modal-ok" onclick="afkYes()" data-uz="Ha" data-ru="Да">Ha</button>
-      <button class="modal-no" onclick="afkNo()" data-uz="Yo'q" data-ru="Нет">Yo'q</button>
+<div class="ov hidden" id="m_ep">
+  <div class="modal">
+    <h3 id="mep_t" style="color:var(--blue)">Parolni o'zgartirish</h3>
+    <input type="hidden" id="ep_id">
+    <div class="iw" style="margin:14px 0">
+      <input type="password" id="ep_np" placeholder="Yangi parol" style="background:#f0f2f5;color:#333">
     </div>
-  </div>
-</div>
-
-<!-- Edit pass modal -->
-<div class="modal-overlay hidden" id="editPassModal">
-  <div class="modal-box">
-    <h3 data-uz="Parolni o'zgartirish" data-ru="Изменить пароль" style="color:var(--blue)">Parolni o'zgartirish</h3>
-    <input type="hidden" id="editEmpId">
-    <div class="inp-wrap" style="margin:16px 0">
-      <input type="password" id="editNewPass" data-ph-uz="Yangi parol" data-ph-ru="Новый пароль" placeholder="Yangi parol" style="background:#f0f2f5;color:#333">
-    </div>
-    <div class="modal-btns">
-      <button class="modal-ok" onclick="saveNewPass()" data-uz="Saqlash" data-ru="Сохранить">Saqlash</button>
-      <button class="modal-no" onclick="closeEditPass()" data-uz="Bekor qilish" data-ru="Отмена">Bekor qilish</button>
+    <div class="mbtns">
+      <button class="mok" id="mep_s" onclick="savePass()">Saqlash</button>
+      <button class="mno" id="mep_c" onclick="closeEP()">Bekor qilish</button>
     </div>
   </div>
 </div>
 
 <script>
-// ============================================================
-// SUPABASE CONFIG - O'ZINGIZNING URL VA ANON KEY NI QO'YING
-// ============================================================
-const SUPABASE_URL = 'https://auzafnpqavjifgcxdjha.supabase.co';
-const SUPABASE_ANON_KEY = 'sb_publishable_42Jv6FiVUPVKItb73z0gkQ_1YyJYIDE';
-const supabase = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
+// ══════════════════════════════════════════════════════════
+// SUPABASE — URL VA ANON KEY NI QO'YING
+// ══════════════════════════════════════════════════════════
+const SUPABASE_URL  = 'https://auzafnpqavjifgcxdjha.supabase.co';
+const SUPABASE_ANON = 'sb_publishable_42Jv6FiVUPVKItb73z0gkQ_1YyJYIDE';
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
 
-// ============================================================
-// LANGUAGE
-// ============================================================
-let currentLang = localStorage.getItem('lang') || 'uz';
+// ══════════════════════════════════════════════════════════
+// TRANSLATIONS
+// ══════════════════════════════════════════════════════════
+const TR = {
+uz:{
+  loginTitle:'Nazorat tizimiga xush kelibsiz!',loginSub:'Tizimdan foydalanish uchun login parolni kiriting!',
+  loginBtn:'Kirish',loginPH:'Login',passPH:'Parol',loginErr:'Login yoki parol noto\'g\'ri!',loginFill:'Login va parolni kiriting!',
+  exit:'Chiqish',today:'Bugun',
+  nav_m:'Asosiy',nav_s:'Sozlamalar',nav_k:'KPI Qoidalar',
+  adm_m:'Boshqaruv paneli | Asosiy',adm_s:'Boshqaruv paneli | Sozlamalar',adm_k:'Boshqaruv paneli | KPI Qoidalari',
+  sc1:'Bugun ishda',sc2:'Bugun kechikkan',sc3:'Bugun kelmagan',sc4:'Tanlangan sana',
+  att_t:'Hodimlar nazorati',sana_l:'Sana:',
+  b_today:'Bugungi kun',b_monthly:'Oylik hisobot',b_cm:'Joriy oy',b_ref:'Hisobotni yangilash',
+  fsearch:'Ism familiya bo\'yicha qidirish...',
+  o_all:'Barcha statuslar',o_came:'Keldi',o_late:'Kechikkan',o_abs:'Kelmadi',
+  th1:'Ism familiya',th2:'Login',th3:'Parol',th4:'O\'zgartirish',th5:'Kelgan vaqti',th6:'Kechikish',th7:'Kunlik ishlagan soat',th8:'Status',
+  mth_t:'Oylik hisobot',ms1:'Oy bo\'yicha hodimlar',ms2:'Jami kechikishlar',ms3:'Jami kelmagan kunlar',ms4:'Jami ish soati',ms5:'Jami KPI',
+  mt1:'Ism familiya',mt2:'Oy davomida ishlagan soati',mt3:'Kech qolishlar soni',mt4:'Kelmagan kunlar',mt5:'Jarima ball',mt6:'Qo\'shimcha ball',mt7:'Yakuniy KPI ball',mt8:'KPI summasi',mt9:'Ball boshqarish',
+  set_t:'Hodimlar boshqaruvi',ne_n:'Ism familiya',ne_l:'Login',ne_p:'Parol',
+  kpi_sr:'Eski hodim (560K)',kpi_jr:'Yangi hodim (400K)',b_addemp:'Hodim qo\'shing',
+  et1:'Ism familiya',et2:'Login',et3:'Parol',et4:'KPI summasi',et5:'Hodimni o\'chirish',
+  hol_t:'Qo\'shimcha dam olish kunlari',b_addh:'Dam olish kunini qo\'shing!',
+  hol_info:'Standart ish kunlari: Dushanba - Shanba. Yakshanba avtomatik dam olish kuni hisoblanadi.',
+  hol_none:'Hozircha qo\'shimcha dam olish kuni belgilanmagan',hol_pre:'Dam olish kunlari: ',
+  kpi_t:'KPI Qoidalari',k1:'Asosiy KPI',k2:'Davomat bo\'yicha KPI 100 ballik sistemada hisoblanadi!',
+  k3:'Jarimalar',k4:'Kech qolish jarima',k5:'Sababsiz kelmaslik jarimasi',
+  k6:'KPI to\'lovlari',k7:'Eski hodimlar uchun',k8:'Yangi hodimlar uchun',
+  ehdr:'Hodimlar paneli',ew_t:'Bugungi ish jarayoni',et_t:'Bugungi ma\'lumot',eh_t:'Oy bo\'yicha tarix',
+  st_pre:'Holat:',lt_pre:'Kechikish:',lt_u:'daqiqa',
+  st0:'Boshlanmagan',st1:'Ishda',st2:'Tushlikda',st3:'Pauza (AFK)',st4:'Yakunlandi',
+  bs:'Ishni boshlash',bl:'Tushlik vaqti',be:'Ishni yakunlash',bc:'Ishni davom ettirish',bb:'Tushlikdan qaytish',
+  ewl:'Ish vaqti',ell:'Tushlik vaqti',eafkl:'Ish joyida bo\'lmagan vaqt',
+  ewd:'Ish boshlanganda ishlaydi, tushlikda pauza bo\'ladi',
+  eld:'Faqat tushlik vaqtida yuradi',eafkd:'AFK: kompyuter harakatsiz vaqt',
+  e_note:'Yangi kun boshlanganida bugungi vaqtlar avtomatik 0 ga tushadi. O\'tgan kunlar esa shu oyning tarixida saqlanadi.',
+  ei1:'Ish boshlagan vaqt',ei2:'Ish tugagan vaqt',ei3:'Tushlik boshlangan',ei4:'Tushlik tugagan',
+  ht1:'Sana',ht2:'Ish boshlagan',ht3:'Tushlik boshlangan',ht4:'Tushlik tugagan',ht5:'Ish tugagan',ht6:'Kechikish',ht7:'Ish vaqti',ht8:'Tushlik vaqti',ht9:'Status',
+  eh_note:'Bu bo\'limda faqat tanlangan oy ma\'lumotlari chiqadi. Oy yangilanganda yangi oy tarixlari alohida ko\'rinadi.',
+  el_lbl:'Kechikishlar (oy):',e_cm:'Joriy oy',
+  mw_txt:'Eslatma: "Ishni yakunlash" tugmasini faqat ish kuni to\'liq tugagandan keyin bosing. Uni vaqtidan oldin bosish ish kunining erta yakunlanishiga sabab bo\'ladi va bu KPI natijalariga salbiy ta\'sir qilishi mumkin.',
+  mw_ok:'OK',mafk_t:'Ishlayabsizmi?',mafk_y:'Ha',mafk_n:'Yo\'q',
+  mep_t:'Parolni o\'zgartirish',mep_s:'Saqlash',mep_c:'Bekor qilish',ep_ph:'Yangi parol',
+  b_came:'Keldi',b_late:'Kechikkan',b_abs:'Kelmadi',b_off:'Dam olish',
+  del_c:'Hodimni o\'chirishni tasdiqlaysizmi?',no_data:'Ma\'lumot yo\'q',
+  daq:'daq',marta:'marta',kun:'kun',soat:'soat',daqiqa:'daqiqa',ball:'ball',hisobot:'uchun hisobot',
+  change:'O\'zgartirish',delete:'O\'chirish',reset:'Reset',fill_all:'Barcha maydonlarni to\'ldiring!',
+},
+ru:{
+  loginTitle:'Добро пожаловать в систему контроля!',loginSub:'Введите логин и пароль для входа в систему!',
+  loginBtn:'Войти',loginPH:'Логин',passPH:'Пароль',loginErr:'Неверный логин или пароль!',loginFill:'Введите логин и пароль!',
+  exit:'Выйти',today:'Сегодня',
+  nav_m:'Главная',nav_s:'Настройки',nav_k:'Правила KPI',
+  adm_m:'Панель управления | Главная',adm_s:'Панель управления | Настройки',adm_k:'Панель управления | Правила KPI',
+  sc1:'Сегодня на работе',sc2:'Сегодня опоздали',sc3:'Сегодня не пришли',sc4:'Выбранная дата',
+  att_t:'Контроль сотрудников',sana_l:'Дата:',
+  b_today:'Сегодня',b_monthly:'Месячный отчёт',b_cm:'Текущий месяц',b_ref:'Обновить отчёт',
+  fsearch:'Поиск по ФИО...',
+  o_all:'Все статусы',o_came:'Пришёл',o_late:'Опоздал',o_abs:'Не пришёл',
+  th1:'ФИО',th2:'Логин',th3:'Пароль',th4:'Изменить',th5:'Время прихода',th6:'Опоздание',th7:'Отработано часов',th8:'Статус',
+  mth_t:'Месячный отчёт',ms1:'Сотрудников за месяц',ms2:'Всего опозданий',ms3:'Всего пропусков',ms4:'Всего рабочих часов',ms5:'Итого KPI',
+  mt1:'ФИО',mt2:'Отработано часов',mt3:'Кол-во опозданий',mt4:'Пропущенных дней',mt5:'Штрафные баллы',mt6:'Доп. баллы',mt7:'Итоговый балл',mt8:'Сумма KPI',mt9:'Управление баллами',
+  set_t:'Управление сотрудниками',ne_n:'ФИО',ne_l:'Логин',ne_p:'Пароль',
+  kpi_sr:'Старый сотрудник (560K)',kpi_jr:'Новый сотрудник (400K)',b_addemp:'Добавить сотрудника',
+  et1:'ФИО',et2:'Логин',et3:'Пароль',et4:'Сумма KPI',et5:'Удалить сотрудника',
+  hol_t:'Дополнительные выходные дни',b_addh:'Добавить выходной день!',
+  hol_info:'Стандартные рабочие дни: Пн - Сб. Воскресенье — выходной автоматически.',
+  hol_none:'Дополнительные выходные не установлены',hol_pre:'Выходные: ',
+  kpi_t:'Правила KPI',k1:'Основной KPI',k2:'KPI по посещаемости рассчитывается в 100-балльной системе!',
+  k3:'Штрафы',k4:'Штраф за опоздание',k5:'Штраф за прогул',
+  k6:'Выплаты KPI',k7:'Для старых сотрудников',k8:'Для новых сотрудников',
+  ehdr:'Панель сотрудника',ew_t:'Рабочий процесс сегодня',et_t:'Сегодняшние данные',eh_t:'История за месяц',
+  st_pre:'Статус:',lt_pre:'Опоздание:',lt_u:'мин',
+  st0:'Не начат',st1:'На работе',st2:'В обеде',st3:'Пауза (AFK)',st4:'Завершён',
+  bs:'Начать работу',bl:'Обеденный перерыв',be:'Завершить работу',bc:'Продолжить работу',bb:'Вернуться с обеда',
+  ewl:'Рабочее время',ell:'Время обеда',eafkl:'Время отсутствия',
+  ewd:'Работает после начала, пауза в обед',eld:'Работает только во время обеда',eafkd:'AFK: время неактивности',
+  e_note:'При начале нового дня таймеры сбрасываются. Прошлые дни сохраняются в истории.',
+  ei1:'Время начала',ei2:'Время окончания',ei3:'Начало обеда',ei4:'Конец обеда',
+  ht1:'Дата',ht2:'Начало',ht3:'Обед начало',ht4:'Обед конец',ht5:'Конец',ht6:'Опоздание',ht7:'Раб. время',ht8:'Обед',ht9:'Статус',
+  eh_note:'В этом разделе отображаются данные только выбранного месяца.',
+  el_lbl:'Опозданий (месяц):',e_cm:'Текущий месяц',
+  mw_txt:'Примечание: нажимайте "Завершить работу" только после полного окончания рабочего дня. Раннее нажатие приведёт к досрочному завершению и может негативно повлиять на KPI.',
+  mw_ok:'ОК',mafk_t:'Вы работаете?',mafk_y:'Да',mafk_n:'Нет',
+  mep_t:'Изменить пароль',mep_s:'Сохранить',mep_c:'Отмена',ep_ph:'Новый пароль',
+  b_came:'Пришёл',b_late:'Опоздал',b_abs:'Не пришёл',b_off:'Выходной',
+  del_c:'Вы уверены, что хотите удалить сотрудника?',no_data:'Нет данных',
+  daq:'мин',marta:'раз',kun:'дн.',soat:'ч',daqiqa:'мин',ball:'балл',hisobot:'— отчёт',
+  change:'Изменить',delete:'Удалить',reset:'Сброс',fill_all:'Заполните все поля!',
+}};
 
-function setLang(lang) {
-  currentLang = lang;
-  localStorage.setItem('lang', lang);
-  applyLang();
-}
+let lang = localStorage.getItem('aloqa_lang')||'uz';
+const t = k => (TR[lang]||TR.uz)[k]||k;
+function setLang(l){ lang=l; localStorage.setItem('aloqa_lang',l); applyLang(); }
 
-function applyLang() {
-  const lang = currentLang;
-  // Update all elements with data-uz / data-ru
-  document.querySelectorAll('[data-uz]').forEach(el => {
-    const txt = el.getAttribute('data-' + lang);
-    if (txt) el.textContent = txt;
-  });
-  // Placeholders
-  document.querySelectorAll('[data-ph-uz]').forEach(el => {
-    el.placeholder = el.getAttribute('data-ph-' + lang) || el.placeholder;
-  });
-  // Select options
-  document.querySelectorAll('select option[data-uz]').forEach(opt => {
-    const txt = opt.getAttribute('data-' + lang);
-    if (txt) opt.textContent = txt;
-  });
+function st(id,v){ const e=document.getElementById(id); if(e&&v!==undefined) e.textContent=v; }
+function sp(id,v){ const e=document.getElementById(id); if(e) e.placeholder=v; }
+
+function applyLang(){
   // Lang buttons
-  ['login','admin','emp'].forEach(prefix => {
-    const uzBtn = document.getElementById(prefix + 'LangUz');
-    const ruBtn = document.getElementById(prefix + 'LangRu');
-    if (uzBtn) uzBtn.classList.toggle('active', lang === 'uz');
-    if (ruBtn) ruBtn.classList.toggle('active', lang === 'ru');
+  ['ll','al','el'].forEach(p=>{
+    const u=document.getElementById(p+'_uz'), r=document.getElementById(p+'_ru');
+    if(u) u.classList.toggle('active',lang==='uz');
+    if(r) r.classList.toggle('active',lang==='ru');
   });
+  st('lc_t',t('loginTitle')); st('lc_s',t('loginSub'));
+  const lb=document.getElementById('lbtn'); if(lb) lb.textContent=t('loginBtn');
+  sp('inp_l',t('loginPH')); sp('inp_p',t('passPH'));
+  st('nav_main',t('nav_m')); st('nav_settings',t('nav_s')); st('nav_kpi',t('nav_k'));
+  const ae=document.getElementById('admExit'); if(ae) ae.textContent=t('exit');
+  const ee=document.getElementById('empExit'); if(ee) ee.textContent=t('exit');
+  updateDates();
+  st('sc1',t('sc1'));st('sc2',t('sc2'));st('sc3',t('sc3'));st('sc4',t('sc4'));
+  st('att_t',t('att_t'));st('sana_l',t('sana_l'));
+  st('b_today',t('b_today'));st('b_monthly',t('b_monthly'));st('b_cm',t('b_cm'));st('b_ref',t('b_ref'));
+  sp('fsearch',t('fsearch'));
+  st('o_all',t('o_all'));st('o_came',t('o_came'));st('o_late',t('o_late'));st('o_abs',t('o_abs'));
+  ['th1','th2','th3','th4','th5','th6','th7','th8'].forEach(k=>st(k,t(k)));
+  st('mth_t',t('mth_t'));
+  ['ms1','ms2','ms3','ms4','ms5'].forEach(k=>st(k,t(k)));
+  ['mt1','mt2','mt3','mt4','mt5','mt6','mt7','mt8','mt9'].forEach(k=>st(k,t(k)));
+  st('set_t',t('set_t'));sp('ne_n',t('ne_n'));sp('ne_l',t('ne_l'));sp('ne_p',t('ne_p'));
+  const ks=document.getElementById('ne_k');
+  if(ks){ks.options[0].text=t('kpi_sr');ks.options[1].text=t('kpi_jr');}
+  st('b_addemp',t('b_addemp'));
+  ['et1','et2','et3','et4','et5'].forEach(k=>st(k,t(k)));
+  st('hol_t',t('hol_t'));st('b_addh',t('b_addh'));st('hol_info',t('hol_info'));updateHolList();
+  ['kpi_t','k1','k2','k3','k4','k5','k6','k7','k8'].forEach(k=>st(k,t(k)));
+  st('ehdr_t',t('ehdr'));st('ew_t',t('ew_t'));st('et_t',t('et_t'));st('eh_t',t('eh_t'));
+  st('ewl',t('ewl'));st('ell',t('ell'));st('eafkl',t('eafkl'));
+  st('ewd',t('ewd'));st('eld',t('eld'));st('eafkd',t('eafkd'));
+  st('e_note',t('e_note'));
+  ['ei1','ei2','ei3','ei4','ht1','ht2','ht3','ht4','ht5','ht6','ht7','ht8','ht9'].forEach(k=>st(k,t(k)));
+  st('eh_note',t('eh_note'));st('el_lbl',t('el_lbl'));st('e_cm',t('e_cm'));
+  st('mw_txt',t('mw_txt'));st('mw_ok',t('mw_ok'));
+  st('mafk_t',t('mafk_t'));st('mafk_y',t('mafk_y'));st('mafk_n',t('mafk_n'));
+  st('mep_t',t('mep_t'));st('mep_s',t('mep_s'));st('mep_c',t('mep_c'));sp('ep_np',t('ep_ph'));
+  const bsEl=document.getElementById('bs'); if(bsEl) bsEl.textContent=t('bs');
+  const blEl=document.getElementById('bl'); if(blEl) blEl.textContent=(empState==='lunch'?t('bb'):t('bl'));
+  const beEl=document.getElementById('be'); if(beEl) beEl.textContent=t('be');
+  const bcEl=document.getElementById('bc'); if(bcEl) bcEl.textContent=t('bc');
+  updateEmpStatusTag();
 }
 
-// ============================================================
-// DATE UTILS (Tashkent UTC+5)
-// ============================================================
-function tashkentNow() {
-  const now = new Date();
-  const utc = now.getTime() + now.getTimezoneOffset() * 60000;
-  return new Date(utc + 5 * 3600000);
+// ══════════════════════════════════════════════════════════
+// DATE / TIME (Tashkent UTC+5)
+// ══════════════════════════════════════════════════════════
+function tzNow(){
+  const n=new Date();
+  return new Date(n.getTime()+(n.getTimezoneOffset()+300)*60000);
 }
-
-function formatDate(d) {
-  const dd = String(d.getDate()).padStart(2,'0');
-  const mm = String(d.getMonth()+1).padStart(2,'0');
-  const yyyy = d.getFullYear();
-  return `${dd}.${mm}.${yyyy}`;
+function fmtD(d){ return String(d.getDate()).padStart(2,'0')+'.'+String(d.getMonth()+1).padStart(2,'0')+'.'+d.getFullYear(); }
+function todayISO(){ const d=tzNow(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function curM(){ const d=tzNow(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); }
+function fmtHM(d){ return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'); }
+function fmtSec(s){ s=Math.max(0,Math.floor(s)); return String(Math.floor(s/3600)).padStart(2,'0')+':'+String(Math.floor((s%3600)/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0'); }
+function isWorkDay(ds){
+  const d=new Date(ds+'T12:00:00');
+  if(d.getDay()===0) return false;
+  return !JSON.parse(localStorage.getItem('aloqa_hols')||'[]').includes(ds);
 }
-
-function todayStr() {
-  const d = tashkentNow();
-  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+function updateDates(){
+  const s=t('today')+': '+fmtD(tzNow());
+  st('admDate',s); st('empDate',s);
 }
+setInterval(updateDates,30000);
 
-function currentMonth() {
-  const d = tashkentNow();
-  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
-}
-
-function isWorkDay(dateStr) {
-  const d = new Date(dateStr);
-  const dow = d.getDay(); // 0=Sun
-  if (dow === 0) return false;
-  const holidays = JSON.parse(localStorage.getItem('holidays') || '[]');
-  return !holidays.includes(dateStr);
-}
-
-function updateClocks() {
-  const d = tashkentNow();
-  const str = `${currentLang === 'uz' ? 'Bugun' : 'Сегодня'}: ${formatDate(d)}`;
-  const at = document.getElementById('adminTodayText');
-  const et = document.getElementById('empTodayText');
-  if (at) at.textContent = str;
-  if (et) et.textContent = str;
-}
-
-// ============================================================
+// ══════════════════════════════════════════════════════════
 // AUTH
-// ============================================================
-let currentUser = null; // { id, name, login, role, kpi_type }
-
-async function doLogin() {
-  const login = document.getElementById('loginInput').value.trim();
-  const pass = document.getElementById('passInput').value.trim();
-  const errEl = document.getElementById('loginErr');
-  errEl.textContent = '';
-
-  if (!login || !pass) {
-    errEl.textContent = currentLang === 'uz' ? 'Login va parolni kiriting!' : 'Введите логин и пароль!';
-    return;
-  }
-
-  // Check admin first
-  const { data: adminData } = await supabase
-    .from('admins')
-    .select('*')
-    .eq('login', login)
-    .eq('password', pass)
-    .single();
-
-  if (adminData) {
-    currentUser = { ...adminData, role: 'admin' };
-    localStorage.setItem('currentUser', JSON.stringify(currentUser));
-    showPage('admin');
-    return;
-  }
-
-  // Check employee
-  const { data: empData } = await supabase
-    .from('employees')
-    .select('*')
-    .eq('login', login)
-    .eq('password', pass)
-    .single();
-
-  if (empData) {
-    currentUser = { ...empData, role: 'employee' };
-    localStorage.setItem('currentUser', JSON.stringify(currentUser));
-    showPage('employee');
-    return;
-  }
-
-  errEl.textContent = currentLang === 'uz' ? 'Login yoki parol noto\'g\'ri!' : 'Неверный логин или пароль!';
+// ══════════════════════════════════════════════════════════
+let CU=null;
+async function doLogin(){
+  const lg=document.getElementById('inp_l').value.trim();
+  const ps=document.getElementById('inp_p').value.trim();
+  const err=document.getElementById('lerr');
+  err.textContent='';
+  if(!lg||!ps){err.textContent=t('loginFill');return;}
+  const {data:adm}=await sb.from('admins').select('*').eq('login',lg).eq('password',ps).maybeSingle();
+  if(adm){CU={...adm,role:'admin'};localStorage.setItem('aloqa_u',JSON.stringify(CU));showPage('admin');return;}
+  const {data:emp}=await sb.from('employees').select('*').eq('login',lg).eq('password',ps).maybeSingle();
+  if(emp){CU={...emp,role:'employee'};localStorage.setItem('aloqa_u',JSON.stringify(CU));showPage('employee');return;}
+  err.textContent=t('loginErr');
 }
+function doLogout(){ stopAll(); CU=null; localStorage.removeItem('aloqa_u'); showPage('login'); }
+function toggleEye(){ const i=document.getElementById('inp_p'); i.type=i.type==='password'?'text':'password'; }
 
-function doLogout() {
-  currentUser = null;
-  localStorage.removeItem('currentUser');
-  stopTimers();
-  showPage('login');
-}
-
-function togglePass() {
-  const inp = document.getElementById('passInput');
-  inp.type = inp.type === 'password' ? 'text' : 'password';
-}
-
-// ============================================================
-// PAGE ROUTING
-// ============================================================
-function showPage(page) {
-  document.getElementById('loginPage').style.display = 'none';
-  document.getElementById('adminPage').style.display = 'none';
-  document.getElementById('employeePage').style.display = 'none';
-
-  if (page === 'login') {
-    document.getElementById('loginPage').style.display = 'flex';
-  } else if (page === 'admin') {
-    document.getElementById('adminPage').style.display = 'block';
-    initAdmin();
-  } else if (page === 'employee') {
-    document.getElementById('employeePage').style.display = 'block';
-    initEmployee();
-  }
+// ══════════════════════════════════════════════════════════
+// ROUTING
+// ══════════════════════════════════════════════════════════
+function showPage(p){
+  document.getElementById('loginPage').style.display   = p==='login'    ? 'flex':'none';
+  document.getElementById('adminPage').style.display   = p==='admin'    ? 'block':'none';
+  document.getElementById('employeePage').style.display= p==='employee' ? 'block':'none';
+  if(p==='admin')    initAdmin();
+  if(p==='employee') initEmp();
   applyLang();
 }
 
-// ============================================================
-// ADMIN LOGIC
-// ============================================================
-function showAdminTab(tab) {
-  ['main','settings','kpi'].forEach(t => {
-    document.getElementById('tab' + t.charAt(0).toUpperCase() + t.slice(1)).classList.add('hidden');
+// ══════════════════════════════════════════════════════════
+// ADMIN
+// ══════════════════════════════════════════════════════════
+let mVisible=false;
+function initAdmin(){ adminTab('main'); setToday(); setCurMonth(); updateDates(); updateHolList(); }
+
+function adminTab(tab){
+  ['main','settings','kpi'].forEach(n=>{
+    document.getElementById('tab_'+n).classList.toggle('hidden',n!==tab);
   });
-  document.getElementById('tab' + tab.charAt(0).toUpperCase() + tab.slice(1)).classList.remove('hidden');
-  ['Main','Settings','Kpi'].forEach(t => {
-    document.getElementById('nav' + t).classList.remove('active');
-  });
-  document.getElementById('nav' + tab.charAt(0).toUpperCase() + tab.slice(1)).classList.add('active');
-
-  const titles = {
-    main: { uz: 'Boshqaruv paneli | Asosiy', ru: 'Панель управления | Главная' },
-    settings: { uz: 'Boshqaruv paneli | Sozlamalar', ru: 'Панель управления | Настройки' },
-    kpi: { uz: 'Boshqaruv paneli | KPI Qoidalari', ru: 'Панель управления | Правила KPI' }
-  };
-  document.getElementById('adminPageTitle').textContent = titles[tab][currentLang];
-
-  if (tab === 'settings') loadEmpList();
+  document.getElementById('nav_main').classList.toggle('active',tab==='main');
+  document.getElementById('nav_settings').classList.toggle('active',tab==='settings');
+  document.getElementById('nav_kpi').classList.toggle('active',tab==='kpi');
+  const titles={main:t('adm_m'),settings:t('adm_s'),kpi:t('adm_k')};
+  st('admTitle',titles[tab]||'');
+  if(tab==='settings') loadEmpList();
 }
 
-async function initAdmin() {
-  setTodayFilter();
-  setCurrentMonth();
-  await loadAdminAttendance();
-  updateClocks();
-  updateHolidayList();
+function setToday(){ document.getElementById('fd').value=todayISO(); loadAtt(); }
+function setCurMonth(){ document.getElementById('fmonth').value=curM(); }
+function toggleMonthly(){
+  mVisible=!mVisible;
+  document.getElementById('mbox').classList.toggle('hidden',!mVisible);
+  if(mVisible) loadMonthly();
 }
 
-function setTodayFilter() {
-  document.getElementById('filterDate').value = todayStr();
-  loadAdminAttendance();
-}
-
-function setCurrentMonth() {
-  document.getElementById('filterMonth').value = currentMonth();
-}
-
-async function loadAdminAttendance() {
-  const date = document.getElementById('filterDate').value || todayStr();
-  const { data: employees } = await supabase.from('employees').select('*');
-  if (!employees) return;
-
-  const { data: records } = await supabase
-    .from('attendance')
-    .select('*')
-    .eq('work_date', date);
-
-  let working = 0, late = 0, absent = 0;
-  const tbody = document.getElementById('attendanceTbody');
-  tbody.innerHTML = '';
-
-  employees.forEach((emp, i) => {
-    const rec = records ? records.find(r => r.employee_id === emp.id) : null;
-    let status = 'kelmadi', startTime = '-', lateMin = '-', hoursWorked = '-';
-    const wd = isWorkDay(date);
-
-    if (!wd) {
-      status = 'dam olish';
-    } else if (rec) {
-      startTime = rec.start_time ? rec.start_time.substring(0,5) : '-';
-      if (rec.start_time) {
-        const [h,m] = rec.start_time.split(':').map(Number);
-        const totalMin = h*60+m;
-        const workStart = 9*60;
-        if (totalMin > workStart) {
-          lateMin = totalMin - workStart;
-          status = 'kechikkan';
-          late++;
-        } else {
-          status = 'keldi';
-          working++;
-        }
-      }
-      if (rec.work_seconds) {
-        const s = rec.work_seconds;
-        hoursWorked = `${Math.floor(s/3600)}h ${Math.floor((s%3600)/60)}m`;
-      }
-    } else if (wd) {
-      absent++;
-    }
-
-    // Check if it's today and hasn't ended
-    if (date === todayStr() && rec && !rec.end_time && rec.start_time) {
-      if (status !== 'kechikkan') { status = 'keldi'; }
-    }
-
-    let badgeClass = 'status-gray', badgeText = '';
-    if (status === 'keldi') { badgeClass = 'status-green'; badgeText = currentLang === 'uz' ? 'Keldi' : 'Пришёл'; }
-    else if (status === 'kechikkan') { badgeClass = 'status-yellow'; badgeText = currentLang === 'uz' ? 'Kechikkan' : 'Опоздал'; }
-    else if (status === 'kelmadi') { badgeClass = 'status-red'; badgeText = currentLang === 'uz' ? 'Kelmadi' : 'Не пришёл'; }
-    else if (status === 'dam olish') { badgeClass = 'status-gray'; badgeText = currentLang === 'uz' ? 'Dam olish' : 'Выходной'; }
-
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td>${i+1}</td>
-      <td>${emp.name}</td>
-      <td>${emp.login}</td>
-      <td>*****</td>
-      <td><button class="btn-primary" style="font-size:11px;padding:4px 10px" onclick="openEditPass('${emp.id}')" data-uz="O'zgartirish" data-ru="Изменить">${currentLang === 'uz' ? "O'zgartirish" : 'Изменить'}</button></td>
-      <td>${startTime}</td>
-      <td>${lateMin !== '-' ? lateMin + ' daq' : '-'}</td>
-      <td>${hoursWorked}</td>
-      <td><span class="status-badge ${badgeClass}">${badgeText}</span></td>
-    `;
+async function loadAtt(){
+  const date=document.getElementById('fd').value||todayISO();
+  const {data:emps}=await sb.from('employees').select('*');
+  if(!emps) return;
+  const {data:recs}=await sb.from('attendance').select('*').eq('work_date',date);
+  const tbody=document.getElementById('att_body');
+  tbody.innerHTML='';
+  let w=0,l=0,a=0;
+  emps.forEach((emp,i)=>{
+    const rec=recs?recs.find(r=>r.employee_id===emp.id):null;
+    let status='kelmadi',arr='-',lm=0,hrs='-';
+    const wd=isWorkDay(date);
+    if(!wd){ status='off'; }
+    else if(rec&&rec.start_time){
+      arr=rec.start_time.substring(0,5);
+      const [h,mm]=rec.start_time.split(':').map(Number);
+      lm=Math.max(0,h*60+mm-9*60);
+      status=lm>0?'kechikkan':'keldi';
+      if(status==='keldi') w++; else l++;
+      if(rec.work_seconds){ const s=rec.work_seconds; hrs=Math.floor(s/3600)+'h '+Math.floor((s%3600)/60)+'m'; }
+    } else if(wd) a++;
+    let bc2='bgr',bt=t('b_off');
+    if(status==='keldi'){bc2='bg';bt=t('b_came');}
+    else if(status==='kechikkan'){bc2='by';bt=t('b_late');}
+    else if(status==='kelmadi'){bc2='br';bt=t('b_abs');}
+    const tr=document.createElement('tr');
+    tr.dataset.name=emp.name.toLowerCase();
+    tr.dataset.st=status;
+    tr.innerHTML=`<td>${i+1}</td><td>${emp.name}</td><td>${emp.login}</td><td>*****</td>
+      <td><button class="bsm bsm-g" onclick="openEP('${emp.id}')">${t('change')}</button></td>
+      <td>${arr}</td><td>${lm>0?lm+' '+t('daq'):'-'}</td><td>${hrs}</td>
+      <td><span class="badge ${bc2}">${bt}</span></td>`;
     tbody.appendChild(tr);
   });
-
-  document.getElementById('statWorking').textContent = working;
-  document.getElementById('statLate').textContent = late;
-  document.getElementById('statAbsent').textContent = absent;
-  document.getElementById('statDate').textContent = date ? formatDate(new Date(date)) : '-';
+  st('sw',''+w);st('sl',''+l);st('sa',''+a);
+  st('sd',date?fmtD(new Date(date+'T12:00:00')):'-');
 }
 
-function filterTable() {
-  const search = document.getElementById('searchEmp').value.toLowerCase();
-  const status = document.getElementById('filterStatus').value;
-  const rows = document.getElementById('attendanceTbody').querySelectorAll('tr');
-  rows.forEach(row => {
-    const name = row.cells[1].textContent.toLowerCase();
-    const badge = row.cells[8].textContent.toLowerCase();
-    const matchName = name.includes(search);
-    let matchStatus = true;
-    if (status === 'keldi') matchStatus = badge.includes('keldi') || badge.includes('пришёл');
-    else if (status === 'kechikkan') matchStatus = badge.includes('kechikkan') || badge.includes('опоздал');
-    else if (status === 'kelmadi') matchStatus = badge.includes('kelmadi') || badge.includes('не пришёл');
-    row.style.display = matchName && matchStatus ? '' : 'none';
+function filterAtt(){
+  const q=document.getElementById('fsearch').value.toLowerCase();
+  const s=document.getElementById('fstatus').value;
+  document.querySelectorAll('#att_body tr').forEach(tr=>{
+    const nm=(tr.dataset.name||'').includes(q);
+    const sv=!s||tr.dataset.st===s;
+    tr.style.display=nm&&sv?'':'none';
   });
 }
 
-function showMonthly() {
-  document.getElementById('monthlySection').classList.remove('hidden');
-  loadMonthlyReport();
-}
-
-async function loadMonthlyReport() {
-  const month = document.getElementById('filterMonth').value || currentMonth();
-  document.getElementById('monthlyLabel').textContent = month + ' ' + (currentLang === 'uz' ? 'uchun hisobot' : '— отчёт');
-
-  const { data: employees } = await supabase.from('employees').select('*');
-  const { data: bonuses } = await supabase.from('kpi_bonuses').select('*').like('month', month + '%');
-  if (!employees) return;
-
-  const [year, mon] = month.split('-').map(Number);
-  const daysInMonth = new Date(year, mon, 0).getDate();
-  let workDays = 0;
-  for (let d = 1; d <= daysInMonth; d++) {
-    const ds = `${year}-${String(mon).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-    if (isWorkDay(ds)) workDays++;
+async function loadMonthly(){
+  const month=document.getElementById('fmonth').value||curM();
+  st('mlbl',month+' '+t('hisobot'));
+  const [y,mo]=month.split('-').map(Number);
+  const dim=new Date(y,mo,0).getDate();
+  let wd=0;
+  for(let d=1;d<=dim;d++){
+    const ds=`${y}-${String(mo).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    if(isWorkDay(ds)) wd++;
   }
-
-  const startOfMonth = `${month}-01`;
-  const endOfMonth = `${month}-${String(daysInMonth).padStart(2,'0')}`;
-
-  const { data: records } = await supabase
-    .from('attendance')
-    .select('*')
-    .gte('work_date', startOfMonth)
-    .lte('work_date', endOfMonth);
-
-  let totalLate = 0, totalAbsent = 0, totalHours = 0, totalKpi = 0;
-  const tbody = document.getElementById('monthlyTbody');
-  tbody.innerHTML = '';
-
-  employees.forEach((emp, i) => {
-    const empRecs = records ? records.filter(r => r.employee_id === emp.id) : [];
-    let late = 0, came = 0, hours = 0;
-    empRecs.forEach(r => {
-      if (r.start_time) {
-        const [h,m] = r.start_time.split(':').map(Number);
-        if (h*60+m > 9*60) late++;
-        came++;
-      }
-      if (r.work_seconds) hours += r.work_seconds;
-    });
-    const absent = workDays - came;
-    const penaltyBall = late * 10 + Math.max(0, absent) * 20;
-    const bonusRec = bonuses ? bonuses.find(b => b.employee_id === emp.id) : null;
-    const extraBall = bonusRec ? bonusRec.bonus : 0;
-    const finalBall = Math.max(0, Math.min(100, 100 - penaltyBall + extraBall));
-    const kpiType = emp.kpi_type || 'senior';
-    const kpiAmount = calcKpi(finalBall, kpiType);
-    
-    totalLate += late; totalAbsent += absent; totalHours += hours; totalKpi += kpiAmount;
-
-    const hoursStr = `${Math.floor(hours/3600)} soat ${Math.floor((hours%3600)/60)} daqiqa`;
-
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td>${i+1}</td>
-      <td>${emp.name}</td>
-      <td>${hoursStr}</td>
-      <td>${late} ${currentLang === 'uz' ? 'marta' : 'раз'}</td>
-      <td>${absent} ${currentLang === 'uz' ? 'kun' : 'дн.'}</td>
-      <td style="color:var(--red)">-${penaltyBall} ${currentLang === 'uz' ? 'ball' : 'балл'}</td>
-      <td style="color:var(--green)">+${extraBall} ${currentLang === 'uz' ? 'ball' : 'балл'}</td>
-      <td><strong>${finalBall} ${currentLang === 'uz' ? 'ball' : 'балл'}</strong></td>
-      <td style="color:var(--green)">${kpiAmount.toLocaleString()} UZS</td>
-      <td>
-        <div class="kpi-actions">
-          <button class="kpi-btn kpi-plus" onclick="adjustKpi('${emp.id}','${month}',10)">+10</button>
-          <button class="kpi-btn kpi-minus" onclick="adjustKpi('${emp.id}','${month}',-10)">-10</button>
-          <button class="kpi-btn kpi-reset" onclick="adjustKpi('${emp.id}','${month}',0,true)">${currentLang === 'uz' ? 'Reset' : 'Сброс'}</button>
-        </div>
-      </td>
-    `;
+  const {data:emps}=await sb.from('employees').select('*');
+  const {data:recs}=await sb.from('attendance').select('*').gte('work_date',`${month}-01`).lte('work_date',`${month}-${String(dim).padStart(2,'0')}`);
+  const {data:bons}=await sb.from('kpi_bonuses').select('*').eq('month',month);
+  if(!emps) return;
+  let tL=0,tA=0,tH=0,tK=0;
+  const tbody=document.getElementById('mbody');
+  tbody.innerHTML='';
+  emps.forEach((emp,i)=>{
+    const er=recs?recs.filter(r=>r.employee_id===emp.id):[];
+    let late=0,came=0,sec=0;
+    er.forEach(r=>{ if(r.start_time){const[h,m]=r.start_time.split(':').map(Number);if(h*60+m>540)late++;came++;} if(r.work_seconds)sec+=r.work_seconds; });
+    const abs=Math.max(0,wd-came);
+    const bon=bons?(bons.find(b=>b.employee_id===emp.id)||{bonus:0}).bonus:0;
+    const pen=late*10+abs*20;
+    const fin=Math.min(100,Math.max(0,100-pen+bon));
+    const kpi=calcKpi(fin,emp.kpi_type||'senior');
+    tL+=late;tA+=abs;tH+=sec;tK+=kpi;
+    const hs=Math.floor(sec/3600)+' '+t('soat')+' '+Math.floor((sec%3600)/60)+' '+t('daqiqa');
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td>${i+1}</td><td>${emp.name}</td><td>${hs}</td>
+      <td>${late} ${t('marta')}</td><td>${abs} ${t('kun')}</td>
+      <td style="color:var(--red)">-${pen} ${t('ball')}</td>
+      <td style="color:var(--green)">+${bon} ${t('ball')}</td>
+      <td><strong>${fin} ${t('ball')}</strong></td>
+      <td style="color:var(--green);font-weight:700">${kpi.toLocaleString()} UZS</td>
+      <td><div style="display:flex;gap:4px">
+        <button class="bsm bsm-g" onclick="adjKpi('${emp.id}','${month}',10)">+10</button>
+        <button class="bsm bsm-r" onclick="adjKpi('${emp.id}','${month}',-10)">-10</button>
+        <button class="bsm bsm-gr" onclick="adjKpi('${emp.id}','${month}',0,true)">${t('reset')}</button>
+      </div></td>`;
     tbody.appendChild(tr);
   });
-
-  document.getElementById('mStatEmp').textContent = employees.length;
-  document.getElementById('mStatLate').textContent = totalLate;
-  document.getElementById('mStatAbsent').textContent = totalAbsent;
-  document.getElementById('mStatHours').textContent = Math.floor(totalHours/3600) + ' soat';
-  document.getElementById('mStatKpi').textContent = totalKpi.toLocaleString() + ' UZS';
+  st('me',''+emps.length);st('ml',''+tL);st('ma',''+tA);
+  st('mh',Math.floor(tH/3600)+' '+t('soat')+' '+Math.floor((tH%3600)/60)+' '+t('daqiqa'));
+  st('mk',tK.toLocaleString()+' UZS');
 }
 
-function calcKpi(ball, type) {
-  if (type === 'senior') {
-    if (ball >= 90) return 560000;
-    if (ball >= 80) return 420000;
-    if (ball >= 70) return 280000;
-    return 0;
-  } else {
-    if (ball >= 90) return 400000;
-    if (ball >= 80) return 300000;
-    if (ball >= 70) return 210000;
-    return 0;
-  }
+function calcKpi(ball,type){
+  if(type==='senior'){ if(ball>=90)return 560000; if(ball>=80)return 420000; if(ball>=70)return 280000; return 0; }
+  if(ball>=90)return 400000; if(ball>=80)return 300000; if(ball>=70)return 210000; return 0;
+}
+async function adjKpi(eid,month,delta,reset=false){
+  const {data:ex}=await sb.from('kpi_bonuses').select('*').eq('employee_id',eid).eq('month',month).maybeSingle();
+  if(reset){ if(ex)await sb.from('kpi_bonuses').update({bonus:0}).eq('id',ex.id); else await sb.from('kpi_bonuses').insert({employee_id:eid,month,bonus:0}); }
+  else{ const nv=(ex?ex.bonus:0)+delta; if(ex)await sb.from('kpi_bonuses').update({bonus:nv}).eq('id',ex.id); else await sb.from('kpi_bonuses').insert({employee_id:eid,month,bonus:delta}); }
+  loadMonthly();
 }
 
-async function adjustKpi(empId, month, delta, reset = false) {
-  const { data: existing } = await supabase
-    .from('kpi_bonuses')
-    .select('*')
-    .eq('employee_id', empId)
-    .eq('month', month)
-    .single();
-
-  if (reset) {
-    if (existing) {
-      await supabase.from('kpi_bonuses').update({ bonus: 0 }).eq('id', existing.id);
-    }
-  } else {
-    const newVal = (existing ? existing.bonus : 0) + delta;
-    if (existing) {
-      await supabase.from('kpi_bonuses').update({ bonus: newVal }).eq('id', existing.id);
-    } else {
-      await supabase.from('kpi_bonuses').insert({ employee_id: empId, month, bonus: delta });
-    }
-  }
-  loadMonthlyReport();
-}
-
-// ========== SETTINGS ==========
-async function loadEmpList() {
-  const { data: employees } = await supabase.from('employees').select('*');
-  if (!employees) return;
-  const tbody = document.getElementById('empListTbody');
-  tbody.innerHTML = '';
-  employees.forEach((emp, i) => {
-    const kpiLabel = emp.kpi_type === 'junior'
-      ? (currentLang === 'uz' ? 'Yangi hodim (400K)' : 'Новый (400K)')
-      : (currentLang === 'uz' ? 'Eski hodim (560K)' : 'Старый (560K)');
-    const kpiAmount = emp.kpi_type === 'junior' ? '+ 400 000 UZS' : '+ 560 000 UZS';
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td>${i+1}</td>
-      <td>${emp.name}</td>
-      <td>${emp.login}</td>
-      <td>*****</td>
-      <td>${kpiAmount}</td>
-      <td><button class="btn-danger" onclick="deleteEmployee('${emp.id}')">${currentLang === 'uz' ? "O'chirish" : 'Удалить'}</button></td>
-    `;
+async function loadEmpList(){
+  const {data:emps}=await sb.from('employees').select('*');
+  if(!emps) return;
+  const tbody=document.getElementById('emp_body');
+  tbody.innerHTML='';
+  emps.forEach((emp,i)=>{
+    const ka=emp.kpi_type==='junior'?'+ 400 000 UZS':'+ 560 000 UZS';
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td>${i+1}</td><td>${emp.name}</td><td>${emp.login}</td><td>*****</td><td>${ka}</td>
+      <td><button class="brd" onclick="delEmp('${emp.id}')">${t('delete')}</button></td>`;
     tbody.appendChild(tr);
   });
-  updateHolidayList();
+}
+async function addEmp(){
+  const nm=document.getElementById('ne_n').value.trim();
+  const lg=document.getElementById('ne_l').value.trim();
+  const ps=document.getElementById('ne_p').value.trim();
+  const kp=document.getElementById('ne_k').value;
+  if(!nm||!lg||!ps){alert(t('fill_all'));return;}
+  const {error}=await sb.from('employees').insert({name:nm,login:lg,password:ps,kpi_type:kp});
+  if(!error){document.getElementById('ne_n').value='';document.getElementById('ne_l').value='';document.getElementById('ne_p').value='';loadEmpList();}
+  else alert('Xato: '+error.message);
+}
+async function delEmp(id){ if(!confirm(t('del_c')))return; await sb.from('employees').delete().eq('id',id); loadEmpList(); }
+
+function addHol(){
+  const d=document.getElementById('hol_d').value;
+  if(!d) return;
+  const h=JSON.parse(localStorage.getItem('aloqa_hols')||'[]');
+  if(!h.includes(d)) h.push(d);
+  localStorage.setItem('aloqa_hols',JSON.stringify(h));
+  document.getElementById('hol_d').value='';
+  updateHolList();
+}
+function updateHolList(){
+  const h=JSON.parse(localStorage.getItem('aloqa_hols')||'[]');
+  const el=document.getElementById('hol_list');
+  if(!el) return;
+  el.textContent=h.length===0?t('hol_none'):t('hol_pre')+h.join(', ');
 }
 
-async function addEmployee() {
-  const name = document.getElementById('newEmpName').value.trim();
-  const login = document.getElementById('newEmpLogin').value.trim();
-  const pass = document.getElementById('newEmpPass').value.trim();
-  const kpi_type = document.getElementById('newEmpKpi').value;
-  if (!name || !login || !pass) {
-    alert(currentLang === 'uz' ? 'Barcha maydonlarni to\'ldiring!' : 'Заполните все поля!');
-    return;
+function openEP(id){ document.getElementById('ep_id').value=id; document.getElementById('ep_np').value=''; document.getElementById('m_ep').classList.remove('hidden'); }
+function closeEP(){ document.getElementById('m_ep').classList.add('hidden'); }
+async function savePass(){ const id=document.getElementById('ep_id').value; const np=document.getElementById('ep_np').value.trim(); if(!np)return; await sb.from('employees').update({password:np}).eq('id',id); closeEP(); loadAtt(); }
+
+// ══════════════════════════════════════════════════════════
+// EMPLOYEE
+// ══════════════════════════════════════════════════════════
+let empState='not_started';
+let wStart=null, wAccum=0;
+let lStart=null, lAccum=0;
+let afkAcc=0;
+let wIv=null, lIv=null, afkIv=null;
+let lastAct=Date.now(), afkPhase=0;
+
+function initEmp(){
+  const ss=JSON.parse(sessionStorage.getItem('aloqa_ss')||'{}');
+  if(ss.date&&ss.date!==todayISO()) sessionStorage.removeItem('aloqa_ss');
+  restoreSS();
+  setEmpMonth();loadHist();updateDates();startAfkMon();
+  document.getElementById('m_welcome').classList.remove('hidden');
+  const mt=document.getElementById('e_mtag'); if(mt) mt.textContent=curM();
+}
+function closeWelcome(){ document.getElementById('m_welcome').classList.add('hidden'); }
+
+function restoreSS(){
+  const ss=JSON.parse(sessionStorage.getItem('aloqa_ss')||'{}');
+  if(!ss.date||ss.date!==todayISO()){updateEmpBtns();return;}
+  empState=ss.state||'not_started';
+  wAccum=ss.wAccum||0; lAccum=ss.lAccum||0; afkAcc=ss.afkAcc||0;
+  if(ss.wStart) wStart=new Date(ss.wStart);
+  if(ss.lStart) lStart=new Date(ss.lStart);
+  st('i_s',ss.i_s||'-');st('i_e',ss.i_e||'-');st('i_ls',ss.i_ls||'-');st('i_le',ss.i_le||'-');
+  setTV(wAccum,'tw');setTV(lAccum,'tl');setTV(afkAcc,'tafk');
+  updateEmpBtns();updateEmpStatusTag();
+  if(empState==='working') startWT();
+  if(empState==='lunch') startLT();
+  if(empState==='paused') document.getElementById('bc').classList.remove('hidden');
+  if(ss.lateMin!==undefined){
+    const el=document.getElementById('e_ltag');
+    if(el) el.textContent=t('lt_pre')+' '+ss.lateMin+' '+t('lt_u');
   }
-  const { error } = await supabase.from('employees').insert({ name, login, password: pass, kpi_type });
-  if (!error) {
-    document.getElementById('newEmpName').value = '';
-    document.getElementById('newEmpLogin').value = '';
-    document.getElementById('newEmpPass').value = '';
-    loadEmpList();
-  }
+}
+function saveSS(){
+  const ss=JSON.parse(sessionStorage.getItem('aloqa_ss')||'{}');
+  const lateMin = ss.lateMin||0;
+  sessionStorage.setItem('aloqa_ss',JSON.stringify({
+    date:todayISO(),state:empState,wAccum,lAccum,afkAcc,
+    wStart:wStart?wStart.toISOString():null,
+    lStart:lStart?lStart.toISOString():null,
+    i_s:document.getElementById('i_s').textContent,
+    i_e:document.getElementById('i_e').textContent,
+    i_ls:document.getElementById('i_ls').textContent,
+    i_le:document.getElementById('i_le').textContent,
+    lateMin
+  }));
 }
 
-async function deleteEmployee(id) {
-  const confirm = window.confirm(currentLang === 'uz' ? 'Hodimni o\'chirishni tasdiqlaysizmi?' : 'Вы уверены, что хотите удалить сотрудника?');
-  if (confirm) {
-    await supabase.from('employees').delete().eq('id', id);
-    loadEmpList();
-  }
+function empStart(){
+  if(empState!=='not_started') return;
+  wStart=tzNow(); empState='working';
+  st('i_s',fmtHM(wStart));
+  const lm=Math.max(0,wStart.getHours()*60+wStart.getMinutes()-9*60);
+  const el=document.getElementById('e_ltag'); if(el) el.textContent=t('lt_pre')+' '+lm+' '+t('lt_u');
+  // Save lateMin
+  const ss=JSON.parse(sessionStorage.getItem('aloqa_ss')||'{}'); ss.lateMin=lm;
+  sessionStorage.setItem('aloqa_ss',JSON.stringify(ss));
+  updateEmpBtns();updateEmpStatusTag();startWT();saveSS();
+}
+function empLunch(){
+  if(empState==='lunch'){empBackLunch();return;}
+  if(empState!=='working') return;
+  lStart=tzNow();
+  if(wStart) wAccum+=Math.floor((lStart-wStart)/1000);
+  wStart=null; empState='lunch';
+  st('i_ls',fmtHM(lStart));
+  stopWT();updateEmpBtns();updateEmpStatusTag();startLT();saveSS();
+}
+function empBackLunch(){
+  if(empState!=='lunch') return;
+  const now=tzNow();
+  if(lStart) lAccum+=Math.floor((now-lStart)/1000);
+  lStart=null; st('i_le',fmtHM(now));
+  empState='working'; wStart=now;
+  stopLT();updateEmpBtns();updateEmpStatusTag();startWT();saveSS();
+}
+function empContinue(){
+  if(empState!=='paused') return;
+  empState='working'; wStart=tzNow();
+  document.getElementById('bc').classList.add('hidden');
+  updateEmpBtns();updateEmpStatusTag();startWT();resetAfk();saveSS();
+}
+async function empEnd(){
+  if(!['working','lunch','paused'].includes(empState)) return;
+  const now=tzNow();
+  if(empState==='working'&&wStart) wAccum+=Math.floor((now-wStart)/1000);
+  if(empState==='lunch'&&lStart) lAccum+=Math.floor((now-lStart)/1000);
+  wStart=null;lStart=null; empState='ended';
+  st('i_e',fmtHM(now));
+  stopWT();stopLT();stopAfkMon();
+  document.getElementById('bc').classList.add('hidden');
+  setTV(wAccum,'tw');setTV(lAccum,'tl');
+  updateEmpBtns();updateEmpStatusTag();saveSS();
+  await saveAtt();
 }
 
-function addHoliday() {
-  const date = document.getElementById('holidayDate').value;
-  if (!date) return;
-  const holidays = JSON.parse(localStorage.getItem('holidays') || '[]');
-  if (!holidays.includes(date)) holidays.push(date);
-  localStorage.setItem('holidays', JSON.stringify(holidays));
-  document.getElementById('holidayDate').value = '';
-  updateHolidayList();
-}
-
-function updateHolidayList() {
-  const holidays = JSON.parse(localStorage.getItem('holidays') || '[]');
-  const el = document.getElementById('holidayList');
-  if (!el) return;
-  if (holidays.length === 0) {
-    el.setAttribute('data-uz', 'Hozircha qo\'shimcha dam olish kuni belgilanmagan');
-    el.setAttribute('data-ru', 'Дополнительные выходные не установлены');
-    el.textContent = currentLang === 'uz' ? "Hozircha qo'shimcha dam olish kuni belgilanmagan" : "Дополнительные выходные не установлены";
-  } else {
-    el.textContent = (currentLang === 'uz' ? "Dam olish kunlari: " : "Выходные: ") + holidays.join(', ');
-  }
-}
-
-function openEditPass(empId) {
-  document.getElementById('editEmpId').value = empId;
-  document.getElementById('editNewPass').value = '';
-  document.getElementById('editPassModal').classList.remove('hidden');
-}
-
-function closeEditPass() {
-  document.getElementById('editPassModal').classList.add('hidden');
-}
-
-async function saveNewPass() {
-  const empId = document.getElementById('editEmpId').value;
-  const newPass = document.getElementById('editNewPass').value.trim();
-  if (!newPass) return;
-  await supabase.from('employees').update({ password: newPass }).eq('id', empId);
-  closeEditPass();
-  loadAdminAttendance();
-}
-
-// ============================================================
-// EMPLOYEE LOGIC
-// ============================================================
-let workStartTime = null;     // Date object
-let lunchStartTime = null;
-let lunchEndTime = null;
-let workEndTime = null;
-let workPausedSeconds = 0;    // seconds accumulated before pauses
-let lunchSeconds = 0;
-let afkSeconds = 0;
-let isWorking = false;
-let isOnLunch = false;
-let workInterval = null;
-let lunchInterval = null;
-let afkCheckTimeout = null;
-let afkWarnTimeout = null;
-let afkStartTime = null;
-let empWorkState = 'not_started'; // not_started, working, lunch, paused, ended
-
-function initEmployee() {
-  // Show welcome modal
-  document.getElementById('welcomeModal').classList.remove('hidden');
-  
-  // Restore state
-  restoreEmpState();
-  
-  // Set month
-  setEmpCurrentMonth();
-  loadEmpHistory();
-  updateClocks();
-  startActivityMonitor();
-}
-
-function closeWelcome() {
-  document.getElementById('welcomeModal').classList.add('hidden');
-}
-
-function restoreEmpState() {
-  const saved = JSON.parse(sessionStorage.getItem('empWorkSession') || '{}');
-  const today = todayStr();
-  
-  if (saved.date !== today) {
-    // New day - clear session
-    sessionStorage.removeItem('empWorkSession');
-    resetEmpUI();
-    return;
-  }
-
-  empWorkState = saved.state || 'not_started';
-  workPausedSeconds = saved.workPausedSeconds || 0;
-  lunchSeconds = saved.lunchSeconds || 0;
-  afkSeconds = saved.afkSeconds || 0;
-
-  if (saved.workStartTime) workStartTime = new Date(saved.workStartTime);
-  if (saved.lunchStartTime) lunchStartTime = new Date(saved.lunchStartTime);
-  if (saved.lunchEndTime) lunchEndTime = new Date(saved.lunchEndTime);
-  if (saved.workEndTime) workEndTime = new Date(saved.workEndTime);
-
-  // Update UI
-  if (saved.infoStartTime) document.getElementById('infoStartTime').textContent = saved.infoStartTime;
-  if (saved.infoLunchStart) document.getElementById('infoLunchStart').textContent = saved.infoLunchStart;
-  if (saved.infoLunchEnd) document.getElementById('infoLunchEnd').textContent = saved.infoLunchEnd;
-  if (saved.infoEndTime) document.getElementById('infoEndTime').textContent = saved.infoEndTime;
-
-  updateEmpButtons();
-
-  if (empWorkState === 'working') {
-    isWorking = true;
-    startWorkTimer();
-  } else if (empWorkState === 'lunch') {
-    isOnLunch = true;
-    startLunchTimer();
-  } else if (empWorkState === 'paused') {
-    // Show continue button
-    document.getElementById('btnContinueWrap').classList.remove('hidden');
-    updateTimerDisplay(workPausedSeconds, 'workTimer');
-    updateTimerDisplay(lunchSeconds, 'lunchTimer');
-    updateTimerDisplay(afkSeconds, 'afkTimer');
-  } else if (empWorkState === 'ended') {
-    updateTimerDisplay(workPausedSeconds, 'workTimer');
-    updateTimerDisplay(lunchSeconds, 'lunchTimer');
-  }
-
-  // Late tag
-  if (workStartTime) {
-    const h = workStartTime.getHours(), m = workStartTime.getMinutes();
-    const lateMin = Math.max(0, h * 60 + m - 9 * 60);
-    document.getElementById('empLateTag').textContent =
-      (currentLang === 'uz' ? 'Kechikish: ' : 'Опоздание: ') + lateMin + (currentLang === 'uz' ? ' daqiqa' : ' мин');
-    const statusMap = {
-      not_started: { uz: 'Holat: Boshlanmagan', ru: 'Статус: Не начат' },
-      working: { uz: 'Holat: Ishda', ru: 'Статус: На работе' },
-      lunch: { uz: 'Holat: Tushlikda', ru: 'Статус: В обеде' },
-      paused: { uz: 'Holat: Pauza (AFK)', ru: 'Статус: Пауза (AFK)' },
-      ended: { uz: 'Holat: Yakunlandi', ru: 'Статус: Завершён' },
-    };
-    document.getElementById('empStatusTag').textContent = statusMap[empWorkState][currentLang];
-  }
-
-  const d = tashkentNow();
-  document.getElementById('empMonthTag').textContent = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
-}
-
-function saveEmpState() {
-  const state = {
-    date: todayStr(),
-    state: empWorkState,
-    workStartTime: workStartTime ? workStartTime.toISOString() : null,
-    lunchStartTime: lunchStartTime ? lunchStartTime.toISOString() : null,
-    lunchEndTime: lunchEndTime ? lunchEndTime.toISOString() : null,
-    workEndTime: workEndTime ? workEndTime.toISOString() : null,
-    workPausedSeconds,
-    lunchSeconds,
-    afkSeconds,
-    infoStartTime: document.getElementById('infoStartTime').textContent,
-    infoLunchStart: document.getElementById('infoLunchStart').textContent,
-    infoLunchEnd: document.getElementById('infoLunchEnd').textContent,
-    infoEndTime: document.getElementById('infoEndTime').textContent,
+async function saveAtt(){
+  if(!CU) return;
+  const today=todayISO();
+  const ss=JSON.parse(sessionStorage.getItem('aloqa_ss')||'{}');
+  const lm=ss.lateMin||0;
+  const payload={
+    employee_id:CU.id,work_date:today,
+    start_time: ss.i_s&&ss.i_s!=='-'?ss.i_s+':00':null,
+    end_time:   ss.i_e&&ss.i_e!=='-'?ss.i_e+':00':null,
+    lunch_start:ss.i_ls&&ss.i_ls!=='-'?ss.i_ls+':00':null,
+    lunch_end:  ss.i_le&&ss.i_le!=='-'?ss.i_le+':00':null,
+    work_seconds:wAccum,lunch_seconds:lAccum,afk_seconds:afkAcc,
+    late_minutes:lm,status:lm>0?'kechikkan':'keldi'
   };
-  sessionStorage.setItem('empWorkSession', JSON.stringify(state));
+  const {data:ex}=await sb.from('attendance').select('id').eq('employee_id',CU.id).eq('work_date',today).maybeSingle();
+  if(ex) await sb.from('attendance').update(payload).eq('id',ex.id);
+  else   await sb.from('attendance').insert(payload);
+  loadHist();
+}
+async function savePartial(){
+  if(!CU||empState==='not_started') return;
+  const today=todayISO();
+  const ss=JSON.parse(sessionStorage.getItem('aloqa_ss')||'{}');
+  const lm=ss.lateMin||0;
+  let cw=wAccum; if(empState==='working'&&wStart) cw+=Math.floor((tzNow()-wStart)/1000);
+  const payload={employee_id:CU.id,work_date:today,start_time:ss.i_s&&ss.i_s!=='-'?ss.i_s+':00':null,
+    work_seconds:cw,lunch_seconds:lAccum,afk_seconds:afkAcc,late_minutes:lm,status:lm>0?'kechikkan':'keldi'};
+  const {data:ex}=await sb.from('attendance').select('id').eq('employee_id',CU.id).eq('work_date',today).maybeSingle();
+  if(ex) await sb.from('attendance').update(payload).eq('id',ex.id);
+  else   await sb.from('attendance').insert(payload);
 }
 
-function resetEmpUI() {
-  empWorkState = 'not_started';
-  workStartTime = lunchStartTime = lunchEndTime = workEndTime = null;
-  workPausedSeconds = lunchSeconds = afkSeconds = 0;
-  isWorking = isOnLunch = false;
-  updateTimerDisplay(0, 'workTimer');
-  updateTimerDisplay(0, 'lunchTimer');
-  updateTimerDisplay(0, 'afkTimer');
-  document.getElementById('infoStartTime').textContent = '-';
-  document.getElementById('infoEndTime').textContent = '-';
-  document.getElementById('infoLunchStart').textContent = '-';
-  document.getElementById('infoLunchEnd').textContent = '-';
-  updateEmpButtons();
+function startWT(){
+  stopWT(); let cnt=0;
+  wIv=setInterval(()=>{
+    let tot=wAccum; if(wStart) tot+=Math.floor((tzNow()-wStart)/1000);
+    setTV(tot,'tw'); cnt++;
+    if(cnt%60===0){saveSS();savePartial();}
+  },1000);
+}
+function stopWT(){ if(wIv){clearInterval(wIv);wIv=null;} }
+function startLT(){
+  stopLT();
+  lIv=setInterval(()=>{
+    let tot=lAccum; if(lStart) tot+=Math.floor((tzNow()-lStart)/1000);
+    setTV(tot,'tl');
+  },1000);
+}
+function stopLT(){ if(lIv){clearInterval(lIv);lIv=null;} }
+function setTV(sec,id){ const e=document.getElementById(id); if(e) e.textContent=fmtSec(sec); }
+function stopAll(){ stopWT();stopLT();stopAfkMon(); }
+
+function updateEmpBtns(){
+  const bsE=document.getElementById('bs'),blE=document.getElementById('bl'),beE=document.getElementById('be');
+  const dis=(b,d)=>{ if(b){b.disabled=d;b.style.opacity=d?.42:1;} };
+  if(empState==='not_started'){ dis(bsE,false);dis(blE,true);dis(beE,true); if(blE){blE.textContent=t('bl');blE.onclick=empLunch;} }
+  else if(empState==='working'){ dis(bsE,true);dis(blE,false);dis(beE,false); if(blE){blE.textContent=t('bl');blE.onclick=empLunch;} }
+  else if(empState==='lunch'){   dis(bsE,true);dis(blE,false);dis(beE,true); if(blE){blE.textContent=t('bb');blE.onclick=empBackLunch;} }
+  else if(empState==='paused'||empState==='ended'){ dis(bsE,true);dis(blE,true);dis(beE,true); }
+}
+function updateEmpStatusTag(){
+  const map={not_started:t('st0'),working:t('st1'),lunch:t('st2'),paused:t('st3'),ended:t('st4')};
+  const el=document.getElementById('e_stag'); if(el) el.textContent=t('st_pre')+' '+(map[empState]||'');
 }
 
-function empStartWork() {
-  if (empWorkState !== 'not_started') return;
-  workStartTime = tashkentNow();
-  empWorkState = 'working';
-  isWorking = true;
-  const timeStr = String(workStartTime.getHours()).padStart(2,'0') + ':' + String(workStartTime.getMinutes()).padStart(2,'0');
-  document.getElementById('infoStartTime').textContent = timeStr;
-  const lateMin = Math.max(0, workStartTime.getHours() * 60 + workStartTime.getMinutes() - 9 * 60);
-  document.getElementById('empLateTag').textContent =
-    (currentLang === 'uz' ? 'Kechikish: ' : 'Опоздание: ') + lateMin + (currentLang === 'uz' ? ' daqiqa' : ' мин');
-  document.getElementById('empStatusTag').textContent = currentLang === 'uz' ? 'Holat: Ishda' : 'Статус: На работе';
-  startWorkTimer();
-  updateEmpButtons();
-  saveEmpState();
+// AFK
+function startAfkMon(){
+  ['mousemove','keydown','click','scroll','touchstart'].forEach(ev=>document.addEventListener(ev,onAct,{passive:true}));
+  afkIv=setInterval(checkAfk,1000);
 }
-
-function empLunch() {
-  if (empWorkState !== 'working') return;
-  lunchStartTime = tashkentNow();
-  empWorkState = 'lunch';
-  isWorking = false;
-  isOnLunch = true;
-  // Save work seconds so far
-  if (workStartTime) {
-    workPausedSeconds += Math.floor((lunchStartTime - workStartTime) / 1000);
-    // Subtract previous lunch time if any
-  }
-  stopWorkTimer();
-  const timeStr = String(lunchStartTime.getHours()).padStart(2,'0') + ':' + String(lunchStartTime.getMinutes()).padStart(2,'0');
-  document.getElementById('infoLunchStart').textContent = timeStr;
-  document.getElementById('empStatusTag').textContent = currentLang === 'uz' ? 'Holat: Tushlikda' : 'Статус: В обеде';
-  startLunchTimer();
-  updateEmpButtons();
-  saveEmpState();
-}
-
-function empContinueFromLunch() {
-  if (empWorkState !== 'lunch') return;
-  lunchEndTime = tashkentNow();
-  lunchSeconds += Math.floor((lunchEndTime - lunchStartTime) / 1000);
-  empWorkState = 'working';
-  isWorking = true;
-  isOnLunch = false;
-  stopLunchTimer();
-  const timeStr = String(lunchEndTime.getHours()).padStart(2,'0') + ':' + String(lunchEndTime.getMinutes()).padStart(2,'0');
-  document.getElementById('infoLunchEnd').textContent = timeStr;
-  workStartTime = lunchEndTime; // reset start for next segment
-  document.getElementById('empStatusTag').textContent = currentLang === 'uz' ? 'Holat: Ishda' : 'Статус: На работе';
-  startWorkTimer();
-  updateEmpButtons();
-  saveEmpState();
-}
-
-function empContinue() {
-  // Continue from AFK pause
-  if (empWorkState !== 'paused') return;
-  empWorkState = 'working';
-  isWorking = true;
-  workStartTime = tashkentNow(); // new segment start
-  document.getElementById('btnContinueWrap').classList.add('hidden');
-  document.getElementById('empStatusTag').textContent = currentLang === 'uz' ? 'Holat: Ishda' : 'Статус: На работе';
-  startWorkTimer();
-  updateEmpButtons();
-  resetAfkTimer();
-  saveEmpState();
-}
-
-async function empEndWork() {
-  if (empWorkState !== 'working' && empWorkState !== 'lunch' && empWorkState !== 'paused') return;
-  workEndTime = tashkentNow();
-  
-  if (empWorkState === 'working' && workStartTime) {
-    workPausedSeconds += Math.floor((workEndTime - workStartTime) / 1000);
-  }
-  if (empWorkState === 'lunch' && lunchStartTime) {
-    lunchSeconds += Math.floor((workEndTime - lunchStartTime) / 1000);
-  }
-
-  empWorkState = 'ended';
-  isWorking = false;
-  isOnLunch = false;
-  stopWorkTimer();
-  stopLunchTimer();
-  stopAfkMonitor();
-
-  const timeStr = String(workEndTime.getHours()).padStart(2,'0') + ':' + String(workEndTime.getMinutes()).padStart(2,'0');
-  document.getElementById('infoEndTime').textContent = timeStr;
-  document.getElementById('empStatusTag').textContent = currentLang === 'uz' ? 'Holat: Yakunlandi' : 'Статус: Завершён';
-  document.getElementById('btnContinueWrap').classList.add('hidden');
-  updateEmpButtons();
-  saveEmpState();
-
-  // Save to Supabase
-  await saveAttendanceToSupabase();
-}
-
-async function saveAttendanceToSupabase() {
-  if (!currentUser) return;
-  const today = todayStr();
-  const lateMin = workStartTime ? Math.max(0, workStartTime.getHours() * 60 + workStartTime.getMinutes() - 9 * 60) : 0;
-  const statusStr = lateMin > 0 ? 'kechikkan' : 'keldi';
-
-  const payload = {
-    employee_id: currentUser.id,
-    work_date: today,
-    start_time: workStartTime ? `${String(workStartTime.getHours()).padStart(2,'0')}:${String(workStartTime.getMinutes()).padStart(2,'0')}:00` : null,
-    end_time: workEndTime ? `${String(workEndTime.getHours()).padStart(2,'0')}:${String(workEndTime.getMinutes()).padStart(2,'0')}:00` : null,
-    lunch_start: lunchStartTime ? `${String(lunchStartTime.getHours()).padStart(2,'0')}:${String(lunchStartTime.getMinutes()).padStart(2,'0')}:00` : null,
-    lunch_end: lunchEndTime ? `${String(lunchEndTime.getHours()).padStart(2,'0')}:${String(lunchEndTime.getMinutes()).padStart(2,'0')}:00` : null,
-    work_seconds: workPausedSeconds,
-    lunch_seconds: lunchSeconds,
-    afk_seconds: afkSeconds,
-    late_minutes: lateMin,
-    status: statusStr
-  };
-
-  // Check if record exists
-  const { data: existing } = await supabase
-    .from('attendance')
-    .select('id')
-    .eq('employee_id', currentUser.id)
-    .eq('work_date', today)
-    .single();
-
-  if (existing) {
-    await supabase.from('attendance').update(payload).eq('id', existing.id);
-  } else {
-    await supabase.from('attendance').insert(payload);
-  }
-  
-  loadEmpHistory();
-}
-
-// Also save intermediate data periodically
-async function saveAttendanceIntermediate() {
-  if (!currentUser || empWorkState === 'not_started') return;
-  const today = todayStr();
-  let currentWorkSec = workPausedSeconds;
-  if (empWorkState === 'working' && workStartTime) {
-    currentWorkSec += Math.floor((tashkentNow() - workStartTime) / 1000);
-  }
-  
-  const payload = {
-    employee_id: currentUser.id,
-    work_date: today,
-    start_time: workStartTime ? `${String(workStartTime.getHours()).padStart(2,'0')}:${String(workStartTime.getMinutes()).padStart(2,'0')}:00` : null,
-    work_seconds: currentWorkSec,
-    lunch_seconds: lunchSeconds,
-    afk_seconds: afkSeconds,
-    late_minutes: workStartTime ? Math.max(0, workStartTime.getHours() * 60 + workStartTime.getMinutes() - 9 * 60) : 0,
-    status: workStartTime ? (Math.max(0, (workStartTime.getHours() * 60 + workStartTime.getMinutes()) - 9 * 60) > 0 ? 'kechikkan' : 'keldi') : 'keldi'
-  };
-
-  const { data: existing } = await supabase
-    .from('attendance')
-    .select('id')
-    .eq('employee_id', currentUser.id)
-    .eq('work_date', today)
-    .single();
-
-  if (existing) {
-    await supabase.from('attendance').update(payload).eq('id', existing.id);
-  } else if (empWorkState !== 'not_started') {
-    await supabase.from('attendance').insert(payload);
+function stopAfkMon(){ if(afkIv){clearInterval(afkIv);afkIv=null;} }
+function onAct(){ lastAct=Date.now(); if(afkPhase===1){afkPhase=0;document.getElementById('m_afk').classList.add('hidden');} }
+function resetAfk(){ lastAct=Date.now();afkPhase=0; }
+function checkAfk(){
+  if(empState!=='working') return;
+  const idle=Math.floor((Date.now()-lastAct)/1000);
+  if(idle>=300&&afkPhase===1){
+    afkPhase=2; document.getElementById('m_afk').classList.add('hidden');
+    if(wStart){wAccum+=Math.floor((tzNow()-wStart)/1000);wStart=null;}
+    afkAcc+=300; setTV(afkAcc,'tafk');
+    empState='paused'; stopWT();
+    document.getElementById('bc').classList.remove('hidden');
+    updateEmpBtns();updateEmpStatusTag();saveSS();
+  } else if(idle>=180&&afkPhase===0){
+    afkPhase=1;
+    st('mafk_t',t('mafk_t'));
+    document.getElementById('m_afk').classList.remove('hidden');
   }
 }
-
-// Timer functions
-function startWorkTimer() {
-  stopWorkTimer();
-  workInterval = setInterval(() => {
-    let total = workPausedSeconds;
-    if (workStartTime && empWorkState === 'working') {
-      total += Math.floor((tashkentNow() - workStartTime) / 1000);
-    }
-    updateTimerDisplay(total, 'workTimer');
-    saveEmpState();
-    // Periodic save to Supabase every 60s
-    if (total % 60 === 0 && total > 0) saveAttendanceIntermediate();
-  }, 1000);
+function afkYes(){ lastAct=Date.now();afkPhase=0;document.getElementById('m_afk').classList.add('hidden'); }
+function afkNo(){
+  document.getElementById('m_afk').classList.add('hidden');
+  if(wStart){wAccum+=Math.floor((tzNow()-wStart)/1000);wStart=null;}
+  empState='paused';afkPhase=2;stopWT();
+  document.getElementById('bc').classList.remove('hidden');
+  updateEmpBtns();updateEmpStatusTag();saveSS();
 }
 
-function stopWorkTimer() {
-  if (workInterval) { clearInterval(workInterval); workInterval = null; }
-}
-
-function startLunchTimer() {
-  stopLunchTimer();
-  lunchInterval = setInterval(() => {
-    let total = lunchSeconds;
-    if (lunchStartTime && empWorkState === 'lunch') {
-      total += Math.floor((tashkentNow() - lunchStartTime) / 1000);
-    }
-    updateTimerDisplay(total, 'lunchTimer');
-    // If on lunch, return to work button
-    const lunchBtn = document.getElementById('btnLunch');
-    if (lunchBtn && empWorkState === 'lunch') {
-      lunchBtn.textContent = currentLang === 'uz' ? 'Tushlikdan qaytish' : 'Вернуться с обеда';
-      lunchBtn.onclick = empContinueFromLunch;
-    }
-  }, 1000);
-}
-
-function stopLunchTimer() {
-  if (lunchInterval) { clearInterval(lunchInterval); lunchInterval = null; }
-}
-
-function updateTimerDisplay(totalSeconds, id) {
-  const h = Math.floor(totalSeconds / 3600);
-  const m = Math.floor((totalSeconds % 3600) / 60);
-  const s = totalSeconds % 60;
-  const el = document.getElementById(id);
-  if (el) el.textContent = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
-}
-
-function stopTimers() {
-  stopWorkTimer();
-  stopLunchTimer();
-  stopAfkMonitor();
-}
-
-function updateEmpButtons() {
-  const btnStart = document.getElementById('btnStart');
-  const btnLunch = document.getElementById('btnLunch');
-  const btnEnd = document.getElementById('btnEnd');
-  
-  if (empWorkState === 'not_started') {
-    btnStart.disabled = false; btnStart.style.opacity = '1';
-    btnLunch.disabled = true; btnLunch.style.opacity = '0.4';
-    btnEnd.disabled = true; btnEnd.style.opacity = '0.4';
-    btnLunch.textContent = currentLang === 'uz' ? 'Tushlik vaqti' : 'Обеденный перерыв';
-    btnLunch.onclick = empLunch;
-  } else if (empWorkState === 'working') {
-    btnStart.disabled = true; btnStart.style.opacity = '0.4';
-    btnLunch.disabled = false; btnLunch.style.opacity = '1';
-    btnLunch.textContent = currentLang === 'uz' ? 'Tushlik vaqti' : 'Обеденный перерыв';
-    btnLunch.onclick = empLunch;
-    btnEnd.disabled = false; btnEnd.style.opacity = '1';
-  } else if (empWorkState === 'lunch') {
-    btnStart.disabled = true; btnStart.style.opacity = '0.4';
-    btnLunch.disabled = false; btnLunch.style.opacity = '1';
-    btnLunch.textContent = currentLang === 'uz' ? 'Tushlikdan qaytish' : 'Вернуться с обеда';
-    btnLunch.onclick = empContinueFromLunch;
-    btnEnd.disabled = true; btnEnd.style.opacity = '0.4';
-  } else if (empWorkState === 'paused') {
-    btnStart.disabled = true; btnStart.style.opacity = '0.4';
-    btnLunch.disabled = true; btnLunch.style.opacity = '0.4';
-    btnEnd.disabled = true; btnEnd.style.opacity = '0.4';
-  } else if (empWorkState === 'ended') {
-    btnStart.disabled = true; btnStart.style.opacity = '0.4';
-    btnLunch.disabled = true; btnLunch.style.opacity = '0.4';
-    btnEnd.disabled = true; btnEnd.style.opacity = '0.4';
+function setEmpMonth(){ document.getElementById('e_month').value=curM(); loadHist(); }
+async function loadHist(){
+  if(!CU) return;
+  const m=document.getElementById('e_month').value||curM();
+  const [y,mo]=m.split('-').map(Number);
+  const dim=new Date(y,mo,0).getDate();
+  const {data:recs}=await sb.from('attendance').select('*')
+    .eq('employee_id',CU.id).gte('work_date',`${m}-01`).lte('work_date',`${m}-${String(dim).padStart(2,'0')}`).order('work_date');
+  const tbody=document.getElementById('hbody');
+  tbody.innerHTML='';
+  let lc=0;
+  if(!recs||recs.length===0){
+    tbody.innerHTML=`<tr><td colspan="10" style="text-align:center;color:var(--muted)">${t('no_data')}</td></tr>`;
+    st('e_lc','0'); return;
   }
-}
-
-// AFK Monitor
-let lastActivity = Date.now();
-let afkIntervalTimer = null;
-let afkPhase = 0; // 0=normal, 1=warned, 2=paused
-
-function startActivityMonitor() {
-  ['mousemove','keydown','click','scroll','touchstart'].forEach(ev => {
-    document.addEventListener(ev, onActivity, { passive: true });
-  });
-  afkIntervalTimer = setInterval(checkAfk, 1000);
-}
-
-function stopAfkMonitor() {
-  clearInterval(afkIntervalTimer);
-}
-
-function onActivity() {
-  lastActivity = Date.now();
-  if (afkPhase === 1) {
-    // They responded
-    afkPhase = 0;
-    document.getElementById('afkModal').classList.add('hidden');
-  }
-}
-
-function resetAfkTimer() {
-  lastActivity = Date.now();
-  afkPhase = 0;
-}
-
-function checkAfk() {
-  if (empWorkState !== 'working') return;
-  const idleSec = Math.floor((Date.now() - lastActivity) / 1000);
-  
-  if (idleSec >= 300 && afkPhase === 1) {
-    // 5 minutes - pause work
-    afkPhase = 2;
-    document.getElementById('afkModal').classList.add('hidden');
-    // Accumulate work time up to now
-    if (workStartTime) {
-      workPausedSeconds += Math.floor((tashkentNow() - workStartTime) / 1000);
-    }
-    afkSeconds += 300; // approximate AFK time
-    updateTimerDisplay(afkSeconds, 'afkTimer');
-    empWorkState = 'paused';
-    isWorking = false;
-    stopWorkTimer();
-    document.getElementById('btnContinueWrap').classList.remove('hidden');
-    document.getElementById('empStatusTag').textContent = currentLang === 'uz' ? 'Holat: Pauza (AFK)' : 'Статус: Пауза (AFK)';
-    updateEmpButtons();
-    saveEmpState();
-  } else if (idleSec >= 180 && afkPhase === 0) {
-    // 3 minutes - show warning
-    afkPhase = 1;
-    document.getElementById('afkTitle').textContent = currentLang === 'uz' ? 'Ishlayabsizmi?' : 'Вы работаете?';
-    document.getElementById('afkModal').classList.remove('hidden');
-  }
-}
-
-function afkYes() {
-  lastActivity = Date.now();
-  afkPhase = 0;
-  document.getElementById('afkModal').classList.add('hidden');
-}
-
-function afkNo() {
-  document.getElementById('afkModal').classList.add('hidden');
-  // Pause immediately
-  if (workStartTime) {
-    workPausedSeconds += Math.floor((tashkentNow() - workStartTime) / 1000);
-  }
-  empWorkState = 'paused';
-  isWorking = false;
-  afkPhase = 2;
-  stopWorkTimer();
-  document.getElementById('btnContinueWrap').classList.remove('hidden');
-  document.getElementById('empStatusTag').textContent = currentLang === 'uz' ? 'Holat: Pauza (AFK)' : 'Статус: Пауза (AFK)';
-  updateEmpButtons();
-  saveEmpState();
-}
-
-// History
-function setEmpCurrentMonth() {
-  document.getElementById('empHistoryMonth').value = currentMonth();
-  loadEmpHistory();
-}
-
-async function loadEmpHistory() {
-  if (!currentUser) return;
-  const month = document.getElementById('empHistoryMonth').value || currentMonth();
-  const [year, mon] = month.split('-').map(Number);
-  const daysInMonth = new Date(year, mon, 0).getDate();
-  const startDate = `${month}-01`;
-  const endDate = `${month}-${String(daysInMonth).padStart(2,'0')}`;
-
-  const { data: records } = await supabase
-    .from('attendance')
-    .select('*')
-    .eq('employee_id', currentUser.id)
-    .gte('work_date', startDate)
-    .lte('work_date', endDate)
-    .order('work_date');
-
-  const tbody = document.getElementById('empHistoryTbody');
-  tbody.innerHTML = '';
-  let lateCount = 0;
-
-  if (!records || records.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="10" style="text-align:center;color:var(--text-light)">${currentLang === 'uz' ? 'Bu oy uchun ma\'lumot yo\'q' : 'Нет данных за этот месяц'}</td></tr>`;
-    document.getElementById('empMonthLate').textContent = '0';
-    return;
-  }
-
-  records.forEach((rec, i) => {
-    if (rec.late_minutes > 0) lateCount++;
-    const workH = Math.floor((rec.work_seconds || 0) / 3600);
-    const workM = Math.floor(((rec.work_seconds || 0) % 3600) / 60);
-    const lunchH = Math.floor((rec.lunch_seconds || 0) / 3600);
-    const lunchM = Math.floor(((rec.lunch_seconds || 0) % 3600) / 60);
-    
-    let badge = '';
-    if (rec.status === 'keldi') badge = `<span class="status-badge status-green">${currentLang === 'uz' ? 'Keldi' : 'Пришёл'}</span>`;
-    else if (rec.status === 'kechikkan') badge = `<span class="status-badge status-yellow">${currentLang === 'uz' ? 'Kechikkan' : 'Опоздал'}</span>`;
-    else badge = `<span class="status-badge status-red">${currentLang === 'uz' ? 'Kelmadi' : 'Не пришёл'}</span>`;
-
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td>${i+1}</td>
-      <td>${rec.work_date}</td>
-      <td>${rec.start_time ? rec.start_time.substring(0,5) : '-'}</td>
-      <td>${rec.lunch_start ? rec.lunch_start.substring(0,5) : '-'}</td>
-      <td>${rec.lunch_end ? rec.lunch_end.substring(0,5) : '-'}</td>
-      <td>${rec.end_time ? rec.end_time.substring(0,5) : '-'}</td>
-      <td>${rec.late_minutes ? rec.late_minutes + ' daq' : '-'}</td>
-      <td>${workH}h ${workM}m</td>
-      <td>${lunchH}h ${lunchM}m</td>
-      <td>${badge}</td>
-    `;
+  recs.forEach((r,i)=>{
+    if(r.late_minutes>0) lc++;
+    const wh=Math.floor((r.work_seconds||0)/3600),wm=Math.floor(((r.work_seconds||0)%3600)/60);
+    const lh=Math.floor((r.lunch_seconds||0)/3600),lm2=Math.floor(((r.lunch_seconds||0)%3600)/60);
+    let bdg='';
+    if(r.status==='keldi') bdg=`<span class="badge bg">${t('b_came')}</span>`;
+    else if(r.status==='kechikkan') bdg=`<span class="badge by">${t('b_late')}</span>`;
+    else bdg=`<span class="badge br">${t('b_abs')}</span>`;
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td>${i+1}</td><td>${r.work_date}</td>
+      <td>${r.start_time?r.start_time.substring(0,5):'-'}</td>
+      <td>${r.lunch_start?r.lunch_start.substring(0,5):'-'}</td>
+      <td>${r.lunch_end?r.lunch_end.substring(0,5):'-'}</td>
+      <td>${r.end_time?r.end_time.substring(0,5):'-'}</td>
+      <td>${r.late_minutes?r.late_minutes+' '+t('daq'):'-'}</td>
+      <td>${wh}h ${wm}m</td><td>${lh}h ${lm2}m</td><td>${bdg}</td>`;
     tbody.appendChild(tr);
   });
-
-  document.getElementById('empMonthLate').textContent = lateCount;
+  st('e_lc',''+lc);
 }
 
-// ============================================================
+// ══════════════════════════════════════════════════════════
 // INIT
-// ============================================================
-(function init() {
-  // Check if logged in
-  const saved = localStorage.getItem('currentUser');
-  if (saved) {
-    currentUser = JSON.parse(saved);
-    showPage(currentUser.role === 'admin' ? 'admin' : 'employee');
-  } else {
-    showPage('login');
-  }
-  
-  // Enter on login
-  document.getElementById('passInput').addEventListener('keydown', e => {
-    if (e.key === 'Enter') doLogin();
-  });
-
-  // Clock update
-  setInterval(updateClocks, 60000);
-  updateClocks();
-  applyLang();
+// ══════════════════════════════════════════════════════════
+(function(){
+  const s=localStorage.getItem('aloqa_u');
+  if(s){try{CU=JSON.parse(s);}catch(e){}}
+  showPage(CU?(CU.role==='admin'?'admin':'employee'):'login');
+  document.getElementById('inp_p').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
+  document.getElementById('inp_l').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
 })();
 </script>
 </body>
