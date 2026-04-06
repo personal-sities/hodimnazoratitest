@@ -555,22 +555,26 @@ function closeSidebar(){document.getElementById('sidebar').classList.remove('ope
 
 // IP
 let userPublicIP='';
-async function getUserIP(){try{const r=await fetch('https://api.ipify.org?format=json');const d=await r.json();return d.ip||'';}catch(e){return '';}}
-async function getAllowedIPs(){
- const { data, error } = await supabase
-   .rpc('get_allowed_ips');
 
+async function getUserIP(){
+ try{
+  const r=await fetch('https://api.ipify.org?format=json');
+  const d=await r.json();
+  return d.ip||'';
+ }catch(e){return '';}
+}
+
+async function getAllowedIPs(){
+ const { data, error } = await supabase.rpc('get_allowed_ips');
  if(error){
    console.error(error);
    return [];
  }
-
  return data.map(i => i.ip);
 }
 
 async function saveAllowedIPs(arr){
 
- // hammasini o'chiramiz
  const { data: old } = await supabase.rpc('get_allowed_ips');
 
  if(old){
@@ -579,28 +583,89 @@ async function saveAllowedIPs(arr){
    }
  }
 
- // qayta yozamiz
  for(const ip of arr){
    await supabase.rpc('add_allowed_ip',{ p_ip: ip });
  }
 }
-async function checkIPAccess(role){
-  if(role==='admin')return true;
-  const allowed=getAllowedIPs();
-  if(allowed.length===0)return true;
-  if(!userPublicIP)userPublicIP=await getUserIP();
-  return allowed.includes(userPublicIP);
-}
-function addAllowedIP(){const val=document.getElementById('ip_inp').value.trim();if(!val){alert('IP kiriting!');return;}const arr=getAllowedIPs();if(!arr.includes(val))arr.push(val);saveAllowedIPs(arr);document.getElementById('ip_inp').value='';updateIPList();}
-async function addMyIP(){if(!userPublicIP)userPublicIP=await getUserIP();if(!userPublicIP){alert('IP aniqlanmadi!');return;}const arr=getAllowedIPs();if(!arr.includes(userPublicIP))arr.push(userPublicIP);saveAllowedIPs(arr);updateIPList();}
-function removeIP(ip){saveAllowedIPs(getAllowedIPs().filter(x=>x!==ip));updateIPList();}
-function updateIPList(){
-  const arr=getAllowedIPs();const el=document.getElementById('ip_list');if(!el)return;
-  if(arr.length===0){el.innerHTML='Hozircha ruxsat etilgan IP yo\'q (cheklov yo\'q)';return;}
-  el.innerHTML=arr.map(ip=>`<span style="display:inline-flex;align-items:center;gap:4px;background:#eef0f3;border-radius:6px;padding:3px 9px;font-size:12px;margin:2px"><strong>${ip}</strong><button onclick="removeIP('${ip}')" style="background:none;border:none;color:#e74c3c;cursor:pointer;font-size:14px;line-height:1">×</button></span>`).join(' ');
-}
-function showIPBlock(ip){['loginPage','adminPage','employeePage'].forEach(id=>{const e=document.getElementById(id);if(e)e.style.display='none';});document.getElementById('ipBlockPage').style.display='flex';st('ipb_val',ip||'—');}
 
+async function checkIPAccess(role){
+ if(role==='admin')return true;
+
+ const allowed = await getAllowedIPs(); // FIX
+
+ if(allowed.length===0)return true;
+
+ if(!userPublicIP)
+   userPublicIP=await getUserIP();
+
+ return allowed.includes(userPublicIP);
+}
+
+async function addAllowedIP(){
+ const val=document.getElementById('ip_inp').value.trim();
+ if(!val){alert('IP kiriting!');return;}
+
+ const arr=await getAllowedIPs(); // FIX
+
+ if(!arr.includes(val))arr.push(val);
+
+ await saveAllowedIPs(arr);
+
+ document.getElementById('ip_inp').value='';
+ updateIPList();
+}
+
+async function addMyIP(){
+ if(!userPublicIP)
+   userPublicIP=await getUserIP();
+
+ if(!userPublicIP){
+   alert('IP aniqlanmadi!');
+   return;
+ }
+
+ const arr=await getAllowedIPs(); // FIX
+
+ if(!arr.includes(userPublicIP))
+   arr.push(userPublicIP);
+
+ await saveAllowedIPs(arr);
+
+ updateIPList();
+}
+
+async function removeIP(ip){
+ const arr = await getAllowedIPs(); // FIX
+ await saveAllowedIPs(arr.filter(x=>x!==ip));
+ updateIPList();
+}
+
+async function updateIPList(){
+ const arr=await getAllowedIPs(); // FIX
+ const el=document.getElementById('ip_list');
+ if(!el)return;
+
+ if(arr.length===0){
+   el.innerHTML='Hozircha ruxsat etilgan IP yo\'q (cheklov yo\'q)';
+   return;
+ }
+
+ el.innerHTML=arr.map(ip=>`
+ <span style="display:inline-flex;align-items:center;gap:4px;background:#eef0f3;border-radius:6px;padding:3px 9px;font-size:12px;margin:2px">
+ <strong>${ip}</strong>
+ <button onclick="removeIP('${ip}')" style="background:none;border:none;color:#e74c3c;cursor:pointer;font-size:14px;line-height:1">×</button>
+ </span>`).join(' ');
+}
+
+function showIPBlock(ip){
+ ['loginPage','adminPage','employeePage'].forEach(id=>{
+  const e=document.getElementById(id);
+  if(e)e.style.display='none';
+ });
+
+ document.getElementById('ipBlockPage').style.display='flex';
+ st('ipb_val',ip||'—');
+}
 // TRANSLATIONS
 const TR={
 uz:{loginTitle:'Nazorat tizimiga xush kelibsiz!',loginSub:'Login va parolni kiriting!',loginBtn:'Kirish',loginPH:'Login',passPH:'Parol',loginErr:'Login yoki parol noto\'g\'ri!',loginFill:'Login va parolni kiriting!',exit:'Chiqish',today:'Bugun',nav_m:'Asosiy',nav_s:'Sozlamalar',nav_k:'KPI Qoidalar',adm_m:'Boshqaruv | Asosiy',adm_s:'Boshqaruv | Sozlamalar',adm_k:'Boshqaruv | KPI',sc1:'Bugun ishda',sc2:'Kechikkan',sc3:'Kelmagan',sc4:'Sana',att_t:'Hodimlar nazorati',sana_l:'Sana:',b_today:'Bugun',b_monthly:'Oylik',b_cm:'Joriy oy',b_ref:'Yangilash',fsearch:'Qidirish...',o_all:'Barcha',o_came:'Keldi',o_late:'Kechikkan',o_abs:'Kelmadi',th1:'Ism familiya',th2:'Login',th3:'Parol',th4:'O\'zgartirish',th5:'Kelgan vaqti',th6:'Kechikish',th7:'Ishlagan soat',th8:'Status',mth_t:'Oylik hisobot',ms1:'Hodimlar',ms2:'Kechikishlar',ms3:'Kelmagan',ms4:'Ish soati',ms5:'Jami KPI',mt1:'Ism familiya',mt2:'Ishlagan soat',mt3:'Kechikish',mt4:'Kelmagan',mt5:'Jarima',mt6:'Qo\'shimcha',mt7:'KPI ball',mt8:'KPI sum',mt9:'Boshqaruv',set_t:'Hodimlar boshqaruvi',ne_n:'Ism familiya',ne_l:'Login',ne_p:'Parol',kpi_sr:'Eski hodim (560K)',kpi_jr:'Yangi hodim (400K)',b_addemp:'Qo\'shish',et1:'Ism familiya',et2:'Login',et3:'Parol',et4:'KPI summasi',et5:'O\'chirish',hol_t:'Dam olish kunlari',b_addh:'Qo\'shish',hol_info:'Standart: Du–Sha. Yakshanba avtomatik dam olish.',hol_none:'Qo\'shimcha dam olish kuni yo\'q',hol_pre:'Dam olish: ',kpi_t:'KPI Qoidalari',k1:'Asosiy KPI',k2:'Davomat bo\'yicha KPI 100 ballik sistemada!',k3:'Jarimalar',k4:'Kech qolish',k5:'Kelmaslik',k6:'KPI to\'lovlari',k7:'Eski hodimlar',k8:'Yangi hodimlar',ehdr:'Hodimlar paneli',ew_t:'Bugungi ish jarayoni',et_t:'Bugungi ma\'lumot',eh_t:'Oy bo\'yicha tarix',st_pre:'Holat:',lt_pre:'Kechikish:',lt_u:'daqiqa',st0:'Boshlanmagan',st1:'Ishda',st2:'Tushlikda',st4:'Yakunlandi',bs:'Boshlash',bl:'Tushlik',be:'Yakunlash',bc:'Davom ettirish',bb:'Qaytish',ewl:'Ish vaqti',ell:'Tushlik',ewd:'Ish vaqti',eld:'Tushlik vaqti',e_note:'Yangi kun boshlanganida vaqtlar 0 ga tushadi.',ei1:'Ish boshlagan',ei2:'Ish tugagan',ei3:'Tushlik boshlangan',ei4:'Tushlik tugagan',ht1:'Sana',ht2:'Boshlagan',ht3:'Tushlik bosh.',ht4:'Tushlik tug.',ht5:'Tugagan',ht6:'Kechikish',ht7:'Ish vaqti',ht8:'Tushlik',ht9:'Status',eh_note:'Faqat tanlangan oy ma\'lumotlari.',el_lbl:'Kechikishlar (oy):',e_cm:'Joriy oy',mw_txt:'Eslatma: "Yakunlash" tugmasini faqat ish kuni to\'liq tugagandan keyin bosing!',mw_ok:'OK',mep_t:'Parolni o\'zgartirish',mep_s:'Saqlash',mep_c:'Bekor qilish',ep_ph:'Yangi parol',b_came:'Keldi',b_late:'Kechikkan',b_abs:'Kelmadi',b_off:'Dam olish',del_c:'Hodimni o\'chirishni tasdiqlaysizmi?',no_data:'Ma\'lumot yo\'q',daq:'daq',marta:'marta',kun:'kun',soat:'soat',daqiqa:'daqiqa',ball:'ball',hisobot:'hisobot',change:'O\'zgartirish',delete:'O\'chirish',reset:'Reset',fill_all:'Barcha maydonlarni to\'ldiring!',ip_block_t:'Kirish taqiqlandi',ip_block_p:'Faqat ishxona tarmog\'i orqali kirishingiz mumkin.',ip_block_p2:'Sizning IP:'},
