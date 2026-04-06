@@ -565,7 +565,7 @@ async function getUserIP(){
 }
 
 async function getAllowedIPs(){
- const { data, error } = await supabase.rpc('get_allowed_ips');
+ const { data, error } = await sb.rpc('get_allowed_ips');
  if(error){
    console.error(error);
    return [];
