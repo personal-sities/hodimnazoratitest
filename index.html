@@ -556,8 +556,34 @@ function closeSidebar(){document.getElementById('sidebar').classList.remove('ope
 // IP
 let userPublicIP='';
 async function getUserIP(){try{const r=await fetch('https://api.ipify.org?format=json');const d=await r.json();return d.ip||'';}catch(e){return '';}}
-function getAllowedIPs(){return JSON.parse(localStorage.getItem('aloqa_allowed_ips')||'[]');}
-function saveAllowedIPs(arr){localStorage.setItem('aloqa_allowed_ips',JSON.stringify(arr));}
+async function getAllowedIPs(){
+ const { data, error } = await supabase
+   .rpc('get_allowed_ips');
+
+ if(error){
+   console.error(error);
+   return [];
+ }
+
+ return data.map(i => i.ip);
+}
+
+async function saveAllowedIPs(arr){
+
+ // hammasini o'chiramiz
+ const { data: old } = await supabase.rpc('get_allowed_ips');
+
+ if(old){
+   for(const item of old){
+     await supabase.rpc('delete_allowed_ip',{ p_ip: item.ip });
+   }
+ }
+
+ // qayta yozamiz
+ for(const ip of arr){
+   await supabase.rpc('add_allowed_ip',{ p_ip: ip });
+ }
+}
 async function checkIPAccess(role){
   if(role==='admin')return true;
   const allowed=getAllowedIPs();
