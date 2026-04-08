@@ -930,7 +930,7 @@ const SUPABASE_URL  = 'https://auzafnpqavjifgcxdjha.supabase.co';
 const SUPABASE_ANON = 'sb_publishable_42Jv6FiVUPVKItb73z0gkQ_1YyJYIDE';
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
 
-const FACE_MODELS_URL    = 'https://justadudewhohacks.github.io/face-api.js/weights/';
+const FACE_MODELS_URL    = 'https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/weights/';
 const FACE_CHECK_INTERVAL = 1000;       // 1 second
 const AFK_GRACE_SEC       = 300;        // 5 min grace before AFK warning
 const BREAK_LIMIT_SEC     = 1800;       // 30 min daily break allowance
@@ -1010,27 +1010,22 @@ function closeSidebar(){document.getElementById('sidebar').classList.remove('ope
 let userPublicIP = '';
 async function getUserIP(){try{const r=await fetch('https://api.ipify.org?format=json');const d=await r.json();return d.ip||'';}catch(e){return '';}}
 async function getAllowedIPs(){
-  const { data, error } = await sb.rpc('get_allowed_ips');
-
-  if (error) {
-    console.error(error);
-    return [];
-  }
-
-  return (data || []).map(i => i.ip);
+  try{
+    const{data,error}=await sb.from('settings').select('value').eq('key','allowed_ips').maybeSingle();
+    if(error||!data)return [];
+    return JSON.parse(data.value||'[]');
+  }catch(e){return [];}
 }
 async function saveAllowedIPs(arr){
-  const { data:old } = await sb.rpc('get_allowed_ips');
-
-  if(old){
-    for(const item of old){
-      await sb.rpc('delete_allowed_ip',{p_ip:item.ip});
+  try{
+    const json=JSON.stringify(arr);
+    const{data:ex}=await sb.from('settings').select('id').eq('key','allowed_ips').maybeSingle();
+    if(ex){
+      await sb.from('settings').update({value:json}).eq('key','allowed_ips');
+    }else{
+      await sb.from('settings').insert({key:'allowed_ips',value:json});
     }
-  }
-
-  for(const ip of arr){
-    await sb.rpc('add_allowed_ip',{p_ip:ip});
-  }
+  }catch(e){console.error('saveAllowedIPs error:',e);}
 }
 async function checkIPAccess(role){if(role==='admin')return true;const allowed=await getAllowedIPs();if(allowed.length===0)return true;if(!userPublicIP)userPublicIP=await getUserIP();return allowed.includes(userPublicIP);}
 async function addAllowedIP(){const val=document.getElementById('ip_inp').value.trim();if(!val){toast('warn','IP','IP kiriting!');return;}const arr=await getAllowedIPs();if(!arr.includes(val))arr.push(val);await saveAllowedIPs(arr);document.getElementById('ip_inp').value='';updateIPList();toast('success','IP','Qo\'shildi');}
@@ -1161,7 +1156,9 @@ function showLocalNotif(title, body) {
 
 async function saveNotifToDB(type, title, body) {
   if (!CU) return;
-  await sb.from('notifications').insert({ employee_id:CU.id, title, body, type }).catch(()=>{});
+  try{
+    await sb.from('notifications').insert({ employee_id:CU.id, title, body, type });
+  }catch(e){ console.warn('saveNotifToDB:',e); }
   loadNotificationsEmp();
 }
 
@@ -1171,16 +1168,22 @@ async function adminSendNotif() {
   const body = document.getElementById('ns_body').value.trim();
   if (!title || !body) { toast('warn','Xato','Sarlavha va matn kiriting'); return; }
 
-  const {data:emps} = await sb.from('employees').select('id');
-  const targets = empId === 'all' ? (emps||[]).map(e=>e.id) : [empId];
+  try{
+    const {data:emps} = await sb.from('employees').select('id');
+    const targets = empId === 'all' ? (emps||[]).map(e=>e.id) : [empId];
 
-  for (const eid of targets) {
-    await sb.from('notifications').insert({ employee_id:eid, title, body, type:'admin' }).catch(()=>{});
+    for (const eid of targets) {
+      const {error} = await sb.from('notifications').insert({ employee_id:eid, title, body, type:'admin' });
+      if(error) console.error('Notif insert error:',error.message);
+    }
+    document.getElementById('ns_title_inp').value = '';
+    document.getElementById('ns_body').value = '';
+    toast('success','Bildirishnoma','Yuborildi!');
+    loadNotificationsAdmin();
+  }catch(e){
+    console.error('adminSendNotif error:',e);
+    toast('error','Xato',e.message||'Yuborishda xato');
   }
-  document.getElementById('ns_title_inp').value = '';
-  document.getElementById('ns_body').value = '';
-  toast('success','Bildirishnoma','Yuborildi!');
-  loadNotificationsAdmin();
 }
 
 async function loadNotificationsEmp() {
@@ -1280,7 +1283,7 @@ async function replyFeedback(id) {
   if (!ta || !ta.value.trim()) { toast('warn','Xato','Javob yozing'); return; }
   const {data:fb} = await sb.from('feedback').update({admin_reply:ta.value.trim(),status:'replied',replied_at:new Date().toISOString()}).eq('id',id).select().single();
   if (fb) {
-    await sb.from('notifications').insert({employee_id:fb.employee_id,title:'💬 Admin javob berdi',body:ta.value.trim(),type:'admin'}).catch(()=>{});
+    try{ await sb.from('notifications').insert({employee_id:fb.employee_id,title:'💬 Admin javob berdi',body:ta.value.trim(),type:'admin'}); }catch(e){}
     toast('success','Javob','Yuborildi!');
     loadFeedbackAdmin();
   }
@@ -1692,13 +1695,19 @@ async function startFaceDetection(){
     if(typeof faceapi==='undefined'){if(statusEl)statusEl.textContent='⚠️ face-api yuklanmadi';setFaceDot('gray','Error');return;}
 
     if(!faceApiLoaded){
-      const MODEL_URL='https://justadudewhohacks.github.io/face-api.js/weights/';
-      await Promise.all([
-        faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
-        faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
-        faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
-      ]);
-      faceApiLoaded=true;
+      const MODEL_URL='https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/weights/';
+      try{
+        await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
+        try{ await faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL); }catch(e){}
+        try{ await faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL); }catch(e){}
+        faceApiLoaded=true;
+        console.log('face-api models loaded OK');
+      }catch(modelErr){
+        console.error('Model yuklanmadi:',modelErr);
+        if(statusEl)statusEl.textContent='⚠️ Model yuklanmadi (internet tekshiring)';
+        setFaceDot('gray','Model xatosi');
+        return;
+      }
     }
 
     if(!faceStream){
