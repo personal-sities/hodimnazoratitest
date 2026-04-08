@@ -10,12 +10,12 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.15/dist/face-api.js"></script>
+<script async src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.15/dist/face-api.js"></script>
 <!-- SheetJS for Excel export -->
-<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script async src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <!-- jsPDF for PDF export -->
-<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
+<script async src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+<script async src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
 <style>
 /* ============================================================
    DESIGN SYSTEM — AloqaPro 2.0
@@ -1472,6 +1472,7 @@ async function savePass(){const id=document.getElementById('ep_id').value;const 
 // ============================================================
 function exportExcel(){
   if(!monthlyData||monthlyData.length===0){toast('warn','Export','Avval oylik hisobotni yuklang');return;}
+  if(typeof XLSX==='undefined'){toast('warn','Export','Excel kutubxonasi hali yuklanmadi, kuting...');return;}
   const month=document.getElementById('fmonth').value||curM();
   const headers=['#','Ism familiya','Ishlagan soat','AFK vaqti','Kechikish','Kelmagan','Jarima','Qo\'shimcha','KPI ball','KPI sum (UZS)'];
   const rows=monthlyData.map((d,i)=>[i+1,d.name,d.hours,d.afk,d.late,d.abs,d.penalty,'+'+d.bonus,d.ball,d.kpi]);
@@ -1485,6 +1486,7 @@ function exportExcel(){
 
 function exportPDF(){
   if(!monthlyData||monthlyData.length===0){toast('warn','Export','Avval oylik hisobotni yuklang');return;}
+  if(typeof window.jspdf==='undefined'){toast('warn','Export','PDF kutubxonasi hali yuklanmadi, kuting...');return;}
   const month=document.getElementById('fmonth').value||curM();
   const{jsPDF}=window.jspdf;
   const doc=new jsPDF({orientation:'landscape',unit:'mm',format:'a4'});
