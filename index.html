@@ -1692,7 +1692,7 @@ async function startFaceDetection(){
     if(typeof faceapi==='undefined'){if(statusEl)statusEl.textContent='⚠️ face-api yuklanmadi';setFaceDot('gray','Error');return;}
 
     if(!faceApiLoaded){
-      const MODEL_URL='models';
+      const MODEL_URL='/models';
       await Promise.all([
         faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
         faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
