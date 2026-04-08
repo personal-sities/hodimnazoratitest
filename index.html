@@ -1,221 +1,404 @@
 <!DOCTYPE html>
-<html lang="uz">
+<html lang="uz" data-theme="dark">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>AloqaPro</title>
-<link rel="icon" type="image/png" href="favicon.ico">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" href="images/logo2.png">
+<meta name="theme-color" content="#4a7ab5">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<!-- face-api.js CDN -->
 <script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+<!-- SheetJS for Excel export -->
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<!-- jsPDF for PDF export -->
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
 <style>
-*{margin:0;padding:0;box-sizing:border-box;}
-:root{
-  --bg:#f0f2f5;--sidebar:#3d4f63;--header-bg:#7a93aa;
-  --border:#d0d8e0;--text:#2c3e50;--muted:#6b7f90;
-  --blue:#4a7ab5;--green:#27ae60;--yellow:#e6a817;--red:#e74c3c;
+/* ============================================================
+   DESIGN SYSTEM — AloqaPro 2.0
+   Theme: Industrial Precision — dark/light switchable
+   Fonts: JetBrains Mono (data) + Outfit (UI)
+============================================================ */
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap');
+
+:root {
+  --accent: #4a8cf5;
+  --accent2: #06d6a0;
+  --danger: #ff4757;
+  --warn: #ffa502;
+  --success: #2ed573;
+  --purple: #a55eea;
+  --radius: 12px;
+  --radius-sm: 8px;
+  --shadow: 0 4px 24px rgba(0,0,0,.18);
+  --shadow-lg: 0 8px 40px rgba(0,0,0,.28);
+  --font: 'Outfit', sans-serif;
+  --mono: 'JetBrains Mono', monospace;
+  --transition: all .22s cubic-bezier(.4,0,.2,1);
 }
-html,body{font-family:'Segoe UI',Tahoma,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;-webkit-text-size-adjust:100%;}
 
-.flag{display:inline-flex;width:34px;height:22px;border-radius:3px;overflow:hidden;flex-shrink:0;}
-.flag svg{width:100%;height:100%;display:block;}
-.lsw{display:flex;align-items:center;gap:5px;background:rgba(255,255,255,.2);border-radius:10px;padding:5px 8px;}
-.lb{cursor:pointer;border:none;background:none;padding:1px;border-radius:4px;opacity:.6;transition:opacity .2s,box-shadow .2s;}
-.lb.active{opacity:1;box-shadow:0 0 0 2px #4a7ab5;}
-.lsep{width:2px;height:22px;background:rgba(255,255,255,.45);}
-.lsep.dk{background:#8faabb;}
+/* DARK THEME */
+[data-theme="dark"] {
+  --bg: #0f1923;
+  --bg2: #16212e;
+  --bg3: #1d2d3e;
+  --sidebar-bg: #111d29;
+  --border: rgba(255,255,255,.08);
+  --border2: rgba(255,255,255,.14);
+  --text: #e8edf2;
+  --text2: #8fa3b8;
+  --text3: #5a7a96;
+  --card: #1a2535;
+  --card2: #1f2f42;
+  --header: #162030;
+  --input-bg: #0f1923;
+  --hover: rgba(255,255,255,.04);
+  --skeleton: linear-gradient(90deg, #1d2d3e 25%, #243444 50%, #1d2d3e 75%);
+  --toast-bg: #1f2f42;
+}
 
-/* LOGIN */
-#loginPage{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;background:#e6edf3;padding:16px;}
-.lp-lang{position:fixed;top:14px;right:14px;z-index:999;}
-.lp-lang .lsw{background:#c5d2dc;}
-.lp-lang .lsep{background:#8faabb;}
-.logo-blk{display:flex;flex-direction:column;align-items:center;margin-bottom:22px;}
-.logo-img-main{width:180px;height:116px;object-fit:contain;}
-.login-card{background:#bfcdd9;border-radius:14px;padding:24px 26px;width:100%;max-width:420px;box-shadow:0 6px 24px rgba(0,0,0,.13);}
-.lc h2{text-align:center;color:#1e2d3a;font-size:16px;margin-bottom:5px;font-weight:600;}
-.lc p{text-align:center;color:#445566;font-size:12px;margin-bottom:16px;}
-.iw{position:relative;margin-bottom:11px;}
-.iw input{width:100%;padding:12px 42px 12px 13px;background:#4e6070;color:#fff;border:2px solid transparent;border-radius:9px;font-size:15px;outline:none;transition:border-color .2s;}
-.iw input::placeholder{color:#8aaabb;}
-.iw input:focus{border-color:#4a7ab5;}
-.eye{position:absolute;right:11px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:#8aaabb;padding:4px;}
-.lbtn{width:100%;padding:13px;background:#4a7ab5;color:#fff;border:none;border-radius:9px;font-size:15px;font-weight:700;cursor:pointer;margin-top:4px;}
-.lbtn:hover{background:#3a6aa5;}
-.lerr{color:#e74c3c;font-size:12px;text-align:center;margin-top:7px;min-height:15px;}
+/* LIGHT THEME */
+[data-theme="light"] {
+  --bg: #f0f4f8;
+  --bg2: #e8eef5;
+  --bg3: #dde6f0;
+  --sidebar-bg: #2c3e52;
+  --border: rgba(0,0,0,.08);
+  --border2: rgba(0,0,0,.14);
+  --text: #1a2535;
+  --text2: #4a6080;
+  --text3: #7a9ab8;
+  --card: #ffffff;
+  --card2: #f8fafc;
+  --header: #2c3e52;
+  --input-bg: #fff;
+  --hover: rgba(0,0,0,.03);
+  --skeleton: linear-gradient(90deg, #e0e8f0 25%, #edf3f9 50%, #e0e8f0 75%);
+  --toast-bg: #ffffff;
+}
 
-/* IP BLOCK */
-#ipBlockPage{display:none;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;background:#e6edf3;padding:16px;}
-.ip-card{background:#fff;border-radius:16px;padding:36px 28px;max-width:440px;width:100%;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,.13);}
-.ip-icon{font-size:48px;margin-bottom:14px;}
-.ip-card h2{font-size:19px;font-weight:800;color:#1e2d3a;margin-bottom:10px;}
-.ip-card p{font-size:13px;color:#556677;line-height:1.7;margin-bottom:8px;}
-.ip-val{display:inline-block;background:#f0f2f5;border-radius:8px;padding:6px 14px;font-size:13px;color:#6b7f90;font-family:monospace;margin-top:8px;}
+*, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+html, body { font-family:var(--font); background:var(--bg); color:var(--text); min-height:100vh; -webkit-text-size-adjust:100%; transition:background .3s, color .3s; }
+::-webkit-scrollbar { width:5px; height:5px; }
+::-webkit-scrollbar-track { background:transparent; }
+::-webkit-scrollbar-thumb { background:var(--border2); border-radius:10px; }
 
-/* LAYOUT */
-#adminPage,#employeePage{display:none;}
-.layout{display:flex;min-height:100vh;}
+/* ── THEME TOGGLE ── */
+.theme-toggle { position:relative; width:44px; height:24px; flex-shrink:0; }
+.theme-toggle input { opacity:0; width:0; height:0; }
+.theme-slider { position:absolute; inset:0; background:var(--bg3); border-radius:20px; cursor:pointer; transition:var(--transition); border:1px solid var(--border2); }
+.theme-slider::before { content:''; position:absolute; width:18px; height:18px; left:2px; top:2px; background:var(--text2); border-radius:50%; transition:var(--transition); }
+.theme-toggle input:checked + .theme-slider { background:var(--accent); }
+.theme-toggle input:checked + .theme-slider::before { transform:translateX(20px); background:#fff; }
+.theme-icon { font-size:14px; }
 
-/* SIDEBAR */
-.sidebar{width:198px;background:var(--sidebar);display:flex;flex-direction:column;flex-shrink:0;transition:transform .25s ease;}
-.sb-head{display:flex;align-items:center;gap:9px;padding:15px 13px 17px;}
-.sb-logo-img{width:30px;height:30px;object-fit:contain;}
-.sb-logo-txt{color:#fff;font-size:15px;font-weight:700;}
-.sb-logo-txt span{color:#9bc0d8;}
-.sb-nav{display:flex;flex-direction:column;gap:6px;padding:0 10px;}
-.nbtn{padding:10px 13px;background:#4a6070;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer;text-align:left;transition:background .2s;opacity:.8;}
-.nbtn:hover,.nbtn.active{background:#5a7888;opacity:1;}
+/* ── FLAGS ── */
+.flag { display:inline-flex; width:32px; height:21px; border-radius:3px; overflow:hidden; flex-shrink:0; }
+.flag svg { width:100%; height:100%; display:block; }
+.lsw { display:flex; align-items:center; gap:4px; background:rgba(255,255,255,.1); border-radius:20px; padding:3px 6px; }
+.lb { cursor:pointer; border:none; background:none; padding:2px; border-radius:4px; opacity:.5; transition:var(--transition); }
+.lb.active { opacity:1; box-shadow:0 0 0 2px var(--accent); border-radius:4px; }
+.lsep { width:1px; height:20px; background:var(--border2); }
 
-.sb-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:199;}
-.sb-overlay.open{display:block;}
-.hamburger{display:none;flex-direction:column;gap:5px;background:none;border:none;cursor:pointer;padding:5px;flex-shrink:0;}
-.hamburger span{display:block;width:22px;height:2px;background:#fff;border-radius:2px;}
+/* ── SKELETON ── */
+.skeleton { background:var(--skeleton); background-size:200% 100%; animation:shimmer 1.5s infinite; border-radius:var(--radius-sm); }
+@keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+.sk-line { height:14px; margin-bottom:8px; }
+.sk-line.short { width:60%; }
+.sk-line.long { width:90%; }
 
-.mcol{flex:1;display:flex;flex-direction:column;min-width:0;}
-.tophdr{background:var(--header-bg);padding:12px 16px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;gap:8px;}
-.tophdr h1{color:#fff;font-size:17px;font-weight:700;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.hdr-r{display:flex;align-items:center;gap:7px;flex-shrink:0;}
-.hdr-date{color:#fff;font-size:11px;opacity:.93;white-space:nowrap;}
-.xbtn{padding:7px 12px;background:rgba(255,255,255,.22);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;}
-.xbtn:hover{background:rgba(255,255,255,.32);}
-.pbody{flex:1;padding:14px 16px;overflow-y:auto;}
+/* ── TOAST ── */
+#toast-container { position:fixed; top:16px; right:16px; z-index:99999; display:flex; flex-direction:column; gap:8px; pointer-events:none; }
+.toast { background:var(--toast-bg); border:1px solid var(--border2); border-radius:var(--radius); padding:12px 16px; min-width:260px; max-width:340px; box-shadow:var(--shadow-lg); pointer-events:all; display:flex; align-items:flex-start; gap:10px; animation:slideIn .3s ease; font-size:13px; }
+.toast.removing { animation:slideOut .3s ease forwards; }
+.toast-icon { font-size:18px; flex-shrink:0; line-height:1; }
+.toast-body { flex:1; }
+.toast-title { font-weight:700; font-size:13px; margin-bottom:2px; }
+.toast-msg { color:var(--text2); font-size:12px; }
+.toast.success { border-left:3px solid var(--success); }
+.toast.error { border-left:3px solid var(--danger); }
+.toast.warn { border-left:3px solid var(--warn); }
+.toast.info { border-left:3px solid var(--accent); }
+@keyframes slideIn { from{transform:translateX(120%);opacity:0} to{transform:translateX(0);opacity:1} }
+@keyframes slideOut { from{transform:translateX(0);opacity:1} to{transform:translateX(120%);opacity:0} }
 
-/* STAT CARDS */
-.scards{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px;}
-.scard{background:#fff;border-radius:10px;padding:13px 14px;box-shadow:0 2px 8px rgba(0,0,0,.07);}
-.scard h4{font-size:11px;color:var(--muted);margin-bottom:6px;font-weight:500;}
-.snum{font-size:24px;font-weight:800;}
+/* ── LOGIN PAGE ── */
+#loginPage { display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:100vh; background:var(--bg); padding:16px; position:relative; overflow:hidden; }
+#loginPage::before { content:''; position:absolute; inset:0; background:radial-gradient(ellipse 80% 60% at 50% -10%, rgba(74,140,245,.15), transparent); pointer-events:none; }
+.lp-lang { position:fixed; top:14px; right:14px; z-index:999; display:flex; align-items:center; gap:8px; }
+.logo-blk { display:flex; flex-direction:column; align-items:center; margin-bottom:24px; position:relative; z-index:1; }
+.logo-img-main { width:180px; height:116px; object-fit:contain; filter:drop-shadow(0 8px 24px rgba(74,140,245,.3)); animation:logoFloat 3s ease-in-out infinite; }
+@keyframes logoFloat { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-6px)} }
+.login-card { background:var(--card); border:1px solid var(--border); border-radius:16px; padding:28px; width:100%; max-width:420px; box-shadow:var(--shadow-lg); position:relative; z-index:1; animation:cardIn .5s ease; }
+@keyframes cardIn { from{transform:translateY(20px);opacity:0} to{transform:translateY(0);opacity:1} }
+.login-card h2 { text-align:center; font-size:17px; font-weight:700; margin-bottom:5px; }
+.login-card p { text-align:center; color:var(--text2); font-size:12.5px; margin-bottom:20px; }
+.iw { position:relative; margin-bottom:12px; }
+.iw input { width:100%; padding:13px 42px 13px 14px; background:var(--input-bg); color:var(--text); border:1.5px solid var(--border2); border-radius:var(--radius); font-size:14px; font-family:var(--font); outline:none; transition:var(--transition); }
+.iw input::placeholder { color:var(--text3); }
+.iw input:focus { border-color:var(--accent); box-shadow:0 0 0 3px rgba(74,140,245,.15); }
+.eye { position:absolute; right:12px; top:50%; transform:translateY(-50%); background:none; border:none; cursor:pointer; color:var(--text3); padding:4px; }
+.lbtn { width:100%; padding:13px; background:linear-gradient(135deg, var(--accent), #3a6ee0); color:#fff; border:none; border-radius:var(--radius); font-size:15px; font-weight:700; cursor:pointer; margin-top:4px; transition:var(--transition); font-family:var(--font); letter-spacing:.3px; }
+.lbtn:hover { transform:translateY(-1px); box-shadow:0 6px 20px rgba(74,140,245,.4); }
+.lbtn:active { transform:translateY(0); }
+.lerr { color:var(--danger); font-size:12px; text-align:center; margin-top:8px; min-height:16px; font-weight:500; }
 
-.box{background:#fff;border-radius:10px;padding:14px 15px;box-shadow:0 2px 8px rgba(0,0,0,.07);margin-bottom:14px;}
-.btitle{font-size:14px;font-weight:700;margin-bottom:12px;}
+/* ── IP BLOCK ── */
+#ipBlockPage { display:none; flex-direction:column; align-items:center; justify-content:center; min-height:100vh; background:var(--bg); }
+.ip-card { background:var(--card); border-radius:16px; padding:36px 28px; max-width:440px; width:100%; text-align:center; box-shadow:var(--shadow-lg); margin:16px; border:1px solid var(--border); }
+.ip-icon { font-size:48px; margin-bottom:14px; }
+.ip-card h2 { font-size:19px; font-weight:800; margin-bottom:10px; }
+.ip-card p { font-size:13px; color:var(--text2); line-height:1.7; }
+.ip-val { display:inline-block; background:var(--bg3); border-radius:8px; padding:6px 14px; font-size:13px; color:var(--text2); font-family:var(--mono); margin-top:8px; }
 
-.tbl-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;}
-.tbl{width:100%;border-collapse:collapse;font-size:12px;}
-.tbl th{background:#f4f6f9;padding:7px 8px;text-align:left;color:var(--muted);font-weight:700;border-bottom:2px solid #e4e8ed;white-space:nowrap;}
-.tbl td{padding:7px 8px;border-bottom:1px solid #eef0f3;vertical-align:middle;}
-.tbl tr:hover td{background:#f9fafb;}
-.badge{padding:3px 9px;border-radius:20px;font-size:11px;font-weight:700;display:inline-block;white-space:nowrap;}
-.bg{background:#d5f5e3;color:#1a7a40;}
-.by{background:#fef3cd;color:#9a7000;}
-.br{background:#fde8e8;color:#b02020;}
-.bgr{background:#eef0f3;color:#6b7f90;}
-.bafk{background:#fff0e6;color:#c05000;}
+/* ── LAYOUT ── */
+#adminPage, #employeePage { display:none; }
+.layout { display:flex; min-height:100vh; }
 
-.frow{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-bottom:12px;}
-.frow input,.frow select{padding:7px 9px;border:1px solid var(--border);border-radius:8px;font-size:12px;background:#fff;color:var(--text);outline:none;}
-.frow input:focus,.frow select:focus{border-color:var(--blue);}
-.bb{padding:7px 12px;background:var(--blue);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;}
-.bb:hover{background:#3a6aa5;}
-.bg2{padding:7px 12px;background:var(--header-bg);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;}
-.bg2:hover{background:#6a8398;}
-.brd{padding:4px 9px;background:var(--red);color:#fff;border:none;border-radius:6px;font-size:11.5px;cursor:pointer;}
-.bsm{padding:4px 7px;border:none;border-radius:5px;font-size:11px;font-weight:700;cursor:pointer;}
-.bsm-g{background:#d5f5e3;color:#1a7a40;}
-.bsm-r{background:#fde8e8;color:#b02020;}
-.bsm-gr{background:#eef0f3;color:#555;}
+/* ── SIDEBAR ── */
+.sidebar { width:200px; background:var(--sidebar-bg); display:flex; flex-direction:column; flex-shrink:0; transition:transform .25s ease; border-right:1px solid var(--border); }
+.sb-head { display:flex; align-items:center; gap:9px; padding:16px 14px 18px; border-bottom:1px solid var(--border); }
+.sb-logo-img { width:30px; height:30px; object-fit:contain; }
+.sb-logo-txt { color:#fff; font-size:15px; font-weight:700; }
+.sb-logo-txt span { color:#6ab3d8; }
+.sb-nav { display:flex; flex-direction:column; gap:4px; padding:10px 8px; flex:1; }
+.nbtn { padding:10px 12px; background:transparent; color:var(--text2); border:none; border-radius:var(--radius-sm); font-size:13px; font-weight:500; cursor:pointer; text-align:left; transition:var(--transition); font-family:var(--font); display:flex; align-items:center; gap:9px; }
+.nbtn:hover { background:rgba(255,255,255,.07); color:var(--text); }
+.nbtn.active { background:rgba(74,140,245,.2); color:var(--accent); font-weight:600; }
+.nbtn .ni { font-size:16px; }
+.sb-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:199; }
+.sb-overlay.open { display:block; }
+.hamburger { display:none; flex-direction:column; gap:5px; background:none; border:none; cursor:pointer; padding:5px; flex-shrink:0; }
+.hamburger span { display:block; width:22px; height:2px; background:#fff; border-radius:2px; transition:var(--transition); }
 
-/* DATE RANGE FILTER */
-.drange{display:flex;align-items:center;gap:5px;flex-wrap:wrap;}
-.drange label{font-size:11px;color:var(--muted);}
-.drange input{padding:6px 8px;border:1px solid var(--border);border-radius:7px;font-size:12px;}
+/* ── MAIN COLUMN ── */
+.mcol { flex:1; display:flex; flex-direction:column; min-width:0; }
+.tophdr { background:var(--header); padding:12px 16px; display:flex; align-items:center; justify-content:space-between; flex-shrink:0; gap:8px; border-bottom:1px solid var(--border); }
+.tophdr h1 { color:#fff; font-size:16px; font-weight:700; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.hdr-r { display:flex; align-items:center; gap:8px; flex-shrink:0; flex-wrap:wrap; }
+.hdr-date { color:rgba(255,255,255,.7); font-size:11px; white-space:nowrap; font-family:var(--mono); }
+.xbtn { padding:7px 12px; background:rgba(255,255,255,.12); color:#fff; border:1px solid rgba(255,255,255,.15); border-radius:var(--radius-sm); font-size:12px; font-weight:600; cursor:pointer; white-space:nowrap; transition:var(--transition); font-family:var(--font); }
+.xbtn:hover { background:rgba(255,255,255,.2); }
+.pbody { flex:1; padding:16px; overflow-y:auto; }
 
-/* MONTHLY */
-.mst{display:grid;grid-template-columns:repeat(5,1fr);gap:9px;margin-bottom:12px;}
-.ms{background:#f4f6f9;border-radius:8px;padding:11px;}
-.ms h5{font-size:10.5px;color:var(--muted);margin-bottom:4px;}
-.ms .v{font-size:15px;font-weight:800;}
+/* ── STAT CARDS ── */
+.scards { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:16px; }
+.scard { background:var(--card); border-radius:var(--radius); padding:14px 16px; box-shadow:var(--shadow); border:1px solid var(--border); position:relative; overflow:hidden; animation:fadeUp .4s ease both; }
+.scard::before { content:''; position:absolute; top:0; left:0; right:0; height:3px; background:var(--accent-card, var(--accent)); }
+.scard:nth-child(1) { --accent-card: var(--accent); }
+.scard:nth-child(2) { --accent-card: var(--warn); }
+.scard:nth-child(3) { --accent-card: var(--danger); }
+.scard:nth-child(4) { --accent-card: var(--accent2); }
+.scard h4 { font-size:11px; color:var(--text2); margin-bottom:8px; font-weight:500; text-transform:uppercase; letter-spacing:.5px; }
+.snum { font-size:26px; font-weight:800; font-family:var(--mono); }
+@keyframes fadeUp { from{transform:translateY(12px);opacity:0} to{transform:translateY(0);opacity:1} }
 
-/* SETTINGS */
-.sf{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-bottom:12px;}
-.sf input,.sf select{padding:7px 9px;border:1px solid var(--border);border-radius:8px;font-size:12px;outline:none;min-width:110px;}
-.sf input:focus{border-color:var(--blue);}
+/* ── BOX ── */
+.box { background:var(--card); border-radius:var(--radius); padding:16px; box-shadow:var(--shadow); margin-bottom:16px; border:1px solid var(--border); animation:fadeUp .4s ease both; }
+.btitle { font-size:14px; font-weight:700; margin-bottom:14px; display:flex; align-items:center; gap:8px; }
+.btitle-icon { font-size:18px; }
 
-/* KPI */
-.kbox{background:#f4f6f9;border-radius:9px;padding:16px;font-size:13px;line-height:2.1;}
-.krow{display:flex;gap:8px;}
-.kcol{min-width:140px;}
+/* ── TABLE ── */
+.tbl-wrap { overflow-x:auto; -webkit-overflow-scrolling:touch; }
+.tbl { width:100%; border-collapse:collapse; font-size:12.5px; }
+.tbl th { background:var(--bg3); padding:9px 10px; text-align:left; color:var(--text2); font-weight:600; border-bottom:2px solid var(--border2); white-space:nowrap; font-size:11px; text-transform:uppercase; letter-spacing:.4px; }
+.tbl td { padding:9px 10px; border-bottom:1px solid var(--border); vertical-align:middle; font-size:12.5px; }
+.tbl tr:hover td { background:var(--hover); }
+.badge { padding:3px 10px; border-radius:20px; font-size:11px; font-weight:700; display:inline-block; white-space:nowrap; font-family:var(--mono); }
+.bg { background:rgba(46,213,115,.15); color:var(--success); }
+.by { background:rgba(255,165,2,.15); color:var(--warn); }
+.br { background:rgba(255,71,87,.15); color:var(--danger); }
+.bgr { background:var(--bg3); color:var(--text3); }
+.bafk { background:rgba(165,94,234,.15); color:var(--purple); }
+.bauto { background:rgba(6,214,160,.15); color:var(--accent2); }
 
-/* FACE DETECTION WIDGET */
-#faceWidget{position:fixed;bottom:16px;right:16px;z-index:500;background:#1e2d3a;border-radius:14px;padding:10px;box-shadow:0 4px 20px rgba(0,0,0,.35);width:180px;}
-#faceWidget .fw-title{color:#fff;font-size:11px;font-weight:700;margin-bottom:6px;display:flex;align-items:center;justify-content:space-between;}
-#faceWidget video{width:100%;border-radius:8px;display:block;}
-#faceWidget canvas{position:absolute;top:10px;left:10px;border-radius:8px;}
-.fw-status{display:flex;align-items:center;gap:6px;margin-top:6px;}
-.fw-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;}
-.fw-dot.green{background:#27ae60;box-shadow:0 0 6px #27ae60;}
-.fw-dot.red{background:#e74c3c;box-shadow:0 0 6px #e74c3c;}
-.fw-dot.yellow{background:#e6a817;box-shadow:0 0 6px #e6a817;}
-.fw-dot.gray{background:#aaa;}
-.fw-txt{color:#ccc;font-size:10.5px;}
-.fw-timer{color:#e74c3c;font-size:11px;font-weight:700;margin-top:4px;}
-.fw-afk{color:#e6a817;font-size:10.5px;margin-top:3px;}
-.fw-video-wrap{position:relative;}
-#faceWidget .fw-minimize{background:none;border:none;color:#aaa;cursor:pointer;font-size:14px;line-height:1;}
+/* ── FILTER ROW ── */
+.frow { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:14px; }
+.frow input, .frow select, .sf input, .sf select { padding:8px 10px; border:1.5px solid var(--border2); border-radius:var(--radius-sm); font-size:12.5px; background:var(--input-bg); color:var(--text); outline:none; transition:var(--transition); font-family:var(--font); }
+.frow input:focus, .frow select:focus, .sf input:focus, .sf select:focus { border-color:var(--accent); box-shadow:0 0 0 3px rgba(74,140,245,.12); }
+.bb { padding:8px 14px; background:var(--accent); color:#fff; border:none; border-radius:var(--radius-sm); font-size:12.5px; font-weight:600; cursor:pointer; white-space:nowrap; transition:var(--transition); font-family:var(--font); }
+.bb:hover { background:#3a7de8; transform:translateY(-1px); }
+.bg2 { padding:8px 14px; background:var(--bg3); color:var(--text); border:1px solid var(--border2); border-radius:var(--radius-sm); font-size:12.5px; font-weight:600; cursor:pointer; white-space:nowrap; transition:var(--transition); font-family:var(--font); }
+.bg2:hover { background:var(--bg2); }
+.brd { padding:5px 10px; background:rgba(255,71,87,.15); color:var(--danger); border:1px solid rgba(255,71,87,.25); border-radius:var(--radius-sm); font-size:11.5px; cursor:pointer; font-weight:600; transition:var(--transition); font-family:var(--font); }
+.brd:hover { background:rgba(255,71,87,.25); }
+.bsm { padding:4px 8px; border-radius:6px; font-size:11px; font-weight:700; cursor:pointer; border:none; font-family:var(--mono); transition:var(--transition); }
+.bsm-g { background:rgba(46,213,115,.15); color:var(--success); }
+.bsm-r { background:rgba(255,71,87,.15); color:var(--danger); }
+.bsm-gr { background:var(--bg3); color:var(--text2); }
+.btn-export { padding:8px 14px; background:rgba(6,214,160,.15); color:var(--accent2); border:1px solid rgba(6,214,160,.3); border-radius:var(--radius-sm); font-size:12px; font-weight:600; cursor:pointer; transition:var(--transition); font-family:var(--font); display:flex; align-items:center; gap:5px; }
+.btn-export:hover { background:rgba(6,214,160,.25); }
 
-/* AFK WARNING BANNER */
-#afkBanner{display:none;position:fixed;top:0;left:0;right:0;z-index:1000;background:#e74c3c;color:#fff;text-align:center;padding:10px 16px;font-size:13px;font-weight:700;box-shadow:0 2px 8px rgba(0,0,0,.2);}
+/* ── DATE RANGE ── */
+.drange { display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+.drange label { font-size:11px; color:var(--text3); }
+.drange input { padding:6px 8px; border:1.5px solid var(--border2); border-radius:var(--radius-sm); font-size:12px; background:var(--input-bg); color:var(--text); }
 
-/* AUTO END NOTIFICATION */
-#autoEndBanner{display:none;position:fixed;top:0;left:0;right:0;z-index:1001;background:#27ae60;color:#fff;text-align:center;padding:10px 16px;font-size:13px;font-weight:700;}
+/* ── MONTHLY STATS ── */
+.mst { display:grid; grid-template-columns:repeat(5,1fr); gap:10px; margin-bottom:14px; }
+.ms { background:var(--bg3); border-radius:var(--radius-sm); padding:12px; border:1px solid var(--border); }
+.ms h5 { font-size:10.5px; color:var(--text2); margin-bottom:5px; text-transform:uppercase; letter-spacing:.4px; }
+.ms .v { font-size:16px; font-weight:800; font-family:var(--mono); }
 
-/* EMPLOYEE PAGE */
-.ehdr{background:var(--header-bg);padding:12px 16px;display:flex;align-items:center;justify-content:space-between;gap:8px;}
-.ehdr h1{color:#fff;font-size:15px;font-weight:700;white-space:nowrap;}
-.ebody{display:grid;grid-template-columns:1fr 1fr;gap:14px;padding:14px 16px;}
-.ec{background:#fff;border-radius:10px;padding:14px;box-shadow:0 2px 8px rgba(0,0,0,.07);}
-.ec h2{font-size:13.5px;font-weight:700;margin-bottom:10px;}
-.efw{grid-column:1/-1;}
-.tags{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;}
-.tag{padding:3px 9px;border-radius:20px;font-size:11px;font-weight:600;}
-.tb{background:#dceef8;color:#1a4f80;}
-.tg{background:#eef0f3;color:#555;}
-.to{background:#fef0da;color:#b05000;}
-.ta{background:#fde8e8;color:#b02020;}
-.abtns{display:flex;gap:7px;margin-bottom:11px;}
-.abtn{flex:1;padding:11px 4px;border:none;border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;transition:opacity .2s;}
-.abtn:hover{opacity:.85;}
-.ast{background:#27ae60;color:#fff;}
-.alu{background:#e6a817;color:#fff;}
-.aen{background:#e74c3c;color:#fff;}
-.aco{background:#4a7ab5;color:#fff;width:100%;display:block;padding:11px;margin-bottom:10px;border:none;border-radius:9px;font-size:13px;font-weight:700;cursor:pointer;}
-.tgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:7px;}
-.tb2 h4{font-size:10.5px;color:var(--muted);margin-bottom:3px;}
-.tv{font-size:20px;font-weight:800;font-family:'Courier New',monospace;}
-.td{font-size:10px;color:var(--muted);margin-top:2px;}
+/* ── SETTINGS ── */
+.sf { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:14px; }
 
-/* AFK timer in employee panel */
-.afk-box{background:#fff8f0;border:1.5px solid #f0c080;border-radius:9px;padding:10px 12px;margin-top:8px;}
-.afk-box h4{font-size:11px;color:#c05000;font-weight:700;margin-bottom:4px;}
-.afk-total{font-size:18px;font-weight:800;color:#e74c3c;font-family:'Courier New',monospace;}
-.afk-count{font-size:11px;color:#c05000;margin-top:2px;}
+/* ── KPI BOX ── */
+.kbox { background:var(--bg3); border-radius:var(--radius); padding:18px; font-size:13px; line-height:2.1; border:1px solid var(--border); }
+.krow { display:flex; gap:10px; }
+.kcol { min-width:140px; color:var(--text2); }
 
-.igrid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
-.ii{background:#f4f6f9;border-radius:8px;padding:9px;}
-.ii h4{font-size:10.5px;color:var(--muted);margin-bottom:3px;}
-.ii p{font-size:12px;font-weight:700;}
-.mhdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;gap:8px;flex-wrap:wrap;}
-.mhdr h2{margin:0;}
-.mflt{display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
-.mflt input{padding:5px 8px;border:1px solid var(--border);border-radius:7px;font-size:12px;}
-.note{font-size:10.5px;color:var(--muted);margin-top:7px;}
+/* ── FACE WIDGET ── */
+#faceWidget { position:fixed; bottom:16px; right:16px; z-index:500; background:var(--card); border-radius:14px; padding:10px; box-shadow:var(--shadow-lg); width:180px; border:1px solid var(--border); }
+#faceWidget .fw-title { color:var(--text); font-size:11px; font-weight:700; margin-bottom:6px; display:flex; align-items:center; justify-content:space-between; }
+#faceWidget video { width:100%; border-radius:8px; display:block; }
+#faceWidget canvas { position:absolute; top:10px; left:10px; border-radius:8px; pointer-events:none; }
+.fw-status { display:flex; align-items:center; gap:6px; margin-top:6px; }
+.fw-dot { width:9px; height:9px; border-radius:50%; flex-shrink:0; }
+.fw-dot.green { background:var(--success); box-shadow:0 0 6px var(--success); }
+.fw-dot.red { background:var(--danger); box-shadow:0 0 6px var(--danger); animation:pulse 1s infinite; }
+.fw-dot.yellow { background:var(--warn); box-shadow:0 0 6px var(--warn); }
+.fw-dot.gray { background:var(--text3); }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.5} }
+.fw-txt { color:var(--text2); font-size:10.5px; }
+.fw-timer { color:var(--danger); font-size:11px; font-weight:700; margin-top:4px; font-family:var(--mono); }
+.fw-afk { color:var(--text2); font-size:10.5px; margin-top:3px; }
+.fw-video-wrap { position:relative; }
+.fw-minimize { background:none; border:none; color:var(--text3); cursor:pointer; font-size:14px; line-height:1; padding:2px; }
+.fw-reg-btn { width:100%; margin-top:6px; padding:5px; background:rgba(74,140,245,.15); color:var(--accent); border:1px solid rgba(74,140,245,.3); border-radius:6px; font-size:10px; font-weight:700; cursor:pointer; font-family:var(--font); }
+.fw-liveness { font-size:10px; color:var(--text3); margin-top:3px; text-align:center; }
 
-/* MODALS */
-.ov{position:fixed;inset:0;background:rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;z-index:9999;padding:16px;}
-.modal{background:#fff;border-radius:14px;padding:28px 24px;max-width:450px;width:100%;text-align:center;box-shadow:0 12px 40px rgba(0,0,0,.2);}
-.modal p{font-size:13.5px;color:#c0392b;font-weight:700;line-height:1.75;margin-bottom:18px;}
-.modal h3{font-size:15px;font-weight:800;margin-bottom:14px;}
-.mbtns{display:flex;gap:10px;justify-content:center;}
-.mok{padding:11px 28px;background:var(--green);color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;}
-.mno{padding:11px 28px;background:var(--red);color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;}
-.msingle{padding:11px 44px;background:var(--green);color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;}
-.hidden{display:none!important;}
+/* ── BANNERS ── */
+#afkBanner { display:none; position:fixed; top:0; left:0; right:0; z-index:1000; background:linear-gradient(135deg,var(--danger),#c0392b); color:#fff; text-align:center; padding:10px 16px; font-size:13px; font-weight:700; box-shadow:var(--shadow); animation:slideDown .3s ease; }
+#autoEndBanner { display:none; position:fixed; top:0; left:0; right:0; z-index:1001; background:linear-gradient(135deg,var(--success),#27ae60); color:#fff; text-align:center; padding:10px 16px; font-size:13px; font-weight:700; animation:slideDown .3s ease; }
+#breakBanner { display:none; position:fixed; bottom:0; left:0; right:0; z-index:1000; background:linear-gradient(135deg,var(--warn),#e67e22); color:#fff; text-align:center; padding:8px 16px; font-size:12px; font-weight:700; }
+@keyframes slideDown { from{transform:translateY(-100%)} to{transform:translateY(0)} }
 
-/* AFK WARNING MODAL */
-#m_afk_warn .modal{border:3px solid #e74c3c;}
-#m_afk_warn .modal h3{color:#e74c3c;font-size:18px;}
-#m_afk_warn .countdown{font-size:32px;font-weight:900;color:#e74c3c;margin:10px 0;}
+/* ── INSTALL BANNER ── */
+#installBanner { display:none; position:fixed; bottom:80px; right:16px; z-index:600; background:var(--card); border:1px solid var(--border2); border-radius:var(--radius); padding:12px 16px; box-shadow:var(--shadow-lg); max-width:280px; }
+#installBanner p { font-size:12px; color:var(--text); margin-bottom:8px; font-weight:600; }
+.install-btns { display:flex; gap:7px; }
+.btn-install { padding:7px 14px; background:var(--accent); color:#fff; border:none; border-radius:var(--radius-sm); font-size:12px; font-weight:700; cursor:pointer; font-family:var(--font); }
+.btn-install-no { padding:7px 10px; background:var(--bg3); color:var(--text2); border:none; border-radius:var(--radius-sm); font-size:12px; cursor:pointer; font-family:var(--font); }
 
-@media(max-width:900px){.scards{grid-template-columns:repeat(2,1fr);}.mst{grid-template-columns:repeat(3,1fr);}}
+/* ── EMPLOYEE PAGE ── */
+.ehdr { background:var(--header); padding:12px 16px; display:flex; align-items:center; justify-content:space-between; gap:8px; border-bottom:1px solid var(--border); }
+.ehdr h1 { color:#fff; font-size:14px; font-weight:700; white-space:nowrap; }
+.ebody { display:grid; grid-template-columns:1fr 1fr; gap:14px; padding:16px; }
+.ec { background:var(--card); border-radius:var(--radius); padding:16px; box-shadow:var(--shadow); border:1px solid var(--border); animation:fadeUp .4s ease both; }
+.ec h2 { font-size:14px; font-weight:700; margin-bottom:12px; }
+.efw { grid-column:1/-1; }
+.tags { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:12px; }
+.tag { padding:4px 10px; border-radius:20px; font-size:11px; font-weight:600; font-family:var(--mono); }
+.tb { background:rgba(74,140,245,.15); color:var(--accent); }
+.tg { background:var(--bg3); color:var(--text2); }
+.to { background:rgba(255,165,2,.15); color:var(--warn); }
+.ta { background:rgba(255,71,87,.15); color:var(--danger); }
+.abtns { display:flex; gap:8px; margin-bottom:12px; }
+.abtn { flex:1; padding:12px 4px; border:none; border-radius:var(--radius-sm); font-size:13px; font-weight:700; cursor:pointer; transition:var(--transition); font-family:var(--font); }
+.abtn:hover:not(:disabled) { transform:translateY(-2px); box-shadow:0 6px 16px rgba(0,0,0,.2); }
+.abtn:disabled { opacity:.4; cursor:not-allowed; transform:none !important; }
+.ast { background:linear-gradient(135deg,var(--success),#27ae60); color:#fff; }
+.alu { background:linear-gradient(135deg,var(--warn),#e67e22); color:#fff; }
+.aen { background:linear-gradient(135deg,var(--danger),#c0392b); color:#fff; }
+.aco { background:linear-gradient(135deg,var(--accent),#3a6ee0); color:#fff; width:100%; display:block; padding:12px; margin-bottom:12px; border:none; border-radius:var(--radius-sm); font-size:13px; font-weight:700; cursor:pointer; font-family:var(--font); transition:var(--transition); }
+.aco:hover { transform:translateY(-1px); }
+.tgrid { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:8px; }
+.tb2 h4 { font-size:10.5px; color:var(--text2); margin-bottom:4px; text-transform:uppercase; letter-spacing:.4px; }
+.tv { font-size:22px; font-weight:800; font-family:var(--mono); color:var(--text); }
+.td { font-size:10px; color:var(--text3); margin-top:3px; }
+.afk-box { background:rgba(255,71,87,.06); border:1.5px solid rgba(255,71,87,.2); border-radius:var(--radius-sm); padding:12px; margin-top:10px; }
+.afk-box h4 { font-size:11px; color:var(--danger); font-weight:700; margin-bottom:5px; }
+.afk-total { font-size:20px; font-weight:800; color:var(--danger); font-family:var(--mono); }
+.afk-count { font-size:11px; color:var(--warn); margin-top:3px; }
+.afk-break-ok { font-size:11px; color:var(--success); margin-top:3px; font-weight:600; }
+.igrid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+.ii { background:var(--bg3); border-radius:var(--radius-sm); padding:10px; border:1px solid var(--border); }
+.ii h4 { font-size:10.5px; color:var(--text2); margin-bottom:4px; text-transform:uppercase; letter-spacing:.4px; }
+.ii p { font-size:13px; font-weight:700; font-family:var(--mono); }
+.mhdr { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; gap:8px; flex-wrap:wrap; }
+.mhdr h2 { margin:0; }
+.mflt { display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+.mflt input { padding:6px 9px; border:1.5px solid var(--border2); border-radius:var(--radius-sm); font-size:12px; background:var(--input-bg); color:var(--text); }
+.note { font-size:10.5px; color:var(--text3); margin-top:8px; }
+
+/* ── FEEDBACK / NOTIFICATIONS ── */
+.fb-item { background:var(--bg3); border-radius:var(--radius-sm); padding:12px; margin-bottom:8px; border:1px solid var(--border); animation:fadeUp .3s ease; }
+.fb-item.new-item { border-color:rgba(74,140,245,.4); }
+.fb-header { display:flex; justify-content:space-between; align-items:flex-start; gap:8px; margin-bottom:6px; }
+.fb-name { font-size:12px; font-weight:700; }
+.fb-date { font-size:11px; color:var(--text3); font-family:var(--mono); }
+.fb-msg { font-size:12.5px; color:var(--text); margin-bottom:8px; line-height:1.5; }
+.fb-type { padding:2px 8px; border-radius:20px; font-size:10px; font-weight:700; }
+.fb-type.complaint { background:rgba(255,71,87,.15); color:var(--danger); }
+.fb-type.suggestion { background:rgba(74,140,245,.15); color:var(--accent); }
+.fb-type.other { background:var(--bg3); color:var(--text2); }
+.fb-reply-area { margin-top:6px; }
+.fb-reply-area textarea { width:100%; padding:8px 10px; background:var(--input-bg); border:1.5px solid var(--border2); border-radius:var(--radius-sm); font-size:12px; color:var(--text); font-family:var(--font); resize:vertical; min-height:60px; outline:none; }
+.fb-reply-area textarea:focus { border-color:var(--accent); }
+.fb-replied { background:rgba(6,214,160,.08); border-radius:var(--radius-sm); padding:8px 10px; font-size:12px; color:var(--accent2); border-left:3px solid var(--accent2); margin-top:6px; }
+.notif-badge { background:var(--danger); color:#fff; font-size:10px; font-weight:800; font-family:var(--mono); border-radius:10px; padding:1px 5px; margin-left:4px; vertical-align:middle; }
+.notif-item { display:flex; align-items:flex-start; gap:10px; padding:10px 12px; border-bottom:1px solid var(--border); transition:var(--transition); }
+.notif-item.unread { background:rgba(74,140,245,.05); }
+.notif-item:hover { background:var(--hover); }
+.notif-dot { width:8px; height:8px; border-radius:50%; background:var(--accent); flex-shrink:0; margin-top:4px; }
+.notif-dot.read { background:var(--border2); }
+.notif-body { flex:1; }
+.notif-title { font-size:12.5px; font-weight:700; margin-bottom:2px; }
+.notif-msg { font-size:11.5px; color:var(--text2); }
+.notif-time { font-size:10px; color:var(--text3); font-family:var(--mono); margin-top:2px; }
+.push-notif-btn { width:100%; padding:9px; background:rgba(74,140,245,.15); color:var(--accent); border:1px solid rgba(74,140,245,.3); border-radius:var(--radius-sm); font-size:12px; font-weight:700; cursor:pointer; font-family:var(--font); margin-bottom:10px; transition:var(--transition); }
+.push-notif-btn:hover { background:rgba(74,140,245,.25); }
+
+/* ── FACE REGISTRATION ── */
+.face-reg-box { background:var(--bg3); border-radius:var(--radius); padding:14px; border:1px solid var(--border); margin-bottom:10px; }
+.face-reg-box h4 { font-size:12px; font-weight:700; margin-bottom:8px; }
+.face-samples { display:flex; gap:6px; margin-bottom:8px; flex-wrap:wrap; }
+.face-sample-dot { width:32px; height:32px; border-radius:50%; background:var(--bg2); border:2px solid var(--border2); display:flex; align-items:center; justify-content:center; font-size:14px; }
+.face-sample-dot.done { background:rgba(46,213,115,.15); border-color:var(--success); }
+.face-quality { font-size:11px; color:var(--text2); margin-bottom:6px; }
+.liveness-indicator { display:flex; align-items:center; gap:6px; font-size:11px; color:var(--text2); margin-top:6px; }
+.liveness-dot { width:8px; height:8px; border-radius:50%; background:var(--text3); }
+.liveness-dot.ok { background:var(--success); }
+.liveness-dot.checking { background:var(--warn); animation:pulse 1s infinite; }
+
+/* ── MODALS ── */
+.ov { position:fixed; inset:0; background:rgba(0,0,0,.6); display:flex; align-items:center; justify-content:center; z-index:9999; padding:16px; backdrop-filter:blur(4px); animation:fadein .2s ease; }
+@keyframes fadein { from{opacity:0} to{opacity:1} }
+.modal { background:var(--card); border-radius:16px; padding:28px 24px; max-width:480px; width:100%; text-align:center; box-shadow:var(--shadow-lg); border:1px solid var(--border2); animation:modalIn .3s ease; }
+@keyframes modalIn { from{transform:scale(.9) translateY(20px);opacity:0} to{transform:scale(1) translateY(0);opacity:1} }
+.modal p { font-size:13px; color:var(--text2); line-height:1.7; margin-bottom:16px; }
+.modal h3 { font-size:16px; font-weight:800; margin-bottom:12px; }
+.mbtns { display:flex; gap:10px; justify-content:center; }
+.mok { padding:11px 28px; background:linear-gradient(135deg,var(--success),#27ae60); color:#fff; border:none; border-radius:var(--radius); font-size:14px; font-weight:700; cursor:pointer; font-family:var(--font); transition:var(--transition); }
+.mok:hover { transform:translateY(-1px); }
+.mno { padding:11px 28px; background:linear-gradient(135deg,var(--danger),#c0392b); color:#fff; border:none; border-radius:var(--radius); font-size:14px; font-weight:700; cursor:pointer; font-family:var(--font); transition:var(--transition); }
+.msingle { padding:11px 44px; background:linear-gradient(135deg,var(--accent),#3a6ee0); color:#fff; border:none; border-radius:var(--radius); font-size:15px; font-weight:700; cursor:pointer; font-family:var(--font); transition:var(--transition); }
+.msingle:hover { transform:translateY(-1px); }
+.hidden { display:none !important; }
+.afk-modal-border { border:2px solid var(--danger) !important; }
+.countdown { font-size:36px; font-weight:900; color:var(--danger); margin:10px 0; font-family:var(--mono); }
+
+/* ── AFK BREAK TRACKER ── */
+.break-tracker { background:rgba(255,165,2,.06); border:1.5px solid rgba(255,165,2,.2); border-radius:var(--radius-sm); padding:10px 12px; margin-top:8px; }
+.break-tracker h4 { font-size:11px; color:var(--warn); font-weight:700; margin-bottom:4px; }
+.break-bar-wrap { background:var(--bg3); border-radius:20px; height:6px; margin:6px 0; overflow:hidden; }
+.break-bar { height:100%; border-radius:20px; background:linear-gradient(90deg,var(--success),var(--warn)); transition:width .5s ease; }
+.break-bar.over { background:linear-gradient(90deg,var(--warn),var(--danger)); }
+.break-info { font-size:11px; color:var(--text2); display:flex; justify-content:space-between; }
+
+/* ── SEND NOTIFICATION (ADMIN) ── */
+.notif-send-box { background:var(--bg3); border-radius:var(--radius-sm); padding:14px; margin-bottom:14px; border:1px solid var(--border); }
+.notif-send-box h4 { font-size:12px; font-weight:700; margin-bottom:10px; }
+.notif-send-row { display:flex; gap:8px; flex-wrap:wrap; }
+.notif-send-row input, .notif-send-row textarea, .notif-send-row select { flex:1; padding:8px 10px; background:var(--input-bg); border:1.5px solid var(--border2); border-radius:var(--radius-sm); font-size:12px; color:var(--text); font-family:var(--font); outline:none; min-width:160px; }
+.notif-send-row input:focus, .notif-send-row textarea:focus { border-color:var(--accent); }
+
+/* ── RESPONSIVE ── */
+@media(max-width:900px){.scards{grid-template-columns:repeat(2,1fr)}.mst{grid-template-columns:repeat(3,1fr)}}
 @media(max-width:680px){
   .sidebar{position:fixed;left:0;top:0;bottom:0;z-index:200;width:210px;transform:translateX(-100%);}
   .sidebar.open{transform:translateX(0);}
@@ -223,57 +406,46 @@ html,body{font-family:'Segoe UI',Tahoma,sans-serif;background:var(--bg);color:va
   .tophdr{padding:10px 12px;}
   .tophdr h1{font-size:13px;}
   .hdr-date{display:none;}
-  .lsw{padding:4px 6px;}
-  .flag{width:26px;height:17px;}
   .xbtn{padding:6px 9px;font-size:11px;}
-  .pbody{padding:10px 11px;}
-  .scards{grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;}
-  .scard{padding:10px 11px;}
-  .snum{font-size:20px;}
-  .scard h4{font-size:10px;}
-  .frow{gap:5px;}
-  .frow input,.frow select{font-size:11.5px;padding:6px 7px;flex:1;min-width:0;}
-  .bb,.bg2{font-size:11.5px;padding:6px 9px;}
+  .pbody{padding:12px 12px;}
+  .scards{grid-template-columns:1fr 1fr;gap:8px;}
+  .snum{font-size:22px;}
   .mst{grid-template-columns:1fr 1fr;}
-  .tbl{font-size:11px;min-width:500px;}
-  .tbl th,.tbl td{padding:6px 7px;}
-  .box{padding:11px 12px;}
-  .btitle{font-size:13px;}
-  .sf{gap:5px;}
-  .sf input,.sf select{font-size:11.5px;padding:6px 7px;flex:1 1 110px;min-width:0;}
-  .kbox{font-size:12px;line-height:1.85;}
-  .kcol{min-width:105px;}
-  .ehdr{padding:10px 12px;flex-wrap:wrap;}
-  .ehdr h1{font-size:12.5px;}
-  .ebody{grid-template-columns:1fr;gap:11px;padding:11px 12px;}
+  .tbl{font-size:11.5px;}
+  .ebody{grid-template-columns:1fr;gap:12px;padding:12px;}
   .efw{grid-column:1;}
-  .tv{font-size:18px;}
   .abtns{gap:5px;}
-  .abtn{padding:12px 4px;font-size:11.5px;}
+  .abtn{padding:12px 4px;font-size:12px;}
   .modal{padding:22px 16px;}
-  .modal p{font-size:13px;}
-  .mok,.mno{padding:10px 20px;font-size:13px;}
-  .msingle{padding:10px 32px;font-size:13.5px;}
-  #faceWidget{width:140px;bottom:8px;right:8px;}
+  #faceWidget{width:150px;bottom:8px;right:8px;}
 }
 @media(max-width:400px){
-  .login-card{padding:20px 16px;}
-  .logo-img-main{width:148px;height:94px;}
-  .scards{grid-template-columns:1fr 1fr;}
   .tgrid{grid-template-columns:1fr;}
   .igrid{grid-template-columns:1fr;}
   .abtns{flex-direction:column;}
-  .abtn{padding:13px;}
+  .tv{font-size:24px;}
   .mst{grid-template-columns:1fr 1fr;}
-  .tv{font-size:22px;}
 }
 </style>
 </head>
 <body>
 
-<!-- AFK Banner -->
+<!-- TOAST CONTAINER -->
+<div id="toast-container"></div>
+
+<!-- BANNERS -->
 <div id="afkBanner">⚠️ <span id="afkBannerTxt">Yuz aniqlanmadi! AFK vaqt hisoblanmoqda...</span></div>
 <div id="autoEndBanner">✅ <span id="autoEndTxt">Ish vaqti tugadi. Tizim tomonidan yakunlandi (18:00)</span></div>
+<div id="breakBanner">☕ <span id="breakBannerTxt">Tanaffus vaqtingiz: 0:00 / 30 daqiqa</span></div>
+
+<!-- INSTALL BANNER -->
+<div id="installBanner">
+  <p>📱 AloqaPro ni o'rnatish</p>
+  <div class="install-btns">
+    <button class="btn-install" onclick="installPWA()">O'rnatish</button>
+    <button class="btn-install-no" onclick="dismissInstall()">Keyinroq</button>
+  </div>
+</div>
 
 <!-- IP BLOCK -->
 <div id="ipBlockPage">
@@ -281,7 +453,7 @@ html,body{font-family:'Segoe UI',Tahoma,sans-serif;background:var(--bg);color:va
     <div class="ip-icon">🔒</div>
     <h2 id="ipb_t">Kirish taqiqlandi</h2>
     <p id="ipb_p">Bu tizimga faqat ishxona tarmog'i orqali kirishingiz mumkin.</p>
-    <p id="ipb_p2" style="font-size:12px;color:#8a9aaa;margin-top:6px">Sizning IP manzilingiz:</p>
+    <p id="ipb_p2" style="font-size:12px;color:var(--text3);margin-top:6px">Sizning IP manzilingiz:</p>
     <span class="ip-val" id="ipb_val">aniqlanmoqda...</span>
   </div>
 </div>
@@ -289,27 +461,31 @@ html,body{font-family:'Segoe UI',Tahoma,sans-serif;background:var(--bg);color:va
 <!-- LOGIN -->
 <div id="loginPage">
   <div class="lp-lang">
-    <div class="lsw" style="background:#c5d2dc;">
+    <label class="theme-toggle" title="Dark/Light Mode">
+      <input type="checkbox" id="themeToggle" onchange="toggleTheme()">
+      <span class="theme-slider"></span>
+    </label>
+    <div class="lsw">
       <button class="lb active" id="ll_uz" onclick="setLang('uz')">
-        <span class="flag"><svg viewBox="0 0 34 22" xmlns="http://www.w3.org/2000/svg"><rect width="34" height="7.33" fill="#1EB3E4"/><rect y="7.33" width="34" height="7.34" fill="#fff"/><rect y="14.67" width="34" height="7.33" fill="#32A84C"/><rect y="6.9" width="34" height=".8" fill="#CE2028"/><rect y="14.3" width="34" height=".8" fill="#CE2028"/><circle cx="9" cy="3.7" r="2.3" fill="#fff"/><circle cx="10.1" cy="3.7" r="2.3" fill="#1EB3E4"/><circle cx="13" cy="1.4" r=".55" fill="#fff"/><circle cx="14.5" cy="2.4" r=".55" fill="#fff"/><circle cx="15.5" cy="3.9" r=".55" fill="#fff"/><circle cx="14.5" cy="5.3" r=".55" fill="#fff"/><circle cx="13" cy="6.3" r=".55" fill="#fff"/></svg></span>
+        <span class="flag"><svg viewBox="0 0 34 22"><rect width="34" height="7.33" fill="#1EB3E4"/><rect y="7.33" width="34" height="7.34" fill="#fff"/><rect y="14.67" width="34" height="7.33" fill="#32A84C"/><rect y="6.9" width="34" height=".8" fill="#CE2028"/><rect y="14.3" width="34" height=".8" fill="#CE2028"/><circle cx="9" cy="3.7" r="2.3" fill="#fff"/><circle cx="10.1" cy="3.7" r="2.3" fill="#1EB3E4"/><circle cx="13" cy="1.4" r=".55" fill="#fff"/><circle cx="14.5" cy="2.4" r=".55" fill="#fff"/><circle cx="15.5" cy="3.9" r=".55" fill="#fff"/><circle cx="14.5" cy="5.3" r=".55" fill="#fff"/><circle cx="13" cy="6.3" r=".55" fill="#fff"/></svg></span>
       </button>
-      <span class="lsep dk"></span>
+      <span class="lsep"></span>
       <button class="lb" id="ll_ru" onclick="setLang('ru')">
-        <span class="flag"><svg viewBox="0 0 34 22" xmlns="http://www.w3.org/2000/svg"><rect width="34" height="7.33" fill="#fff"/><rect y="7.33" width="34" height="7.34" fill="#1C3F94"/><rect y="14.67" width="34" height="7.33" fill="#CE2028"/></svg></span>
+        <span class="flag"><svg viewBox="0 0 34 22"><rect width="34" height="7.33" fill="#fff"/><rect y="7.33" width="34" height="7.34" fill="#1C3F94"/><rect y="14.67" width="34" height="7.33" fill="#CE2028"/></svg></span>
       </button>
     </div>
   </div>
   <div class="logo-blk">
-    <img src="images/logo1.png" alt="AloqaPro Logo" class="logo-img-main" onerror="this.style.display='none'">
+    <img src="images/logo1.png" alt="AloqaPro" class="logo-img-main" onerror="this.style.display='none'">
   </div>
-  <div class="login-card lc">
+  <div class="login-card">
     <h2 id="lc_t">Nazorat tizimiga xush kelibsiz!</h2>
     <p id="lc_s">Login va parolni kiriting!</p>
     <div class="iw"><input type="text" id="inp_l" placeholder="Login" autocomplete="off"></div>
     <div class="iw">
       <input type="password" id="inp_p" placeholder="Parol">
       <button class="eye" onclick="toggleEye()" type="button">
-        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10 10 0 0 1 12 20C5 20 1 12 1 12a18 18 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9 9 0 0 1 12 4c7 0 11 8 11 8a18 18 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10 10 0 0 1 12 20C5 20 1 12 1 12a18 18 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9 9 0 0 1 12 4c7 0 11 8 11 8a18 18 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
       </button>
     </div>
     <button class="lbtn" id="lbtn" onclick="doLogin()">Kirish</button>
@@ -323,31 +499,34 @@ html,body{font-family:'Segoe UI',Tahoma,sans-serif;background:var(--bg);color:va
   <div class="layout">
     <div class="sidebar" id="sidebar">
       <div class="sb-head">
-        <img src="images/logo2.png" alt="AloqaPro" class="sb-logo-img" onerror="this.style.display='none'">
+        <img src="images/logo2.png" alt="" class="sb-logo-img" onerror="this.style.display='none'">
         <span class="sb-logo-txt">Aloqa<span>Pro</span></span>
       </div>
       <div class="sb-nav">
-        <button class="nbtn active" id="nav_main" onclick="adminTab('main');closeSidebar()">Asosiy</button>
-        <button class="nbtn" id="nav_settings" onclick="adminTab('settings');closeSidebar()">Sozlamalar</button>
-        <button class="nbtn" id="nav_kpi" onclick="adminTab('kpi');closeSidebar()">KPI Qoidalar</button>
+        <button class="nbtn active" id="nav_main" onclick="adminTab('main');closeSidebar()"><span class="ni">📊</span><span id="n_main">Asosiy</span></button>
+        <button class="nbtn" id="nav_notif" onclick="adminTab('notif');closeSidebar()"><span class="ni">🔔</span><span id="n_notif">Bildirishnomalar</span> <span id="notifBadgeAdmin" class="notif-badge hidden">0</span></button>
+        <button class="nbtn" id="nav_feedback" onclick="adminTab('feedback');closeSidebar()"><span class="ni">💬</span><span id="n_fb">Fikrlar</span> <span id="fbBadge" class="notif-badge hidden">0</span></button>
+        <button class="nbtn" id="nav_settings" onclick="adminTab('settings');closeSidebar()"><span class="ni">⚙️</span><span id="n_set">Sozlamalar</span></button>
+        <button class="nbtn" id="nav_kpi" onclick="adminTab('kpi');closeSidebar()"><span class="ni">🏆</span><span id="n_kpi">KPI Qoidalar</span></button>
       </div>
     </div>
     <div class="mcol">
       <div class="tophdr">
-        <button class="hamburger" id="hamburger" onclick="toggleSidebar()" aria-label="Menu"><span></span><span></span><span></span></button>
+        <button class="hamburger" id="hamburger" onclick="toggleSidebar()"><span></span><span></span><span></span></button>
         <h1 id="admTitle">Boshqaruv paneli</h1>
         <div class="hdr-r">
           <span class="hdr-date" id="admDate"></span>
+          <label class="theme-toggle" title="Mavzu"><input type="checkbox" id="themeToggle2" onchange="toggleTheme()"><span class="theme-slider"></span></label>
           <div class="lsw">
-            <button class="lb active" id="al_uz" onclick="setLang('uz')"><span class="flag"><svg viewBox="0 0 34 22" xmlns="http://www.w3.org/2000/svg"><rect width="34" height="7.33" fill="#1EB3E4"/><rect y="7.33" width="34" height="7.34" fill="#fff"/><rect y="14.67" width="34" height="7.33" fill="#32A84C"/><rect y="6.9" width="34" height=".8" fill="#CE2028"/><rect y="14.3" width="34" height=".8" fill="#CE2028"/><circle cx="9" cy="3.7" r="2.3" fill="#fff"/><circle cx="10.1" cy="3.7" r="2.3" fill="#1EB3E4"/><circle cx="13" cy="1.4" r=".55" fill="#fff"/><circle cx="14.5" cy="2.4" r=".55" fill="#fff"/><circle cx="15.5" cy="3.9" r=".55" fill="#fff"/><circle cx="14.5" cy="5.3" r=".55" fill="#fff"/><circle cx="13" cy="6.3" r=".55" fill="#fff"/></svg></span></button>
+            <button class="lb active" id="al_uz" onclick="setLang('uz')"><span class="flag"><svg viewBox="0 0 34 22"><rect width="34" height="7.33" fill="#1EB3E4"/><rect y="7.33" width="34" height="7.34" fill="#fff"/><rect y="14.67" width="34" height="7.33" fill="#32A84C"/><rect y="6.9" width="34" height=".8" fill="#CE2028"/><rect y="14.3" width="34" height=".8" fill="#CE2028"/><circle cx="9" cy="3.7" r="2.3" fill="#fff"/><circle cx="10.1" cy="3.7" r="2.3" fill="#1EB3E4"/></svg></span></button>
             <span class="lsep"></span>
-            <button class="lb" id="al_ru" onclick="setLang('ru')"><span class="flag"><svg viewBox="0 0 34 22" xmlns="http://www.w3.org/2000/svg"><rect width="34" height="7.33" fill="#fff"/><rect y="7.33" width="34" height="7.34" fill="#1C3F94"/><rect y="14.67" width="34" height="7.33" fill="#CE2028"/></svg></span></button>
+            <button class="lb" id="al_ru" onclick="setLang('ru')"><span class="flag"><svg viewBox="0 0 34 22"><rect width="34" height="7.33" fill="#fff"/><rect y="7.33" width="34" height="7.34" fill="#1C3F94"/><rect y="14.67" width="34" height="7.33" fill="#CE2028"/></svg></span></button>
           </div>
           <button class="xbtn" id="admExit" onclick="doLogout()">Chiqish</button>
         </div>
       </div>
       <div class="pbody">
-        <!-- TAB MAIN -->
+        <!-- TAB: MAIN -->
         <div id="tab_main">
           <div class="scards">
             <div class="scard"><h4 id="sc1">Bugun ishda</h4><div class="snum" id="sw">0</div></div>
@@ -356,10 +535,9 @@ html,body{font-family:'Segoe UI',Tahoma,sans-serif;background:var(--bg);color:va
             <div class="scard"><h4 id="sc4">Sana</h4><div class="snum" id="sd" style="font-size:13px">-</div></div>
           </div>
           <div class="box">
-            <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:11px">
+            <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:12px">
               <span class="btitle" id="att_t" style="margin:0">Hodimlar nazorati</span>
-              <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-                <!-- Sana diapazoni -->
+              <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
                 <div class="drange">
                   <label id="from_l">Dan:</label>
                   <input type="date" id="fd_from" onchange="loadAtt()">
@@ -378,107 +556,146 @@ html,body{font-family:'Segoe UI',Tahoma,sans-serif;background:var(--bg);color:va
                 <option value="kechikkan" id="o_late">Kechikkan</option>
                 <option value="kelmadi" id="o_abs">Kelmadi</option>
               </select>
-              <input type="month" id="fmonth" style="font-size:12px;padding:6px 8px;border:1px solid var(--border);border-radius:7px;">
+              <input type="month" id="fmonth" style="font-size:12px;padding:7px 9px;border:1.5px solid var(--border2);border-radius:var(--radius-sm);background:var(--input-bg);color:var(--text);">
               <button class="bg2" id="b_cm" onclick="setCurMonth()">Joriy oy</button>
               <button class="bb" id="b_ref" onclick="loadAtt()">Yangilash</button>
             </div>
             <div class="tbl-wrap">
-              <table class="tbl" style="min-width:700px;">
+              <table class="tbl" style="min-width:720px;">
                 <thead><tr>
-                  <th>#</th>
-                  <th id="th1">Ism familiya</th>
-                  <th id="th2">Login</th>
-                  <th id="th4">O'zgartirish</th>
-                  <th id="th5">Kelgan vaqti</th>
-                  <th id="th6">Kechikish</th>
-                  <th id="th7">Ishlagan soat</th>
-                  <th id="th_afk">AFK vaqti</th>
-                  <th id="th8">Status</th>
+                  <th>#</th><th id="th1">Ism familiya</th><th id="th2">Login</th>
+                  <th id="th4">O'zgartirish</th><th id="th5">Kelgan vaqti</th>
+                  <th id="th6">Kechikish</th><th id="th7">Ishlagan soat</th>
+                  <th id="th_afk">AFK vaqti</th><th id="th8">Status</th>
                 </tr></thead>
                 <tbody id="att_body"></tbody>
               </table>
             </div>
           </div>
+          <!-- Monthly report (hidden by default) -->
           <div class="box hidden" id="mbox">
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:11px;flex-wrap:wrap;gap:7px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
               <span class="btitle" id="mth_t" style="margin:0">Oylik hisobot</span>
-              <span style="font-size:11px;color:var(--muted)" id="mlbl"></span>
+              <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                <span style="font-size:11px;color:var(--text3)" id="mlbl"></span>
+                <button class="btn-export" onclick="exportExcel()">📊 Excel</button>
+                <button class="btn-export" onclick="exportPDF()">📄 PDF</button>
+              </div>
             </div>
-            <div class="mst" style="grid-template-columns:repeat(5,1fr)">
+            <div class="mst">
               <div class="ms"><h5 id="ms1">Hodimlar</h5><div class="v" id="me">0</div></div>
               <div class="ms"><h5 id="ms2">Kechikishlar</h5><div class="v" id="ml">0</div></div>
               <div class="ms"><h5 id="ms3">Kelmagan</h5><div class="v" id="ma">0</div></div>
               <div class="ms"><h5 id="ms4">Ish soati</h5><div class="v" id="mh">0</div></div>
-              <div class="ms"><h5 id="ms5">Jami KPI</h5><div class="v" id="mk" style="color:var(--green)">0</div></div>
+              <div class="ms"><h5 id="ms5">Jami KPI</h5><div class="v" id="mk" style="color:var(--success)">0</div></div>
             </div>
             <div class="tbl-wrap">
-              <table class="tbl" style="min-width:800px;">
+              <table class="tbl" id="monthly_table" style="min-width:820px;">
                 <thead><tr>
-                  <th>#</th>
-                  <th id="mt1">Ism familiya</th>
-                  <th id="mt2">Ishlagan soat</th>
-                  <th id="mt_afk">AFK vaqti</th>
-                  <th id="mt3">Kechikish</th>
-                  <th id="mt4">Kelmagan</th>
-                  <th id="mt5">Jarima</th>
-                  <th id="mt6">Qo'shimcha</th>
-                  <th id="mt7">KPI ball</th>
-                  <th id="mt8">KPI sum</th>
-                  <th id="mt9">Boshqaruv</th>
+                  <th>#</th><th id="mt1">Ism familiya</th><th id="mt2">Ishlagan soat</th>
+                  <th id="mt_afk">AFK vaqti</th><th id="mt3">Kechikish</th>
+                  <th id="mt4">Kelmagan</th><th id="mt5">Jarima</th>
+                  <th id="mt6">Qo'shimcha</th><th id="mt7">KPI ball</th>
+                  <th id="mt8">KPI sum</th><th id="mt9">Boshqaruv</th>
                 </tr></thead>
                 <tbody id="mbody"></tbody>
               </table>
             </div>
           </div>
         </div>
-        <!-- TAB SETTINGS -->
+
+        <!-- TAB: NOTIFICATIONS (ADMIN) -->
+        <div id="tab_notif" class="hidden">
+          <div class="box">
+            <div class="btitle">🔔 Bildirishnoma yuborish</div>
+            <div class="notif-send-box">
+              <h4 id="ns_title">Hodimga bildirishnoma yuborish</h4>
+              <div class="notif-send-row" style="margin-bottom:8px">
+                <select id="ns_emp" style="max-width:200px;">
+                  <option value="all">Hammaga</option>
+                </select>
+                <input type="text" id="ns_title_inp" placeholder="Sarlavha...">
+              </div>
+              <div class="notif-send-row">
+                <textarea id="ns_body" placeholder="Xabar matni..." style="min-height:70px;"></textarea>
+              </div>
+              <button class="bb" style="margin-top:8px;" onclick="adminSendNotif()">📤 Yuborish</button>
+            </div>
+            <div class="btitle" style="margin-top:16px">📋 Yuborilgan bildirishnomalar</div>
+            <div id="notif_list_admin"></div>
+          </div>
+        </div>
+
+        <!-- TAB: FEEDBACK (ADMIN) -->
+        <div id="tab_feedback" class="hidden">
+          <div class="box">
+            <div class="btitle">💬 Hodimlar fikr va shikoyatlari</div>
+            <div class="frow" style="margin-bottom:12px">
+              <select id="fb_filter" onchange="loadFeedbackAdmin()">
+                <option value="">Barcha</option>
+                <option value="new">Yangi</option>
+                <option value="replied">Javob berilgan</option>
+                <option value="complaint">Shikoyat</option>
+                <option value="suggestion">Taklif</option>
+              </select>
+              <button class="bg2" onclick="loadFeedbackAdmin()">Yangilash</button>
+            </div>
+            <div id="feedback_list_admin">
+              <div class="sk-line skeleton"></div>
+              <div class="sk-line skeleton short"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB: SETTINGS -->
         <div id="tab_settings" class="hidden">
           <div class="box">
-            <div class="btitle" id="set_t">Hodimlar boshqaruvi</div>
+            <div class="btitle">⚙️ <span id="set_t">Hodimlar boshqaruvi</span></div>
             <div class="sf">
               <input type="text" id="ne_n" placeholder="Ism familiya">
               <input type="text" id="ne_l" placeholder="Login">
               <input type="password" id="ne_p" placeholder="Parol">
-              <select id="ne_k"><option value="senior">Eski hodim (560 000 UZS)</option><option value="junior">Yangi hodim (400 000 UZS)</option></select>
+              <select id="ne_k">
+                <option value="senior">Eski hodim (560 000 UZS)</option>
+                <option value="junior">Yangi hodim (400 000 UZS)</option>
+              </select>
               <button class="bb" id="b_addemp" onclick="addEmp()">Qo'shish</button>
             </div>
             <div class="tbl-wrap">
-              <table class="tbl" style="min-width:450px;">
-                <thead><tr><th>#</th><th id="et1">Ism familiya</th><th id="et2">Login</th><th id="et3">Parol</th><th id="et4">KPI summasi</th><th id="et5">O'chirish</th></tr></thead>
+              <table class="tbl" style="min-width:480px;">
+                <thead><tr><th>#</th><th id="et1">Ism familiya</th><th id="et2">Login</th><th id="et3">Parol</th><th>Yuz</th><th id="et4">KPI summasi</th><th id="et5">O'chirish</th></tr></thead>
                 <tbody id="emp_body"></tbody>
               </table>
             </div>
           </div>
           <div class="box">
-            <div class="btitle" id="ip_t">Ruxsat etilgan IP manzillar</div>
+            <div class="btitle">🌐 <span id="ip_t">Ruxsat etilgan IP manzillar</span></div>
             <div class="sf">
               <input type="text" id="ip_inp" placeholder="192.168.1.100" style="flex:1;">
               <button class="bb" id="b_addip" onclick="addAllowedIP()">IP qo'shish</button>
               <button class="bg2" id="b_myip" onclick="addMyIP()">Mening IP</button>
             </div>
-            <p style="font-size:11.5px;color:var(--muted);margin-bottom:7px" id="ip_info">
-              Faqat shu IP lardan hodimlar kira oladi. Admin uchun cheklov yo'q.<br>
-              Joriy IP: <strong id="my_ip_show">aniqlanmoqda...</strong>
-            </p>
-            <div id="ip_list" style="font-size:12px;color:var(--muted)">Hozircha ruxsat etilgan IP yo'q (cheklov yo'q)</div>
+            <p style="font-size:11.5px;color:var(--text2);margin-bottom:8px">Joriy IP: <strong id="my_ip_show" style="font-family:var(--mono)">...</strong></p>
+            <div id="ip_list" style="font-size:12px;color:var(--text2)">Hozircha ruxsat etilgan IP yo'q</div>
           </div>
           <div class="box">
-            <div class="btitle" id="hol_t">Dam olish kunlari</div>
+            <div class="btitle">📅 <span id="hol_t">Dam olish kunlari</span></div>
             <div class="sf">
               <input type="date" id="hol_d">
               <button class="bb" id="b_addh" onclick="addHol()">Qo'shish</button>
             </div>
-            <p style="font-size:11.5px;color:var(--muted);margin-bottom:4px" id="hol_info">Standart: Du–Sha. Yakshanba avtomatik dam olish.</p>
-            <p style="font-size:11.5px;color:var(--muted)" id="hol_list">Qo'shimcha dam olish kuni yo'q</p>
+            <p style="font-size:11.5px;color:var(--text2);margin-bottom:4px" id="hol_info">Standart: Du–Sha. Yakshanba avtomatik dam olish.</p>
+            <p style="font-size:11.5px;color:var(--text2)" id="hol_list">Qo'shimcha dam olish kuni yo'q</p>
           </div>
         </div>
-        <!-- TAB KPI -->
+
+        <!-- TAB: KPI -->
         <div id="tab_kpi" class="hidden">
           <div class="box">
-            <div class="btitle" id="kpi_t">KPI Qoidalari</div>
+            <div class="btitle">🏆 <span id="kpi_t">KPI Qoidalari</span></div>
             <div class="kbox">
-              <div style="margin-bottom:10px"><strong id="k1">Asosiy KPI</strong><br><span id="k2">Davomat bo'yicha KPI 100 ballik sistemada!</span></div>
-              <div style="margin-bottom:10px"><strong id="k3">Jarimalar</strong><br><span id="k4">Kech qolish</span> — 10 ball<br><span id="k5">Kelmaslik</span> — 20 ball<br><span id="k_afk">AFK (1 soatdan ortiq)</span> — 5 ball</div>
+              <div style="margin-bottom:12px"><strong id="k1">Asosiy KPI</strong><br><span id="k2">Davomat bo'yicha KPI 100 ballik sistemada!</span></div>
+              <div style="margin-bottom:12px"><strong id="k3">Jarimalar</strong><br><span id="k4">Kech qolish</span> — 10 ball<br><span id="k5">Kelmaslik</span> — 20 ball<br><span id="k_afk">AFK (30 daqiqadan ortiq, har daqiqa)</span> — kunlik hisobda</div>
               <div>
                 <strong id="k6">KPI to'lovlari</strong><br><strong id="k7">Eski hodimlar</strong><br>
                 <div class="krow"><div class="kcol">90–100 ball</div><div>+560 000 UZS</div></div>
@@ -502,106 +719,159 @@ html,body{font-family:'Segoe UI',Tahoma,sans-serif;background:var(--bg);color:va
 <!-- EMPLOYEE -->
 <div id="employeePage">
   <div class="ehdr">
-    <div style="display:flex;align-items:center;gap:9px">
-      <img src="images/logo2.png" alt="AloqaPro" style="width:28px;height:28px;object-fit:contain;" onerror="this.style.display='none'">
-      <span style="color:#fff;font-size:14px;font-weight:700">Aloqa<span style="color:#b5d5e5">Pro</span></span>
-      <h1 id="ehdr_t" style="margin:0">Hodimlar paneli</h1>
+    <div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap">
+      <img src="images/logo2.png" alt="" style="width:28px;height:28px;object-fit:contain;" onerror="this.style.display='none'">
+      <span style="color:#fff;font-size:14px;font-weight:700">Aloqa<span style="color:#6ab3d8">Pro</span></span>
+      <h1 id="ehdr_t">Hodimlar paneli</h1>
     </div>
-    <div style="display:flex;align-items:center;gap:7px">
-      <span style="color:#fff;font-size:11px" id="empDate"></span>
+    <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap">
+      <span style="color:rgba(255,255,255,.7);font-size:11px;font-family:var(--mono)" id="empDate"></span>
+      <label class="theme-toggle"><input type="checkbox" id="themeToggle3" onchange="toggleTheme()"><span class="theme-slider"></span></label>
       <div class="lsw">
-        <button class="lb active" id="el_uz" onclick="setLang('uz')"><span class="flag"><svg viewBox="0 0 34 22" xmlns="http://www.w3.org/2000/svg"><rect width="34" height="7.33" fill="#1EB3E4"/><rect y="7.33" width="34" height="7.34" fill="#fff"/><rect y="14.67" width="34" height="7.33" fill="#32A84C"/><rect y="6.9" width="34" height=".8" fill="#CE2028"/><rect y="14.3" width="34" height=".8" fill="#CE2028"/><circle cx="9" cy="3.7" r="2.3" fill="#fff"/><circle cx="10.1" cy="3.7" r="2.3" fill="#1EB3E4"/><circle cx="13" cy="1.4" r=".55" fill="#fff"/><circle cx="14.5" cy="2.4" r=".55" fill="#fff"/><circle cx="15.5" cy="3.9" r=".55" fill="#fff"/><circle cx="14.5" cy="5.3" r=".55" fill="#fff"/><circle cx="13" cy="6.3" r=".55" fill="#fff"/></svg></span></button>
+        <button class="lb active" id="el_uz" onclick="setLang('uz')"><span class="flag"><svg viewBox="0 0 34 22"><rect width="34" height="7.33" fill="#1EB3E4"/><rect y="7.33" width="34" height="7.34" fill="#fff"/><rect y="14.67" width="34" height="7.33" fill="#32A84C"/><rect y="6.9" width="34" height=".8" fill="#CE2028"/><rect y="14.3" width="34" height=".8" fill="#CE2028"/><circle cx="9" cy="3.7" r="2.3" fill="#fff"/><circle cx="10.1" cy="3.7" r="2.3" fill="#1EB3E4"/></svg></span></button>
         <span class="lsep"></span>
-        <button class="lb" id="el_ru" onclick="setLang('ru')"><span class="flag"><svg viewBox="0 0 34 22" xmlns="http://www.w3.org/2000/svg"><rect width="34" height="7.33" fill="#fff"/><rect y="7.33" width="34" height="7.34" fill="#1C3F94"/><rect y="14.67" width="34" height="7.33" fill="#CE2028"/></svg></span></button>
+        <button class="lb" id="el_ru" onclick="setLang('ru')"><span class="flag"><svg viewBox="0 0 34 22"><rect width="34" height="7.33" fill="#fff"/><rect y="7.33" width="34" height="7.34" fill="#1C3F94"/><rect y="14.67" width="34" height="7.33" fill="#CE2028"/></svg></span></button>
       </div>
+      <button class="xbtn" onclick="empNavTab('work')">💼</button>
+      <button class="xbtn" onclick="empNavTab('notif')">🔔 <span id="empNotifBadge" class="notif-badge hidden">0</span></button>
+      <button class="xbtn" onclick="empNavTab('feedback')">💬</button>
       <button class="xbtn" id="empExit" onclick="doLogout()">Chiqish</button>
     </div>
   </div>
-  <div class="ebody">
-    <div class="ec">
-      <h2 id="ew_t">Bugungi ish jarayoni</h2>
-      <div class="tags">
-        <span class="tag tb" id="e_mtag">2026-04</span>
-        <span class="tag tg" id="e_stag">Holat: Boshlanmagan</span>
-        <span class="tag to" id="e_ltag">Kechikish: 0 daqiqa</span>
+
+  <!-- Employee sub-tabs -->
+  <div id="emp_tab_work">
+    <div class="ebody">
+      <div class="ec">
+        <h2 id="ew_t">Bugungi ish jarayoni</h2>
+        <div class="tags">
+          <span class="tag tb" id="e_mtag">2026-04</span>
+          <span class="tag tg" id="e_stag">Holat: Boshlanmagan</span>
+          <span class="tag to" id="e_ltag">Kechikish: 0 daqiqa</span>
+        </div>
+        <div class="abtns">
+          <button class="abtn ast" id="bs" onclick="empStart()">Boshlash</button>
+          <button class="abtn alu" id="bl" onclick="empLunch()">Tushlik</button>
+          <button class="abtn aen" id="be" onclick="empEnd()">Yakunlash</button>
+        </div>
+        <button class="aco hidden" id="bc" onclick="empContinue()">Davom ettirish</button>
+        <div class="tgrid">
+          <div class="tb2"><h4 id="ewl">Ish vaqti</h4><div class="tv" id="tw">00:00:00</div></div>
+          <div class="tb2"><h4 id="ell">Tushlik</h4><div class="tv" id="tl">00:00:00</div></div>
+        </div>
+        <!-- Break tracker -->
+        <div class="break-tracker" id="breakTracker">
+          <h4>☕ Tanaffus limiti (kun)</h4>
+          <div class="break-bar-wrap"><div class="break-bar" id="breakBar" style="width:0%"></div></div>
+          <div class="break-info">
+            <span id="breakUsed">0 daq</span>
+            <span id="breakLimit" style="color:var(--warn)">/ 30 daq</span>
+          </div>
+        </div>
+        <!-- AFK BOX -->
+        <div class="afk-box" id="afkBox">
+          <h4 id="afk_lbl">⚠️ Joyida bo'lmagan vaqt</h4>
+          <div class="afk-total" id="afk_display">00:00:00</div>
+          <div class="afk-count" id="afk_cnt_lbl">0 marta AFK</div>
+          <div class="afk-break-ok hidden" id="afk_break_ok">✅ Tanaffus limiti ichida</div>
+        </div>
       </div>
-      <div class="abtns">
-        <button class="abtn ast" id="bs" onclick="empStart()">Boshlash</button>
-        <button class="abtn alu" id="bl" onclick="empLunch()">Tushlik</button>
-        <button class="abtn aen" id="be" onclick="empEnd()">Yakunlash</button>
+
+      <div class="ec">
+        <h2 id="et_t">Bugungi ma'lumot</h2>
+        <div class="igrid">
+          <div class="ii"><h4 id="ei1">Ish boshlagan</h4><p id="i_s">-</p></div>
+          <div class="ii"><h4 id="ei2">Ish tugagan</h4><p id="i_e">-</p></div>
+          <div class="ii"><h4 id="ei3">Tushlik boshlangan</h4><p id="i_ls">-</p></div>
+          <div class="ii"><h4 id="ei4">Tushlik tugagan</h4><p id="i_le">-</p></div>
+        </div>
+        <!-- Face status -->
+        <div style="margin-top:10px;padding:12px;background:var(--bg3);border-radius:var(--radius-sm);border:1px solid var(--border)">
+          <div style="font-size:11px;color:var(--text2);margin-bottom:5px;font-weight:600" id="face_info_lbl">📷 Yuz nazorati</div>
+          <div id="face_status_inline" style="font-size:12.5px;font-weight:700;">⏳ Yuklanmoqda...</div>
+          <!-- Face registration box -->
+          <div class="face-reg-box" id="faceRegBox" style="margin-top:8px;">
+            <h4 id="face_reg_title">🎯 Yuzni ro'yxatdan o'tkazish</h4>
+            <div class="face-samples" id="faceSamples"></div>
+            <div class="face-quality" id="faceQuality">0/5 namuna olindi</div>
+            <div class="liveness-indicator">
+              <div class="liveness-dot" id="livenessDot"></div>
+              <span id="livenessText">Liveness tekshirilmoqda...</span>
+            </div>
+            <button class="fw-reg-btn" id="faceRegBtn" onclick="startFaceRegistration()" style="font-size:12px;padding:8px;">📸 Ro'yxatdan o'tish</button>
+          </div>
+        </div>
+        <p class="note" style="margin-top:8px" id="e_note">Yangi kun boshlanganida vaqtlar 0 ga tushadi.</p>
       </div>
-      <button class="aco hidden" id="bc" onclick="empContinue()">Davom ettirish</button>
-      <div class="tgrid">
-        <div class="tb2"><h4 id="ewl">Ish vaqti</h4><div class="tv" id="tw">00:00:00</div><div class="td" id="ewd">Ish vaqti</div></div>
-        <div class="tb2"><h4 id="ell">Tushlik</h4><div class="tv" id="tl">00:00:00</div><div class="td" id="eld">Tushlik vaqti</div></div>
+
+      <!-- History -->
+      <div class="ec efw">
+        <div class="mhdr">
+          <h2 id="eh_t">Oy bo'yicha tarix</h2>
+          <div class="mflt">
+            <input type="month" id="e_month" onchange="loadHist()">
+            <button class="bg2" id="e_cm" onclick="setEmpMonth()">Joriy oy</button>
+          </div>
+        </div>
+        <div class="tbl-wrap">
+          <table class="tbl" style="min-width:660px;">
+            <thead><tr>
+              <th>#</th><th id="ht1">Sana</th><th id="ht2">Boshlagan</th>
+              <th id="ht3">Tushlik bosh.</th><th id="ht4">Tushlik tug.</th>
+              <th id="ht5">Tugagan</th><th id="ht6">Kechikish</th>
+              <th id="ht7">Ish vaqti</th><th id="ht8">Tushlik</th>
+              <th id="ht_afk">AFK</th><th id="ht9">Status</th>
+            </tr></thead>
+            <tbody id="hbody"></tbody>
+          </table>
+        </div>
+        <div style="margin-top:12px;display:flex;gap:16px;flex-wrap:wrap;">
+          <div><div style="font-size:11px;color:var(--text2)" id="el_lbl">Kechikishlar (oy):</div><div style="font-size:20px;font-weight:800;margin-top:4px;font-family:var(--mono)" id="e_lc">0</div></div>
+          <div><div style="font-size:11px;color:var(--text2)" id="afk_month_lbl">AFK (oy jami):</div><div style="font-size:20px;font-weight:800;margin-top:4px;color:var(--danger);font-family:var(--mono)" id="e_afk_total">0 daqiqa</div></div>
+        </div>
       </div>
-      <!-- AFK BOX -->
-      <div class="afk-box" id="afkBox">
-        <h4 id="afk_lbl">⚠️ Joyida bo'lmagan vaqt</h4>
-        <div class="afk-total" id="afk_display">00:00:00</div>
-        <div class="afk-count" id="afk_cnt_lbl">0 marta AFK</div>
-      </div>
-      <p class="note" id="e_note" style="margin-top:8px">Yangi kun boshlanganida vaqtlar 0 ga tushadi.</p>
     </div>
-    <div class="ec">
-      <h2 id="et_t">Bugungi ma'lumot</h2>
-      <div class="igrid">
-        <div class="ii"><h4 id="ei1">Ish boshlagan</h4><p id="i_s">-</p></div>
-        <div class="ii"><h4 id="ei2">Ish tugagan</h4><p id="i_e">-</p></div>
-        <div class="ii"><h4 id="ei3">Tushlik boshlangan</h4><p id="i_ls">-</p></div>
-        <div class="ii"><h4 id="ei4">Tushlik tugagan</h4><p id="i_le">-</p></div>
-      </div>
-      <!-- Face widget inline info -->
-      <div style="margin-top:10px;padding:10px;background:#f4f6f9;border-radius:8px;">
-        <div style="font-size:11px;color:var(--muted);margin-bottom:4px;" id="face_info_lbl">Yuz nazorati</div>
-        <div id="face_status_inline" style="font-size:12px;font-weight:700;color:#27ae60;">Yuklanmoqda...</div>
-      </div>
+  </div>
+
+  <!-- Employee notifications tab -->
+  <div id="emp_tab_notif" class="hidden" style="padding:16px">
+    <div class="box">
+      <div class="btitle">🔔 Bildirishnomalar</div>
+      <button class="push-notif-btn" id="enablePushBtn" onclick="requestPushPermission()">🔔 Push bildirishnomalarni yoqish</button>
+      <div id="notif_list_emp"></div>
     </div>
-    <div class="ec efw">
-      <div class="mhdr">
-        <h2 id="eh_t">Oy bo'yicha tarix</h2>
-        <div class="mflt">
-          <input type="month" id="e_month" onchange="loadHist()">
-          <button class="bg2" id="e_cm" onclick="setEmpMonth()">Joriy oy</button>
-        </div>
+  </div>
+
+  <!-- Employee feedback tab -->
+  <div id="emp_tab_feedback" class="hidden" style="padding:16px">
+    <div class="box">
+      <div class="btitle">💬 Fikr/Shikoyat yuborish</div>
+      <div class="sf" style="flex-direction:column;align-items:stretch">
+        <select id="fb_type" style="padding:9px;border:1.5px solid var(--border2);border-radius:var(--radius-sm);background:var(--input-bg);color:var(--text);font-family:var(--font);">
+          <option value="suggestion">💡 Taklif</option>
+          <option value="complaint">⚠️ Shikoyat</option>
+          <option value="other">📝 Boshqa</option>
+        </select>
+        <textarea id="fb_msg" placeholder="Xabaringizni yozing..." style="padding:10px;background:var(--input-bg);border:1.5px solid var(--border2);border-radius:var(--radius-sm);color:var(--text);font-family:var(--font);font-size:13px;resize:vertical;min-height:100px;outline:none;margin-top:8px;"></textarea>
+        <button class="bb" style="margin-top:8px;width:fit-content" onclick="sendFeedback()">📤 Yuborish</button>
       </div>
-      <div class="tbl-wrap">
-        <table class="tbl" style="min-width:640px;">
-          <thead><tr>
-            <th>#</th><th id="ht1">Sana</th><th id="ht2">Boshlagan</th>
-            <th id="ht3">Tushlik bosh.</th><th id="ht4">Tushlik tug.</th>
-            <th id="ht5">Tugagan</th><th id="ht6">Kechikish</th>
-            <th id="ht7">Ish vaqti</th><th id="ht8">Tushlik</th>
-            <th id="ht_afk">AFK</th>
-            <th id="ht9">Status</th>
-          </tr></thead>
-          <tbody id="hbody"></tbody>
-        </table>
-      </div>
-      <p class="note" id="eh_note">Faqat tanlangan oy ma'lumotlari.</p>
-      <div style="margin-top:10px;display:flex;gap:14px;flex-wrap:wrap;">
-        <div>
-          <div style="font-size:11.5px;color:var(--muted)" id="el_lbl">Kechikishlar (oy):</div>
-          <div style="font-size:19px;font-weight:800;margin-top:4px" id="e_lc">0</div>
-        </div>
-        <div>
-          <div style="font-size:11.5px;color:var(--muted)" id="afk_month_lbl">AFK (oy jami):</div>
-          <div style="font-size:19px;font-weight:800;margin-top:4px;color:var(--red)" id="e_afk_total">0 daqiqa</div>
-        </div>
+      <div style="margin-top:16px">
+        <div class="btitle">📋 Mening fikrlarim</div>
+        <div id="my_feedback_list"></div>
       </div>
     </div>
   </div>
 </div>
 
-<!-- Face Detection Widget -->
+<!-- FACE WIDGET -->
 <div id="faceWidget" class="hidden">
   <div class="fw-title">
     <span>📷 Yuz nazorati</span>
-    <button class="fw-minimize" onclick="toggleFaceWidget()" title="Yashirish">—</button>
+    <button class="fw-minimize" onclick="toggleFaceWidget()">—</button>
   </div>
   <div class="fw-video-wrap">
-    <video id="faceVideo" autoplay muted playsinline style="width:100%;border-radius:8px;"></video>
-    <canvas id="faceCanvas" style="position:absolute;top:0;left:0;"></canvas>
+    <video id="faceVideo" autoplay muted playsinline></video>
+    <canvas id="faceCanvas" style="position:absolute;top:0;left:0;pointer-events:none;"></canvas>
   </div>
   <div class="fw-status">
     <div class="fw-dot gray" id="faceDot"></div>
@@ -609,6 +879,10 @@ html,body{font-family:'Segoe UI',Tahoma,sans-serif;background:var(--bg);color:va
   </div>
   <div class="fw-timer hidden" id="afkTimer">⏱ AFK: <span id="afkTimerVal">00:00</span></div>
   <div class="fw-afk" id="afkTotalWidget">Jami AFK: 0 daq</div>
+  <div class="liveness-indicator" id="livenessWidget" style="margin-top:4px">
+    <div class="liveness-dot" id="livenessWidgetDot"></div>
+    <span id="livenessWidgetTxt" style="font-size:10px;color:var(--text3)">Liveness...</span>
+  </div>
 </div>
 
 <!-- MODALS -->
@@ -620,10 +894,10 @@ html,body{font-family:'Segoe UI',Tahoma,sans-serif;background:var(--bg);color:va
 </div>
 <div class="ov hidden" id="m_ep">
   <div class="modal">
-    <h3 id="mep_t" style="color:var(--blue)">Parolni o'zgartirish</h3>
+    <h3 id="mep_t" style="color:var(--accent)">Parolni o'zgartirish</h3>
     <input type="hidden" id="ep_id">
     <div class="iw" style="margin:14px 0">
-      <input type="password" id="ep_np" placeholder="Yangi parol" style="background:#f0f2f5;color:#333">
+      <input type="password" id="ep_np" placeholder="Yangi parol" style="background:var(--input-bg);color:var(--text)">
     </div>
     <div class="mbtns">
       <button class="mok" id="mep_s" onclick="savePass()">Saqlash</button>
@@ -631,68 +905,132 @@ html,body{font-family:'Segoe UI',Tahoma,sans-serif;background:var(--bg);color:va
     </div>
   </div>
 </div>
-
-<!-- AFK Warning Modal -->
-<div class="ov hidden" id="m_afk_warn">
-  <div class="modal" style="border:3px solid #e74c3c;">
-    <h3 style="color:#e74c3c;font-size:17px;" id="afk_warn_title">⚠️ Yuzingiz aniqlanmadi!</h3>
-    <p id="afk_warn_txt" style="color:#555;font-weight:500;">Kamera oldida o'tiring. AFK vaqt hisoblanmoqda.</p>
-    <div class="countdown" id="afk_countdown" style="font-size:28px;font-weight:900;color:#e74c3c;margin:8px 0;">10:00</div>
-    <p style="font-size:11px;color:#aaa;font-weight:400;" id="afk_warn_sub">10 daqiqa ichida yuz aniqlanmasa, ish joyida bo'lmagan deb belgilanadi</p>
-    <div class="mbtns">
-      <button class="mok" onclick="dismissAfkWarn()" id="afk_im_here">Men shu yerdaman ✋</button>
-    </div>
+<div class="ov hidden afk-modal-border" id="m_afk_warn">
+  <div class="modal">
+    <h3 style="color:var(--danger)" id="afk_warn_title">⚠️ Yuzingiz aniqlanmadi!</h3>
+    <p id="afk_warn_txt" style="color:var(--text2);font-weight:500;">Kamera oldida o'tiring.</p>
+    <div class="countdown" id="afk_countdown">05:00</div>
+    <p style="font-size:11px;color:var(--text3)" id="afk_warn_sub">5 daqiqa ichida yuz aniqlanmasa, AFK hisoblanadi</p>
+    <button class="mok" onclick="dismissAfkWarn()" id="afk_im_here">Men shu yerdaman ✋</button>
   </div>
 </div>
-
-<!-- Auto End Modal -->
 <div class="ov hidden" id="m_auto_end">
   <div class="modal">
-    <h3 style="color:var(--green)">✅ Ish yakunlandi</h3>
-    <p id="auto_end_txt" style="color:#555;font-weight:500;">Soat 18:15 bo'ldi. Tizim tomonidan ish yakunlandi.</p>
+    <h3 style="color:var(--success)">✅ Ish yakunlandi</h3>
+    <p id="auto_end_txt" style="color:var(--text2)">Soat 18:15 bo'ldi. Tizim tomonidan ish yakunlandi.</p>
     <button class="msingle" onclick="document.getElementById('m_auto_end').classList.add('hidden')">OK</button>
   </div>
 </div>
 
 <script>
-// ==================== CONFIG ====================
-const SUPABASE_URL = 'https://auzafnpqavjifgcxdjha.supabase.co';
+// ============================================================
+//  CONFIG
+// ============================================================
+const SUPABASE_URL  = 'https://auzafnpqavjifgcxdjha.supabase.co';
 const SUPABASE_ANON = 'sb_publishable_42Jv6FiVUPVKItb73z0gkQ_1YyJYIDE';
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
 
-// Face-api models CDN path
-const FACE_API_MODELS = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/';
-// AFK threshold: 10 minutes (600 seconds)
-const AFK_THRESHOLD_SEC = 600;
-// Face detection interval: 3 seconds
-const FACE_CHECK_INTERVAL = 3000;
-// Auto end time: 18:15 Toshkent
-const AUTO_END_HOUR = 18;
-const AUTO_END_MIN = 15;
+const FACE_MODELS_URL    = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/';
+const FACE_CHECK_INTERVAL = 1000;       // 1 second
+const AFK_GRACE_SEC       = 300;        // 5 min grace before AFK warning
+const BREAK_LIMIT_SEC     = 1800;       // 30 min daily break allowance
+const AUTO_END_HOUR       = 18;
+const AUTO_END_MIN        = 15;
 
-// ==================== SIDEBAR ====================
+// ============================================================
+//  THEME
+// ============================================================
+let currentTheme = localStorage.getItem('aloqa_theme') || 'dark';
+function applyTheme(th) {
+  document.documentElement.setAttribute('data-theme', th);
+  ['themeToggle','themeToggle2','themeToggle3'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.checked = th === 'light';
+  });
+  localStorage.setItem('aloqa_theme', th);
+  currentTheme = th;
+}
+function toggleTheme() {
+  applyTheme(currentTheme === 'dark' ? 'light' : 'dark');
+  ['themeToggle','themeToggle2','themeToggle3'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.checked = currentTheme === 'light';
+  });
+}
+applyTheme(currentTheme);
+
+// ============================================================
+//  TOAST
+// ============================================================
+function toast(type, title, msg, duration = 3500) {
+  const icons = { success:'✅', error:'❌', warn:'⚠️', info:'ℹ️' };
+  const c = document.getElementById('toast-container');
+  const d = document.createElement('div');
+  d.className = `toast ${type}`;
+  d.innerHTML = `<span class="toast-icon">${icons[type]||'ℹ️'}</span><div class="toast-body"><div class="toast-title">${title}</div><div class="toast-msg">${msg||''}</div></div>`;
+  c.appendChild(d);
+  setTimeout(() => {
+    d.classList.add('removing');
+    setTimeout(() => d.remove(), 320);
+  }, duration);
+}
+
+// ============================================================
+//  PWA
+// ============================================================
+let deferredPrompt = null;
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault(); deferredPrompt = e;
+  const b = document.getElementById('installBanner');
+  if (b && !localStorage.getItem('pwa_dismissed')) b.style.display = 'block';
+});
+function installPWA() {
+  if (!deferredPrompt) return;
+  deferredPrompt.prompt();
+  deferredPrompt.userChoice.then(() => { deferredPrompt = null; dismissInstall(); });
+}
+function dismissInstall() {
+  localStorage.setItem('pwa_dismissed','1');
+  const b = document.getElementById('installBanner');
+  if (b) b.style.display = 'none';
+}
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js').catch(() => {});
+}
+
+// ============================================================
+//  SIDEBAR
+// ============================================================
 function toggleSidebar(){document.getElementById('sidebar').classList.toggle('open');document.getElementById('sb_overlay').classList.toggle('open');}
 function closeSidebar(){document.getElementById('sidebar').classList.remove('open');document.getElementById('sb_overlay').classList.remove('open');}
 
-// ==================== IP ====================
+// ============================================================
+//  IP CHECK
+// ============================================================
 let userPublicIP = '';
 async function getUserIP(){try{const r=await fetch('https://api.ipify.org?format=json');const d=await r.json();return d.ip||'';}catch(e){return '';}}
-async function getAllowedIPs(){const{data,error}=await sb.rpc('get_allowed_ips');if(error){console.error(error);return [];}return data.map(i=>i.ip);}
-async function saveAllowedIPs(arr){const{data:old}=await sb.rpc('get_allowed_ips');if(old){for(const item of old)await sb.rpc('delete_allowed_ip',{p_ip:item.ip});}for(const ip of arr)await sb.rpc('add_allowed_ip',{p_ip:ip});}
+async function getAllowedIPs(){const{data}=await sb.rpc('get_allowed_ips').catch(()=>({data:[]}));return (data||[]).map(i=>i.ip);}
+async function saveAllowedIPs(arr){const{data:old}=await sb.rpc('get_allowed_ips').catch(()=>({data:[]}));if(old){for(const item of old)await sb.rpc('delete_allowed_ip',{p_ip:item.ip}).catch(()=>{});}for(const ip of arr)await sb.rpc('add_allowed_ip',{p_ip:ip}).catch(()=>{});}
 async function checkIPAccess(role){if(role==='admin')return true;const allowed=await getAllowedIPs();if(allowed.length===0)return true;if(!userPublicIP)userPublicIP=await getUserIP();return allowed.includes(userPublicIP);}
-async function addAllowedIP(){const val=document.getElementById('ip_inp').value.trim();if(!val){alert('IP kiriting!');return;}const arr=await getAllowedIPs();if(!arr.includes(val))arr.push(val);await saveAllowedIPs(arr);document.getElementById('ip_inp').value='';updateIPList();}
-async function addMyIP(){if(!userPublicIP)userPublicIP=await getUserIP();if(!userPublicIP){alert('IP aniqlanmadi!');return;}const arr=await getAllowedIPs();if(!arr.includes(userPublicIP))arr.push(userPublicIP);await saveAllowedIPs(arr);updateIPList();}
+async function addAllowedIP(){const val=document.getElementById('ip_inp').value.trim();if(!val){toast('warn','IP','IP kiriting!');return;}const arr=await getAllowedIPs();if(!arr.includes(val))arr.push(val);await saveAllowedIPs(arr);document.getElementById('ip_inp').value='';updateIPList();toast('success','IP','Qo\'shildi');}
+async function addMyIP(){if(!userPublicIP)userPublicIP=await getUserIP();if(!userPublicIP){toast('error','Xato','IP aniqlanmadi');return;}const arr=await getAllowedIPs();if(!arr.includes(userPublicIP))arr.push(userPublicIP);await saveAllowedIPs(arr);updateIPList();toast('success','IP','Mening IP qo\'shildi');}
 async function removeIP(ip){const arr=await getAllowedIPs();await saveAllowedIPs(arr.filter(x=>x!==ip));updateIPList();}
-async function updateIPList(){const arr=await getAllowedIPs();const el=document.getElementById('ip_list');if(!el)return;if(arr.length===0){el.innerHTML='Hozircha ruxsat etilgan IP yo\'q (cheklov yo\'q)';return;}el.innerHTML=arr.map(ip=>`<span style="display:inline-flex;align-items:center;gap:4px;background:#eef0f3;border-radius:6px;padding:3px 9px;font-size:12px;margin:2px"><strong>${ip}</strong><button onclick="removeIP('${ip}')" style="background:none;border:none;color:#e74c3c;cursor:pointer;font-size:14px;line-height:1">×</button></span>`).join(' ');}
+async function updateIPList(){
+  const arr=await getAllowedIPs();const el=document.getElementById('ip_list');if(!el)return;
+  if(arr.length===0){el.innerHTML='Hozircha ruxsat etilgan IP yo\'q (cheklov yo\'q)';return;}
+  el.innerHTML=arr.map(ip=>`<span style="display:inline-flex;align-items:center;gap:4px;background:var(--bg3);border-radius:6px;padding:3px 9px;font-size:12px;margin:2px;font-family:var(--mono)"><strong>${ip}</strong><button onclick="removeIP('${ip}')" style="background:none;border:none;color:var(--danger);cursor:pointer;font-size:14px;line-height:1">×</button></span>`).join(' ');
+}
 function showIPBlock(ip){['loginPage','adminPage','employeePage'].forEach(id=>{const e=document.getElementById(id);if(e)e.style.display='none';});document.getElementById('ipBlockPage').style.display='flex';st('ipb_val',ip||'—');}
 
-// ==================== TRANSLATIONS ====================
-const TR={
-uz:{loginTitle:'Nazorat tizimiga xush kelibsiz!',loginSub:'Login va parolni kiriting!',loginBtn:'Kirish',loginPH:'Login',passPH:'Parol',loginErr:'Login yoki parol noto\'g\'ri!',loginFill:'Login va parolni kiriting!',exit:'Chiqish',today:'Bugun',nav_m:'Asosiy',nav_s:'Sozlamalar',nav_k:'KPI Qoidalar',adm_m:'Boshqaruv | Asosiy',adm_s:'Boshqaruv | Sozlamalar',adm_k:'Boshqaruv | KPI',sc1:'Bugun ishda',sc2:'Kechikkan',sc3:'Kelmagan',sc4:'Sana',att_t:'Hodimlar nazorati',from_l:'Dan:',to_l:'Gacha:',b_today:'Bugun',b_monthly:'Oylik',b_cm:'Joriy oy',b_ref:'Yangilash',fsearch:'Qidirish...',o_all:'Barcha',o_came:'Keldi',o_late:'Kechikkan',o_abs:'Kelmadi',th1:'Ism familiya',th2:'Login',th4:'O\'zgartirish',th5:'Kelgan vaqti',th6:'Kechikish',th7:'Ishlagan soat',th_afk:'AFK vaqti',th8:'Status',mth_t:'Oylik hisobot',ms1:'Hodimlar',ms2:'Kechikishlar',ms3:'Kelmagan',ms4:'Ish soati',ms5:'Jami KPI',mt1:'Ism familiya',mt2:'Ishlagan soat',mt_afk:'AFK vaqti',mt3:'Kechikish',mt4:'Kelmagan',mt5:'Jarima',mt6:'Qo\'shimcha',mt7:'KPI ball',mt8:'KPI sum',mt9:'Boshqaruv',set_t:'Hodimlar boshqaruvi',b_addemp:'Qo\'shish',et1:'Ism familiya',et2:'Login',et3:'Parol',et4:'KPI summasi',et5:'O\'chirish',hol_t:'Dam olish kunlari',b_addh:'Qo\'shish',hol_info:'Standart: Du–Sha. Yakshanba avtomatik dam olish.',hol_none:'Qo\'shimcha dam olish kuni yo\'q',hol_pre:'Dam olish: ',kpi_t:'KPI Qoidalari',k1:'Asosiy KPI',k2:'Davomat bo\'yicha KPI 100 ballik sistemada!',k3:'Jarimalar',k4:'Kech qolish',k5:'Kelmaslik',k_afk:'AFK (1 soatdan ortiq)',k6:'KPI to\'lovlari',k7:'Eski hodimlar',k8:'Yangi hodimlar',ehdr:'Hodimlar paneli',ew_t:'Bugungi ish jarayoni',et_t:'Bugungi ma\'lumot',eh_t:'Oy bo\'yicha tarix',st_pre:'Holat:',lt_pre:'Kechikish:',lt_u:'daqiqa',st0:'Boshlanmagan',st1:'Ishda',st2:'Tushlikda',st4:'Yakunlandi',bs:'Boshlash',bl:'Tushlik',be:'Yakunlash',bc:'Davom ettirish',bb:'Qaytish',ewl:'Ish vaqti',ell:'Tushlik',ewd:'Ish vaqti',eld:'Tushlik vaqti',e_note:'Yangi kun boshlanganida vaqtlar 0 ga tushadi.',ei1:'Ish boshlagan',ei2:'Ish tugagan',ei3:'Tushlik boshlangan',ei4:'Tushlik tugagan',ht1:'Sana',ht2:'Boshlagan',ht3:'Tushlik bosh.',ht4:'Tushlik tug.',ht5:'Tugagan',ht6:'Kechikish',ht7:'Ish vaqti',ht8:'Tushlik',ht_afk:'AFK',ht9:'Status',eh_note:'Faqat tanlangan oy ma\'lumotlari.',el_lbl:'Kechikishlar (oy):',afk_month_lbl:'AFK (oy jami):',e_cm:'Joriy oy',mw_txt:'Eslatma: "Yakunlash" tugmasini faqat ish kuni to\'liq tugagandan keyin bosing!',mw_ok:'OK',mep_t:'Parolni o\'zgartirish',mep_s:'Saqlash',mep_c:'Bekor qilish',ep_ph:'Yangi parol',b_came:'Keldi',b_late:'Kechikkan',b_abs:'Kelmadi',b_off:'Dam olish',del_c:'Hodimni o\'chirishni tasdiqlaysizmi?',no_data:'Ma\'lumot yo\'q',daq:'daq',marta:'marta',kun:'kun',soat:'soat',daqiqa:'daqiqa',ball:'ball',hisobot:'hisobot',change:'O\'zgartirish',delete:'O\'chirish',reset:'Reset',fill_all:'Barcha maydonlarni to\'ldiring!',ip_block_t:'Kirish taqiqlandi',ip_block_p:'Faqat ishxona tarmog\'i orqali kirishingiz mumkin.',ip_block_p2:'Sizning IP:',face_info_lbl:'Yuz nazorati',face_detected:'✅ Yuz aniqlandi',face_not_detected:'❌ Yuz aniqlanmadi',face_loading:'⏳ Yuklanmoqda...',afk_lbl:'⚠️ Joyida bo\'lmagan vaqt',afk_cnt_lbl:'marta AFK',afk_warn_title:'⚠️ Yuzingiz aniqlanmadi!',afk_warn_txt:'Kamera oldida o\'tiring. AFK vaqt hisoblanmoqda.',afk_warn_sub:'10 daqiqa ichida yuz aniqlanmasa, ish joyida bo\'lmagan deb belgilanadi',afk_im_here:'Men shu yerdaman ✋',auto_end_txt:'Soat 18:15 bo\'ldi. Tizim tomonidan ish yakunlandi.',auto_ended:'Tizim yakunladi',afk_banner:'Yuz aniqlanmadi! AFK vaqt hisoblanmoqda...',kpi_sr:'Eski hodim (560K)',kpi_jr:'Yangi hodim (400K)'},
-ru:{loginTitle:'Добро пожаловать!',loginSub:'Введите логин и пароль!',loginBtn:'Войти',loginPH:'Логин',passPH:'Пароль',loginErr:'Неверный логин или пароль!',loginFill:'Введите логин и пароль!',exit:'Выйти',today:'Сегодня',nav_m:'Главная',nav_s:'Настройки',nav_k:'Правила KPI',adm_m:'Управление | Главная',adm_s:'Управление | Настройки',adm_k:'Управление | KPI',sc1:'На работе',sc2:'Опоздали',sc3:'Не пришли',sc4:'Дата',att_t:'Контроль сотрудников',from_l:'От:',to_l:'До:',b_today:'Сегодня',b_monthly:'Месяц',b_cm:'Тек. месяц',b_ref:'Обновить',fsearch:'Поиск...',o_all:'Все',o_came:'Пришёл',o_late:'Опоздал',o_abs:'Не пришёл',th1:'ФИО',th2:'Логин',th4:'Изменить',th5:'Приход',th6:'Опоздание',th7:'Отработано',th_afk:'AFK время',th8:'Статус',mth_t:'Месячный отчёт',ms1:'Сотрудников',ms2:'Опозданий',ms3:'Пропусков',ms4:'Раб.часов',ms5:'Итого KPI',mt1:'ФИО',mt2:'Отработано',mt_afk:'AFK время',mt3:'Опоздания',mt4:'Пропуски',mt5:'Штраф',mt6:'Доп.баллы',mt7:'KPI балл',mt8:'KPI сумма',mt9:'Управление',set_t:'Управление сотрудниками',b_addemp:'Добавить',et1:'ФИО',et2:'Логин',et3:'Пароль',et4:'Сумма KPI',et5:'Удалить',hol_t:'Выходные дни',b_addh:'Добавить',hol_info:'Стандарт: Пн–Сб. Воскресенье — выходной.',hol_none:'Доп. выходных нет',hol_pre:'Выходные: ',kpi_t:'Правила KPI',k1:'Основной KPI',k2:'KPI в 100-балльной системе!',k3:'Штрафы',k4:'Опоздание',k5:'Прогул',k_afk:'AFK (более 1 часа)',k6:'Выплаты KPI',k7:'Старые сотрудники',k8:'Новые сотрудники',ehdr:'Панель сотрудника',ew_t:'Рабочий процесс',et_t:'Сегодня',eh_t:'История за месяц',st_pre:'Статус:',lt_pre:'Опоздание:',lt_u:'мин',st0:'Не начат',st1:'На работе',st2:'В обеде',st4:'Завершён',bs:'Начать',bl:'Обед',be:'Завершить',bc:'Продолжить',bb:'Вернуться',ewl:'Рабочее время',ell:'Время обеда',ewd:'Рабочее время',eld:'Время обеда',e_note:'При новом дне таймеры сбрасываются.',ei1:'Начало',ei2:'Конец',ei3:'Обед нач.',ei4:'Обед кон.',ht1:'Дата',ht2:'Начало',ht3:'Обед нач.',ht4:'Обед кон.',ht5:'Конец',ht6:'Опоздание',ht7:'Раб.время',ht8:'Обед',ht_afk:'AFK',ht9:'Статус',eh_note:'Данные выбранного месяца.',el_lbl:'Опозданий (месяц):',afk_month_lbl:'AFK (итого за месяц):',e_cm:'Тек. месяц',mw_txt:'Нажимайте "Завершить" только после полного окончания рабочего дня!',mw_ok:'ОК',mep_t:'Изменить пароль',mep_s:'Сохранить',mep_c:'Отмена',ep_ph:'Новый пароль',b_came:'Пришёл',b_late:'Опоздал',b_abs:'Не пришёл',b_off:'Выходной',del_c:'Удалить сотрудника?',no_data:'Нет данных',daq:'мин',marta:'раз',kun:'дн.',soat:'ч',daqiqa:'мин',ball:'балл',hisobot:'отчёт',change:'Изменить',delete:'Удалить',reset:'Сброс',fill_all:'Заполните все поля!',ip_block_t:'Доступ запрещён',ip_block_p:'Войти можно только через корпоративную сеть.',ip_block_p2:'Ваш IP:',face_info_lbl:'Контроль лица',face_detected:'✅ Лицо обнаружено',face_not_detected:'❌ Лицо не обнаружено',face_loading:'⏳ Загрузка...',afk_lbl:'⚠️ Отсутствие на рабочем месте',afk_cnt_lbl:'раз AFK',afk_warn_title:'⚠️ Лицо не распознано!',afk_warn_txt:'Сядьте перед камерой. Идёт подсчёт AFK времени.',afk_warn_sub:'Если лицо не будет обнаружено в течение 10 минут — будет засчитано отсутствие',afk_im_here:'Я здесь ✋',auto_end_txt:'Сейчас 18:15. Рабочий день завершён системой.',auto_ended:'Завершено системой',afk_banner:'Лицо не обнаружено! Идёт подсчёт AFK...',kpi_sr:'Старый сотр. (560K)',kpi_jr:'Новый сотр. (400K)'}
+// ============================================================
+//  TRANSLATIONS
+// ============================================================
+const TR = {
+uz:{loginTitle:'Nazorat tizimiga xush kelibsiz!',loginSub:'Login va parolni kiriting!',loginBtn:'Kirish',loginPH:'Login',passPH:'Parol',loginErr:'Login yoki parol noto\'g\'ri!',loginFill:'Login va parolni kiriting!',exit:'Chiqish',today:'Bugun',nav_m:'Asosiy',nav_s:'Sozlamalar',nav_k:'KPI Qoidalar',adm_m:'Boshqaruv | Asosiy',adm_s:'Boshqaruv | Sozlamalar',adm_k:'Boshqaruv | KPI',sc1:'Bugun ishda',sc2:'Kechikkan',sc3:'Kelmagan',sc4:'Sana',att_t:'Hodimlar nazorati',from_l:'Dan:',to_l:'Gacha:',b_today:'Bugun',b_monthly:'Oylik',b_cm:'Joriy oy',b_ref:'Yangilash',fsearch:'Qidirish...',o_all:'Barcha',o_came:'Keldi',o_late:'Kechikkan',o_abs:'Kelmadi',th1:'Ism familiya',th2:'Login',th4:'O\'zgartirish',th5:'Kelgan vaqti',th6:'Kechikish',th7:'Ishlagan soat',th_afk:'AFK vaqti',th8:'Status',mth_t:'Oylik hisobot',ms1:'Hodimlar',ms2:'Kechikishlar',ms3:'Kelmagan',ms4:'Ish soati',ms5:'Jami KPI',mt1:'Ism familiya',mt2:'Ishlagan soat',mt_afk:'AFK vaqti',mt3:'Kechikish',mt4:'Kelmagan',mt5:'Jarima',mt6:'Qo\'shimcha',mt7:'KPI ball',mt8:'KPI sum',mt9:'Boshqaruv',set_t:'Hodimlar boshqaruvi',b_addemp:'Qo\'shish',et1:'Ism familiya',et2:'Login',et3:'Parol',et4:'KPI summasi',et5:'O\'chirish',hol_t:'Dam olish kunlari',b_addh:'Qo\'shish',hol_info:'Standart: Du–Sha. Yakshanba avtomatik dam olish.',hol_none:'Qo\'shimcha dam olish kuni yo\'q',kpi_t:'KPI Qoidalari',k1:'Asosiy KPI',k2:'Davomat bo\'yicha KPI 100 ballik sistemada!',k3:'Jarimalar',k4:'Kech qolish',k5:'Kelmaslik',k_afk:'AFK (30 daqiqadan ortiq)',k6:'KPI to\'lovlari',k7:'Eski hodimlar',k8:'Yangi hodimlar',ehdr:'Hodimlar paneli',ew_t:'Bugungi ish jarayoni',et_t:'Bugungi ma\'lumot',eh_t:'Oy bo\'yicha tarix',st_pre:'Holat:',lt_pre:'Kechikish:',lt_u:'daqiqa',st0:'Boshlanmagan',st1:'Ishda',st2:'Tushlikda',st4:'Yakunlandi',bs:'Boshlash',bl:'Tushlik',be:'Yakunlash',bc:'Davom ettirish',bb:'Qaytish',ewl:'Ish vaqti',ell:'Tushlik',ewd:'Ish vaqti',eld:'Tushlik vaqti',e_note:'Yangi kun boshlanganida vaqtlar 0 ga tushadi.',ei1:'Ish boshlagan',ei2:'Ish tugagan',ei3:'Tushlik boshlangan',ei4:'Tushlik tugagan',ht1:'Sana',ht2:'Boshlagan',ht3:'Tushlik bosh.',ht4:'Tushlik tug.',ht5:'Tugagan',ht6:'Kechikish',ht7:'Ish vaqti',ht8:'Tushlik',ht_afk:'AFK',ht9:'Status',eh_note:'Faqat tanlangan oy ma\'lumotlari.',el_lbl:'Kechikishlar (oy):',afk_month_lbl:'AFK (oy jami):',e_cm:'Joriy oy',mw_txt:'Eslatma: "Yakunlash" tugmasini faqat ish kuni to\'liq tugagandan keyin bosing!',mw_ok:'OK',mep_t:'Parolni o\'zgartirish',mep_s:'Saqlash',mep_c:'Bekor qilish',ep_ph:'Yangi parol',b_came:'Keldi',b_late:'Kechikkan',b_abs:'Kelmadi',b_off:'Dam olish',del_c:'Hodimni o\'chirishni tasdiqlaysizmi?',no_data:'Ma\'lumot yo\'q',daq:'daq',marta:'marta',kun:'kun',soat:'soat',daqiqa:'daqiqa',ball:'ball',hisobot:'hisobot',change:'O\'zgartirish',delete:'O\'chirish',reset:'Reset',fill_all:'Barcha maydonlarni to\'ldiring!',face_detected:'✅ Yuz aniqlandi',face_not_detected:'❌ Yuz aniqlanmadi',face_loading:'⏳ Yuklanmoqda...',face_unknown:'⚠️ Noma\'lum yuz',afk_lbl:'⚠️ Joyida bo\'lmagan vaqt',afk_cnt_lbl:'marta AFK',afk_warn_title:'⚠️ Yuzingiz aniqlanmadi!',afk_warn_txt:'Kamera oldida o\'tiring. AFK vaqt hisoblanmoqda.',afk_warn_sub:'5 daqiqa ichida yuz aniqlanmasa, AFK hisoblanadi',afk_im_here:'Men shu yerdaman ✋',auto_end_txt:'Soat 18:15 bo\'ldi. Tizim tomonidan ish yakunlandi.',auto_ended:'Tizim yakunladi',afk_banner:'Yuz aniqlanmadi! AFK vaqt hisoblanmoqda...',kpi_sr:'Eski hodim (560K)',kpi_jr:'Yangi hodim (400K)'},
+ru:{loginTitle:'Добро пожаловать!',loginSub:'Введите логин и пароль!',loginBtn:'Войти',loginPH:'Логин',passPH:'Пароль',loginErr:'Неверный логин или пароль!',loginFill:'Введите логин и пароль!',exit:'Выйти',today:'Сегодня',nav_m:'Главная',nav_s:'Настройки',nav_k:'Правила KPI',adm_m:'Управление | Главная',adm_s:'Управление | Настройки',adm_k:'Управление | KPI',sc1:'На работе',sc2:'Опоздали',sc3:'Не пришли',sc4:'Дата',att_t:'Контроль сотрудников',from_l:'От:',to_l:'До:',b_today:'Сегодня',b_monthly:'Месяц',b_cm:'Тек. месяц',b_ref:'Обновить',fsearch:'Поиск...',o_all:'Все',o_came:'Пришёл',o_late:'Опоздал',o_abs:'Не пришёл',th1:'ФИО',th2:'Логин',th4:'Изменить',th5:'Приход',th6:'Опоздание',th7:'Отработано',th_afk:'AFK время',th8:'Статус',mth_t:'Месячный отчёт',ms1:'Сотрудников',ms2:'Опозданий',ms3:'Пропусков',ms4:'Раб.часов',ms5:'Итого KPI',mt1:'ФИО',mt2:'Отработано',mt_afk:'AFK время',mt3:'Опоздания',mt4:'Пропуски',mt5:'Штраф',mt6:'Доп.баллы',mt7:'KPI балл',mt8:'KPI сумма',mt9:'Управление',set_t:'Управление сотрудниками',b_addemp:'Добавить',et1:'ФИО',et2:'Логин',et3:'Пароль',et4:'Сумма KPI',et5:'Удалить',hol_t:'Выходные дни',b_addh:'Добавить',hol_info:'Стандарт: Пн–Сб. Воскресенье — выходной.',hol_none:'Доп. выходных нет',kpi_t:'Правила KPI',k1:'Основной KPI',k2:'KPI в 100-балльной системе!',k3:'Штрафы',k4:'Опоздание',k5:'Прогул',k_afk:'AFK (более 30 минут)',k6:'Выплаты KPI',k7:'Старые сотрудники',k8:'Новые сотрудники',ehdr:'Панель сотрудника',ew_t:'Рабочий процесс',et_t:'Сегодня',eh_t:'История за месяц',st_pre:'Статус:',lt_pre:'Опоздание:',lt_u:'мин',st0:'Не начат',st1:'На работе',st2:'В обеде',st4:'Завершён',bs:'Начать',bl:'Обед',be:'Завершить',bc:'Продолжить',bb:'Вернуться',ewl:'Рабочее время',ell:'Время обеда',ewd:'Рабочее время',eld:'Время обеда',e_note:'При новом дне таймеры сбрасываются.',ei1:'Начало',ei2:'Конец',ei3:'Обед нач.',ei4:'Обед кон.',ht1:'Дата',ht2:'Начало',ht3:'Обед нач.',ht4:'Обед кон.',ht5:'Конец',ht6:'Опоздание',ht7:'Раб.время',ht8:'Обед',ht_afk:'AFK',ht9:'Статус',eh_note:'Данные выбранного месяца.',el_lbl:'Опозданий (месяц):',afk_month_lbl:'AFK (итого за месяц):',e_cm:'Тек. месяц',mw_txt:'Нажимайте "Завершить" только после полного окончания рабочего дня!',mw_ok:'ОК',mep_t:'Изменить пароль',mep_s:'Сохранить',mep_c:'Отмена',ep_ph:'Новый пароль',b_came:'Пришёл',b_late:'Опоздал',b_abs:'Не пришёл',b_off:'Выходной',del_c:'Удалить сотрудника?',no_data:'Нет данных',daq:'мин',marta:'раз',kun:'дн.',soat:'ч',daqiqa:'мин',ball:'балл',hisobot:'отчёт',change:'Изменить',delete:'Удалить',reset:'Сброс',fill_all:'Заполните все поля!',face_detected:'✅ Лицо обнаружено',face_not_detected:'❌ Лицо не обнаружено',face_loading:'⏳ Загрузка...',face_unknown:'⚠️ Неизвестное лицо',afk_lbl:'⚠️ Отсутствие',afk_cnt_lbl:'раз AFK',afk_warn_title:'⚠️ Лицо не распознано!',afk_warn_txt:'Сядьте перед камерой.',afk_warn_sub:'Если лицо не обнаружено в течение 5 минут — AFK',afk_im_here:'Я здесь ✋',auto_end_txt:'18:15. Рабочий день завершён системой.',auto_ended:'Завершено системой',afk_banner:'Лицо не обнаружено! Идёт подсчёт AFK...',kpi_sr:'Старый сотр. (560K)',kpi_jr:'Новый сотр. (400K)'}
 };
 let lang = localStorage.getItem('aloqa_lang') || 'uz';
-const t = k => (TR[lang] || TR.uz)[k] || k;
+const t = k => (TR[lang]||TR.uz)[k] || k;
 function setLang(l){lang=l;localStorage.setItem('aloqa_lang',l);applyLang();}
 function st(id,v){const e=document.getElementById(id);if(e&&v!==undefined)e.textContent=v;}
 function sp(id,v){const e=document.getElementById(id);if(e)e.placeholder=v;}
@@ -701,40 +1039,34 @@ function applyLang(){
   ['ll','al','el'].forEach(p=>{const u=document.getElementById(p+'_uz'),r=document.getElementById(p+'_ru');if(u)u.classList.toggle('active',lang==='uz');if(r)r.classList.toggle('active',lang==='ru');});
   st('lc_t',t('loginTitle'));st('lc_s',t('loginSub'));const lb=document.getElementById('lbtn');if(lb)lb.textContent=t('loginBtn');
   sp('inp_l',t('loginPH'));sp('inp_p',t('passPH'));
-  st('nav_main',t('nav_m'));st('nav_settings',t('nav_s'));st('nav_kpi',t('nav_k'));
+  const navKeys=['main','notif','feedback','settings','kpi'];
+  ['n_main','n_notif','n_fb','n_set','n_kpi'].forEach((id,i)=>{st(id,t(['nav_m','Bildirishnomalar','Fikrlar','nav_s','nav_k'][i]||''));});
+  st('admTitle',t('adm_m'));
   const ae=document.getElementById('admExit');if(ae)ae.textContent=t('exit');
   const ee=document.getElementById('empExit');if(ee)ee.textContent=t('exit');
   updateDates();
-  st('sc1',t('sc1'));st('sc2',t('sc2'));st('sc3',t('sc3'));st('sc4',t('sc4'));
-  st('att_t',t('att_t'));st('from_l',t('from_l'));st('to_l',t('to_l'));
-  st('b_today',t('b_today'));st('b_monthly',t('b_monthly'));st('b_cm',t('b_cm'));st('b_ref',t('b_ref'));
-  sp('fsearch',t('fsearch'));st('o_all',t('o_all'));st('o_came',t('o_came'));st('o_late',t('o_late'));st('o_abs',t('o_abs'));
-  ['th1','th2','th4','th5','th6','th7','th_afk','th8'].forEach(k=>st(k,t(k)));
-  st('mth_t',t('mth_t'));['ms1','ms2','ms3','ms4','ms5'].forEach(k=>st(k,t(k)));
-  ['mt1','mt2','mt_afk','mt3','mt4','mt5','mt6','mt7','mt8','mt9'].forEach(k=>st(k,t(k)));
-  st('set_t',t('set_t'));st('b_addemp',t('b_addemp'));
-  ['et1','et2','et3','et4','et5'].forEach(k=>st(k,t(k)));
-  st('hol_t',t('hol_t'));st('b_addh',t('b_addh'));st('hol_info',t('hol_info'));updateHolList();
-  ['kpi_t','k1','k2','k3','k4','k5','k_afk','k6','k7','k8'].forEach(k=>st(k,t(k)));
-  st('ehdr_t',t('ehdr'));st('ew_t',t('ew_t'));st('et_t',t('et_t'));st('eh_t',t('eh_t'));
-  st('ewl',t('ewl'));st('ell',t('ell'));st('ewd',t('ewd'));st('eld',t('eld'));st('e_note',t('e_note'));
-  ['ei1','ei2','ei3','ei4','ht1','ht2','ht3','ht4','ht5','ht6','ht7','ht8','ht_afk','ht9'].forEach(k=>st(k,t(k)));
-  st('eh_note',t('eh_note'));st('el_lbl',t('el_lbl'));st('afk_month_lbl',t('afk_month_lbl'));st('e_cm',t('e_cm'));
-  st('mw_txt',t('mw_txt'));st('mw_ok',t('mw_ok'));st('mep_t',t('mep_t'));st('mep_s',t('mep_s'));st('mep_c',t('mep_c'));sp('ep_np',t('ep_ph'));
-  st('ipb_t',t('ip_block_t'));st('ipb_p',t('ip_block_p'));st('ipb_p2',t('ip_block_p2'));
-  st('face_info_lbl',t('face_info_lbl'));st('afk_lbl',t('afk_lbl'));
-  st('afk_warn_title',t('afk_warn_title'));st('afk_warn_txt',t('afk_warn_txt'));
-  st('afk_warn_sub',t('afk_warn_sub'));st('afk_im_here',t('afk_im_here'));
-  st('auto_end_txt',t('auto_end_txt'));st('afkBannerTxt',t('afk_banner'));
-  const bsEl=document.getElementById('bs');if(bsEl)bsEl.textContent=t('bs');
-  const blEl=document.getElementById('bl');if(blEl)blEl.textContent=(empState==='lunch'?t('bb'):t('bl'));
-  const beEl=document.getElementById('be');if(beEl)beEl.textContent=t('be');
-  const bcEl=document.getElementById('bc');if(bcEl)bcEl.textContent=t('bc');
+  ['sc1','sc2','sc3','sc4','att_t','from_l','to_l','b_today','b_monthly','b_cm','b_ref','o_all','o_came','o_late','o_abs',
+   'th1','th2','th4','th5','th6','th7','th_afk','th8','mth_t','ms1','ms2','ms3','ms4','ms5',
+   'mt1','mt2','mt_afk','mt3','mt4','mt5','mt6','mt7','mt8','mt9',
+   'set_t','b_addemp','et1','et2','et3','et4','et5','hol_t','b_addh','hol_info',
+   'kpi_t','k1','k2','k3','k4','k5','k_afk','k6','k7','k8',
+   'ehdr_t','ew_t','et_t','eh_t','ewl','ell','ewd','eld','e_note',
+   'ei1','ei2','ei3','ei4','ht1','ht2','ht3','ht4','ht5','ht6','ht7','ht8','ht_afk','ht9',
+   'eh_note','el_lbl','afk_month_lbl','e_cm','mw_txt','mw_ok','mep_t','mep_s','mep_c',
+   'afk_lbl','afk_warn_title','afk_warn_txt','afk_warn_sub','afk_im_here','auto_end_txt','afkBannerTxt'
+  ].forEach(k=>st(k,t(k)));
+  sp('ep_np',t('ep_ph'));sp('fsearch',t('fsearch'));
+  const bsE=document.getElementById('bs');if(bsE)bsE.textContent=t('bs');
+  const blE=document.getElementById('bl');if(blE)blE.textContent=(empState==='lunch'?t('bb'):t('bl'));
+  const beE=document.getElementById('be');if(beE)beE.textContent=t('be');
+  const bcE=document.getElementById('bc');if(bcE)bcE.textContent=t('bc');
   const ks=document.getElementById('ne_k');if(ks){ks.options[0].text=t('kpi_sr');ks.options[1].text=t('kpi_jr');}
-  updateEmpStatusTag();
+  updateHolList();updateEmpStatusTag();
 }
 
-// ==================== TIME UTILS ====================
+// ============================================================
+//  TIME UTILS
+// ============================================================
 function tzNow(){const n=new Date();return new Date(n.getTime()+(n.getTimezoneOffset()+300)*60000);}
 function fmtD(d){return String(d.getDate()).padStart(2,'0')+'.'+String(d.getMonth()+1).padStart(2,'0')+'.'+d.getFullYear();}
 function todayISO(){const d=tzNow();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
@@ -746,22 +1078,212 @@ function isWorkDay(ds){const d=new Date(ds+'T12:00:00');if(d.getDay()===0)return
 function updateDates(){const s=t('today')+': '+fmtD(tzNow());st('admDate',s);st('empDate',s);}
 setInterval(updateDates,30000);
 
-// ==================== LOGIN ====================
+// ============================================================
+//  PUSH NOTIFICATIONS
+// ============================================================
+async function requestPushPermission() {
+  if (!('Notification' in window)) { toast('warn','Push','Bu brauzer bildirishnomalarni qo\'llab-quvvatlamaydi'); return; }
+  const perm = await Notification.requestPermission();
+  if (perm === 'granted') {
+    toast('success','Push','Bildirishnomalar yoqildi!');
+    scheduleReminders();
+    const btn = document.getElementById('enablePushBtn');
+    if (btn) btn.style.display = 'none';
+  } else {
+    toast('warn','Push','Ruxsat berilmadi');
+  }
+}
+
+function scheduleReminders() {
+  // Schedule daily reminders using setInterval check
+  checkScheduledNotifs();
+  setInterval(checkScheduledNotifs, 60000);
+}
+
+let sentToday = {};
+function checkScheduledNotifs() {
+  if (!CU || CU.role !== 'employee') return;
+  const now = tzNow();
+  const h = now.getHours(), m = now.getMinutes();
+  const key = todayISO();
+  if (!sentToday[key]) sentToday[key] = {};
+  const S = sentToday[key];
+
+  if (h === 9 && m === 0 && !S.s9) {
+    S.s9 = true;
+    showLocalNotif('AloqaPro', lang==='uz'?'Ishingiz boshlandi! Samarali kun tilaymiz 💼':'Рабочий день начался! Удачного дня 💼');
+    saveNotifToDB('work_start', lang==='uz'?'Ish boshlandi':'Начало работы', lang==='uz'?'Ishingiz boshlandi! Samarali kun tilaymiz':'Рабочий день начался!');
+  }
+  if (h === 11 && m === 40 && !S.s11) {
+    S.s11 = true;
+    showLocalNotif('AloqaPro', lang==='uz'?'Tushlik vaqti yaqin (12:00) 🍽️':'Обеденное время скоро (12:00) 🍽️');
+    saveNotifToDB('lunch_soon','Tushlik yaqin','Tushlik vaqti 20 daqiqadan so\'ng');
+  }
+  if (h === 17 && m === 50 && !S.s17) {
+    S.s17 = true;
+    showLocalNotif('AloqaPro', lang==='uz'?'Ish vaqtingiz yakunlanyabdi! Vazifalarni yakunlang ⏰':'Рабочий день заканчивается! Завершите задачи ⏰');
+    saveNotifToDB('work_end_soon','Ish tugayabdi','Ish vaqtingiz yakunlanyabdi, vazifalarni yakunlang');
+  }
+  // Break warnings
+  const breakSec = todayBreakSec();
+  if (breakSec >= 600 && breakSec < 660 && !S.b10) { S.b10=true; showLocalNotif('AloqaPro','⚠️ '+(lang==='uz'?'10 daqiqa tanaffus':'10 минут перерыва')); }
+  if (breakSec >= 1200 && breakSec < 1260 && !S.b20) { S.b20=true; showLocalNotif('AloqaPro','⚠️ '+(lang==='uz'?'20 daqiqa tanaffus — 10 daqiqa qoldi!':'20 минут перерыва — осталось 10 минут!')); }
+  if (breakSec >= 1500 && breakSec < 1560 && !S.b25) { S.b25=true; showLocalNotif('AloqaPro','🔴 '+(lang==='uz'?'25 daqiqa tanaffus! 5 daqiqa qoldi!':'25 минут перерыва! Осталось 5 минут!')); }
+  if (breakSec >= 1800 && !S.b30) { S.b30=true; showLocalNotif('AloqaPro','🚨 '+(lang==='uz'?'30 daqiqa tanaffus tugadi! AFK hisoblanmoqda!':'30 минут перерыва истекло! AFK!')); }
+}
+
+function showLocalNotif(title, body) {
+  if (Notification.permission === 'granted') {
+    try { new Notification(title, { body, icon:'/images/logo2.png' }); } catch(e) {}
+  }
+}
+
+async function saveNotifToDB(type, title, body) {
+  if (!CU) return;
+  await sb.from('notifications').insert({ employee_id:CU.id, title, body, type }).catch(()=>{});
+  loadNotificationsEmp();
+}
+
+async function adminSendNotif() {
+  const empId = document.getElementById('ns_emp').value;
+  const title = document.getElementById('ns_title_inp').value.trim();
+  const body = document.getElementById('ns_body').value.trim();
+  if (!title || !body) { toast('warn','Xato','Sarlavha va matn kiriting'); return; }
+
+  const {data:emps} = await sb.from('employees').select('id');
+  const targets = empId === 'all' ? (emps||[]).map(e=>e.id) : [empId];
+
+  for (const eid of targets) {
+    await sb.from('notifications').insert({ employee_id:eid, title, body, type:'admin' }).catch(()=>{});
+  }
+  document.getElementById('ns_title_inp').value = '';
+  document.getElementById('ns_body').value = '';
+  toast('success','Bildirishnoma','Yuborildi!');
+  loadNotificationsAdmin();
+}
+
+async function loadNotificationsEmp() {
+  if (!CU) return;
+  const {data} = await sb.from('notifications').select('*').eq('employee_id',CU.id).order('sent_at',{ascending:false}).limit(30);
+  const c = document.getElementById('notif_list_emp'); if (!c) return;
+  const unread = (data||[]).filter(n=>!n.is_read).length;
+  const badge = document.getElementById('empNotifBadge');
+  if (badge) { badge.textContent = unread; badge.classList.toggle('hidden', unread===0); }
+  if (!data || data.length===0) { c.innerHTML=`<p style="color:var(--text3);font-size:12px;padding:10px">Bildirishnomalar yo'q</p>`; return; }
+  c.innerHTML = data.map(n=>`
+    <div class="notif-item ${n.is_read?'':'unread'}" onclick="markNotifRead('${n.id}')">
+      <div class="notif-dot ${n.is_read?'read':''}"></div>
+      <div class="notif-body">
+        <div class="notif-title">${n.title}</div>
+        <div class="notif-msg">${n.body}</div>
+        <div class="notif-time">${new Date(n.sent_at).toLocaleString()}</div>
+      </div>
+    </div>`).join('');
+}
+
+async function loadNotificationsAdmin() {
+  const {data} = await sb.from('notifications').select('*,employees(name)').order('sent_at',{ascending:false}).limit(50);
+  const c = document.getElementById('notif_list_admin'); if (!c) return;
+  if (!data||data.length===0){c.innerHTML=`<p style="color:var(--text3);font-size:12px">Bildirishnomalar yo'q</p>`;return;}
+  c.innerHTML=data.map(n=>`<div class="notif-item"><div class="notif-body"><div class="notif-title">${n.title} <span style="color:var(--text3);font-size:11px">→ ${n.employees?.name||'?'}</span></div><div class="notif-msg">${n.body}</div><div class="notif-time">${new Date(n.sent_at).toLocaleString()}</div></div></div>`).join('');
+}
+
+async function markNotifRead(id) {
+  await sb.from('notifications').update({is_read:true}).eq('id',id);
+  loadNotificationsEmp();
+}
+
+// ============================================================
+//  FEEDBACK
+// ============================================================
+async function sendFeedback() {
+  if (!CU) return;
+  const type = document.getElementById('fb_type').value;
+  const msg = document.getElementById('fb_msg').value.trim();
+  if (!msg) { toast('warn','Xato','Xabar yozing'); return; }
+  await sb.from('feedback').insert({ employee_id:CU.id, employee_name:CU.name, type, message:msg });
+  document.getElementById('fb_msg').value = '';
+  toast('success','Yuborildi','Fikringiz adminга yuborildi!');
+  loadMyFeedback();
+}
+
+async function loadMyFeedback() {
+  if (!CU) return;
+  const {data} = await sb.from('feedback').select('*').eq('employee_id',CU.id).order('created_at',{ascending:false}).limit(20);
+  const c = document.getElementById('my_feedback_list'); if (!c) return;
+  if (!data||data.length===0){c.innerHTML=`<p style="color:var(--text3);font-size:12px">Hali fikr yuborilmagan</p>`;return;}
+  c.innerHTML=data.map(fb=>`
+    <div class="fb-item ${fb.status==='new'?'new-item':''}">
+      <div class="fb-header">
+        <span class="fb-type ${fb.type}">${fb.type==='complaint'?'⚠️ Shikoyat':fb.type==='suggestion'?'💡 Taklif':'📝 Boshqa'}</span>
+        <span class="fb-date">${new Date(fb.created_at).toLocaleDateString()}</span>
+      </div>
+      <div class="fb-msg">${fb.message}</div>
+      ${fb.admin_reply?`<div class="fb-replied">💬 Admin: ${fb.admin_reply}</div>`:'<div style="font-size:11px;color:var(--text3)">⏳ Javob kutilmoqda</div>'}
+    </div>`).join('');
+}
+
+async function loadFeedbackAdmin() {
+  const filter = document.getElementById('fb_filter')?.value || '';
+  let q = sb.from('feedback').select('*,employees(name)').order('created_at',{ascending:false}).limit(50);
+  if (filter === 'new') q = q.eq('status','new');
+  else if (filter === 'replied') q = q.eq('status','replied');
+  else if (filter === 'complaint') q = q.eq('type','complaint');
+  else if (filter === 'suggestion') q = q.eq('type','suggestion');
+  const {data} = await q;
+  const c = document.getElementById('feedback_list_admin'); if (!c) return;
+  const newCount = (data||[]).filter(f=>f.status==='new').length;
+  const badge = document.getElementById('fbBadge');
+  if (badge){badge.textContent=newCount;badge.classList.toggle('hidden',newCount===0);}
+  if (!data||data.length===0){c.innerHTML=`<p style="color:var(--text3);font-size:12px">Fikrlar yo'q</p>`;return;}
+  c.innerHTML=data.map(fb=>`
+    <div class="fb-item ${fb.status==='new'?'new-item':''}">
+      <div class="fb-header">
+        <div style="display:flex;align-items:center;gap:8px">
+          <strong class="fb-name">${fb.employees?.name||fb.employee_name||'?'}</strong>
+          <span class="fb-type ${fb.type}">${fb.type==='complaint'?'⚠️ Shikoyat':fb.type==='suggestion'?'💡 Taklif':'📝 Boshqa'}</span>
+        </div>
+        <span class="fb-date">${new Date(fb.created_at).toLocaleString()}</span>
+      </div>
+      <div class="fb-msg">${fb.message}</div>
+      ${fb.admin_reply?`<div class="fb-replied">💬 Javobingiz: ${fb.admin_reply}</div>`:`
+        <div class="fb-reply-area">
+          <textarea id="reply_${fb.id}" placeholder="Javob yozing...">${''}</textarea>
+          <button class="bb" style="margin-top:6px;font-size:11px;padding:6px 12px" onclick="replyFeedback('${fb.id}')">📤 Javob yuborish</button>
+        </div>`}
+    </div>`).join('');
+}
+
+async function replyFeedback(id) {
+  const ta = document.getElementById('reply_'+id);
+  if (!ta || !ta.value.trim()) { toast('warn','Xato','Javob yozing'); return; }
+  const {data:fb} = await sb.from('feedback').update({admin_reply:ta.value.trim(),status:'replied',replied_at:new Date().toISOString()}).eq('id',id).select().single();
+  if (fb) {
+    await sb.from('notifications').insert({employee_id:fb.employee_id,title:'💬 Admin javob berdi',body:ta.value.trim(),type:'admin'}).catch(()=>{});
+    toast('success','Javob','Yuborildi!');
+    loadFeedbackAdmin();
+  }
+}
+
+// ============================================================
+//  LOGIN
+// ============================================================
 let CU = null;
 async function doLogin(){
   const lg=document.getElementById('inp_l').value.trim();
   const ps=document.getElementById('inp_p').value.trim();
   const err=document.getElementById('lerr');err.textContent='';
   if(!lg||!ps){err.textContent=t('loginFill');return;}
+  const lbtn=document.getElementById('lbtn');lbtn.textContent='⏳';lbtn.disabled=true;
   const{data:adm}=await sb.from('admins').select('*').eq('login',lg).eq('password',ps).maybeSingle();
-  if(adm){CU={...adm,role:'admin'};localStorage.setItem('aloqa_u',JSON.stringify(CU));showPage('admin');return;}
+  if(adm){CU={...adm,role:'admin'};localStorage.setItem('aloqa_u',JSON.stringify(CU));lbtn.textContent=t('loginBtn');lbtn.disabled=false;showPage('admin');return;}
   const{data:emp}=await sb.from('employees').select('*').eq('login',lg).eq('password',ps).maybeSingle();
   if(emp){
     const allowed=await checkIPAccess('employee');
-    if(!allowed){if(!userPublicIP)userPublicIP=await getUserIP();showIPBlock(userPublicIP);return;}
-    CU={...emp,role:'employee'};localStorage.setItem('aloqa_u',JSON.stringify(CU));showPage('employee');return;
+    if(!allowed){lbtn.textContent=t('loginBtn');lbtn.disabled=false;if(!userPublicIP)userPublicIP=await getUserIP();showIPBlock(userPublicIP);return;}
+    CU={...emp,role:'employee'};localStorage.setItem('aloqa_u',JSON.stringify(CU));lbtn.textContent=t('loginBtn');lbtn.disabled=false;showPage('employee');return;
   }
-  err.textContent=t('loginErr');
+  err.textContent=t('loginErr');lbtn.textContent=t('loginBtn');lbtn.disabled=false;
 }
 function doLogout(){stopAll();stopFaceDetection();CU=null;localStorage.removeItem('aloqa_u');showPage('login');}
 function toggleEye(){const i=document.getElementById('inp_p');i.type=i.type==='password'?'text':'password';}
@@ -777,54 +1299,60 @@ function showPage(p){
   applyLang();
 }
 
-// ==================== ADMIN ====================
-let mVisible = false;
-function initAdmin(){adminTab('main');setToday();setCurMonth();updateDates();updateHolList();updateIPList();loadMyIPDisplay();}
-async function loadMyIPDisplay(){if(!userPublicIP)userPublicIP=await getUserIP();const el=document.getElementById('my_ip_show');if(el)el.textContent=userPublicIP||'—';}
-function adminTab(tab){
-  ['main','settings','kpi'].forEach(n=>{document.getElementById('tab_'+n).classList.toggle('hidden',n!==tab);});
-  document.getElementById('nav_main').classList.toggle('active',tab==='main');
-  document.getElementById('nav_settings').classList.toggle('active',tab==='settings');
-  document.getElementById('nav_kpi').classList.toggle('active',tab==='kpi');
-  const titles={main:t('adm_m'),settings:t('adm_s'),kpi:t('adm_k')};
-  st('admTitle',titles[tab]||'');
-  if(tab==='settings'){loadEmpList();updateIPList();}
+// ============================================================
+//  EMPLOYEE NAV TABS
+// ============================================================
+function empNavTab(tab){
+  ['work','notif','feedback'].forEach(t2=>{const e=document.getElementById('emp_tab_'+t2);if(e)e.classList.toggle('hidden',t2!==tab);});
+  if(tab==='notif')loadNotificationsEmp();
+  if(tab==='feedback'){loadMyFeedback();}
 }
 
-function setToday(){
-  const today=todayISO();
-  document.getElementById('fd_from').value=today;
-  document.getElementById('fd_to').value=today;
-  loadAtt();
+// ============================================================
+//  ADMIN
+// ============================================================
+let mVisible = false;
+let monthlyData = []; // for export
+
+function initAdmin(){adminTab('main');setToday();setCurMonth();updateDates();updateHolList();updateIPList();loadMyIPDisplay();loadNotifEmpSelect();checkFeedbackBadge();}
+async function loadMyIPDisplay(){if(!userPublicIP)userPublicIP=await getUserIP();const el=document.getElementById('my_ip_show');if(el)el.textContent=userPublicIP||'—';}
+async function loadNotifEmpSelect(){
+  const{data:emps}=await sb.from('employees').select('id,name');
+  const sel=document.getElementById('ns_emp');if(!sel)return;
+  sel.innerHTML='<option value="all">Hammaga</option>';
+  (emps||[]).forEach(e=>{const o=document.createElement('option');o.value=e.id;o.textContent=e.name;sel.appendChild(o);});
 }
+async function checkFeedbackBadge(){
+  const{data}=await sb.from('feedback').select('id').eq('status','new');
+  const badge=document.getElementById('fbBadge');
+  if(badge){const c=(data||[]).length;badge.textContent=c;badge.classList.toggle('hidden',c===0);}
+}
+function adminTab(tab){
+  ['main','notif','feedback','settings','kpi'].forEach(n=>{const el=document.getElementById('tab_'+n);if(el)el.classList.toggle('hidden',n!==tab);});
+  ['nav_main','nav_notif','nav_feedback','nav_settings','nav_kpi'].forEach((id,i)=>{const el=document.getElementById(id);if(el)el.classList.toggle('active',['main','notif','feedback','settings','kpi'][i]===tab);});
+  const titles={main:t('adm_m'),settings:t('adm_s'),kpi:t('adm_k'),notif:'Bildirishnomalar',feedback:'Fikrlar'};
+  st('admTitle',titles[tab]||'');
+  if(tab==='settings'){loadEmpList();updateIPList();}
+  if(tab==='feedback')loadFeedbackAdmin();
+  if(tab==='notif'){loadNotificationsAdmin();loadNotifEmpSelect();}
+}
+
+function setToday(){const today=todayISO();document.getElementById('fd_from').value=today;document.getElementById('fd_to').value=today;loadAtt();}
 function setCurMonth(){document.getElementById('fmonth').value=curM();}
 function toggleMonthly(){mVisible=!mVisible;document.getElementById('mbox').classList.toggle('hidden',!mVisible);if(mVisible)loadMonthly();}
 
 async function loadAtt(){
-  const dateFrom = document.getElementById('fd_from').value || todayISO();
-  const dateTo = document.getElementById('fd_to').value || todayISO();
-  
+  const dateFrom=document.getElementById('fd_from').value||todayISO();
+  const dateTo=document.getElementById('fd_to').value||todayISO();
   const{data:emps}=await sb.from('employees').select('*');if(!emps)return;
-  
-  // Bir kunlik yoki diapazon
   let recs;
-  if(dateFrom===dateTo){
-    const{data}=await sb.from('attendance').select('*').eq('work_date',dateFrom);
-    recs=data;
-  } else {
-    const{data}=await sb.from('attendance').select('*').gte('work_date',dateFrom).lte('work_date',dateTo);
-    recs=data;
-  }
-  
+  if(dateFrom===dateTo){const{data}=await sb.from('attendance').select('*').eq('work_date',dateFrom);recs=data;}
+  else{const{data}=await sb.from('attendance').select('*').gte('work_date',dateFrom).lte('work_date',dateTo);recs=data;}
   const tbody=document.getElementById('att_body');tbody.innerHTML='';
   let w=0,l=0,a=0;
-  const displayDate=dateFrom===dateTo?dateFrom:null;
-  
   emps.forEach((emp,i)=>{
     const empRecs=recs?recs.filter(r=>r.employee_id===emp.id):[];
-    
     if(dateFrom===dateTo){
-      // Single day view
       const rec=empRecs[0]||null;
       let status='kelmadi',arr='-',lm=0,hrs='-',afkSec=0;
       const wd=isWorkDay(dateFrom);
@@ -838,38 +1366,25 @@ async function loadAtt(){
         if(rec.work_seconds){const s=rec.work_seconds;hrs=Math.floor(s/3600)+'h '+Math.floor((s%3600)/60)+'m';}
         afkSec=rec.afk_seconds||0;
       }else if(wd)a++;
-      
       let bc2='bgr',bt=t('b_off');
-      if(status==='keldi'){bc2='bg';bt=t('b_came');}
-      else if(status==='kechikkan'){bc2='by';bt=t('b_late');}
-      else if(status==='kelmadi'){bc2='br';bt=t('b_abs');}
-      else if(status==='auto_ended'){bc2='bg';bt=t('auto_ended');}
-      
+      if(status==='keldi'){bc2='bg';bt=t('b_came');}else if(status==='kechikkan'){bc2='by';bt=t('b_late');}else if(status==='kelmadi'){bc2='br';bt=t('b_abs');}else if(status==='auto_ended'){bc2='bg';bt='⚙️ Auto';}
       const afkFmt=afkSec>0?(Math.floor(afkSec/60)+' '+t('daq')):'—';
       const tr=document.createElement('tr');tr.dataset.name=emp.name.toLowerCase();tr.dataset.st=status;
-      tr.innerHTML=`<td>${i+1}</td><td>${emp.name}</td><td>${emp.login}</td><td><button class="bsm bsm-g" onclick="openEP('${emp.id}')">${t('change')}</button></td><td>${arr}</td><td>${lm>0?lm+' '+t('daq'):'-'}</td><td>${hrs}</td><td style="color:${afkSec>3600?'var(--red)':'var(--muted)'}">${afkFmt}</td><td><span class="badge ${bc2}">${bt}</span></td>`;
+      tr.innerHTML=`<td>${i+1}</td><td>${emp.name}</td><td style="font-family:var(--mono)">${emp.login}</td><td><button class="bsm bsm-g" onclick="openEP('${emp.id}')">${t('change')}</button></td><td style="font-family:var(--mono)">${arr}</td><td>${lm>0?lm+' '+t('daq'):'-'}</td><td style="font-family:var(--mono)">${hrs}</td><td style="color:${afkSec>1800?'var(--danger)':'var(--text2)'};">${afkFmt}</td><td><span class="badge ${bc2}">${bt}</span></td>`;
       tbody.appendChild(tr);
     } else {
-      // Range view - aggregate
-      if(empRecs.length===0){
-        const tr=document.createElement('tr');tr.dataset.name=emp.name.toLowerCase();tr.dataset.st='kelmadi';
-        tr.innerHTML=`<td>${i+1}</td><td>${emp.name}</td><td>${emp.login}</td><td><button class="bsm bsm-g" onclick="openEP('${emp.id}')">${t('change')}</button></td><td>—</td><td>—</td><td>—</td><td>—</td><td><span class="badge bgr">—</span></td>`;
-        tbody.appendChild(tr);
-        return;
-      }
+      if(empRecs.length===0){const tr=document.createElement('tr');tr.dataset.name=emp.name.toLowerCase();tr.dataset.st='kelmadi';tr.innerHTML=`<td>${i+1}</td><td>${emp.name}</td><td>${emp.login}</td><td><button class="bsm bsm-g" onclick="openEP('${emp.id}')">${t('change')}</button></td><td>—</td><td>—</td><td>—</td><td>—</td><td><span class="badge bgr">—</span></td>`;tbody.appendChild(tr);return;}
       let totalSec=0,totalAfk=0,totalLate=0;
       empRecs.forEach(r=>{totalSec+=r.work_seconds||0;totalAfk+=r.afk_seconds||0;if(r.late_minutes>0)totalLate+=r.late_minutes;});
       const hrs2=Math.floor(totalSec/3600)+'h '+Math.floor((totalSec%3600)/60)+'m';
       const afkFmt2=totalAfk>0?(Math.floor(totalAfk/60)+' '+t('daq')):'—';
       const tr=document.createElement('tr');tr.dataset.name=emp.name.toLowerCase();tr.dataset.st='keldi';
-      tr.innerHTML=`<td>${i+1}</td><td>${emp.name}</td><td>${emp.login}</td><td><button class="bsm bsm-g" onclick="openEP('${emp.id}')">${t('change')}</button></td><td>${empRecs.length} ${t('kun')}</td><td>${totalLate>0?totalLate+' '+t('daq'):'-'}</td><td>${hrs2}</td><td style="color:${totalAfk>3600?'var(--red)':'var(--muted)'}">${afkFmt2}</td><td><span class="badge bg">${empRecs.length} ${t('kun')}</span></td>`;
+      tr.innerHTML=`<td>${i+1}</td><td>${emp.name}</td><td>${emp.login}</td><td><button class="bsm bsm-g" onclick="openEP('${emp.id}')">${t('change')}</button></td><td>${empRecs.length} ${t('kun')}</td><td>${totalLate>0?totalLate+' '+t('daq'):'-'}</td><td>${hrs2}</td><td style="color:${totalAfk>1800?'var(--danger)':'var(--text2)'}">${afkFmt2}</td><td><span class="badge bg">${empRecs.length} ${t('kun')}</span></td>`;
       tbody.appendChild(tr);
     }
   });
-  if(displayDate){st('sw',''+w);st('sl',''+l);st('sa',''+a);st('sd',fmtD(new Date(displayDate+'T12:00:00')));}
-  else{st('sw','');st('sl','');st('sa','');st('sd',dateFrom+' → '+dateTo);}
+  st('sw',''+w);st('sl',''+l);st('sa',''+a);st('sd',dateFrom===dateTo?fmtD(new Date(dateFrom+'T12:00:00')):dateFrom+' → '+dateTo);
 }
-
 function filterAtt(){const q=document.getElementById('fsearch').value.toLowerCase();const s=document.getElementById('fstatus').value;document.querySelectorAll('#att_body tr').forEach(tr=>{tr.style.display=((tr.dataset.name||'').includes(q)&&(!s||tr.dataset.st===s))?'':'none';});}
 
 async function loadMonthly(){
@@ -881,324 +1396,262 @@ async function loadMonthly(){
   const{data:recs}=await sb.from('attendance').select('*').gte('work_date',`${month}-01`).lte('work_date',`${month}-${String(dim).padStart(2,'0')}`);
   const{data:bons}=await sb.from('kpi_bonuses').select('*').eq('month',month);
   if(!emps)return;
-  let tL=0,tA=0,tH=0,tK=0,tAfk=0;const tbody=document.getElementById('mbody');tbody.innerHTML='';
+  let tL=0,tA=0,tH=0,tK=0;monthlyData=[];const tbody=document.getElementById('mbody');tbody.innerHTML='';
   emps.forEach((emp,i)=>{
     const er=recs?recs.filter(r=>r.employee_id===emp.id):[];
     let late=0,came=0,sec=0,afkSec=0;
-    er.forEach(r=>{
-      if(r.start_time){const[h,m]=r.start_time.split(':').map(Number);if(h*60+m>540)late++;came++;}
-      if(r.work_seconds)sec+=r.work_seconds;
-      if(r.afk_seconds)afkSec+=r.afk_seconds;
-    });
+    er.forEach(r=>{if(r.start_time){const[h,m]=r.start_time.split(':').map(Number);if(h*60+m>540)late++;came++;}if(r.work_seconds)sec+=r.work_seconds;if(r.afk_seconds)afkSec+=r.afk_seconds;});
     const abs=Math.max(0,wd-came);
     const bon=bons?(bons.find(b=>b.employee_id===emp.id)||{bonus:0}).bonus:0;
-    // AFK penalty: every hour of AFK over 1h per day = -5 ball (month total)
-    const afkPenalty=afkSec>3600?5:0;
-    const pen=late*10+abs*20+afkPenalty;
+    // AFK: only 30+ min counted against KPI
+    const afkOverSec=Math.max(0,afkSec-1800);
+    const afkPenalty=Math.floor(afkOverSec/60); // 1 ball per min over 30min
+    const pen=late*10+abs*20+Math.min(afkPenalty,20); // cap AFK penalty at 20 balls
     const fin=Math.min(100,Math.max(0,100-pen+bon));
     const kpi=calcKpi(fin,emp.kpi_type||'senior');
-    tL+=late;tA+=abs;tH+=sec;tK+=kpi;tAfk+=afkSec;
+    tL+=late;tA+=abs;tH+=sec;tK+=kpi;
     const hs=Math.floor(sec/3600)+'h '+Math.floor((sec%3600)/60)+'m';
-    const afkFmt=afkSec>0?(Math.floor(afkSec/60)+' '+t('daq')):'—';
+    const afkMin=Math.floor(afkSec/60);
+    const afkOver=Math.max(0,afkMin-30);
+    monthlyData.push({name:emp.name,hours:hs,afk:afkMin+' '+t('daq'),late,abs,penalty:-pen,bonus:bon,ball:fin,kpi});
     const tr=document.createElement('tr');
-    tr.innerHTML=`<td>${i+1}</td><td>${emp.name}</td><td>${hs}</td><td style="color:${afkSec>3600?'var(--red)':'var(--text)'}">${afkFmt}</td><td>${late} ${t('marta')}</td><td>${abs} ${t('kun')}</td><td style="color:var(--red)">-${pen} ${t('ball')}</td><td style="color:var(--green)">+${bon} ${t('ball')}</td><td><strong>${fin} ${t('ball')}</strong></td><td style="color:var(--green);font-weight:700">${kpi.toLocaleString()} UZS</td><td><div style="display:flex;gap:3px"><button class="bsm bsm-g" onclick="adjKpi('${emp.id}','${month}',10)">+10</button><button class="bsm bsm-r" onclick="adjKpi('${emp.id}','${month}',-10)">-10</button><button class="bsm bsm-gr" onclick="adjKpi('${emp.id}','${month}',0,true)">${t('reset')}</button></div></td>`;
+    tr.innerHTML=`<td>${i+1}</td><td>${emp.name}</td><td style="font-family:var(--mono)">${hs}</td><td style="color:${afkOver>0?'var(--danger)':'var(--text2)'};">${afkMin} ${t('daq')}${afkOver>0?` <span style="color:var(--danger);font-size:10px">(+${afkOver})</span>`:''}</td><td>${late} ${t('marta')}</td><td>${abs} ${t('kun')}</td><td style="color:var(--danger)">-${pen} ${t('ball')}</td><td style="color:var(--success)">+${bon} ${t('ball')}</td><td><strong style="font-family:var(--mono)">${fin} ${t('ball')}</strong></td><td style="color:var(--success);font-weight:700;font-family:var(--mono)">${kpi.toLocaleString()} UZS</td><td><div style="display:flex;gap:3px"><button class="bsm bsm-g" onclick="adjKpi('${emp.id}','${month}',10)">+10</button><button class="bsm bsm-r" onclick="adjKpi('${emp.id}','${month}',-10)">-10</button><button class="bsm bsm-gr" onclick="adjKpi('${emp.id}','${month}',0,true)">${t('reset')}</button></div></td>`;
     tbody.appendChild(tr);
   });
-  st('me',''+emps.length);st('ml',''+tL);st('ma',''+tA);
-  st('mh',Math.floor(tH/3600)+'h '+Math.floor((tH%3600)/60)+'m');
-  st('mk',tK.toLocaleString()+' UZS');
+  st('me',''+emps.length);st('ml',''+tL);st('ma',''+tA);st('mh',Math.floor(tH/3600)+'h '+Math.floor((tH%3600)/60)+'m');st('mk',tK.toLocaleString()+' UZS');
 }
 
 function calcKpi(ball,type){if(type==='senior'){if(ball>=90)return 560000;if(ball>=80)return 420000;if(ball>=70)return 280000;return 0;}if(ball>=90)return 400000;if(ball>=80)return 300000;if(ball>=70)return 210000;return 0;}
 async function adjKpi(eid,month,delta,reset=false){const{data:ex}=await sb.from('kpi_bonuses').select('*').eq('employee_id',eid).eq('month',month).maybeSingle();if(reset){if(ex)await sb.from('kpi_bonuses').update({bonus:0}).eq('id',ex.id);else await sb.from('kpi_bonuses').insert({employee_id:eid,month,bonus:0});}else{const nv=(ex?ex.bonus:0)+delta;if(ex)await sb.from('kpi_bonuses').update({bonus:nv}).eq('id',ex.id);else await sb.from('kpi_bonuses').insert({employee_id:eid,month,bonus:delta});}loadMonthly();}
-async function loadEmpList(){const{data:emps}=await sb.from('employees').select('*');if(!emps)return;const tbody=document.getElementById('emp_body');tbody.innerHTML='';emps.forEach((emp,i)=>{const ka=emp.kpi_type==='junior'?'+ 400 000':'+ 560 000';const tr=document.createElement('tr');tr.innerHTML=`<td>${i+1}</td><td>${emp.name}</td><td>${emp.login}</td><td>*****</td><td>${ka} UZS</td><td><button class="brd" onclick="delEmp('${emp.id}')">${t('delete')}</button></td>`;tbody.appendChild(tr);});}
-async function addEmp(){const nm=document.getElementById('ne_n').value.trim();const lg=document.getElementById('ne_l').value.trim();const ps=document.getElementById('ne_p').value.trim();const kp=document.getElementById('ne_k').value;if(!nm||!lg||!ps){alert(t('fill_all'));return;}const{error}=await sb.from('employees').insert({name:nm,login:lg,password:ps,kpi_type:kp});if(!error){document.getElementById('ne_n').value='';document.getElementById('ne_l').value='';document.getElementById('ne_p').value='';loadEmpList();}else alert('Xato: '+error.message);}
-async function delEmp(id){if(!confirm(t('del_c')))return;await sb.from('employees').delete().eq('id',id);loadEmpList();}
+
+async function loadEmpList(){
+  const{data:emps}=await sb.from('employees').select('*');if(!emps)return;
+  const tbody=document.getElementById('emp_body');tbody.innerHTML='';
+  emps.forEach((emp,i)=>{
+    const ka=emp.kpi_type==='junior'?'400 000':'560 000';
+    const faceStatus=emp.face_registered?'<span style="color:var(--success);font-size:11px">✅ Ro\'yxatda</span>':'<span style="color:var(--text3);font-size:11px">❌ Yo\'q</span>';
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td>${i+1}</td><td>${emp.name}</td><td style="font-family:var(--mono)">${emp.login}</td><td style="font-family:var(--mono)">*****</td><td>${faceStatus}</td><td style="font-family:var(--mono)">+${ka} UZS</td><td><button class="brd" onclick="delEmp('${emp.id}')">${t('delete')}</button></td>`;
+    tbody.appendChild(tr);
+  });
+}
+async function addEmp(){const nm=document.getElementById('ne_n').value.trim();const lg=document.getElementById('ne_l').value.trim();const ps=document.getElementById('ne_p').value.trim();const kp=document.getElementById('ne_k').value;if(!nm||!lg||!ps){toast('warn','Xato',t('fill_all'));return;}const{error}=await sb.from('employees').insert({name:nm,login:lg,password:ps,kpi_type:kp});if(!error){document.getElementById('ne_n').value='';document.getElementById('ne_l').value='';document.getElementById('ne_p').value='';loadEmpList();toast('success','Hodim','Qo\'shildi!');}else toast('error','Xato',error.message);}
+async function delEmp(id){if(!confirm(t('del_c')))return;await sb.from('employees').delete().eq('id',id);loadEmpList();toast('info','Hodim','O\'chirildi');}
 function addHol(){const d=document.getElementById('hol_d').value;if(!d)return;const h=JSON.parse(localStorage.getItem('aloqa_hols')||'[]');if(!h.includes(d))h.push(d);localStorage.setItem('aloqa_hols',JSON.stringify(h));document.getElementById('hol_d').value='';updateHolList();}
-function updateHolList(){const h=JSON.parse(localStorage.getItem('aloqa_hols')||'[]');const el=document.getElementById('hol_list');if(!el)return;el.textContent=h.length===0?t('hol_none'):t('hol_pre')+h.join(', ');}
+function updateHolList(){const h=JSON.parse(localStorage.getItem('aloqa_hols')||'[]');const el=document.getElementById('hol_list');if(!el)return;el.textContent=h.length===0?t('hol_none'):'Dam olish: '+h.join(', ');}
 function openEP(id){document.getElementById('ep_id').value=id;document.getElementById('ep_np').value='';document.getElementById('m_ep').classList.remove('hidden');}
 function closeEP(){document.getElementById('m_ep').classList.add('hidden');}
-async function savePass(){const id=document.getElementById('ep_id').value;const np=document.getElementById('ep_np').value.trim();if(!np)return;await sb.from('employees').update({password:np}).eq('id',id);closeEP();loadAtt();}
+async function savePass(){const id=document.getElementById('ep_id').value;const np=document.getElementById('ep_np').value.trim();if(!np)return;await sb.from('employees').update({password:np}).eq('id',id);closeEP();toast('success','Parol','Saqlandi!');}
 
-// ==================== EMPLOYEE STATE ====================
+// ============================================================
+//  EXPORT
+// ============================================================
+function exportExcel(){
+  if(!monthlyData||monthlyData.length===0){toast('warn','Export','Avval oylik hisobotni yuklang');return;}
+  const month=document.getElementById('fmonth').value||curM();
+  const headers=['#','Ism familiya','Ishlagan soat','AFK vaqti','Kechikish','Kelmagan','Jarima','Qo\'shimcha','KPI ball','KPI sum (UZS)'];
+  const rows=monthlyData.map((d,i)=>[i+1,d.name,d.hours,d.afk,d.late,d.abs,d.penalty,'+'+d.bonus,d.ball,d.kpi]);
+  const ws=XLSX.utils.aoa_to_sheet([headers,...rows]);
+  ws['!cols']=headers.map(()=>({wch:18}));
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,month+' Hisobot');
+  XLSX.writeFile(wb,'AloqaPro_'+month+'_KPI.xlsx');
+  toast('success','Excel','Yuklab olindi!');
+}
+
+function exportPDF(){
+  if(!monthlyData||monthlyData.length===0){toast('warn','Export','Avval oylik hisobotni yuklang');return;}
+  const month=document.getElementById('fmonth').value||curM();
+  const{jsPDF}=window.jspdf;
+  const doc=new jsPDF({orientation:'landscape',unit:'mm',format:'a4'});
+  doc.setFontSize(14);
+  doc.text('AloqaPro — KPI Hisobot: '+month,14,14);
+  doc.setFontSize(10);
+  doc.text('Sana: '+new Date().toLocaleDateString(),14,22);
+  const headers=[['#','Ism familiya','Ish soat','AFK','Kechikish','Kelmagan','Jarima','Bonus','Ball','KPI (UZS)']];
+  const rows=monthlyData.map((d,i)=>[i+1,d.name,d.hours,d.afk,d.late,d.abs,d.penalty,'+'+d.bonus,d.ball,d.kpi.toLocaleString()]);
+  doc.autoTable({head:headers,body:rows,startY:28,styles:{fontSize:9,cellPadding:2},headStyles:{fillColor:[74,140,245],textColor:[255,255,255],fontStyle:'bold'},alternateRowStyles:{fillColor:[245,248,252]},margin:{left:14,right:14}});
+  doc.save('AloqaPro_'+month+'_KPI.pdf');
+  toast('success','PDF','Yuklab olindi!');
+}
+
+// ============================================================
+//  EMPLOYEE STATE
+// ============================================================
 let empState = 'not_started';
 let wStart = null, wAccum = 0;
 let lStart = null, lAccum = 0;
 let wIv = null, lIv = null;
-// AFK state
-let afkSeconds = 0; // total afk seconds today
-let afkCount = 0;   // how many afk episodes
+let afkSeconds = 0;   // total afk seconds (only those > 30min threshold)
+let afkCount = 0;
 let afkIv = null;
-let currentAfkStart = null; // when current afk started
+let currentAfkStart = null;
 let afkWarnShown = false;
 let isAfk = false;
-
-// Auto-end check interval
+let breakSeconds = 0; // total break/AFK seconds today (for 30-min tracking)
 let autoEndIv = null;
 let autoEndDone = false;
 
-// ==================== PERSISTENT STATE (localStorage) ====================
-// Using localStorage so F5/close does NOT stop timers - we store timestamps, not accumulated seconds
+// Break: only in non-work states (lunch or AFK while not working)
+function todayBreakSec(){return breakSeconds;}
+
 function getLS(){return JSON.parse(localStorage.getItem('aloqa_emp_state')||'null');}
 function saveLS(){
   const ss=getLS()||{};
-  const now=tzNow().toISOString();
-  const data={
-    date:todayISO(),
-    state:empState,
-    wAccum,
-    lAccum,
-    afkSeconds,
-    afkCount,
-    wStartISO:wStart?wStart.toISOString():null,
-    lStartISO:lStart?lStart.toISOString():null,
-    afkStartISO:currentAfkStart?currentAfkStart.toISOString():null,
-    i_s:document.getElementById('i_s').textContent,
-    i_e:document.getElementById('i_e').textContent,
-    i_ls:document.getElementById('i_ls').textContent,
-    i_le:document.getElementById('i_le').textContent,
-    lateMin:ss.lateMin||0,
-    autoEndDone:autoEndDone||false,
-    lastSaved:now
-  };
+  const data={date:todayISO(),state:empState,wAccum,lAccum,afkSeconds,afkCount,breakSeconds,wStartISO:wStart?wStart.toISOString():null,lStartISO:lStart?lStart.toISOString():null,afkStartISO:currentAfkStart?currentAfkStart.toISOString():null,i_s:document.getElementById('i_s')?.textContent||'-',i_e:document.getElementById('i_e')?.textContent||'-',i_ls:document.getElementById('i_ls')?.textContent||'-',i_le:document.getElementById('i_le')?.textContent||'-',lateMin:ss.lateMin||0,autoEndDone:autoEndDone||false};
   localStorage.setItem('aloqa_emp_state',JSON.stringify(data));
 }
-
 function restoreLS(){
   const ss=getLS();
-  if(!ss||ss.date!==todayISO()){
-    // New day - reset
-    localStorage.removeItem('aloqa_emp_state');
-    updateEmpBtns();
-    return false;
-  }
-  empState=ss.state||'not_started';
-  wAccum=ss.wAccum||0;
-  lAccum=ss.lAccum||0;
-  afkSeconds=ss.afkSeconds||0;
-  afkCount=ss.afkCount||0;
-  autoEndDone=ss.autoEndDone||false;
-  
-  // Restore start times from ISO (to correctly accumulate since last save)
+  if(!ss||ss.date!==todayISO()){localStorage.removeItem('aloqa_emp_state');updateEmpBtns();return false;}
+  empState=ss.state||'not_started';wAccum=ss.wAccum||0;lAccum=ss.lAccum||0;afkSeconds=ss.afkSeconds||0;afkCount=ss.afkCount||0;breakSeconds=ss.breakSeconds||0;autoEndDone=ss.autoEndDone||false;
   if(ss.wStartISO)wStart=new Date(ss.wStartISO);
   if(ss.lStartISO)lStart=new Date(ss.lStartISO);
-  if(ss.afkStartISO){
-    currentAfkStart=new Date(ss.afkStartISO);
-    isAfk=true;
-    // Add elapsed afk time since last save
-    const elapsed=Math.floor((tzNow()-currentAfkStart)/1000);
-    afkSeconds+=elapsed;
-    currentAfkStart=null;
-    isAfk=false;
-  }
-  
-  st('i_s',ss.i_s||'-');
-  st('i_e',ss.i_e||'-');
-  st('i_ls',ss.i_ls||'-');
-  st('i_le',ss.i_le||'-');
-  
-  const lt=document.getElementById('e_ltag');
-  if(lt&&ss.lateMin!==undefined)lt.textContent=t('lt_pre')+' '+ss.lateMin+' '+t('lt_u');
-  
-  setTV(wAccum,'tw');
-  setTV(lAccum,'tl');
-  updateAfkDisplay();
-  updateEmpBtns();
-  updateEmpStatusTag();
-  
-  // Resume timers
+  if(ss.afkStartISO){currentAfkStart=new Date(ss.afkStartISO);isAfk=true;const elapsed=Math.floor((tzNow()-currentAfkStart)/1000);if(elapsed>0){afkSeconds+=elapsed;breakSeconds+=elapsed;}currentAfkStart=null;isAfk=false;}
+  st('i_s',ss.i_s||'-');st('i_e',ss.i_e||'-');st('i_ls',ss.i_ls||'-');st('i_le',ss.i_le||'-');
+  const lt=document.getElementById('e_ltag');if(lt&&ss.lateMin!==undefined)lt.textContent=t('lt_pre')+' '+ss.lateMin+' '+t('lt_u');
+  setTV(wAccum,'tw');setTV(lAccum,'tl');updateAfkDisplay();updateBreakBar();updateEmpBtns();updateEmpStatusTag();
   if(empState==='working')startWT();
   if(empState==='lunch')startLT();
-  
   return true;
 }
 
-// ==================== EMPLOYEE INIT ====================
+// ============================================================
+//  EMPLOYEE INIT
+// ============================================================
 function initEmp(){
-  restoreLS();
-  setEmpMonth();
-  loadHist();
-  updateDates();
+  restoreLS();setEmpMonth();loadHist();updateDates();
   document.getElementById('m_welcome').classList.remove('hidden');
   const mt=document.getElementById('e_mtag');if(mt)mt.textContent=curM();
-  startFaceDetection();
-  startAutoEndCheck();
+  startFaceDetection();startAutoEndCheck();
+  if(Notification.permission==='granted')scheduleReminders();
+  loadNotificationsEmp();
+  empNavTab('work');
 }
-
 function closeWelcome(){document.getElementById('m_welcome').classList.add('hidden');}
 
-// ==================== EMPLOYEE ACTIONS ====================
+// ============================================================
+//  EMPLOYEE ACTIONS
+// ============================================================
 function empStart(){
   if(empState!=='not_started')return;
-  wStart=tzNow();
-  empState='working';
+  wStart=tzNow();empState='working';
   st('i_s',fmtHM(wStart));
   const lm=Math.max(0,wStart.getHours()*60+wStart.getMinutes()-9*60);
   const el=document.getElementById('e_ltag');if(el)el.textContent=t('lt_pre')+' '+lm+' '+t('lt_u');
   const ss=getLS()||{};ss.lateMin=lm;localStorage.setItem('aloqa_emp_state',JSON.stringify(ss));
   updateEmpBtns();updateEmpStatusTag();startWT();saveLS();
-  startFaceDetection(); // make sure face is running
+  toast('success',t('bs'),'Ish vaqti boshlandi! Omad 💼');
 }
-
 function empLunch(){
   if(empState==='lunch'){empBackLunch();return;}
   if(empState!=='working')return;
-  lStart=tzNow();
-  if(wStart)wAccum+=Math.floor((lStart-wStart)/1000);
-  wStart=null;
-  empState='lunch';
-  st('i_ls',fmtHM(lStart));
-  stopWT();
-  updateEmpBtns();updateEmpStatusTag();startLT();saveLS();
+  lStart=tzNow();if(wStart)wAccum+=Math.floor((lStart-wStart)/1000);wStart=null;
+  empState='lunch';st('i_ls',fmtHM(lStart));stopWT();updateEmpBtns();updateEmpStatusTag();startLT();saveLS();
+  toast('info','Tushlik','Yaxshi dam oling! 🍽️');
 }
-
 function empBackLunch(){
   if(empState!=='lunch')return;
-  const now=tzNow();
-  if(lStart)lAccum+=Math.floor((now-lStart)/1000);
-  lStart=null;
-  st('i_le',fmtHM(now));
-  empState='working';
-  wStart=now;
-  stopLT();
-  updateEmpBtns();updateEmpStatusTag();startWT();saveLS();
+  const now=tzNow();if(lStart)lAccum+=Math.floor((now-lStart)/1000);lStart=null;
+  st('i_le',fmtHM(now));empState='working';wStart=now;stopLT();updateEmpBtns();updateEmpStatusTag();startWT();saveLS();
+  toast('success','Tushlik','Ish davom etadi 💼');
 }
-
-function empContinue(){
-  if(empState!=='paused')return;
-  empState='working';
-  wStart=tzNow();
-  document.getElementById('bc').classList.add('hidden');
-  updateEmpBtns();updateEmpStatusTag();startWT();saveLS();
-}
-
+function empContinue(){if(empState!=='paused')return;empState='working';wStart=tzNow();document.getElementById('bc').classList.add('hidden');updateEmpBtns();updateEmpStatusTag();startWT();saveLS();}
 async function empEnd(auto=false){
   if(!['working','lunch','paused'].includes(empState))return;
   const now=tzNow();
   if(empState==='working'&&wStart)wAccum+=Math.floor((now-wStart)/1000);
   if(empState==='lunch'&&lStart)lAccum+=Math.floor((now-lStart)/1000);
-  wStart=null;lStart=null;
-  empState='ended';
-  st('i_e',fmtHM(now));
-  stopWT();stopLT();
-  document.getElementById('bc').classList.add('hidden');
-  setTV(wAccum,'tw');setTV(lAccum,'tl');
-  updateEmpBtns();updateEmpStatusTag();
-  stopFaceDetection();
-  if(auto){
-    autoEndDone=true;
-    document.getElementById('m_auto_end').classList.remove('hidden');
-    document.getElementById('autoEndBanner').style.display='block';
-    setTimeout(()=>document.getElementById('autoEndBanner').style.display='none',5000);
-  }
-  saveLS();
-  await saveAtt(auto);
+  wStart=null;lStart=null;empState='ended';st('i_e',fmtHM(now));
+  stopWT();stopLT();document.getElementById('bc').classList.add('hidden');
+  setTV(wAccum,'tw');setTV(lAccum,'tl');updateEmpBtns();updateEmpStatusTag();stopFaceDetection();
+  if(auto){autoEndDone=true;document.getElementById('m_auto_end').classList.remove('hidden');document.getElementById('autoEndBanner').style.display='block';setTimeout(()=>document.getElementById('autoEndBanner').style.display='none',5000);}
+  else toast('success','Yakunlandi','Yaxshi ish kuni! 🎉');
+  saveLS();await saveAtt(auto);
 }
-
 async function saveAtt(autoEnded=false){
   if(!CU)return;
-  const today=todayISO();
-  const ss=getLS()||{};
-  const lm=ss.lateMin||0;
-  const payload={
-    employee_id:CU.id,
-    work_date:today,
-    start_time:ss.i_s&&ss.i_s!=='-'?ss.i_s+':00':null,
-    end_time:ss.i_e&&ss.i_e!=='-'?ss.i_e+':00':null,
-    lunch_start:ss.i_ls&&ss.i_ls!=='-'?ss.i_ls+':00':null,
-    lunch_end:ss.i_le&&ss.i_le!=='-'?ss.i_le+':00':null,
-    work_seconds:wAccum,
-    lunch_seconds:lAccum,
-    afk_seconds:afkSeconds,
-    afk_count:afkCount,
-    late_minutes:lm,
-    status:lm>0?'kechikkan':'keldi',
-    auto_ended:autoEnded
-  };
+  const today=todayISO();const ss=getLS()||{};const lm=ss.lateMin||0;
+  const payload={employee_id:CU.id,work_date:today,start_time:ss.i_s&&ss.i_s!=='-'?ss.i_s+':00':null,end_time:ss.i_e&&ss.i_e!=='-'?ss.i_e+':00':null,lunch_start:ss.i_ls&&ss.i_ls!=='-'?ss.i_ls+':00':null,lunch_end:ss.i_le&&ss.i_le!=='-'?ss.i_le+':00':null,work_seconds:wAccum,lunch_seconds:lAccum,afk_seconds:afkSeconds,afk_count:afkCount,late_minutes:lm,status:lm>0?'kechikkan':'keldi',auto_ended:autoEnded};
   const{data:ex}=await sb.from('attendance').select('id').eq('employee_id',CU.id).eq('work_date',today).maybeSingle();
-  if(ex)await sb.from('attendance').update(payload).eq('id',ex.id);
-  else await sb.from('attendance').insert(payload);
+  if(ex)await sb.from('attendance').update(payload).eq('id',ex.id);else await sb.from('attendance').insert(payload);
   loadHist();
 }
-
 async function savePartial(){
   if(!CU||empState==='not_started')return;
-  const today=todayISO();
-  const ss=getLS()||{};
-  const lm=ss.lateMin||0;
-  let cw=wAccum;
-  if(empState==='working'&&wStart)cw+=Math.floor((tzNow()-wStart)/1000);
-  let cl=lAccum;
-  if(empState==='lunch'&&lStart)cl+=Math.floor((tzNow()-lStart)/1000);
-  let afkNow=afkSeconds;
-  if(isAfk&&currentAfkStart)afkNow+=Math.floor((tzNow()-currentAfkStart)/1000);
-  
-  const payload={
-    employee_id:CU.id,
-    work_date:today,
-    start_time:ss.i_s&&ss.i_s!=='-'?ss.i_s+':00':null,
-    work_seconds:cw,
-    lunch_seconds:cl,
-    afk_seconds:afkNow,
-    afk_count:afkCount,
-    late_minutes:lm,
-    status:lm>0?'kechikkan':'keldi',
-    auto_ended:false
-  };
+  const today=todayISO();const ss=getLS()||{};const lm=ss.lateMin||0;
+  let cw=wAccum;if(empState==='working'&&wStart)cw+=Math.floor((tzNow()-wStart)/1000);
+  let cl=lAccum;if(empState==='lunch'&&lStart)cl+=Math.floor((tzNow()-lStart)/1000);
+  let afkNow=afkSeconds;if(isAfk&&currentAfkStart)afkNow+=Math.floor((tzNow()-currentAfkStart)/1000);
+  const payload={employee_id:CU.id,work_date:today,start_time:ss.i_s&&ss.i_s!=='-'?ss.i_s+':00':null,work_seconds:cw,lunch_seconds:cl,afk_seconds:afkNow,afk_count:afkCount,late_minutes:lm,status:lm>0?'kechikkan':'keldi',auto_ended:false};
   const{data:ex}=await sb.from('attendance').select('id').eq('employee_id',CU.id).eq('work_date',today).maybeSingle();
-  if(ex)await sb.from('attendance').update(payload).eq('id',ex.id);
-  else await sb.from('attendance').insert(payload);
+  if(ex)await sb.from('attendance').update(payload).eq('id',ex.id);else await sb.from('attendance').insert(payload);
 }
 
-// ==================== TIMERS ====================
+// ============================================================
+//  TIMERS
+// ============================================================
 function startWT(){
   stopWT();let cnt=0;
   wIv=setInterval(()=>{
-    let tot=wAccum;
-    if(wStart)tot+=Math.floor((tzNow()-wStart)/1000);
-    setTV(tot,'tw');
-    cnt++;
-    if(cnt%30===0){saveLS();savePartial();}
+    let tot=wAccum;if(wStart)tot+=Math.floor((tzNow()-wStart)/1000);setTV(tot,'tw');
+    cnt++;if(cnt%30===0){saveLS();savePartial();}
   },1000);
 }
 function stopWT(){if(wIv){clearInterval(wIv);wIv=null;}}
 function startLT(){
   stopLT();
-  lIv=setInterval(()=>{let tot=lAccum;if(lStart)tot+=Math.floor((tzNow()-lStart)/1000);setTV(tot,'tl');},1000);
+  lIv=setInterval(()=>{let tot=lAccum;if(lStart)tot+=Math.floor((tzNow()-lStart)/1000);setTV(tot,'tl');updateBreakBar();},1000);
 }
 function stopLT(){if(lIv){clearInterval(lIv);lIv=null;}}
 function setTV(sec,id){const e=document.getElementById(id);if(e)e.textContent=fmtSec(sec);}
 function stopAll(){stopWT();stopLT();}
 
-// ==================== AUTO-END CHECK ====================
+// Break bar update
+function updateBreakBar(){
+  const bar=document.getElementById('breakBar');const used=document.getElementById('breakUsed');const bb=document.getElementById('breakBanner');
+  const total=breakSeconds+(lStart?Math.floor((tzNow()-lStart)/1000):0);
+  const pct=Math.min(100,(total/BREAK_LIMIT_SEC)*100);
+  if(bar){bar.style.width=pct+'%';bar.classList.toggle('over',total>BREAK_LIMIT_SEC);}
+  if(used)used.textContent=Math.floor(total/60)+' daq';
+  if(bb)bb.style.display=(total>0&&empState==='working'&&total<BREAK_LIMIT_SEC)?'none':'none'; // only show when needed
+  // Check break notifications are done via checkScheduledNotifs
+}
+
+// ============================================================
+//  AUTO-END
+// ============================================================
 function startAutoEndCheck(){
   if(autoEndIv)clearInterval(autoEndIv);
   autoEndIv=setInterval(()=>{
     if(autoEndDone)return;
     if(!['working','lunch','paused'].includes(empState))return;
-    const now=tzNow();
-    const h=now.getHours(),m=now.getMinutes();
-    if(h===AUTO_END_HOUR&&m>=AUTO_END_MIN){
-      empEnd(true);
-    }
-  },30000); // check every 30 sec
-  // Also check immediately on load
+    const now=tzNow();if(now.getHours()===AUTO_END_HOUR&&now.getMinutes()>=AUTO_END_MIN)empEnd(true);
+  },30000);
   const now=tzNow();
-  const h=now.getHours(),m=now.getMinutes();
-  if(!autoEndDone&&['working','lunch','paused'].includes(empState)&&h===AUTO_END_HOUR&&m>=AUTO_END_MIN){
-    empEnd(true);
-  }
+  if(!autoEndDone&&['working','lunch','paused'].includes(empState)&&now.getHours()===AUTO_END_HOUR&&now.getMinutes()>=AUTO_END_MIN)empEnd(true);
 }
 
-// ==================== FACE DETECTION ====================
+// ============================================================
+//  FACE DETECTION — full implementation
+// ============================================================
 let faceApiLoaded = false;
 let faceStream = null;
 let faceCheckIv = null;
-let faceDetecting = false;
-let faceMissCount = 0;  // consecutive miss count
+let faceMissCount = 0;
 let faceWidgetMinimized = false;
-let afkCurSec = 0; // current afk episode seconds
+let afkCurSec = 0;
 let afkCurIv = null;
+let afkCountdownIv = null;
+let afkCountdownSec = AFK_GRACE_SEC;
+
+// Face recognition (who is it)
+let faceDescriptors = []; // [{empId, name, descriptors:[Float32Array,...]}]
+let myFaceDescriptor = null; // registered face of CU
+
+// Liveness: track motion between frames
+let lastFaceBox = null;
+let livenessScore = 0; // 0-1
 
 function toggleFaceWidget(){
   faceWidgetMinimized=!faceWidgetMinimized;
@@ -1208,223 +1661,272 @@ function toggleFaceWidget(){
 
 async function startFaceDetection(){
   if(empState==='ended'||empState==='not_started')return;
-  
-  // Load face-api models
   const statusEl=document.getElementById('face_status_inline');
   if(statusEl)statusEl.textContent=t('face_loading');
-  
+  setFaceDot('yellow',t('face_loading'));
+
   try{
-    // Wait for face-api.js to be available
     let attempts=0;
-    while(typeof faceapi==='undefined'&&attempts<30){
-      await new Promise(r=>setTimeout(r,500));
-      attempts++;
-    }
-    if(typeof faceapi==='undefined'){
-      if(statusEl)statusEl.textContent='⚠️ face-api yuklanmadi';
-      return;
-    }
-    
+    while(typeof faceapi==='undefined'&&attempts<40){await new Promise(r=>setTimeout(r,500));attempts++;}
+    if(typeof faceapi==='undefined'){if(statusEl)statusEl.textContent='⚠️ face-api yuklanmadi';setFaceDot('gray','Error');return;}
+
     if(!faceApiLoaded){
       const MODEL_URL='https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/';
-      await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
+      await Promise.all([
+        faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+        faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
+        faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
+      ]);
       faceApiLoaded=true;
     }
-    
-    // Start camera
+
     if(!faceStream){
-      faceStream=await navigator.mediaDevices.getUserMedia({video:{width:160,height:120,facingMode:'user'},audio:false});
+      faceStream=await navigator.mediaDevices.getUserMedia({video:{width:320,height:240,facingMode:'user'},audio:false});
       const video=document.getElementById('faceVideo');
       video.srcObject=faceStream;
       await new Promise(r=>video.onloadedmetadata=r);
       await video.play();
     }
-    
-    // Resize canvas
+
     const video=document.getElementById('faceVideo');
     const canvas=document.getElementById('faceCanvas');
-    canvas.width=video.videoWidth||160;
-    canvas.height=video.videoHeight||120;
-    
-    if(statusEl)statusEl.textContent=t('face_detected');
-    setFaceDot('green',t('face_detected'));
-    
-    // Start detection loop
+    canvas.width=video.videoWidth||320;canvas.height=video.videoHeight||240;
+
+    // Load my face profile
+    await loadMyFaceProfile();
+
+    if(statusEl)statusEl.textContent=myFaceDescriptor?t('face_detected'):'📸 Yuzni ro\'yxatdan o\'tkazing';
+    setFaceDot(myFaceDescriptor?'green':'yellow',myFaceDescriptor?t('face_detected'):'Ro\'yxatdan o\'ting');
+
     if(faceCheckIv)clearInterval(faceCheckIv);
     faceCheckIv=setInterval(()=>checkFace(),FACE_CHECK_INTERVAL);
-    
+
   }catch(err){
     console.warn('Face detection error:',err);
     if(statusEl)statusEl.textContent='⚠️ Kamera ruxsati yo\'q';
     setFaceDot('gray','Kamera yo\'q');
+    // If no camera, hide face reg box
+    const frb=document.getElementById('faceRegBox');if(frb)frb.style.display='none';
   }
 }
 
+async function loadMyFaceProfile(){
+  if(!CU)return;
+  const{data}=await sb.from('face_profiles').select('descriptor').eq('employee_id',CU.id).maybeSingle();
+  if(data&&data.descriptor){
+    myFaceDescriptor=new Float32Array(data.descriptor);
+    const frb=document.getElementById('faceRegBox');if(frb)frb.style.display='none';
+  } else {
+    myFaceDescriptor=null;
+    const frb=document.getElementById('faceRegBox');if(frb)frb.style.display='block';
+  }
+}
+
+// FACE REGISTRATION
+let regSamples=[];
+let regCapturing=false;
+function startFaceRegistration(){
+  if(regCapturing)return;
+  regCapturing=true;regSamples=[];
+  const btn=document.getElementById('faceRegBtn');if(btn)btn.textContent='📸 Suratga tushmoqda... (0/5)';
+  updateSampleDots();
+  captureNextSample();
+}
+async function captureNextSample(){
+  if(!faceApiLoaded){toast('warn','Face','Model yuklanmadi');regCapturing=false;return;}
+  const video=document.getElementById('faceVideo');if(!video||video.readyState<2){toast('warn','Face','Kamera tayyor emas');regCapturing=false;return;}
+  try{
+    const det=await faceapi.detectSingleFace(video,new faceapi.TinyFaceDetectorOptions({inputSize:320,scoreThreshold:0.5})).withFaceLandmarks().withFaceDescriptor();
+    if(det){
+      // Liveness check: check face size relative to video
+      const faceArea=(det.detection.box.width*det.detection.box.height)/(video.videoWidth*video.videoHeight);
+      if(faceArea<0.02){updateQuality('Yuzingizni kameraga yaqinroq turing');if(regCapturing)setTimeout(captureNextSample,800);return;}
+      regSamples.push(Array.from(det.descriptor));
+      updateSampleDots();
+      updateQuality(`${regSamples.length}/5 namuna olindi ✅`);
+      const btn=document.getElementById('faceRegBtn');if(btn)btn.textContent=`📸 (${regSamples.length}/5)`;
+      if(regSamples.length>=5){await saveFaceProfile();regCapturing=false;return;}
+      setTimeout(captureNextSample,700);
+    } else {
+      updateQuality('Yuzingiz aniqlanmadi, to\'g\'rilang...');
+      if(regCapturing)setTimeout(captureNextSample,800);
+    }
+  }catch(e){regCapturing=false;}
+}
+function updateSampleDots(){
+  const c=document.getElementById('faceSamples');if(!c)return;
+  c.innerHTML='';for(let i=0;i<5;i++){const d=document.createElement('div');d.className='face-sample-dot'+(i<regSamples.length?' done':'');d.textContent=i<regSamples.length?'✅':'📷';c.appendChild(d);}
+}
+function updateQuality(txt){const el=document.getElementById('faceQuality');if(el)el.textContent=txt;}
+async function saveFaceProfile(){
+  if(!CU||regSamples.length===0)return;
+  // Average all descriptors
+  const avg=new Float32Array(128);
+  regSamples.forEach(d=>{d.forEach((v,i)=>avg[i]+=v);});
+  avg.forEach((v,i)=>avg[i]=v/regSamples.length);
+  const{data:ex}=await sb.from('face_profiles').select('id').eq('employee_id',CU.id).maybeSingle();
+  const descriptor=Array.from(avg);
+  if(ex)await sb.from('face_profiles').update({descriptor}).eq('employee_id',CU.id);
+  else await sb.from('face_profiles').insert({employee_id:CU.id,descriptor});
+  await sb.from('employees').update({face_registered:true}).eq('id',CU.id);
+  myFaceDescriptor=avg;
+  const frb=document.getElementById('faceRegBox');if(frb)frb.style.display='none';
+  toast('success','Yuz','Ro\'yxatdan o\'tdi! ✅');
+  const btn=document.getElementById('faceRegBtn');if(btn)btn.textContent='✅ Ro\'yxatdan o\'tdi';
+}
+
 async function checkFace(){
-  if(empState!=='working')return; // Only check when working (not lunch)
+  if(empState==='lunch')return; // No AFK during lunch
   if(!faceApiLoaded)return;
   const video=document.getElementById('faceVideo');
   if(!video||video.readyState<2)return;
-  
   try{
-    const detections=await faceapi.detectAllFaces(video,new faceapi.TinyFaceDetectorOptions({inputSize:160,scoreThreshold:0.4}));
-    const found=detections&&detections.length>0;
+    const det=await faceapi.detectSingleFace(video,new faceapi.TinyFaceDetectorOptions({inputSize:160,scoreThreshold:0.4}));
     
-    if(found){
-      faceMissCount=0;
-      onFaceDetected();
+    if(det){
+      // Liveness check: detect motion/change
+      const box=det.detection.box;
+      if(lastFaceBox){
+        const dx=Math.abs(box.x-lastFaceBox.x)+Math.abs(box.y-lastFaceBox.y);
+        livenessScore=Math.min(1,livenessScore+dx*0.01);
+      }
+      lastFaceBox={x:box.x,y:box.y,w:box.width,h:box.height};
+      livenessScore=Math.max(0,livenessScore-0.002); // decay
+
+      // Draw detection box on canvas
+      const canvas=document.getElementById('faceCanvas');
+      const ctx=canvas.getContext('2d');
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+      const isFake=livenessScore<0.05;
+      ctx.strokeStyle=isFake?'#ff4757':'#2ed573';
+      ctx.lineWidth=2;ctx.strokeRect(box.x,box.y,box.width,box.height);
+
+      // Liveness indicator
+      const ld=document.getElementById('livenessWidgetDot'),lt=document.getElementById('livenessWidgetTxt');
+      if(ld){ld.className='liveness-dot'+(livenessScore>0.05?' ok':'');} 
+      if(lt)lt.textContent=livenessScore>0.05?'✅ Real yuz':'⚠️ Harakat yo\'q';
+
+      // Face recognition: compare with my profile
+      if(myFaceDescriptor){
+        const withDesc=await faceapi.detectSingleFace(video,new faceapi.TinyFaceDetectorOptions({inputSize:160,scoreThreshold:0.4})).withFaceLandmarks().withFaceDescriptor();
+        if(withDesc){
+          const dist=faceapi.euclideanDistance(withDesc.descriptor,myFaceDescriptor);
+          if(dist<0.5){faceMissCount=0;onFaceDetected('match');}
+          else{faceMissCount++;onFaceMissed('unknown');}
+        } else {faceMissCount=0;onFaceDetected('detected');}
+      } else {
+        faceMissCount=0;onFaceDetected('detected');
+      }
     }else{
       faceMissCount++;
-      onFaceMissed();
+      const canvas=document.getElementById('faceCanvas');
+      const ctx=canvas.getContext('2d');ctx.clearRect(0,0,canvas.width,canvas.height);
+      lastFaceBox=null;livenessScore=0;
+      onFaceMissed('not_detected');
     }
   }catch(e){}
 }
 
-function onFaceDetected(){
+function onFaceDetected(reason){
   const statusEl=document.getElementById('face_status_inline');
-  if(statusEl)statusEl.textContent=t('face_detected');
-  setFaceDot('green',t('face_detected'));
-  
-  // If was AFK, end the AFK session
-  if(isAfk){
-    endAfkSession();
-  }
-  
-  // Hide AFK warning
-  if(afkWarnShown){
-    document.getElementById('m_afk_warn').classList.add('hidden');
-    afkWarnShown=false;
-  }
+  if(statusEl)statusEl.textContent=reason==='match'?'✅ Yuz tanildi ('+CU?.name+')':t('face_detected');
+  setFaceDot('green',reason==='match'?'✅ Tanildi':t('face_detected'));
+  if(isAfk)endAfkSession();
+  if(afkWarnShown){document.getElementById('m_afk_warn').classList.add('hidden');afkWarnShown=false;if(afkCountdownIv){clearInterval(afkCountdownIv);afkCountdownIv=null;}}
   document.getElementById('afkBanner').style.display='none';
 }
 
-function onFaceMissed(){
+function onFaceMissed(reason){
   const statusEl=document.getElementById('face_status_inline');
-  if(statusEl)statusEl.textContent=t('face_not_detected');
-  setFaceDot('red',t('face_not_detected'));
-  
-  // Start AFK if not already
+  if(statusEl)statusEl.textContent=reason==='unknown'?t('face_unknown'):t('face_not_detected');
+  setFaceDot('red',reason==='unknown'?t('face_unknown'):t('face_not_detected'));
+
   if(!isAfk&&empState==='working'){
-    startAfkSession();
+    // Only start AFK if miss count > grace period (5 min = 300 consecutive 1-sec checks)
+    if(faceMissCount>=AFK_GRACE_SEC){
+      startAfkSession();
+    } else if(faceMissCount===Math.floor(AFK_GRACE_SEC*0.5)&&!afkWarnShown){
+      // Warn at 2.5 min
+      afkWarnShown=true;
+      document.getElementById('m_afk_warn').classList.remove('hidden');
+      startAfkCountdown();
+    }
+    document.getElementById('afkBanner').style.display='block';
   }
-  
-  document.getElementById('afkBanner').style.display='block';
 }
 
 function startAfkSession(){
-  isAfk=true;
-  currentAfkStart=tzNow();
-  afkCount++;
-  afkCurSec=0;
-  
-  // Show warning modal after miss count > 3
-  if(faceMissCount>3&&!afkWarnShown){
-    afkWarnShown=true;
-    document.getElementById('m_afk_warn').classList.remove('hidden');
-    startAfkCountdown();
-  }
-  
-  // Start afk timer
+  if(isAfk)return;
+  isAfk=true;currentAfkStart=tzNow();afkCount++;afkCurSec=0;
   if(afkCurIv)clearInterval(afkCurIv);
   afkCurIv=setInterval(()=>{
     if(!isAfk){clearInterval(afkCurIv);afkCurIv=null;return;}
-    afkCurSec++;
-    afkSeconds++;
-    updateAfkDisplay();
-    saveLS();
-    // Update widget
-    const tv=document.getElementById('afkTimerVal');
-    if(tv)tv.textContent=fmtSecMM(afkCurSec);
-    const atw=document.getElementById('afkTotalWidget');
-    if(atw)atw.textContent='Jami AFK: '+Math.floor(afkSeconds/60)+' daq';
-    
+    afkCurSec++;afkSeconds++;breakSeconds++;
+    updateAfkDisplay();updateBreakBar();saveLS();
+    const tv=document.getElementById('afkTimerVal');if(tv)tv.textContent=fmtSecMM(afkCurSec);
+    const atw=document.getElementById('afkTotalWidget');if(atw)atw.textContent='Jami AFK: '+Math.floor(afkSeconds/60)+' daq';
     document.getElementById('afkTimer').classList.remove('hidden');
+    checkScheduledNotifs();
   },1000);
 }
 
 function endAfkSession(){
   if(!isAfk)return;
-  isAfk=false;
-  currentAfkStart=null;
-  
+  isAfk=false;currentAfkStart=null;
   if(afkCurIv){clearInterval(afkCurIv);afkCurIv=null;}
   document.getElementById('afkTimer').classList.add('hidden');
   setFaceDot('green',t('face_detected'));
-  
-  // Save AFK session to DB
-  saveAfkSession();
   afkCurSec=0;
 }
 
-let afkCountdownIv=null;
-let afkCountdownSec=600; // 10 min
 function startAfkCountdown(){
-  afkCountdownSec=AFK_THRESHOLD_SEC;
+  afkCountdownSec=AFK_GRACE_SEC;
   if(afkCountdownIv)clearInterval(afkCountdownIv);
   afkCountdownIv=setInterval(()=>{
     afkCountdownSec--;
-    const cd=document.getElementById('afk_countdown');
-    if(cd)cd.textContent=fmtSecMM(afkCountdownSec);
-    if(afkCountdownSec<=0){
-      clearInterval(afkCountdownIv);
-      document.getElementById('m_afk_warn').classList.add('hidden');
-      afkWarnShown=false;
-    }
+    const cd=document.getElementById('afk_countdown');if(cd)cd.textContent=fmtSecMM(afkCountdownSec);
+    if(afkCountdownSec<=0){clearInterval(afkCountdownIv);document.getElementById('m_afk_warn').classList.add('hidden');afkWarnShown=false;}
   },1000);
 }
 
 function dismissAfkWarn(){
   document.getElementById('m_afk_warn').classList.add('hidden');
   if(afkCountdownIv){clearInterval(afkCountdownIv);afkCountdownIv=null;}
-  afkWarnShown=false;
-}
-
-async function saveAfkSession(){
-  if(!CU)return;
-  await sb.from('afk_sessions').insert({
-    employee_id:CU.id,
-    work_date:todayISO(),
-    afk_start:currentAfkStart?currentAfkStart.toISOString():new Date().toISOString(),
-    afk_end:tzNow().toISOString(),
-    duration_seconds:afkCurSec,
-    reason:'face_not_detected'
-  }).catch(e=>console.warn(e));
+  afkWarnShown=false;faceMissCount=0; // reset so they have grace period again
 }
 
 function updateAfkDisplay(){
-  const d=document.getElementById('afk_display');
-  if(d)d.textContent=fmtSec(afkSeconds);
-  const c=document.getElementById('afk_cnt_lbl');
-  if(c)c.textContent=afkCount+' '+t('afk_cnt_lbl');
+  const d=document.getElementById('afk_display');if(d)d.textContent=fmtSec(afkSeconds);
+  const c=document.getElementById('afk_cnt_lbl');if(c)c.textContent=afkCount+' '+t('afk_cnt_lbl');
+  const ok=document.getElementById('afk_break_ok');if(ok)ok.classList.toggle('hidden',breakSeconds>0);
 }
 
 function setFaceDot(color,txt){
-  const dot=document.getElementById('faceDot');
-  const ftxt=document.getElementById('faceTxt');
-  if(dot){dot.className='fw-dot '+color;}
-  if(ftxt)ftxt.textContent=txt;
+  const dot=document.getElementById('faceDot');const ftxt=document.getElementById('faceTxt');
+  if(dot)dot.className='fw-dot '+color;if(ftxt)ftxt.textContent=txt;
 }
 
 function stopFaceDetection(){
   if(faceCheckIv){clearInterval(faceCheckIv);faceCheckIv=null;}
   if(afkCurIv){clearInterval(afkCurIv);afkCurIv=null;}
-  if(faceStream){faceStream.getTracks().forEach(t=>t.stop());faceStream=null;}
+  if(faceStream){faceStream.getTracks().forEach(t2=>t2.stop());faceStream=null;}
   document.getElementById('afkBanner').style.display='none';
-  isAfk=false;
-  currentAfkStart=null;
+  isAfk=false;currentAfkStart=null;
 }
 
-// ==================== EMP UI HELPERS ====================
+// ============================================================
+//  EMP UI HELPERS
+// ============================================================
 function updateEmpBtns(){
   const bsE=document.getElementById('bs'),blE=document.getElementById('bl'),beE=document.getElementById('be');
-  const dis=(b,d)=>{if(b){b.disabled=d;b.style.opacity=d?.42:1;}};
+  const dis=(b,d)=>{if(b){b.disabled=d;}};
   if(empState==='not_started'){dis(bsE,false);dis(blE,true);dis(beE,true);if(blE){blE.textContent=t('bl');blE.onclick=empLunch;}}
   else if(empState==='working'){dis(bsE,true);dis(blE,false);dis(beE,false);if(blE){blE.textContent=t('bl');blE.onclick=empLunch;}}
   else if(empState==='lunch'){dis(bsE,true);dis(blE,false);dis(beE,true);if(blE){blE.textContent=t('bb');blE.onclick=empBackLunch;}}
   else if(empState==='paused'||empState==='ended'){dis(bsE,true);dis(blE,true);dis(beE,true);}
 }
 function updateEmpStatusTag(){
-  const map={not_started:t('st0'),working:t('st1'),lunch:t('st2'),paused:t('st3'),ended:t('st4')};
+  const map={not_started:t('st0'),working:t('st1'),lunch:t('st2'),paused:'Pauza',ended:t('st4')};
   const el=document.getElementById('e_stag');if(el)el.textContent=t('st_pre')+' '+(map[empState]||'');
 }
 function setEmpMonth(){document.getElementById('e_month').value=curM();loadHist();}
@@ -1432,61 +1934,48 @@ function setEmpMonth(){document.getElementById('e_month').value=curM();loadHist(
 async function loadHist(){
   if(!CU)return;
   const m=document.getElementById('e_month').value||curM();
-  const[y,mo]=m.split('-').map(Number);
-  const dim=new Date(y,mo,0).getDate();
+  const[y,mo]=m.split('-').map(Number);const dim=new Date(y,mo,0).getDate();
   const{data:recs}=await sb.from('attendance').select('*').eq('employee_id',CU.id).gte('work_date',`${m}-01`).lte('work_date',`${m}-${String(dim).padStart(2,'0')}`).order('work_date');
   const tbody=document.getElementById('hbody');tbody.innerHTML='';
   let lc=0,totalAfkSec=0;
-  if(!recs||recs.length===0){
-    tbody.innerHTML=`<tr><td colspan="11" style="text-align:center;color:var(--muted)">${t('no_data')}</td></tr>`;
-    st('e_lc','0');st('e_afk_total','0 '+t('daqiqa'));
-    return;
-  }
+  if(!recs||recs.length===0){tbody.innerHTML=`<tr><td colspan="11" style="text-align:center;color:var(--text3);padding:20px">${t('no_data')}</td></tr>`;st('e_lc','0');st('e_afk_total','0 '+t('daqiqa'));return;}
   recs.forEach((r,i)=>{
     if(r.late_minutes>0)lc++;
     totalAfkSec+=r.afk_seconds||0;
     const wh=Math.floor((r.work_seconds||0)/3600),wm=Math.floor(((r.work_seconds||0)%3600)/60);
     const lh=Math.floor((r.lunch_seconds||0)/3600),lm2=Math.floor(((r.lunch_seconds||0)%3600)/60);
     const afkMin=Math.floor((r.afk_seconds||0)/60);
+    const afkOver=Math.max(0,afkMin-30);
     let bdg='';
     if(r.status==='keldi')bdg=`<span class="badge bg">${t('b_came')}</span>`;
     else if(r.status==='kechikkan')bdg=`<span class="badge by">${t('b_late')}</span>`;
     else bdg=`<span class="badge br">${t('b_abs')}</span>`;
-    if(r.auto_ended)bdg+=` <span class="badge bafk" style="font-size:10px">⚙️ auto</span>`;
+    if(r.auto_ended)bdg+=` <span class="badge bauto" style="font-size:10px">⚙️ auto</span>`;
     const tr=document.createElement('tr');
-    tr.innerHTML=`<td>${i+1}</td><td>${r.work_date}</td><td>${r.start_time?r.start_time.substring(0,5):'-'}</td><td>${r.lunch_start?r.lunch_start.substring(0,5):'-'}</td><td>${r.lunch_end?r.lunch_end.substring(0,5):'-'}</td><td>${r.end_time?r.end_time.substring(0,5):'-'}</td><td>${r.late_minutes?r.late_minutes+' '+t('daq'):'-'}</td><td>${wh}h ${wm}m</td><td>${lh}h ${lm2}m</td><td style="color:${afkMin>60?'var(--red)':'inherit'}">${afkMin>0?afkMin+' '+t('daq'):'—'}</td><td>${bdg}</td>`;
+    tr.innerHTML=`<td>${i+1}</td><td style="font-family:var(--mono)">${r.work_date}</td><td style="font-family:var(--mono)">${r.start_time?r.start_time.substring(0,5):'-'}</td><td>${r.lunch_start?r.lunch_start.substring(0,5):'-'}</td><td>${r.lunch_end?r.lunch_end.substring(0,5):'-'}</td><td>${r.end_time?r.end_time.substring(0,5):'-'}</td><td>${r.late_minutes?r.late_minutes+' '+t('daq'):'-'}</td><td style="font-family:var(--mono)">${wh}h ${wm}m</td><td>${lh}h ${lm2}m</td><td style="color:${afkOver>0?'var(--danger)':'inherit'};font-family:var(--mono)">${afkMin>0?afkMin+' '+t('daq'):'—'}${afkOver>0?` <span style="font-size:10px;color:var(--danger)">(+${afkOver} over)</span>`:''}</td><td>${bdg}</td>`;
     tbody.appendChild(tr);
   });
-  st('e_lc',''+lc);
-  st('e_afk_total',Math.floor(totalAfkSec/60)+' '+t('daqiqa'));
+  st('e_lc',''+lc);st('e_afk_total',Math.floor(totalAfkSec/60)+' '+t('daqiqa'));
 }
 
-// ==================== INIT ====================
+// ============================================================
+//  INIT
+// ============================================================
 (async function(){
+  applyTheme(localStorage.getItem('aloqa_theme')||'dark');
   userPublicIP=await getUserIP();
   const myIPEl=document.getElementById('ipb_val');if(myIPEl)myIPEl.textContent=userPublicIP||'—';
-  
-  // Restore session
+
   const s=localStorage.getItem('aloqa_u');
-  if(s){
-    try{
-      CU=JSON.parse(s);
-      if(CU&&CU.role==='employee'){
-        const allowed=await checkIPAccess('employee');
-        if(!allowed){showIPBlock(userPublicIP);return;}
-      }
-    }catch(e){CU=null;}
-  }
-  
+  if(s){try{CU=JSON.parse(s);if(CU&&CU.role==='employee'){const allowed=await checkIPAccess('employee');if(!allowed){showIPBlock(userPublicIP);return;}}}catch(e){CU=null;}}
+
   showPage(CU?(CU.role==='admin'?'admin':'employee'):'login');
-  
+
   document.getElementById('inp_p').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
   document.getElementById('inp_l').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
-  
-  // Visibility change - when user comes back to tab, update timers
+
   document.addEventListener('visibilitychange',()=>{
     if(!document.hidden&&CU&&CU.role==='employee'&&empState==='working'){
-      // Resume face detection
       if(!faceStream)startFaceDetection();
     }
   });
