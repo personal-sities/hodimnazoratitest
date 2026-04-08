@@ -1019,7 +1019,19 @@ async function getAllowedIPs(){
 
   return (data || []).map(i => i.ip);
 }
-async function saveAllowedIPs(arr){const{data:old}=await sb.rpc('get_allowed_ips').catch(()=>({data:[]}));if(old){for(const item of old)await sb.rpc('delete_allowed_ip',{p_ip:item.ip});}for(const ip of arr)await sb.rpc('add_allowed_ip',{p_ip:ip}).catch(()=>{});}
+async function saveAllowedIPs(arr){
+  const { data:old } = await sb.rpc('get_allowed_ips');
+
+  if(old){
+    for(const item of old){
+      await sb.rpc('delete_allowed_ip',{p_ip:item.ip});
+    }
+  }
+
+  for(const ip of arr){
+    await sb.rpc('add_allowed_ip',{p_ip:ip});
+  }
+}
 async function checkIPAccess(role){if(role==='admin')return true;const allowed=await getAllowedIPs();if(allowed.length===0)return true;if(!userPublicIP)userPublicIP=await getUserIP();return allowed.includes(userPublicIP);}
 async function addAllowedIP(){const val=document.getElementById('ip_inp').value.trim();if(!val){toast('warn','IP','IP kiriting!');return;}const arr=await getAllowedIPs();if(!arr.includes(val))arr.push(val);await saveAllowedIPs(arr);document.getElementById('ip_inp').value='';updateIPList();toast('success','IP','Qo\'shildi');}
 async function addMyIP(){if(!userPublicIP)userPublicIP=await getUserIP();if(!userPublicIP){toast('error','Xato','IP aniqlanmadi');return;}const arr=await getAllowedIPs();if(!arr.includes(userPublicIP))arr.push(userPublicIP);await saveAllowedIPs(arr);updateIPList();toast('success','IP','Mening IP qo\'shildi');}
