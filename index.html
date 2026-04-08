@@ -930,7 +930,7 @@ const SUPABASE_URL  = 'https://auzafnpqavjifgcxdjha.supabase.co';
 const SUPABASE_ANON = 'sb_publishable_42Jv6FiVUPVKItb73z0gkQ_1YyJYIDE';
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
 
-const FACE_MODELS_URL    = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/';
+const FACE_MODELS_URL    = 'https://justadudewhohacks.github.io/face-api.js/weights/';
 const FACE_CHECK_INTERVAL = 1000;       // 1 second
 const AFK_GRACE_SEC       = 300;        // 5 min grace before AFK warning
 const BREAK_LIMIT_SEC     = 1800;       // 30 min daily break allowance
@@ -1692,7 +1692,7 @@ async function startFaceDetection(){
     if(typeof faceapi==='undefined'){if(statusEl)statusEl.textContent='⚠️ face-api yuklanmadi';setFaceDot('gray','Error');return;}
 
     if(!faceApiLoaded){
-      const MODEL_URL='/models';
+      const MODEL_URL='https://justadudewhohacks.github.io/face-api.js/weights/';
       await Promise.all([
         faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
         faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
