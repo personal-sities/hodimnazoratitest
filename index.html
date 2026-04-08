@@ -995,7 +995,7 @@ function dismissInstall() {
   if (b) b.style.display = 'none';
 }
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('/sw.js').catch(() => {});
+  navigator.serviceWorker.register('./sw.js').catch(() => {});
 }
 
 // ============================================================
@@ -1657,261 +1657,320 @@ function startAutoEndCheck(){
 }
 
 // ============================================================
-//  FACE DETECTION — full implementation
+//  FACE DETECTION — stable rewrite
 // ============================================================
-let faceApiLoaded = false;
-let faceStream = null;
-let faceCheckIv = null;
-let faceMissCount = 0;
-let faceWidgetMinimized = false;
-let afkCurSec = 0;
-let afkCurIv = null;
-let afkCountdownIv = null;
+let faceApiLoaded   = false;
+let faceStream      = null;
+let faceCheckIv     = null;
+let faceMissCount   = 0;
+let faceConsecHit   = 0;  // consecutive detections
+let faceWidgetMin   = false;
+let afkCurSec       = 0;
+let afkCurIv        = null;
+let afkCountdownIv  = null;
 let afkCountdownSec = AFK_GRACE_SEC;
-
-// Face recognition (who is it)
-let faceDescriptors = []; // [{empId, name, descriptors:[Float32Array,...]}]
-let myFaceDescriptor = null; // registered face of CU
-
-// Liveness: track motion between frames
-let lastFaceBox = null;
-let livenessScore = 0; // 0-1
+let lastFaceBox     = null;
+let livenessScore   = 0;
+let faceDescriptors = [];
+let myFaceDescriptor= null;
+let isDetecting     = false; // prevent concurrent detections
 
 function toggleFaceWidget(){
-  faceWidgetMinimized=!faceWidgetMinimized;
+  faceWidgetMin=!faceWidgetMin;
   const vw=document.querySelector('#faceWidget .fw-video-wrap');
-  if(vw)vw.style.display=faceWidgetMinimized?'none':'block';
+  if(vw)vw.style.display=faceWidgetMin?'none':'block';
 }
 
-async function startFaceDetection(){
-  if(empState==='ended'||empState==='not_started')return;
-  const statusEl=document.getElementById('face_status_inline');
-  if(statusEl)statusEl.textContent=t('face_loading');
-  setFaceDot('yellow',t('face_loading'));
+// ── MODEL LOADING ──────────────────────────────────────────
+async function loadFaceModels(){
+  if(faceApiLoaded)return true;
 
+  // Wait for faceapi script to be ready (max 20s)
+  for(let i=0;i<40;i++){
+    if(typeof faceapi!=='undefined')break;
+    await new Promise(r=>setTimeout(r,500));
+  }
+  if(typeof faceapi==='undefined'){
+    console.error('faceapi undefined — CDN yuklanmadi');
+    return false;
+  }
+
+  const URLS=[
+    'https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.15/model/',
+    'https://raw.githubusercontent.com/justadudewhohacks/face-api.js/master/weights/',
+    'https://unpkg.com/@vladmandic/face-api@1.7.15/model/'
+  ];
+
+  for(const url of URLS){
+    try{
+      console.log('Trying model URL:', url);
+      await faceapi.nets.tinyFaceDetector.loadFromUri(url);
+      try{ await faceapi.nets.faceLandmark68Net.loadFromUri(url); }catch(e){ console.warn('landmark skip'); }
+      try{ await faceapi.nets.faceRecognitionNet.loadFromUri(url); }catch(e){ console.warn('recognition skip'); }
+      faceApiLoaded=true;
+      console.log('✅ Models loaded from:', url);
+      return true;
+    }catch(e){
+      console.warn('URL failed:', url, e.message);
+    }
+  }
+  console.error('❌ All model URLs failed');
+  return false;
+}
+
+// ── START CAMERA ───────────────────────────────────────────
+async function startCamera(){
+  if(faceStream)return true;
   try{
-    // Wait for faceapi to load (max 15 sec)
-    let attempts=0;
-    while(typeof faceapi==='undefined'&&attempts<30){
-      await new Promise(r=>setTimeout(r,500));
-      attempts++;
-    }
-    if(typeof faceapi==='undefined'){
-      if(statusEl)statusEl.textContent='⚠️ face-api skripti yuklanmadi (internet yoki CDN muammosi)';
-      setFaceDot('gray','Skript xatosi');
-      console.error('faceapi is undefined after waiting. Check CDN.');
-      return;
-    }
-    console.log('faceapi loaded, version check:', typeof faceapi);
-
-    if(!faceApiLoaded){
-      const MODEL_URL='https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.15/model/';
-      try{
-        console.log('Loading face models from:', MODEL_URL);
-        if(statusEl)statusEl.textContent='⏳ Modellar yuklanmoqda (1/3)...';
-        await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
-        console.log('tinyFaceDetector OK');
-        if(statusEl)statusEl.textContent='⏳ Modellar yuklanmoqda (2/3)...';
-        try{ await faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL); console.log('faceLandmark68Net OK'); }catch(e){ console.warn('faceLandmark68Net skip:',e.message); }
-        if(statusEl)statusEl.textContent='⏳ Modellar yuklanmoqda (3/3)...';
-        try{ await faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL); console.log('faceRecognitionNet OK'); }catch(e){ console.warn('faceRecognitionNet skip:',e.message); }
-        faceApiLoaded=true;
-        console.log('✅ face-api models loaded OK');
-        if(statusEl)statusEl.textContent='✅ Modellar yuklandi';
-      }catch(modelErr){
-        console.error('❌ Model yuklanmadi:', modelErr.message, modelErr);
-        if(statusEl)statusEl.textContent='⚠️ Model yuklanmadi: '+modelErr.message;
-        setFaceDot('gray','Model xatosi');
-        toast('error','Face Model','Model yuklanmadi: '+modelErr.message);
-        return;
-      }
-    }
-
-    if(!faceStream){
-      faceStream=await navigator.mediaDevices.getUserMedia({video:{width:320,height:240,facingMode:'user'},audio:false});
-      const video=document.getElementById('faceVideo');
-      video.srcObject=faceStream;
-      await new Promise(r=>video.onloadedmetadata=r);
-      await video.play();
-    }
-
+    faceStream=await navigator.mediaDevices.getUserMedia({
+      video:{width:{ideal:320},height:{ideal:240},facingMode:'user'},
+      audio:false
+    });
     const video=document.getElementById('faceVideo');
+    video.srcObject=faceStream;
+    await new Promise((resolve,reject)=>{
+      video.onloadedmetadata=()=>resolve();
+      video.onerror=reject;
+      setTimeout(resolve,3000); // fallback
+    });
+    try{ await video.play(); }catch(e){}
+    // Sync canvas size
     const canvas=document.getElementById('faceCanvas');
-    canvas.width=video.videoWidth||320;canvas.height=video.videoHeight||240;
-
-    // Load my face profile
-    await loadMyFaceProfile();
-
-    if(statusEl)statusEl.textContent=myFaceDescriptor?t('face_detected'):'📸 Yuzni ro\'yxatdan o\'tkazing';
-    setFaceDot(myFaceDescriptor?'green':'yellow',myFaceDescriptor?t('face_detected'):'Ro\'yxatdan o\'ting');
-
-    if(faceCheckIv)clearInterval(faceCheckIv);
-    faceCheckIv=setInterval(()=>checkFace(),FACE_CHECK_INTERVAL);
-
-  }catch(err){
-    console.warn('Face detection error:',err);
-    if(statusEl)statusEl.textContent='⚠️ Kamera ruxsati yo\'q';
-    setFaceDot('gray','Kamera yo\'q');
-    // If no camera, hide face reg box
-    const frb=document.getElementById('faceRegBox');if(frb)frb.style.display='none';
+    canvas.width=video.videoWidth||320;
+    canvas.height=video.videoHeight||240;
+    return true;
+  }catch(e){
+    console.error('Camera error:',e.message);
+    return false;
   }
 }
 
-async function loadMyFaceProfile(){
-  if(!CU)return;
-  const{data}=await sb.from('face_profiles').select('descriptor').eq('employee_id',CU.id).maybeSingle();
-  if(data&&data.descriptor){
-    myFaceDescriptor=new Float32Array(data.descriptor);
+// ── MAIN ENTRY ─────────────────────────────────────────────
+async function startFaceDetection(){
+  if(empState==='ended')return;
+
+  const statusEl=document.getElementById('face_status_inline');
+  const setStatus=(txt)=>{ if(statusEl)statusEl.textContent=txt; };
+
+  setStatus('⏳ Yuklanmoqda...');
+  setFaceDot('yellow','Yuklanmoqda...');
+
+  // 1. Load models
+  setStatus('⏳ Modellar yuklanmoqda...');
+  const modelsOk=await loadFaceModels();
+  if(!modelsOk){
+    setStatus('⚠️ Model yuklanmadi — internet tekshiring');
+    setFaceDot('gray','Model xatosi');
+    toast('error','Face','Model yuklanmadi');
+    return;
+  }
+
+  // 2. Start camera
+  setStatus('⏳ Kamera yoqilmoqda...');
+  const camOk=await startCamera();
+  if(!camOk){
+    setStatus('⚠️ Kamera ruxsati yo'q');
+    setFaceDot('gray','Kamera yo'q');
     const frb=document.getElementById('faceRegBox');if(frb)frb.style.display='none';
+    return;
+  }
+
+  // 3. Load my face profile from DB
+  await loadMyFaceProfile();
+
+  if(myFaceDescriptor){
+    setStatus('✅ Yuz nazorati tayyor');
+    setFaceDot('green','Tayyor');
   } else {
-    myFaceDescriptor=null;
-    const frb=document.getElementById('faceRegBox');if(frb)frb.style.display='block';
+    setStatus('📸 Yuzni ro'yxatdan o'tkazing');
+    setFaceDot('yellow','Ro'yxat kerak');
+  }
+
+  // 4. Start detection loop — clear any old interval first
+  if(faceCheckIv){ clearInterval(faceCheckIv); faceCheckIv=null; }
+  faceMissCount=0; faceConsecHit=0;
+  faceCheckIv=setInterval(runFaceCheck, FACE_CHECK_INTERVAL);
+  console.log('✅ Face detection loop started');
+}
+
+// ── FACE CHECK (runs every 1s) ─────────────────────────────
+async function runFaceCheck(){
+  // Skip during lunch, not started, ended
+  if(empState==='lunch'||empState==='not_started'||empState==='ended')return;
+  // Prevent overlap
+  if(isDetecting)return;
+  if(!faceApiLoaded)return;
+
+  const video=document.getElementById('faceVideo');
+  if(!video||video.readyState<2||video.paused){
+    // Video stopped — try restart
+    try{ await video.play(); }catch(e){}
+    return;
+  }
+
+  isDetecting=true;
+  try{
+    const opts=new faceapi.TinyFaceDetectorOptions({inputSize:160,scoreThreshold:0.35});
+
+    // Basic detection first (fast)
+    const det=await faceapi.detectSingleFace(video,opts);
+
+    if(det){
+      faceConsecHit++;
+      faceMissCount=0;
+
+      // Draw box
+      drawFaceBox(det.detection.box, true);
+
+      // Liveness
+      updateLiveness(det.detection.box);
+
+      // Recognition — only if we have a stored descriptor
+      if(myFaceDescriptor && faceapi.nets.faceRecognitionNet.isLoaded){
+        try{
+          const full=await faceapi.detectSingleFace(video,opts).withFaceLandmarks().withFaceDescriptor();
+          if(full){
+            const dist=faceapi.euclideanDistance(Array.from(full.descriptor), Array.from(myFaceDescriptor));
+            if(dist<0.55){
+              onFaceDetected('match');
+            } else {
+              // Unknown face — still count as "someone present" to avoid false AFK
+              onFaceDetected('unknown_face');
+            }
+          } else {
+            onFaceDetected('detected');
+          }
+        }catch(e){
+          // Recognition failed but face was detected — treat as detected
+          onFaceDetected('detected');
+        }
+      } else {
+        onFaceDetected('detected');
+      }
+
+    } else {
+      faceConsecHit=0;
+      faceMissCount++;
+      clearFaceBox();
+      lastFaceBox=null;
+      livenessScore=Math.max(0,livenessScore-0.05);
+      onFaceMissed();
+    }
+
+  }catch(e){
+    console.warn('checkFace error:',e.message);
+  }finally{
+    isDetecting=false;
   }
 }
 
-// FACE REGISTRATION
-let regSamples=[];
-let regCapturing=false;
-function startFaceRegistration(){
-  if(regCapturing)return;
-  regCapturing=true;regSamples=[];
-  const btn=document.getElementById('faceRegBtn');if(btn)btn.textContent='📸 Suratga tushmoqda... (0/5)';
-  updateSampleDots();
-  captureNextSample();
-}
-async function captureNextSample(){
-  if(!faceApiLoaded){toast('warn','Face','Model yuklanmadi');regCapturing=false;return;}
-  const video=document.getElementById('faceVideo');if(!video||video.readyState<2){toast('warn','Face','Kamera tayyor emas');regCapturing=false;return;}
-  try{
-    const det=await faceapi.detectSingleFace(video,new faceapi.TinyFaceDetectorOptions({inputSize:320,scoreThreshold:0.5})).withFaceLandmarks().withFaceDescriptor();
-    if(det){
-      // Liveness check: check face size relative to video
-      const faceArea=(det.detection.box.width*det.detection.box.height)/(video.videoWidth*video.videoHeight);
-      if(faceArea<0.02){updateQuality('Yuzingizni kameraga yaqinroq turing');if(regCapturing)setTimeout(captureNextSample,800);return;}
-      regSamples.push(Array.from(det.descriptor));
-      updateSampleDots();
-      updateQuality(`${regSamples.length}/5 namuna olindi ✅`);
-      const btn=document.getElementById('faceRegBtn');if(btn)btn.textContent=`📸 (${regSamples.length}/5)`;
-      if(regSamples.length>=5){await saveFaceProfile();regCapturing=false;return;}
-      setTimeout(captureNextSample,700);
-    } else {
-      updateQuality('Yuzingiz aniqlanmadi, to\'g\'rilang...');
-      if(regCapturing)setTimeout(captureNextSample,800);
-    }
-  }catch(e){regCapturing=false;}
-}
-function updateSampleDots(){
-  const c=document.getElementById('faceSamples');if(!c)return;
-  c.innerHTML='';for(let i=0;i<5;i++){const d=document.createElement('div');d.className='face-sample-dot'+(i<regSamples.length?' done':'');d.textContent=i<regSamples.length?'✅':'📷';c.appendChild(d);}
-}
-function updateQuality(txt){const el=document.getElementById('faceQuality');if(el)el.textContent=txt;}
-async function saveFaceProfile(){
-  if(!CU||regSamples.length===0)return;
-  // Average all descriptors
-  const avg=new Float32Array(128);
-  regSamples.forEach(d=>{d.forEach((v,i)=>avg[i]+=v);});
-  avg.forEach((v,i)=>avg[i]=v/regSamples.length);
-  const{data:ex}=await sb.from('face_profiles').select('id').eq('employee_id',CU.id).maybeSingle();
-  const descriptor=Array.from(avg);
-  if(ex)await sb.from('face_profiles').update({descriptor}).eq('employee_id',CU.id);
-  else await sb.from('face_profiles').insert({employee_id:CU.id,descriptor});
-  await sb.from('employees').update({face_registered:true}).eq('id',CU.id);
-  myFaceDescriptor=avg;
-  const frb=document.getElementById('faceRegBox');if(frb)frb.style.display='none';
-  toast('success','Yuz','Ro\'yxatdan o\'tdi! ✅');
-  const btn=document.getElementById('faceRegBtn');if(btn)btn.textContent='✅ Ro\'yxatdan o\'tdi';
-}
-
-async function checkFace(){
-  if(empState==='lunch')return; // No AFK during lunch
-  if(!faceApiLoaded)return;
+function drawFaceBox(box, found){
+  const canvas=document.getElementById('faceCanvas');
+  if(!canvas)return;
   const video=document.getElementById('faceVideo');
-  if(!video||video.readyState<2)return;
-  try{
-    const det=await faceapi.detectSingleFace(video,new faceapi.TinyFaceDetectorOptions({inputSize:160,scoreThreshold:0.4}));
-    
-    if(det){
-      // Liveness check: detect motion/change
-      const box=det.detection.box;
-      if(lastFaceBox){
-        const dx=Math.abs(box.x-lastFaceBox.x)+Math.abs(box.y-lastFaceBox.y);
-        livenessScore=Math.min(1,livenessScore+dx*0.01);
-      }
-      lastFaceBox={x:box.x,y:box.y,w:box.width,h:box.height};
-      livenessScore=Math.max(0,livenessScore-0.002); // decay
-
-      // Draw detection box on canvas
-      const canvas=document.getElementById('faceCanvas');
-      const ctx=canvas.getContext('2d');
-      ctx.clearRect(0,0,canvas.width,canvas.height);
-      const isFake=livenessScore<0.05;
-      ctx.strokeStyle=isFake?'#ff4757':'#2ed573';
-      ctx.lineWidth=2;ctx.strokeRect(box.x,box.y,box.width,box.height);
-
-      // Liveness indicator
-      const ld=document.getElementById('livenessWidgetDot'),lt=document.getElementById('livenessWidgetTxt');
-      if(ld){ld.className='liveness-dot'+(livenessScore>0.05?' ok':'');} 
-      if(lt)lt.textContent=livenessScore>0.05?'✅ Real yuz':'⚠️ Harakat yo\'q';
-
-      // Face recognition: compare with my profile
-      if(myFaceDescriptor){
-        const withDesc=await faceapi.detectSingleFace(video,new faceapi.TinyFaceDetectorOptions({inputSize:160,scoreThreshold:0.4})).withFaceLandmarks().withFaceDescriptor();
-        if(withDesc){
-          const dist=faceapi.euclideanDistance(withDesc.descriptor,myFaceDescriptor);
-          if(dist<0.5){faceMissCount=0;onFaceDetected('match');}
-          else{faceMissCount++;onFaceMissed('unknown');}
-        } else {faceMissCount=0;onFaceDetected('detected');}
-      } else {
-        faceMissCount=0;onFaceDetected('detected');
-      }
-    }else{
-      faceMissCount++;
-      const canvas=document.getElementById('faceCanvas');
-      const ctx=canvas.getContext('2d');ctx.clearRect(0,0,canvas.width,canvas.height);
-      lastFaceBox=null;livenessScore=0;
-      onFaceMissed('not_detected');
-    }
-  }catch(e){}
+  // Keep canvas in sync with video
+  if(video&&(canvas.width!==video.videoWidth||canvas.height!==video.videoHeight)){
+    canvas.width=video.videoWidth||320;
+    canvas.height=video.videoHeight||240;
+  }
+  const ctx=canvas.getContext('2d');
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  ctx.strokeStyle=found?'#2ed573':'#ff4757';
+  ctx.lineWidth=2;
+  ctx.strokeRect(box.x,box.y,box.width,box.height);
 }
 
+function clearFaceBox(){
+  const canvas=document.getElementById('faceCanvas');
+  if(canvas){ const ctx=canvas.getContext('2d'); ctx.clearRect(0,0,canvas.width,canvas.height); }
+}
+
+function updateLiveness(box){
+  if(lastFaceBox){
+    const dx=Math.abs(box.x-lastFaceBox.x)+Math.abs(box.y-lastFaceBox.y)+
+             Math.abs(box.width-lastFaceBox.w)+Math.abs(box.height-lastFaceBox.h);
+    livenessScore=Math.min(1,livenessScore+dx*0.02);
+  }
+  lastFaceBox={x:box.x,y:box.y,w:box.width,h:box.height};
+  livenessScore=Math.max(0,livenessScore-0.003);
+
+  const ld=document.getElementById('livenessWidgetDot');
+  const lt=document.getElementById('livenessWidgetTxt');
+  if(ld)ld.className='liveness-dot'+(livenessScore>0.05?' ok':'');
+  if(lt)lt.textContent=livenessScore>0.05?'✅ Real yuz':'⚠️ Harakat yo'q';
+}
+
+// ── ON FACE DETECTED ───────────────────────────────────────
 function onFaceDetected(reason){
   const statusEl=document.getElementById('face_status_inline');
-  if(statusEl)statusEl.textContent=reason==='match'?'✅ Yuz tanildi ('+CU?.name+')':t('face_detected');
-  setFaceDot('green',reason==='match'?'✅ Tanildi':t('face_detected'));
-  if(isAfk)endAfkSession();
-  if(afkWarnShown){document.getElementById('m_afk_warn').classList.add('hidden');afkWarnShown=false;if(afkCountdownIv){clearInterval(afkCountdownIv);afkCountdownIv=null;}}
+  const name = CU?.name||'';
+  let txt = t('face_detected');
+  if(reason==='match') txt='✅ Tanildi: '+name;
+  else if(reason==='unknown_face') txt='👤 Yuz aniqlandi';
+  if(statusEl)statusEl.textContent=txt;
+  setFaceDot('green', reason==='match'?'✅ '+name:'✅ Aniqlandi');
+
+  // End AFK session if running
+  if(isAfk) endAfkSession();
+
+  // Hide AFK warning modal
+  if(afkWarnShown){
+    document.getElementById('m_afk_warn').classList.add('hidden');
+    afkWarnShown=false;
+    if(afkCountdownIv){ clearInterval(afkCountdownIv); afkCountdownIv=null; }
+  }
+
+  // Hide AFK banner
   document.getElementById('afkBanner').style.display='none';
+
+  // Reset miss counter
+  faceMissCount=0;
 }
 
-function onFaceMissed(reason){
+// ── ON FACE MISSED ─────────────────────────────────────────
+function onFaceMissed(){
   const statusEl=document.getElementById('face_status_inline');
-  if(statusEl)statusEl.textContent=reason==='unknown'?t('face_unknown'):t('face_not_detected');
-  setFaceDot('red',reason==='unknown'?t('face_unknown'):t('face_not_detected'));
+  if(statusEl)statusEl.textContent=t('face_not_detected');
+  setFaceDot('red', t('face_not_detected'));
 
-  if(!isAfk&&empState==='working'){
-    // Only start AFK if miss count > grace period (5 min = 300 consecutive 1-sec checks)
-    if(faceMissCount>=AFK_GRACE_SEC){
-      startAfkSession();
-    } else if(faceMissCount===Math.floor(AFK_GRACE_SEC*0.5)&&!afkWarnShown){
-      // Warn at 2.5 min
-      afkWarnShown=true;
-      document.getElementById('m_afk_warn').classList.remove('hidden');
-      startAfkCountdown();
-    }
-    document.getElementById('afkBanner').style.display='block';
+  if(empState!=='working')return;
+
+  // Show banner
+  document.getElementById('afkBanner').style.display='block';
+
+  // Show warning modal at half grace period
+  if(faceMissCount===Math.floor(AFK_GRACE_SEC*0.5)&&!afkWarnShown){
+    afkWarnShown=true;
+    document.getElementById('m_afk_warn').classList.remove('hidden');
+    startAfkCountdown();
+  }
+
+  // Start AFK after full grace period
+  if(!isAfk && faceMissCount>=AFK_GRACE_SEC){
+    startAfkSession();
   }
 }
 
+// ── AFK SESSION ────────────────────────────────────────────
 function startAfkSession(){
   if(isAfk)return;
-  isAfk=true;currentAfkStart=tzNow();afkCount++;afkCurSec=0;
+  isAfk=true;
+  currentAfkStart=tzNow();
+  afkCount++;
+  afkCurSec=0;
   if(afkCurIv)clearInterval(afkCurIv);
   afkCurIv=setInterval(()=>{
-    if(!isAfk){clearInterval(afkCurIv);afkCurIv=null;return;}
-    afkCurSec++;afkSeconds++;breakSeconds++;
-    updateAfkDisplay();updateBreakBar();saveLS();
-    const tv=document.getElementById('afkTimerVal');if(tv)tv.textContent=fmtSecMM(afkCurSec);
-    const atw=document.getElementById('afkTotalWidget');if(atw)atw.textContent='Jami AFK: '+Math.floor(afkSeconds/60)+' daq';
+    if(!isAfk){ clearInterval(afkCurIv); afkCurIv=null; return; }
+    afkCurSec++;
+    afkSeconds++;
+    breakSeconds++;
+    updateAfkDisplay();
+    updateBreakBar();
+    saveLS();
+    const tv=document.getElementById('afkTimerVal');
+    if(tv)tv.textContent=fmtSecMM(afkCurSec);
+    const atw=document.getElementById('afkTotalWidget');
+    if(atw)atw.textContent='Jami AFK: '+Math.floor(afkSeconds/60)+' daq';
     document.getElementById('afkTimer').classList.remove('hidden');
     checkScheduledNotifs();
   },1000);
@@ -1919,8 +1978,9 @@ function startAfkSession(){
 
 function endAfkSession(){
   if(!isAfk)return;
-  isAfk=false;currentAfkStart=null;
-  if(afkCurIv){clearInterval(afkCurIv);afkCurIv=null;}
+  isAfk=false;
+  currentAfkStart=null;
+  if(afkCurIv){ clearInterval(afkCurIv); afkCurIv=null; }
   document.getElementById('afkTimer').classList.add('hidden');
   setFaceDot('green',t('face_detected'));
   afkCurSec=0;
@@ -1931,34 +1991,162 @@ function startAfkCountdown(){
   if(afkCountdownIv)clearInterval(afkCountdownIv);
   afkCountdownIv=setInterval(()=>{
     afkCountdownSec--;
-    const cd=document.getElementById('afk_countdown');if(cd)cd.textContent=fmtSecMM(afkCountdownSec);
-    if(afkCountdownSec<=0){clearInterval(afkCountdownIv);document.getElementById('m_afk_warn').classList.add('hidden');afkWarnShown=false;}
+    const cd=document.getElementById('afk_countdown');
+    if(cd)cd.textContent=fmtSecMM(afkCountdownSec);
+    if(afkCountdownSec<=0){
+      clearInterval(afkCountdownIv);
+      afkCountdownIv=null;
+      document.getElementById('m_afk_warn').classList.add('hidden');
+      afkWarnShown=false;
+    }
   },1000);
 }
 
 function dismissAfkWarn(){
   document.getElementById('m_afk_warn').classList.add('hidden');
-  if(afkCountdownIv){clearInterval(afkCountdownIv);afkCountdownIv=null;}
-  afkWarnShown=false;faceMissCount=0; // reset so they have grace period again
+  if(afkCountdownIv){ clearInterval(afkCountdownIv); afkCountdownIv=null; }
+  afkWarnShown=false;
+  faceMissCount=0; // reset so grace period starts again
+}
+
+// ── FACE REGISTRATION ──────────────────────────────────────
+let regSamples   = [];
+let regCapturing = false;
+
+function startFaceRegistration(){
+  if(regCapturing)return;
+  if(!faceApiLoaded){ toast('warn','Face','Model hali yuklanmadi, kuting...'); return; }
+  regCapturing=true;
+  regSamples=[];
+  updateSampleDots();
+  const btn=document.getElementById('faceRegBtn');
+  if(btn)btn.textContent='📸 0/5 tushirilmoqda...';
+  captureNextSample();
+}
+
+async function captureNextSample(){
+  if(!regCapturing)return;
+  const video=document.getElementById('faceVideo');
+  if(!video||video.readyState<2){
+    toast('warn','Face','Kamera tayyor emas');
+    regCapturing=false;
+    return;
+  }
+  try{
+    const opts=new faceapi.TinyFaceDetectorOptions({inputSize:320,scoreThreshold:0.5});
+    const det=await faceapi.detectSingleFace(video,opts).withFaceLandmarks().withFaceDescriptor();
+    if(det){
+      const area=(det.detection.box.width*det.detection.box.height)/(video.videoWidth*video.videoHeight);
+      if(area<0.015){
+        updateQuality('Kameraga yaqinroq turing...');
+        setTimeout(captureNextSample,700);
+        return;
+      }
+      regSamples.push(Array.from(det.descriptor));
+      updateSampleDots();
+      updateQuality(regSamples.length+'/5 ✅');
+      const btn=document.getElementById('faceRegBtn');
+      if(btn)btn.textContent='📸 '+regSamples.length+'/5...';
+      if(regSamples.length>=5){
+        await saveFaceProfile();
+        regCapturing=false;
+        return;
+      }
+      setTimeout(captureNextSample,600);
+    } else {
+      updateQuality('Yuz aniqlanmadi — to'g'ri qarang');
+      setTimeout(captureNextSample,800);
+    }
+  }catch(e){
+    console.warn('captureNextSample error:',e.message);
+    regCapturing=false;
+  }
+}
+
+function updateSampleDots(){
+  const c=document.getElementById('faceSamples');
+  if(!c)return;
+  c.innerHTML='';
+  for(let i=0;i<5;i++){
+    const d=document.createElement('div');
+    d.className='face-sample-dot'+(i<regSamples.length?' done':'');
+    d.textContent=i<regSamples.length?'✅':'📷';
+    c.appendChild(d);
+  }
+}
+function updateQuality(txt){
+  const el=document.getElementById('faceQuality');
+  if(el)el.textContent=txt;
+}
+
+async function saveFaceProfile(){
+  if(!CU||regSamples.length===0)return;
+  // Average all sample descriptors
+  const avg=new Float32Array(128);
+  regSamples.forEach(d=>d.forEach((v,i)=>avg[i]+=v));
+  avg.forEach((v,i)=>avg[i]=v/regSamples.length);
+  const descriptor=Array.from(avg);
+  try{
+    const{data:ex}=await sb.from('face_profiles').select('id').eq('employee_id',CU.id).maybeSingle();
+    if(ex) await sb.from('face_profiles').update({descriptor}).eq('employee_id',CU.id);
+    else   await sb.from('face_profiles').insert({employee_id:CU.id,descriptor});
+    await sb.from('employees').update({face_registered:true}).eq('id',CU.id);
+    myFaceDescriptor=avg;
+    const frb=document.getElementById('faceRegBox');
+    if(frb)frb.style.display='none';
+    toast('success','Yuz','Ro'yxatdan o'tdi! ✅');
+    setFaceDot('green','✅ Ro'yxatdan o'tdi');
+    const btn=document.getElementById('faceRegBtn');
+    if(btn)btn.textContent='✅ Ro'yxatdan o'tdi';
+  }catch(e){
+    toast('error','Yuz',e.message);
+    regCapturing=false;
+  }
+}
+
+async function loadMyFaceProfile(){
+  if(!CU)return;
+  try{
+    const{data}=await sb.from('face_profiles').select('descriptor').eq('employee_id',CU.id).maybeSingle();
+    if(data&&data.descriptor){
+      myFaceDescriptor=new Float32Array(data.descriptor);
+      const frb=document.getElementById('faceRegBox');
+      if(frb)frb.style.display='none';
+      console.log('✅ Face profile loaded');
+    } else {
+      myFaceDescriptor=null;
+      const frb=document.getElementById('faceRegBox');
+      if(frb)frb.style.display='block';
+    }
+  }catch(e){
+    console.warn('loadMyFaceProfile:',e.message);
+  }
 }
 
 function updateAfkDisplay(){
-  const d=document.getElementById('afk_display');if(d)d.textContent=fmtSec(afkSeconds);
-  const c=document.getElementById('afk_cnt_lbl');if(c)c.textContent=afkCount+' '+t('afk_cnt_lbl');
-  const ok=document.getElementById('afk_break_ok');if(ok)ok.classList.toggle('hidden',breakSeconds>0);
+  const d=document.getElementById('afk_display');
+  if(d)d.textContent=fmtSec(afkSeconds);
+  const c=document.getElementById('afk_cnt_lbl');
+  if(c)c.textContent=afkCount+' '+t('afk_cnt_lbl');
+  const ok=document.getElementById('afk_break_ok');
+  if(ok)ok.classList.toggle('hidden',breakSeconds>0);
 }
 
 function setFaceDot(color,txt){
-  const dot=document.getElementById('faceDot');const ftxt=document.getElementById('faceTxt');
-  if(dot)dot.className='fw-dot '+color;if(ftxt)ftxt.textContent=txt;
+  const dot=document.getElementById('faceDot');
+  const ftxt=document.getElementById('faceTxt');
+  if(dot)dot.className='fw-dot '+color;
+  if(ftxt)ftxt.textContent=txt;
 }
 
 function stopFaceDetection(){
-  if(faceCheckIv){clearInterval(faceCheckIv);faceCheckIv=null;}
-  if(afkCurIv){clearInterval(afkCurIv);afkCurIv=null;}
-  if(faceStream){faceStream.getTracks().forEach(t2=>t2.stop());faceStream=null;}
+  if(faceCheckIv){ clearInterval(faceCheckIv); faceCheckIv=null; }
+  if(afkCurIv){ clearInterval(afkCurIv); afkCurIv=null; }
+  if(faceStream){ faceStream.getTracks().forEach(t2=>t2.stop()); faceStream=null; }
+  isDetecting=false;
+  isAfk=false;
+  currentAfkStart=null;
   document.getElementById('afkBanner').style.display='none';
-  isAfk=false;currentAfkStart=null;
 }
 
 // ============================================================
