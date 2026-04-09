@@ -1755,12 +1755,16 @@ async function runFaceCheck(){
     const opts=new faceapi.TinyFaceDetectorOptions({inputSize:160,scoreThreshold:0.35});
     const det=await faceapi.detectSingleFace(video,opts);
 
-    if(det){
-      // ✅ Yuz topildi
-      faceHitCount++;
-      faceMissCount=0; // Miss sanoqini nolga tushir
-      drawFaceBox(det.detection.box,true);
-      updateLiveness(det.detection.box);
+    if(det && det.detection && det.detection.box){
+
+  const box = det.detection.box;
+
+  // ✅ Yuz topildi
+  faceHitCount++;
+  faceMissCount = 0;
+
+  drawFaceBox(box, true);
+  updateLiveness(box);
 
       // Recognition tekshiruvi
       let reason='detected';
@@ -1944,22 +1948,57 @@ function startFaceRegistration(){
 
 async function captureNextSample(){
   if(!regCapturing)return;
+
   const video=document.getElementById('faceVideo');
-  if(!video||video.readyState<2){toast('warn','Face','Kamera tayyor emas');regCapturing=false;return;}
+  if(!video||video.readyState<2){
+    toast('warn','Face','Kamera tayyor emas');
+    regCapturing=false;
+    return;
+  }
+
   try{
     const opts=new faceapi.TinyFaceDetectorOptions({inputSize:320,scoreThreshold:0.5});
     const det=await faceapi.detectSingleFace(video,opts).withFaceLandmarks().withFaceDescriptor();
-    if(det){
-      const area=(det.detection.box.width*det.detection.box.height)/(video.videoWidth*video.videoHeight);
-      if(area<0.015){updateQuality('Kameraga yaqinroq turing...');setTimeout(captureNextSample,700);return;}
-      regSamples.push(Array.from(det.descriptor));updateSampleDots();updateQuality(regSamples.length+'/5 ✅');
-      const btn=document.getElementById('faceRegBtn');if(btn)btn.textContent='📸 '+regSamples.length+'/5...';
-      if(regSamples.length>=5){await saveFaceProfile();regCapturing=false;return;}
-      setTimeout(captureNextSample,600);
-    }else{updateQuality('Yuz aniqlanmadi — togri qarang');setTimeout(captureNextSample,800);}
-  }catch(e){console.warn('captureNextSample error:',e.message);regCapturing=false;}
-}
 
+    const box = det?.detection?.box;
+    const descriptor = det?.descriptor;
+
+    if(box && descriptor){
+
+      const area = (box.width * box.height) / (video.videoWidth * video.videoHeight);
+
+      if(area < 0.015){
+        updateQuality('Kameraga yaqinroq turing...');
+        setTimeout(captureNextSample,700);
+        return;
+      }
+
+      regSamples.push(Array.from(descriptor));
+      updateSampleDots();
+      updateQuality(regSamples.length+'/5 ✅');
+
+      const btn=document.getElementById('faceRegBtn');
+      if(btn)btn.textContent='📸 '+regSamples.length+'/5...';
+
+      if(regSamples.length>=5){
+        await saveFaceProfile();
+        regCapturing=false;
+        return;
+      }
+
+      setTimeout(captureNextSample,600);
+
+    } else {
+      updateQuality('Yuz aniqlanmadi — togri qarang');
+      setTimeout(captureNextSample,800);
+    }
+
+  }catch(e){
+    console.warn('captureNextSample error:',e.message);
+    regCapturing=false;
+  }
+}
+  
 function updateSampleDots(){
   const c=document.getElementById('faceSamples');if(!c)return;
   c.innerHTML='';
