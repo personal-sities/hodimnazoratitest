@@ -1786,7 +1786,7 @@ async function runFaceCheck(){
 
     } else {
       // ✅ Yuz topilmadi
-      faceHitCount=0; // Hit sanoqini nolga tushir — ketma-ket bo'lishi shart
+      faceHitCount = Math.max(0, faceHitCount - 1); // Hit sanoqini nolga tushir — ketma-ket bo'lishi shart
       faceMissCount++;
       clearFaceBox();
       lastFaceBox=null;
