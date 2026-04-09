@@ -1,5 +1,5 @@
 /* AloqaPro Service Worker v1.0 */
-const CACHE_NAME = 'aloqapro-v5';
+const CACHE_NAME = 'aloqapro-v6';
 const OFFLINE_ASSETS = [
   '/',
   '/index.html',
