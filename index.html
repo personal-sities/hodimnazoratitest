@@ -83,7 +83,6 @@ html, body { font-family:var(--font); background:var(--bg); color:var(--text); m
 ::-webkit-scrollbar-track { background:transparent; }
 ::-webkit-scrollbar-thumb { background:var(--border2); border-radius:10px; }
 
-/* THEME TOGGLE */
 .theme-toggle { position:relative; width:44px; height:24px; flex-shrink:0; }
 .theme-toggle input { opacity:0; width:0; height:0; }
 .theme-slider { position:absolute; inset:0; background:var(--bg3); border-radius:20px; cursor:pointer; transition:var(--transition); border:1px solid var(--border2); }
@@ -91,7 +90,6 @@ html, body { font-family:var(--font); background:var(--bg); color:var(--text); m
 .theme-toggle input:checked + .theme-slider { background:var(--accent); }
 .theme-toggle input:checked + .theme-slider::before { transform:translateX(20px); background:#fff; }
 
-/* FLAGS */
 .flag { display:inline-flex; width:32px; height:21px; border-radius:3px; overflow:hidden; flex-shrink:0; }
 .flag svg { width:100%; height:100%; display:block; }
 .lsw { display:flex; align-items:center; gap:4px; background:rgba(255,255,255,.1); border-radius:20px; padding:3px 6px; }
@@ -99,14 +97,12 @@ html, body { font-family:var(--font); background:var(--bg); color:var(--text); m
 .lb.active { opacity:1; box-shadow:0 0 0 2px var(--accent); border-radius:4px; }
 .lsep { width:1px; height:20px; background:var(--border2); }
 
-/* SKELETON */
 .skeleton { background:var(--skeleton); background-size:200% 100%; animation:shimmer 1.5s infinite; border-radius:var(--radius-sm); }
 @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
 .sk-line { height:14px; margin-bottom:8px; }
 .sk-line.short { width:60%; }
 .sk-line.long { width:90%; }
 
-/* TOAST */
 #toast-container { position:fixed; top:16px; right:16px; z-index:99999; display:flex; flex-direction:column; gap:8px; pointer-events:none; }
 .toast { background:var(--toast-bg); border:1px solid var(--border2); border-radius:var(--radius); padding:12px 16px; min-width:260px; max-width:340px; box-shadow:var(--shadow-lg); pointer-events:all; display:flex; align-items:flex-start; gap:10px; animation:slideIn .3s ease; font-size:13px; }
 .toast.removing { animation:slideOut .3s ease forwards; }
@@ -121,7 +117,6 @@ html, body { font-family:var(--font); background:var(--bg); color:var(--text); m
 @keyframes slideIn { from{transform:translateX(120%);opacity:0} to{transform:translateX(0);opacity:1} }
 @keyframes slideOut { from{transform:translateX(0);opacity:1} to{transform:translateX(120%);opacity:0} }
 
-/* LOGIN PAGE */
 #loginPage { display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:100vh; background:var(--bg); padding:16px; position:relative; overflow:hidden; }
 #loginPage::before { content:''; position:absolute; inset:0; background:radial-gradient(ellipse 80% 60% at 50% -10%, rgba(74,140,245,.15), transparent); pointer-events:none; }
 .lp-lang { position:fixed; top:14px; right:14px; z-index:999; display:flex; align-items:center; gap:8px; }
@@ -142,7 +137,6 @@ html, body { font-family:var(--font); background:var(--bg); color:var(--text); m
 .lbtn:active { transform:translateY(0); }
 .lerr { color:var(--danger); font-size:12px; text-align:center; margin-top:8px; min-height:16px; font-weight:500; }
 
-/* IP BLOCK */
 #ipBlockPage { display:none; flex-direction:column; align-items:center; justify-content:center; min-height:100vh; background:var(--bg); }
 .ip-card { background:var(--card); border-radius:16px; padding:36px 28px; max-width:440px; width:100%; text-align:center; box-shadow:var(--shadow-lg); margin:16px; border:1px solid var(--border); }
 .ip-icon { font-size:48px; margin-bottom:14px; }
@@ -150,86 +144,28 @@ html, body { font-family:var(--font); background:var(--bg); color:var(--text); m
 .ip-card p { font-size:13px; color:var(--text2); line-height:1.7; }
 .ip-val { display:inline-block; background:var(--bg3); border-radius:8px; padding:6px 14px; font-size:13px; color:var(--text2); font-family:var(--mono); margin-top:8px; }
 
-/* LAYOUT */
 #adminPage, #employeePage { display:none; }
 .layout { display:flex; min-height:100vh; }
 
-/* ── SIDEBAR — FIX 4: improved visibility ── */
-.sidebar {
-  width:210px;
-  background:var(--sidebar-bg);
-  display:flex;
-  flex-direction:column;
-  flex-shrink:0;
-  transition:transform .25s ease;
-  border-right:1px solid rgba(255,255,255,.06);
-}
-.sb-head {
-  display:flex;
-  align-items:center;
-  gap:10px;
-  padding:18px 16px 20px;
-  border-bottom:1px solid rgba(255,255,255,.08);
-  background:rgba(74,140,245,.08);
-}
+.sidebar { width:210px; background:var(--sidebar-bg); display:flex; flex-direction:column; flex-shrink:0; transition:transform .25s ease; border-right:1px solid rgba(255,255,255,.06); }
+.sb-head { display:flex; align-items:center; gap:10px; padding:18px 16px 20px; border-bottom:1px solid rgba(255,255,255,.08); background:rgba(74,140,245,.08); }
 .sb-logo-img { width:32px; height:32px; object-fit:contain; }
 .sb-logo-txt { color:#fff; font-size:16px; font-weight:800; letter-spacing:-.3px; }
 .sb-logo-txt span { color:#4a8cf5; }
 .sb-nav { display:flex; flex-direction:column; gap:3px; padding:12px 8px; flex:1; }
 
-/* FIX 4: nav buttons with proper contrast */
-.nbtn {
-  padding:11px 14px;
-  background:transparent;
-  color:var(--sidebar-text);
-  border:none;
-  border-radius:var(--radius-sm);
-  font-size:13px;
-  font-weight:500;
-  cursor:pointer;
-  text-align:left;
-  transition:var(--transition);
-  font-family:var(--font);
-  display:flex;
-  align-items:center;
-  gap:10px;
-  position:relative;
-  opacity:.75;
-}
-.nbtn:hover {
-  background:var(--sidebar-hover);
-  color:#fff;
-  opacity:1;
-}
-.nbtn.active {
-  background:var(--sidebar-active);
-  color:#4a8cf5;
-  font-weight:700;
-  opacity:1;
-  border-left:3px solid #4a8cf5;
-  padding-left:11px;
-}
+.nbtn { padding:11px 14px; background:transparent; color:var(--sidebar-text); border:none; border-radius:var(--radius-sm); font-size:13px; font-weight:500; cursor:pointer; text-align:left; transition:var(--transition); font-family:var(--font); display:flex; align-items:center; gap:10px; position:relative; opacity:.75; }
+.nbtn:hover { background:var(--sidebar-hover); color:#fff; opacity:1; }
+.nbtn.active { background:var(--sidebar-active); color:#4a8cf5; font-weight:700; opacity:1; border-left:3px solid #4a8cf5; padding-left:11px; }
 .nbtn .ni { font-size:16px; }
 .sb-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:199; }
 .sb-overlay.open { display:block; }
 .hamburger { display:none; flex-direction:column; gap:5px; background:none; border:none; cursor:pointer; padding:5px; flex-shrink:0; }
 .hamburger span { display:block; width:22px; height:2px; background:#fff; border-radius:2px; transition:var(--transition); }
 
-/* MAIN COLUMN */
 .mcol { flex:1; display:flex; flex-direction:column; min-width:0; }
 
-/* FIX 4: header improvement */
-.tophdr {
-  background:var(--header);
-  padding:13px 18px;
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  flex-shrink:0;
-  gap:8px;
-  border-bottom:1px solid rgba(255,255,255,.06);
-  box-shadow:0 2px 12px rgba(0,0,0,.2);
-}
+.tophdr { background:var(--header); padding:13px 18px; display:flex; align-items:center; justify-content:space-between; flex-shrink:0; gap:8px; border-bottom:1px solid rgba(255,255,255,.06); box-shadow:0 2px 12px rgba(0,0,0,.2); }
 .tophdr h1 { color:#fff; font-size:16px; font-weight:700; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .hdr-r { display:flex; align-items:center; gap:8px; flex-shrink:0; flex-wrap:wrap; }
 .hdr-date { color:rgba(255,255,255,.6); font-size:11px; white-space:nowrap; font-family:var(--mono); background:rgba(255,255,255,.07); padding:4px 8px; border-radius:6px; }
@@ -237,7 +173,6 @@ html, body { font-family:var(--font); background:var(--bg); color:var(--text); m
 .xbtn:hover { background:rgba(255,255,255,.2); }
 .pbody { flex:1; padding:16px; overflow-y:auto; }
 
-/* STAT CARDS */
 .scards { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:16px; }
 .scard { background:var(--card); border-radius:var(--radius); padding:14px 16px; box-shadow:var(--shadow); border:1px solid var(--border); position:relative; overflow:hidden; animation:fadeUp .4s ease both; }
 .scard::before { content:''; position:absolute; top:0; left:0; right:0; height:3px; background:var(--accent-card, var(--accent)); }
@@ -249,11 +184,9 @@ html, body { font-family:var(--font); background:var(--bg); color:var(--text); m
 .snum { font-size:26px; font-weight:800; font-family:var(--mono); }
 @keyframes fadeUp { from{transform:translateY(12px);opacity:0} to{transform:translateY(0);opacity:1} }
 
-/* BOX */
 .box { background:var(--card); border-radius:var(--radius); padding:16px; box-shadow:var(--shadow); margin-bottom:16px; border:1px solid var(--border); animation:fadeUp .4s ease both; }
 .btitle { font-size:14px; font-weight:700; margin-bottom:14px; display:flex; align-items:center; gap:8px; }
 
-/* TABLE */
 .tbl-wrap { overflow-x:auto; -webkit-overflow-scrolling:touch; }
 .tbl { width:100%; border-collapse:collapse; font-size:12.5px; }
 .tbl th { background:var(--bg3); padding:9px 10px; text-align:left; color:var(--text2); font-weight:600; border-bottom:2px solid var(--border2); white-space:nowrap; font-size:11px; text-transform:uppercase; letter-spacing:.4px; }
@@ -267,7 +200,6 @@ html, body { font-family:var(--font); background:var(--bg); color:var(--text); m
 .bafk { background:rgba(165,94,234,.15); color:var(--purple); }
 .bauto { background:rgba(6,214,160,.15); color:var(--accent2); }
 
-/* FILTER ROW */
 .frow { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:14px; }
 .frow input, .frow select, .sf input, .sf select { padding:8px 10px; border:1.5px solid var(--border2); border-radius:var(--radius-sm); font-size:12.5px; background:var(--input-bg); color:var(--text); outline:none; transition:var(--transition); font-family:var(--font); }
 .frow input:focus, .frow select:focus, .sf input:focus, .sf select:focus { border-color:var(--accent); box-shadow:0 0 0 3px rgba(74,140,245,.12); }
@@ -284,26 +216,21 @@ html, body { font-family:var(--font); background:var(--bg); color:var(--text); m
 .btn-export { padding:8px 14px; background:rgba(6,214,160,.15); color:var(--accent2); border:1px solid rgba(6,214,160,.3); border-radius:var(--radius-sm); font-size:12px; font-weight:600; cursor:pointer; transition:var(--transition); font-family:var(--font); display:flex; align-items:center; gap:5px; }
 .btn-export:hover { background:rgba(6,214,160,.25); }
 
-/* DATE RANGE */
 .drange { display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
 .drange label { font-size:11px; color:var(--text3); }
 .drange input { padding:6px 8px; border:1.5px solid var(--border2); border-radius:var(--radius-sm); font-size:12px; background:var(--input-bg); color:var(--text); }
 
-/* MONTHLY STATS */
 .mst { display:grid; grid-template-columns:repeat(5,1fr); gap:10px; margin-bottom:14px; }
 .ms { background:var(--bg3); border-radius:var(--radius-sm); padding:12px; border:1px solid var(--border); }
 .ms h5 { font-size:10.5px; color:var(--text2); margin-bottom:5px; text-transform:uppercase; letter-spacing:.4px; }
 .ms .v { font-size:16px; font-weight:800; font-family:var(--mono); }
 
-/* SETTINGS */
 .sf { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:14px; }
 
-/* KPI BOX */
 .kbox { background:var(--bg3); border-radius:var(--radius); padding:18px; font-size:13px; line-height:2.1; border:1px solid var(--border); }
 .krow { display:flex; gap:10px; }
 .kcol { min-width:140px; color:var(--text2); }
 
-/* FACE WIDGET */
 #faceWidget { position:fixed; bottom:16px; right:16px; z-index:500; background:var(--card); border-radius:14px; padding:10px; box-shadow:var(--shadow-lg); width:180px; border:1px solid var(--border); }
 #faceWidget .fw-title { color:var(--text); font-size:11px; font-weight:700; margin-bottom:6px; display:flex; align-items:center; justify-content:space-between; }
 #faceWidget video { width:100%; border-radius:8px; display:block; }
@@ -323,22 +250,18 @@ html, body { font-family:var(--font); background:var(--bg); color:var(--text); m
 .fw-reg-btn { width:100%; margin-top:6px; padding:5px; background:rgba(74,140,245,.15); color:var(--accent); border:1px solid rgba(74,140,245,.3); border-radius:6px; font-size:10px; font-weight:700; cursor:pointer; font-family:var(--font); }
 .fw-liveness { font-size:10px; color:var(--text3); margin-top:3px; text-align:center; }
 
-/* BANNERS */
 #afkBanner { display:none; position:fixed; top:0; left:0; right:0; z-index:1000; background:linear-gradient(135deg,var(--danger),#c0392b); color:#fff; text-align:center; padding:10px 16px; font-size:13px; font-weight:700; box-shadow:var(--shadow); animation:slideDown .3s ease; }
 #autoEndBanner { display:none; position:fixed; top:0; left:0; right:0; z-index:1001; background:linear-gradient(135deg,var(--success),#27ae60); color:#fff; text-align:center; padding:10px 16px; font-size:13px; font-weight:700; animation:slideDown .3s ease; }
 #breakBanner { display:none; position:fixed; bottom:0; left:0; right:0; z-index:1000; background:linear-gradient(135deg,var(--warn),#e67e22); color:#fff; text-align:center; padding:8px 16px; font-size:12px; font-weight:700; }
 @keyframes slideDown { from{transform:translateY(-100%)} to{transform:translateY(0)} }
 
-/* INSTALL BANNER */
 #installBanner { display:none; position:fixed; bottom:80px; right:16px; z-index:600; background:var(--card); border:1px solid var(--border2); border-radius:var(--radius); padding:12px 16px; box-shadow:var(--shadow-lg); max-width:280px; }
 #installBanner p { font-size:12px; color:var(--text); margin-bottom:8px; font-weight:600; }
 .install-btns { display:flex; gap:7px; }
 .btn-install { padding:7px 14px; background:var(--accent); color:#fff; border:none; border-radius:var(--radius-sm); font-size:12px; font-weight:700; cursor:pointer; font-family:var(--font); }
 .btn-install-no { padding:7px 10px; background:var(--bg3); color:var(--text2); border:none; border-radius:var(--radius-sm); font-size:12px; cursor:pointer; font-family:var(--font); }
 
-/* EMPLOYEE PAGE */
 .ehdr { background:var(--header); padding:13px 18px; display:flex; align-items:center; justify-content:space-between; gap:8px; border-bottom:1px solid rgba(255,255,255,.06); box-shadow:0 2px 12px rgba(0,0,0,.2); }
-/* FIX 3: removed ehdr_t id from showing redundant text — handled in HTML */
 .ehdr-brand { display:flex; align-items:center; gap:10px; }
 .ehdr-brand-name { color:#fff; font-size:15px; font-weight:800; letter-spacing:-.2px; }
 .ehdr-brand-name span { color:#4a8cf5; }
@@ -380,7 +303,6 @@ html, body { font-family:var(--font); background:var(--bg); color:var(--text); m
 .mflt input { padding:6px 9px; border:1.5px solid var(--border2); border-radius:var(--radius-sm); font-size:12px; background:var(--input-bg); color:var(--text); }
 .note { font-size:10.5px; color:var(--text3); margin-top:8px; }
 
-/* FEEDBACK / NOTIFICATIONS */
 .fb-item { background:var(--bg3); border-radius:var(--radius-sm); padding:12px; margin-bottom:8px; border:1px solid var(--border); animation:fadeUp .3s ease; }
 .fb-item.new-item { border-color:rgba(74,140,245,.4); }
 .fb-header { display:flex; justify-content:space-between; align-items:flex-start; gap:8px; margin-bottom:6px; }
@@ -408,7 +330,6 @@ html, body { font-family:var(--font); background:var(--bg); color:var(--text); m
 .push-notif-btn { width:100%; padding:9px; background:rgba(74,140,245,.15); color:var(--accent); border:1px solid rgba(74,140,245,.3); border-radius:var(--radius-sm); font-size:12px; font-weight:700; cursor:pointer; font-family:var(--font); margin-bottom:10px; transition:var(--transition); }
 .push-notif-btn:hover { background:rgba(74,140,245,.25); }
 
-/* FACE REGISTRATION */
 .face-reg-box { background:var(--bg3); border-radius:var(--radius); padding:14px; border:1px solid var(--border); margin-bottom:10px; }
 .face-reg-box h4 { font-size:12px; font-weight:700; margin-bottom:8px; }
 .face-samples { display:flex; gap:6px; margin-bottom:8px; flex-wrap:wrap; }
@@ -420,7 +341,6 @@ html, body { font-family:var(--font); background:var(--bg); color:var(--text); m
 .liveness-dot.ok { background:var(--success); }
 .liveness-dot.checking { background:var(--warn); animation:pulse 1s infinite; }
 
-/* MODALS */
 .ov { position:fixed; inset:0; background:rgba(0,0,0,.6); display:flex; align-items:center; justify-content:center; z-index:9999; padding:16px; backdrop-filter:blur(4px); animation:fadein .2s ease; }
 @keyframes fadein { from{opacity:0} to{opacity:1} }
 .modal { background:var(--card); border-radius:16px; padding:28px 24px; max-width:480px; width:100%; text-align:center; box-shadow:var(--shadow-lg); border:1px solid var(--border2); animation:modalIn .3s ease; }
@@ -437,7 +357,6 @@ html, body { font-family:var(--font); background:var(--bg); color:var(--text); m
 .afk-modal-border { border:2px solid var(--danger) !important; }
 .countdown { font-size:36px; font-weight:900; color:var(--danger); margin:10px 0; font-family:var(--mono); }
 
-/* AFK BREAK TRACKER */
 .break-tracker { background:rgba(255,165,2,.06); border:1.5px solid rgba(255,165,2,.2); border-radius:var(--radius-sm); padding:10px 12px; margin-top:8px; }
 .break-tracker h4 { font-size:11px; color:var(--warn); font-weight:700; margin-bottom:4px; }
 .break-bar-wrap { background:var(--bg3); border-radius:20px; height:6px; margin:6px 0; overflow:hidden; }
@@ -445,14 +364,12 @@ html, body { font-family:var(--font); background:var(--bg); color:var(--text); m
 .break-bar.over { background:linear-gradient(90deg,var(--warn),var(--danger)); }
 .break-info { font-size:11px; color:var(--text2); display:flex; justify-content:space-between; }
 
-/* SEND NOTIFICATION (ADMIN) */
 .notif-send-box { background:var(--bg3); border-radius:var(--radius-sm); padding:14px; margin-bottom:14px; border:1px solid var(--border); }
 .notif-send-box h4 { font-size:12px; font-weight:700; margin-bottom:10px; }
 .notif-send-row { display:flex; gap:8px; flex-wrap:wrap; }
 .notif-send-row input, .notif-send-row textarea, .notif-send-row select { flex:1; padding:8px 10px; background:var(--input-bg); border:1.5px solid var(--border2); border-radius:var(--radius-sm); font-size:12px; color:var(--text); font-family:var(--font); outline:none; min-width:160px; }
 .notif-send-row input:focus, .notif-send-row textarea:focus { border-color:var(--accent); }
 
-/* RESPONSIVE */
 @media(max-width:900px){.scards{grid-template-columns:repeat(2,1fr)}.mst{grid-template-columns:repeat(3,1fr)}}
 @media(max-width:680px){
   .sidebar{position:fixed;left:0;top:0;bottom:0;z-index:200;width:210px;transform:translateX(-100%);}
@@ -487,12 +404,10 @@ html, body { font-family:var(--font); background:var(--bg); color:var(--text); m
 
 <div id="toast-container"></div>
 
-<!-- BANNERS -->
 <div id="afkBanner">⚠️ <span id="afkBannerTxt">Yuz aniqlanmadi! AFK vaqt hisoblanmoqda...</span></div>
 <div id="autoEndBanner">✅ <span id="autoEndTxt">Ish vaqti tugadi. Tizim tomonidan yakunlandi (18:00)</span></div>
 <div id="breakBanner">☕ <span id="breakBannerTxt">Tanaffus vaqtingiz: 0:00 / 30 daqiqa</span></div>
 
-<!-- INSTALL BANNER -->
 <div id="installBanner">
   <p>📱 AloqaPro ni o'rnatish</p>
   <div class="install-btns">
@@ -501,7 +416,6 @@ html, body { font-family:var(--font); background:var(--bg); color:var(--text); m
   </div>
 </div>
 
-<!-- IP BLOCK -->
 <div id="ipBlockPage">
   <div class="ip-card">
     <div class="ip-icon">🔒</div>
@@ -512,7 +426,6 @@ html, body { font-family:var(--font); background:var(--bg); color:var(--text); m
   </div>
 </div>
 
-<!-- LOGIN -->
 <div id="loginPage">
   <div class="lp-lang">
     <label class="theme-toggle" title="Dark/Light Mode">
@@ -547,7 +460,6 @@ html, body { font-family:var(--font); background:var(--bg); color:var(--text); m
   </div>
 </div>
 
-<!-- ADMIN -->
 <div id="adminPage">
   <div class="sb-overlay" id="sb_overlay" onclick="closeSidebar()"></div>
   <div class="layout">
@@ -580,7 +492,6 @@ html, body { font-family:var(--font); background:var(--bg); color:var(--text); m
         </div>
       </div>
       <div class="pbody">
-        <!-- TAB: MAIN -->
         <div id="tab_main">
           <div class="scards">
             <div class="scard"><h4 id="sc1">Bugun ishda</h4><div class="snum" id="sw">0</div></div>
@@ -657,7 +568,6 @@ html, body { font-family:var(--font); background:var(--bg); color:var(--text); m
           </div>
         </div>
 
-        <!-- TAB: NOTIFICATIONS (ADMIN) -->
         <div id="tab_notif" class="hidden">
           <div class="box">
             <div class="btitle">🔔 Bildirishnoma yuborish</div>
@@ -679,7 +589,6 @@ html, body { font-family:var(--font); background:var(--bg); color:var(--text); m
           </div>
         </div>
 
-        <!-- TAB: FEEDBACK (ADMIN) -->
         <div id="tab_feedback" class="hidden">
           <div class="box">
             <div class="btitle">💬 Hodimlar fikr va shikoyatlari</div>
@@ -700,7 +609,6 @@ html, body { font-family:var(--font); background:var(--bg); color:var(--text); m
           </div>
         </div>
 
-        <!-- TAB: SETTINGS -->
         <div id="tab_settings" class="hidden">
           <div class="box">
             <div class="btitle">⚙️ <span id="set_t">Hodimlar boshqaruvi</span></div>
@@ -742,7 +650,6 @@ html, body { font-family:var(--font); background:var(--bg); color:var(--text); m
           </div>
         </div>
 
-        <!-- TAB: KPI -->
         <div id="tab_kpi" class="hidden">
           <div class="box">
             <div class="btitle">🏆 <span id="kpi_t">KPI Qoidalari</span></div>
@@ -769,9 +676,7 @@ html, body { font-family:var(--font); background:var(--bg); color:var(--text); m
   </div>
 </div>
 
-<!-- EMPLOYEE -->
 <div id="employeePage">
-  <!-- FIX 3: removed ehdr_t (redundant title text) from header -->
   <div class="ehdr">
     <div class="ehdr-brand">
       <img src="images/logo2.png" alt="" style="width:30px;height:30px;object-fit:contain;" onerror="this.style.display='none'">
@@ -908,7 +813,6 @@ html, body { font-family:var(--font); background:var(--bg); color:var(--text); m
   </div>
 </div>
 
-<!-- FACE WIDGET -->
 <div id="faceWidget" class="hidden">
   <div class="fw-title">
     <span>📷 Yuz nazorati</span>
@@ -930,7 +834,6 @@ html, body { font-family:var(--font); background:var(--bg); color:var(--text); m
   </div>
 </div>
 
-<!-- MODALS -->
 <div class="ov hidden" id="m_welcome">
   <div class="modal">
     <p id="mw_txt">Eslatma: "Yakunlash" tugmasini faqat ish kuni to'liq tugagandan keyin bosing!</p>
@@ -976,8 +879,8 @@ const SUPABASE_ANON = 'sb_publishable_42Jv6FiVUPVKItb73z0gkQ_1YyJYIDE';
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
 
 const FACE_CHECK_INTERVAL = 1000;
-// FIX 1 & CRITICAL: We need STABLE_HIT_REQUIRED consecutive detections to clear AFK/banner
-const STABLE_HIT_REQUIRED = 5;  // require 5 consecutive detections to confirm face present
+// ✅ FIX: 3 ketma-ket detection yetarli (5 emas — video paused holatda 5 hech to'planmaydi)
+const STABLE_HIT_REQUIRED = 3;
 const AFK_GRACE_SEC       = 300;
 const BREAK_LIMIT_SEC     = 1800;
 const AUTO_END_HOUR       = 18;
@@ -1056,7 +959,6 @@ function closeSidebar(){document.getElementById('sidebar').classList.remove('ope
 let userPublicIP = '';
 async function getUserIP(){try{const r=await fetch('https://api.ipify.org?format=json');const d=await r.json();return d.ip||'';}catch(e){return '';}}
 
-// FIX 6: IP list fully stored and read from Supabase
 async function getAllowedIPs(){
   try{
     const{data,error}=await sb.from('settings').select('value').eq('key','allowed_ips').maybeSingle();
@@ -1073,7 +975,6 @@ async function saveAllowedIPs(arr){
     }else{
       await sb.from('settings').insert({key:'allowed_ips',value:json});
     }
-    // Always refresh display after saving
     await updateIPList();
   }catch(e){console.error('saveAllowedIPs error:',e);}
 }
@@ -1099,7 +1000,6 @@ async function removeIP(ip){
   const arr=await getAllowedIPs();
   await saveAllowedIPs(arr.filter(x=>x!==ip));
 }
-// FIX 6: updateIPList always reads from Supabase
 async function updateIPList(){
   const el=document.getElementById('ip_list');if(!el)return;
   el.innerHTML='<span style="color:var(--text3);font-size:12px">Yuklanmoqda...</span>';
@@ -1203,7 +1103,6 @@ function checkScheduledNotifs() {
 function showLocalNotif(title,body){if(Notification.permission==='granted'){try{new Notification(title,{body,icon:'/images/logo2.png'});}catch(e){}}}
 async function saveNotifToDB(type,title,body){if(!CU)return;try{await sb.from('notifications').insert({employee_id:CU.id,title,body,type});}catch(e){console.warn('saveNotifToDB:',e);}loadNotificationsEmp();}
 
-// FIX 5: adminSendNotif — prevent double sending
 async function adminSendNotif() {
   const btn = document.querySelector('#tab_notif .bb');
   if (btn) btn.disabled = true;
@@ -1216,7 +1115,6 @@ async function adminSendNotif() {
     return;
   }
   try{
-    // FIX 5: Build target list first, then insert all in one batch
     let targets = [];
     if (empId === 'all') {
       const {data:emps} = await sb.from('employees').select('id');
@@ -1224,7 +1122,6 @@ async function adminSendNotif() {
     } else {
       targets = [empId];
     }
-    // Insert all notifications in parallel (each employee gets exactly 1)
     const inserts = targets.map(eid => ({employee_id:eid, title, body, type:'admin'}));
     if (inserts.length > 0) {
       const {error} = await sb.from('notifications').insert(inserts);
@@ -1706,18 +1603,20 @@ function startAutoEndCheck(){
 }
 
 // ============================================================
-//  FACE DETECTION — FULLY REWRITTEN
+//  FACE DETECTION — TO'LIQ QAYTA YOZILGAN
 //
-//  KEY FIXES:
-//  FIX 1: Banner only hides after STABLE_HIT_REQUIRED consecutive detections
-//  FIX 2: AFK timer runs correctly; faceMissCount only resets on stable hit
-//  CRITICAL: After returning to seat, face must be stably detected before AFK stops
+//  TUZATISHLAR:
+//  ✅ FIX 1: isDetecting 10 sek stuck bo'lsa auto-reset
+//  ✅ FIX 2: Video paused bo'lsa play() chaqirib davom etadi (skip qilmaydi)
+//  ✅ FIX 3: Tab qaytganda faceHitCount reset, video play() chaqiriladi
+//  ✅ FIX 4: STABLE_HIT_REQUIRED=3 (eski 5 edi — paused videoda hech to'planmaydi)
+//  ✅ FIX 5: Banner faqat STABIL detection dan keyin yashiriladi
 // ============================================================
 let faceApiLoaded   = false;
 let faceStream      = null;
 let faceCheckIv     = null;
-let faceMissCount   = 0;       // consecutive misses
-let faceHitCount    = 0;       // consecutive hits (FIX 1: need STABLE_HIT_REQUIRED before clearing)
+let faceMissCount   = 0;
+let faceHitCount    = 0;
 let faceWidgetMin   = false;
 let afkCurIv        = null;
 let afkCountdownIv  = null;
@@ -1726,6 +1625,8 @@ let lastFaceBox     = null;
 let livenessScore   = 0;
 let myFaceDescriptor= null;
 let isDetecting     = false;
+// ✅ FIX 1: isDetecting stuck bo'lsa aniqlash uchun timestamp
+let isDetectingStartTime = 0;
 
 function toggleFaceWidget(){
   faceWidgetMin=!faceWidgetMin;
@@ -1760,7 +1661,14 @@ async function loadFaceModels(){
 
 // ── START CAMERA ───────────────────────────────────────────
 async function startCamera(){
-  if(faceStream)return true;
+  if(faceStream){
+    // ✅ FIX: Stream mavjud bo'lsa ham video paused bo'lishi mumkin — tekshir
+    const video=document.getElementById('faceVideo');
+    if(video&&video.srcObject===faceStream){
+      if(video.paused){try{await video.play();}catch(e){}}
+      return true;
+    }
+  }
   try{
     faceStream=await navigator.mediaDevices.getUserMedia({video:{width:{ideal:320},height:{ideal:240},facingMode:'user'},audio:false});
     const video=document.getElementById('faceVideo');
@@ -1788,39 +1696,75 @@ async function startFaceDetection(){
   const setStatus=(txt)=>{if(statusEl)statusEl.textContent=txt;};
   setStatus('⏳ Yuklanmoqda...');
   setFaceDot('yellow','Yuklanmoqda...');
-  setStatus('⏳ Modellar yuklanmoqda...');
   const modelsOk=await loadFaceModels();
   if(!modelsOk){setStatus('⚠️ Model yuklanmadi');setFaceDot('gray','Model xatosi');toast('error','Face','Model yuklanmadi');return;}
-  setStatus('⏳ Kamera yoqilmoqda...');
   const camOk=await startCamera();
   if(!camOk){setStatus('⚠️ Kamera ruxsati yoq');setFaceDot('gray','Kamera yoq');const frb=document.getElementById('faceRegBox');if(frb)frb.style.display='none';return;}
   await loadMyFaceProfile();
   if(myFaceDescriptor){setStatus('✅ Yuz nazorati tayyor');setFaceDot('green','Tayyor');}
   else{setStatus('📸 Yuzni royxatdan otkazing');setFaceDot('yellow','Royxat kerak');}
   if(faceCheckIv){clearInterval(faceCheckIv);faceCheckIv=null;}
-  faceMissCount=0;faceHitCount=0;
+  // ✅ FIX 3: Yangi detection siklida counterlarni reset qil
+  faceMissCount=0;faceHitCount=0;isDetecting=false;isDetectingStartTime=0;
   faceCheckIv=setInterval(runFaceCheck,FACE_CHECK_INTERVAL);
 }
 
-// ── FACE CHECK ─────────────────────────────────────────────
+// ── FACE CHECK — TO'LIQ QAYTA YOZILGAN ────────────────────
 async function runFaceCheck(){
   if(empState==='lunch'||empState==='not_started'||empState==='ended')return;
-  if(isDetecting)return;
+
+  // ✅ FIX 1: isDetecting 10 soniyadan ortiq stuck bo'lsa majburan reset
+  if(isDetecting){
+    if(isDetectingStartTime>0 && Date.now()-isDetectingStartTime > 10000){
+      console.warn('isDetecting stuck — reset');
+      isDetecting=false;
+      isDetectingStartTime=0;
+    } else {
+      return; // Hali processing davom etmoqda, chiqib ket
+    }
+  }
+
   if(!faceApiLoaded)return;
+
   const video=document.getElementById('faceVideo');
-  if(!video||video.readyState<2||video.paused){try{await video.play();}catch(e){}return;}
+  if(!video)return;
+
+  // ✅ FIX 2: Video paused yoki to'xtagan bo'lsa — play() chaqir, skip qilma
+  if(video.readyState < 2){
+    try{ await video.play(); }catch(e){}
+    return; // Keyingi tick da qayta urinib ko'riladi
+  }
+  if(video.paused || video.ended){
+    try{
+      await video.play();
+      // play() ga bir oz vaqt ber
+      await new Promise(r=>setTimeout(r,200));
+    }catch(e){
+      console.warn('video.play() error:',e.message);
+      return;
+    }
+    // Agar hali readyState past bo'lsa, keyingi tickda qayta urinadi
+    if(video.readyState < 2) return;
+  }
+
+  // Detection boshlanmoqda
   isDetecting=true;
+  isDetectingStartTime=Date.now();
+
   try{
     const opts=new faceapi.TinyFaceDetectorOptions({inputSize:160,scoreThreshold:0.35});
     const det=await faceapi.detectSingleFace(video,opts);
+
     if(det){
+      // ✅ Yuz topildi
       faceHitCount++;
-      faceMissCount=0;
+      faceMissCount=0; // Miss sanoqini nolga tushir
       drawFaceBox(det.detection.box,true);
       updateLiveness(det.detection.box);
 
+      // Recognition tekshiruvi
       let reason='detected';
-      if(myFaceDescriptor&&faceapi.nets.faceRecognitionNet.isLoaded){
+      if(myFaceDescriptor && faceapi.nets.faceRecognitionNet.isLoaded){
         try{
           const full=await faceapi.detectSingleFace(video,opts).withFaceLandmarks().withFaceDescriptor();
           if(full){
@@ -1830,27 +1774,32 @@ async function runFaceCheck(){
         }catch(e){}
       }
 
-      // FIX 1 & CRITICAL: Only clear AFK/banner after STABLE_HIT_REQUIRED consecutive detections
-      if(faceHitCount>=STABLE_HIT_REQUIRED){
+      // ✅ FIX 4+5: STABLE_HIT_REQUIRED=3 ketma-ket detection — faqat shundan keyin AFK/banner tozalanadi
+      if(faceHitCount >= STABLE_HIT_REQUIRED){
         onFaceStablyDetected(reason);
       } else {
-        // Partial hit — update status text but don't clear AFK yet
+        // Hali tasdiqlash jarayonida — faqat UI yangilanadi, AFK tozalanmaydi
         const statusEl=document.getElementById('face_status_inline');
-        if(statusEl)statusEl.textContent=`🔄 Yuz tasdiqlanyapdi... (${faceHitCount}/${STABLE_HIT_REQUIRED})`;
+        if(statusEl)statusEl.textContent=`🔄 Tasdiqlanyapdi... (${faceHitCount}/${STABLE_HIT_REQUIRED})`;
         setFaceDot('yellow',`Tasdiqlanyapdi ${faceHitCount}/${STABLE_HIT_REQUIRED}`);
       }
-    }else{
-      faceHitCount=0;  // reset consecutive hit counter on any miss
+
+    } else {
+      // ✅ Yuz topilmadi
+      faceHitCount=0; // Hit sanoqini nolga tushir — ketma-ket bo'lishi shart
       faceMissCount++;
       clearFaceBox();
       lastFaceBox=null;
       livenessScore=Math.max(0,livenessScore-0.05);
       onFaceMissed();
     }
+
   }catch(e){
-    console.warn('checkFace error:',e.message);
+    console.warn('runFaceCheck error:',e.message);
   }finally{
+    // ✅ FIX 1: Har doim finally da isDetecting ni reset qil
     isDetecting=false;
+    isDetectingStartTime=0;
   }
 }
 
@@ -1858,7 +1807,10 @@ function drawFaceBox(box,found){
   const canvas=document.getElementById('faceCanvas');
   if(!canvas)return;
   const video=document.getElementById('faceVideo');
-  if(video&&(canvas.width!==video.videoWidth||canvas.height!==video.videoHeight)){canvas.width=video.videoWidth||320;canvas.height=video.videoHeight||240;}
+  if(video&&(canvas.width!==video.videoWidth||canvas.height!==video.videoHeight)){
+    canvas.width=video.videoWidth||320;
+    canvas.height=video.videoHeight||240;
+  }
   const ctx=canvas.getContext('2d');
   ctx.clearRect(0,0,canvas.width,canvas.height);
   ctx.strokeStyle=found?'#2ed573':'#ff4757';
@@ -1879,7 +1831,7 @@ function updateLiveness(box){
   if(lt)lt.textContent=livenessScore>0.05?'✅ Real yuz':'⚠️ Harakat yoq';
 }
 
-// FIX 1: Called only when face is stably detected (STABLE_HIT_REQUIRED consecutive)
+// ✅ FIX 5: Faqat STABIL detection dan keyin AFK/banner tozalanadi
 function onFaceStablyDetected(reason){
   const statusEl=document.getElementById('face_status_inline');
   const name=CU?.name||'';
@@ -1889,23 +1841,21 @@ function onFaceStablyDetected(reason){
   if(statusEl)statusEl.textContent=txt;
   setFaceDot('green',reason==='match'?'✅ '+name:'✅ Aniqlandi');
 
-  // End AFK session if running
+  // AFK sessiyani tugatish
   if(isAfk)endAfkSession();
 
-  // Hide AFK warning modal
+  // AFK ogohlantirish modalini yashirish
   if(afkWarnShown){
     document.getElementById('m_afk_warn').classList.add('hidden');
     afkWarnShown=false;
     if(afkCountdownIv){clearInterval(afkCountdownIv);afkCountdownIv=null;}
   }
 
-  // FIX 1: Only hide banner when stably detected
+  // ✅ FIX 5: Banner faqat stabil detectiondan keyin yashiriladi
   document.getElementById('afkBanner').style.display='none';
-
-  // Don't reset faceMissCount here — it's already 0 from hit logic
 }
 
-// FIX 2: onFaceMissed — AFK timer runs properly
+// ── onFaceMissed ───────────────────────────────────────────
 function onFaceMissed(){
   const statusEl=document.getElementById('face_status_inline');
   if(statusEl)statusEl.textContent=t('face_not_detected');
@@ -1913,22 +1863,20 @@ function onFaceMissed(){
 
   if(empState!=='working')return;
 
-  // Show banner immediately on first miss
+  // Birinchi miss da bannerni ko'rsat
   document.getElementById('afkBanner').style.display='block';
 
-  // Show warning modal at halfway through grace period
+  // Grace period yarimida ogohlantirish modali
   if(faceMissCount===Math.floor(AFK_GRACE_SEC*0.5)&&!afkWarnShown){
     afkWarnShown=true;
     document.getElementById('m_afk_warn').classList.remove('hidden');
     startAfkCountdown();
   }
 
-  // FIX 2: Start AFK session after full grace period expires
-  if(!isAfk&&faceMissCount>=AFK_GRACE_SEC){
+  // Grace period to'liq tugagach AFK sessiya boshlash
+  if(!isAfk && faceMissCount>=AFK_GRACE_SEC){
     startAfkSession();
   }
-
-  // FIX 2: If already in AFK, keep timer running (it runs via afkCurIv interval)
 }
 
 // ── AFK SESSION ────────────────────────────────────────────
@@ -1950,7 +1898,6 @@ function startAfkSession(){
     const tv=document.getElementById('afkTimerVal');if(tv)tv.textContent=fmtSecMM(afkCurSec);
     const atw=document.getElementById('afkTotalWidget');if(atw)atw.textContent='Jami AFK: '+Math.floor(afkSeconds/60)+' daq';
     document.getElementById('afkTimer').classList.remove('hidden');
-    checkScheduledNotifs();
   },1000);
 }
 
@@ -1978,8 +1925,9 @@ function dismissAfkWarn(){
   document.getElementById('m_afk_warn').classList.add('hidden');
   if(afkCountdownIv){clearInterval(afkCountdownIv);afkCountdownIv=null;}
   afkWarnShown=false;
-  // Don't reset faceMissCount — user is claiming to be here, but detection will confirm it
-  // Only reset if face is actually stably detected (handled in onFaceStablyDetected)
+  // ✅ MUHIM: faceMissCount reset qilinmaydi!
+  // Yuz haqiqatan aniqlanganida (STABLE_HIT_REQUIRED marta ketma-ket)
+  // onFaceStablyDetected() AFK ni tozalaydi
 }
 
 // ── FACE REGISTRATION ──────────────────────────────────────
@@ -2035,7 +1983,7 @@ async function saveFaceProfile(){
     toast('success','Yuz','Royxatdan otdi! ✅');
     setFaceDot('green','✅ Royxatdan otdi');
     const btn=document.getElementById('faceRegBtn');if(btn)btn.textContent='✅ Royxatdan otdi';
-    // Reset hit counter so it re-confirms
+    // ✅ Hit counterni reset — qayta tasdiqlash kerak
     faceHitCount=0;
   }catch(e){toast('error','Yuz',e.message);regCapturing=false;}
 }
@@ -2069,7 +2017,13 @@ function stopFaceDetection(){
   if(faceCheckIv){clearInterval(faceCheckIv);faceCheckIv=null;}
   if(afkCurIv){clearInterval(afkCurIv);afkCurIv=null;}
   if(faceStream){faceStream.getTracks().forEach(t2=>t2.stop());faceStream=null;}
-  isDetecting=false;isAfk=false;currentAfkStart=null;
+  // ✅ Barcha flaglarni reset
+  isDetecting=false;
+  isDetectingStartTime=0;
+  isAfk=false;
+  currentAfkStart=null;
+  faceHitCount=0;
+  faceMissCount=0;
   document.getElementById('afkBanner').style.display='none';
 }
 
@@ -2133,9 +2087,24 @@ async function loadHist(){
   document.getElementById('inp_p').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
   document.getElementById('inp_l').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
 
+  // ✅ FIX 3: Tab qaytganda — faceHitCount reset, video qayta yoqiladi
   document.addEventListener('visibilitychange',()=>{
-    if(!document.hidden&&CU&&CU.role==='employee'&&empState==='working'){
-      if(!faceStream)startFaceDetection();
+    if(!document.hidden && CU && CU.role==='employee' && empState==='working'){
+      if(!faceStream){
+        // Stream yo'q — to'liq qayta boshlash
+        startFaceDetection();
+      } else {
+        // Stream bor — faqat video ni qayta yoqish va counterlarni reset
+        const video=document.getElementById('faceVideo');
+        if(video && video.paused){
+          try{ video.play(); }catch(e){}
+        }
+        // ✅ MUHIM: Tab qaytganda ketma-ket detection yangilansin
+        faceHitCount=0;
+        faceMissCount=0;
+        isDetecting=false;
+        isDetectingStartTime=0;
+      }
     }
   });
 })();
