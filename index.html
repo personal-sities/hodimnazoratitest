@@ -11,17 +11,10 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script async src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.15/dist/face-api.js"></script>
-<!-- SheetJS for Excel export -->
 <script async src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-<!-- jsPDF for PDF export -->
 <script async src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script async src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
 <style>
-/* ============================================================
-   DESIGN SYSTEM — AloqaPro 2.0
-   Theme: Industrial Precision — dark/light switchable
-   Fonts: JetBrains Mono (data) + Outfit (UI)
-============================================================ */
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap');
 
 :root {
@@ -40,12 +33,11 @@
   --transition: all .22s cubic-bezier(.4,0,.2,1);
 }
 
-/* DARK THEME */
 [data-theme="dark"] {
   --bg: #0f1923;
   --bg2: #16212e;
   --bg3: #1d2d3e;
-  --sidebar-bg: #111d29;
+  --sidebar-bg: #0a1520;
   --border: rgba(255,255,255,.08);
   --border2: rgba(255,255,255,.14);
   --text: #e8edf2;
@@ -53,19 +45,21 @@
   --text3: #5a7a96;
   --card: #1a2535;
   --card2: #1f2f42;
-  --header: #162030;
+  --header: #0d1b2a;
   --input-bg: #0f1923;
   --hover: rgba(255,255,255,.04);
   --skeleton: linear-gradient(90deg, #1d2d3e 25%, #243444 50%, #1d2d3e 75%);
   --toast-bg: #1f2f42;
+  --sidebar-text: #c8d8e8;
+  --sidebar-active: rgba(74,140,245,.25);
+  --sidebar-hover: rgba(255,255,255,.06);
 }
 
-/* LIGHT THEME */
 [data-theme="light"] {
   --bg: #f0f4f8;
   --bg2: #e8eef5;
   --bg3: #dde6f0;
-  --sidebar-bg: #2c3e52;
+  --sidebar-bg: #1a2a3a;
   --border: rgba(0,0,0,.08);
   --border2: rgba(0,0,0,.14);
   --text: #1a2535;
@@ -73,11 +67,14 @@
   --text3: #7a9ab8;
   --card: #ffffff;
   --card2: #f8fafc;
-  --header: #2c3e52;
+  --header: #162030;
   --input-bg: #fff;
   --hover: rgba(0,0,0,.03);
   --skeleton: linear-gradient(90deg, #e0e8f0 25%, #edf3f9 50%, #e0e8f0 75%);
   --toast-bg: #ffffff;
+  --sidebar-text: #c8d8e8;
+  --sidebar-active: rgba(74,140,245,.3);
+  --sidebar-hover: rgba(255,255,255,.08);
 }
 
 *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
@@ -86,16 +83,15 @@ html, body { font-family:var(--font); background:var(--bg); color:var(--text); m
 ::-webkit-scrollbar-track { background:transparent; }
 ::-webkit-scrollbar-thumb { background:var(--border2); border-radius:10px; }
 
-/* ── THEME TOGGLE ── */
+/* THEME TOGGLE */
 .theme-toggle { position:relative; width:44px; height:24px; flex-shrink:0; }
 .theme-toggle input { opacity:0; width:0; height:0; }
 .theme-slider { position:absolute; inset:0; background:var(--bg3); border-radius:20px; cursor:pointer; transition:var(--transition); border:1px solid var(--border2); }
 .theme-slider::before { content:''; position:absolute; width:18px; height:18px; left:2px; top:2px; background:var(--text2); border-radius:50%; transition:var(--transition); }
 .theme-toggle input:checked + .theme-slider { background:var(--accent); }
 .theme-toggle input:checked + .theme-slider::before { transform:translateX(20px); background:#fff; }
-.theme-icon { font-size:14px; }
 
-/* ── FLAGS ── */
+/* FLAGS */
 .flag { display:inline-flex; width:32px; height:21px; border-radius:3px; overflow:hidden; flex-shrink:0; }
 .flag svg { width:100%; height:100%; display:block; }
 .lsw { display:flex; align-items:center; gap:4px; background:rgba(255,255,255,.1); border-radius:20px; padding:3px 6px; }
@@ -103,14 +99,14 @@ html, body { font-family:var(--font); background:var(--bg); color:var(--text); m
 .lb.active { opacity:1; box-shadow:0 0 0 2px var(--accent); border-radius:4px; }
 .lsep { width:1px; height:20px; background:var(--border2); }
 
-/* ── SKELETON ── */
+/* SKELETON */
 .skeleton { background:var(--skeleton); background-size:200% 100%; animation:shimmer 1.5s infinite; border-radius:var(--radius-sm); }
 @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
 .sk-line { height:14px; margin-bottom:8px; }
 .sk-line.short { width:60%; }
 .sk-line.long { width:90%; }
 
-/* ── TOAST ── */
+/* TOAST */
 #toast-container { position:fixed; top:16px; right:16px; z-index:99999; display:flex; flex-direction:column; gap:8px; pointer-events:none; }
 .toast { background:var(--toast-bg); border:1px solid var(--border2); border-radius:var(--radius); padding:12px 16px; min-width:260px; max-width:340px; box-shadow:var(--shadow-lg); pointer-events:all; display:flex; align-items:flex-start; gap:10px; animation:slideIn .3s ease; font-size:13px; }
 .toast.removing { animation:slideOut .3s ease forwards; }
@@ -125,7 +121,7 @@ html, body { font-family:var(--font); background:var(--bg); color:var(--text); m
 @keyframes slideIn { from{transform:translateX(120%);opacity:0} to{transform:translateX(0);opacity:1} }
 @keyframes slideOut { from{transform:translateX(0);opacity:1} to{transform:translateX(120%);opacity:0} }
 
-/* ── LOGIN PAGE ── */
+/* LOGIN PAGE */
 #loginPage { display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:100vh; background:var(--bg); padding:16px; position:relative; overflow:hidden; }
 #loginPage::before { content:''; position:absolute; inset:0; background:radial-gradient(ellipse 80% 60% at 50% -10%, rgba(74,140,245,.15), transparent); pointer-events:none; }
 .lp-lang { position:fixed; top:14px; right:14px; z-index:999; display:flex; align-items:center; gap:8px; }
@@ -146,7 +142,7 @@ html, body { font-family:var(--font); background:var(--bg); color:var(--text); m
 .lbtn:active { transform:translateY(0); }
 .lerr { color:var(--danger); font-size:12px; text-align:center; margin-top:8px; min-height:16px; font-weight:500; }
 
-/* ── IP BLOCK ── */
+/* IP BLOCK */
 #ipBlockPage { display:none; flex-direction:column; align-items:center; justify-content:center; min-height:100vh; background:var(--bg); }
 .ip-card { background:var(--card); border-radius:16px; padding:36px 28px; max-width:440px; width:100%; text-align:center; box-shadow:var(--shadow-lg); margin:16px; border:1px solid var(--border); }
 .ip-icon { font-size:48px; margin-bottom:14px; }
@@ -154,37 +150,94 @@ html, body { font-family:var(--font); background:var(--bg); color:var(--text); m
 .ip-card p { font-size:13px; color:var(--text2); line-height:1.7; }
 .ip-val { display:inline-block; background:var(--bg3); border-radius:8px; padding:6px 14px; font-size:13px; color:var(--text2); font-family:var(--mono); margin-top:8px; }
 
-/* ── LAYOUT ── */
+/* LAYOUT */
 #adminPage, #employeePage { display:none; }
 .layout { display:flex; min-height:100vh; }
 
-/* ── SIDEBAR ── */
-.sidebar { width:200px; background:var(--sidebar-bg); display:flex; flex-direction:column; flex-shrink:0; transition:transform .25s ease; border-right:1px solid var(--border); }
-.sb-head { display:flex; align-items:center; gap:9px; padding:16px 14px 18px; border-bottom:1px solid var(--border); }
-.sb-logo-img { width:30px; height:30px; object-fit:contain; }
-.sb-logo-txt { color:#fff; font-size:15px; font-weight:700; }
-.sb-logo-txt span { color:#6ab3d8; }
-.sb-nav { display:flex; flex-direction:column; gap:4px; padding:10px 8px; flex:1; }
-.nbtn { padding:10px 12px; background:transparent; color:var(--text2); border:none; border-radius:var(--radius-sm); font-size:13px; font-weight:500; cursor:pointer; text-align:left; transition:var(--transition); font-family:var(--font); display:flex; align-items:center; gap:9px; }
-.nbtn:hover { background:rgba(255,255,255,.07); color:var(--text); }
-.nbtn.active { background:rgba(74,140,245,.2); color:var(--accent); font-weight:600; }
+/* ── SIDEBAR — FIX 4: improved visibility ── */
+.sidebar {
+  width:210px;
+  background:var(--sidebar-bg);
+  display:flex;
+  flex-direction:column;
+  flex-shrink:0;
+  transition:transform .25s ease;
+  border-right:1px solid rgba(255,255,255,.06);
+}
+.sb-head {
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding:18px 16px 20px;
+  border-bottom:1px solid rgba(255,255,255,.08);
+  background:rgba(74,140,245,.08);
+}
+.sb-logo-img { width:32px; height:32px; object-fit:contain; }
+.sb-logo-txt { color:#fff; font-size:16px; font-weight:800; letter-spacing:-.3px; }
+.sb-logo-txt span { color:#4a8cf5; }
+.sb-nav { display:flex; flex-direction:column; gap:3px; padding:12px 8px; flex:1; }
+
+/* FIX 4: nav buttons with proper contrast */
+.nbtn {
+  padding:11px 14px;
+  background:transparent;
+  color:var(--sidebar-text);
+  border:none;
+  border-radius:var(--radius-sm);
+  font-size:13px;
+  font-weight:500;
+  cursor:pointer;
+  text-align:left;
+  transition:var(--transition);
+  font-family:var(--font);
+  display:flex;
+  align-items:center;
+  gap:10px;
+  position:relative;
+  opacity:.75;
+}
+.nbtn:hover {
+  background:var(--sidebar-hover);
+  color:#fff;
+  opacity:1;
+}
+.nbtn.active {
+  background:var(--sidebar-active);
+  color:#4a8cf5;
+  font-weight:700;
+  opacity:1;
+  border-left:3px solid #4a8cf5;
+  padding-left:11px;
+}
 .nbtn .ni { font-size:16px; }
 .sb-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:199; }
 .sb-overlay.open { display:block; }
 .hamburger { display:none; flex-direction:column; gap:5px; background:none; border:none; cursor:pointer; padding:5px; flex-shrink:0; }
 .hamburger span { display:block; width:22px; height:2px; background:#fff; border-radius:2px; transition:var(--transition); }
 
-/* ── MAIN COLUMN ── */
+/* MAIN COLUMN */
 .mcol { flex:1; display:flex; flex-direction:column; min-width:0; }
-.tophdr { background:var(--header); padding:12px 16px; display:flex; align-items:center; justify-content:space-between; flex-shrink:0; gap:8px; border-bottom:1px solid var(--border); }
+
+/* FIX 4: header improvement */
+.tophdr {
+  background:var(--header);
+  padding:13px 18px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  flex-shrink:0;
+  gap:8px;
+  border-bottom:1px solid rgba(255,255,255,.06);
+  box-shadow:0 2px 12px rgba(0,0,0,.2);
+}
 .tophdr h1 { color:#fff; font-size:16px; font-weight:700; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .hdr-r { display:flex; align-items:center; gap:8px; flex-shrink:0; flex-wrap:wrap; }
-.hdr-date { color:rgba(255,255,255,.7); font-size:11px; white-space:nowrap; font-family:var(--mono); }
-.xbtn { padding:7px 12px; background:rgba(255,255,255,.12); color:#fff; border:1px solid rgba(255,255,255,.15); border-radius:var(--radius-sm); font-size:12px; font-weight:600; cursor:pointer; white-space:nowrap; transition:var(--transition); font-family:var(--font); }
+.hdr-date { color:rgba(255,255,255,.6); font-size:11px; white-space:nowrap; font-family:var(--mono); background:rgba(255,255,255,.07); padding:4px 8px; border-radius:6px; }
+.xbtn { padding:7px 14px; background:rgba(255,255,255,.1); color:#fff; border:1px solid rgba(255,255,255,.15); border-radius:var(--radius-sm); font-size:12px; font-weight:600; cursor:pointer; white-space:nowrap; transition:var(--transition); font-family:var(--font); }
 .xbtn:hover { background:rgba(255,255,255,.2); }
 .pbody { flex:1; padding:16px; overflow-y:auto; }
 
-/* ── STAT CARDS ── */
+/* STAT CARDS */
 .scards { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:16px; }
 .scard { background:var(--card); border-radius:var(--radius); padding:14px 16px; box-shadow:var(--shadow); border:1px solid var(--border); position:relative; overflow:hidden; animation:fadeUp .4s ease both; }
 .scard::before { content:''; position:absolute; top:0; left:0; right:0; height:3px; background:var(--accent-card, var(--accent)); }
@@ -196,12 +249,11 @@ html, body { font-family:var(--font); background:var(--bg); color:var(--text); m
 .snum { font-size:26px; font-weight:800; font-family:var(--mono); }
 @keyframes fadeUp { from{transform:translateY(12px);opacity:0} to{transform:translateY(0);opacity:1} }
 
-/* ── BOX ── */
+/* BOX */
 .box { background:var(--card); border-radius:var(--radius); padding:16px; box-shadow:var(--shadow); margin-bottom:16px; border:1px solid var(--border); animation:fadeUp .4s ease both; }
 .btitle { font-size:14px; font-weight:700; margin-bottom:14px; display:flex; align-items:center; gap:8px; }
-.btitle-icon { font-size:18px; }
 
-/* ── TABLE ── */
+/* TABLE */
 .tbl-wrap { overflow-x:auto; -webkit-overflow-scrolling:touch; }
 .tbl { width:100%; border-collapse:collapse; font-size:12.5px; }
 .tbl th { background:var(--bg3); padding:9px 10px; text-align:left; color:var(--text2); font-weight:600; border-bottom:2px solid var(--border2); white-space:nowrap; font-size:11px; text-transform:uppercase; letter-spacing:.4px; }
@@ -215,7 +267,7 @@ html, body { font-family:var(--font); background:var(--bg); color:var(--text); m
 .bafk { background:rgba(165,94,234,.15); color:var(--purple); }
 .bauto { background:rgba(6,214,160,.15); color:var(--accent2); }
 
-/* ── FILTER ROW ── */
+/* FILTER ROW */
 .frow { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:14px; }
 .frow input, .frow select, .sf input, .sf select { padding:8px 10px; border:1.5px solid var(--border2); border-radius:var(--radius-sm); font-size:12.5px; background:var(--input-bg); color:var(--text); outline:none; transition:var(--transition); font-family:var(--font); }
 .frow input:focus, .frow select:focus, .sf input:focus, .sf select:focus { border-color:var(--accent); box-shadow:0 0 0 3px rgba(74,140,245,.12); }
@@ -232,26 +284,26 @@ html, body { font-family:var(--font); background:var(--bg); color:var(--text); m
 .btn-export { padding:8px 14px; background:rgba(6,214,160,.15); color:var(--accent2); border:1px solid rgba(6,214,160,.3); border-radius:var(--radius-sm); font-size:12px; font-weight:600; cursor:pointer; transition:var(--transition); font-family:var(--font); display:flex; align-items:center; gap:5px; }
 .btn-export:hover { background:rgba(6,214,160,.25); }
 
-/* ── DATE RANGE ── */
+/* DATE RANGE */
 .drange { display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
 .drange label { font-size:11px; color:var(--text3); }
 .drange input { padding:6px 8px; border:1.5px solid var(--border2); border-radius:var(--radius-sm); font-size:12px; background:var(--input-bg); color:var(--text); }
 
-/* ── MONTHLY STATS ── */
+/* MONTHLY STATS */
 .mst { display:grid; grid-template-columns:repeat(5,1fr); gap:10px; margin-bottom:14px; }
 .ms { background:var(--bg3); border-radius:var(--radius-sm); padding:12px; border:1px solid var(--border); }
 .ms h5 { font-size:10.5px; color:var(--text2); margin-bottom:5px; text-transform:uppercase; letter-spacing:.4px; }
 .ms .v { font-size:16px; font-weight:800; font-family:var(--mono); }
 
-/* ── SETTINGS ── */
+/* SETTINGS */
 .sf { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:14px; }
 
-/* ── KPI BOX ── */
+/* KPI BOX */
 .kbox { background:var(--bg3); border-radius:var(--radius); padding:18px; font-size:13px; line-height:2.1; border:1px solid var(--border); }
 .krow { display:flex; gap:10px; }
 .kcol { min-width:140px; color:var(--text2); }
 
-/* ── FACE WIDGET ── */
+/* FACE WIDGET */
 #faceWidget { position:fixed; bottom:16px; right:16px; z-index:500; background:var(--card); border-radius:14px; padding:10px; box-shadow:var(--shadow-lg); width:180px; border:1px solid var(--border); }
 #faceWidget .fw-title { color:var(--text); font-size:11px; font-weight:700; margin-bottom:6px; display:flex; align-items:center; justify-content:space-between; }
 #faceWidget video { width:100%; border-radius:8px; display:block; }
@@ -271,22 +323,25 @@ html, body { font-family:var(--font); background:var(--bg); color:var(--text); m
 .fw-reg-btn { width:100%; margin-top:6px; padding:5px; background:rgba(74,140,245,.15); color:var(--accent); border:1px solid rgba(74,140,245,.3); border-radius:6px; font-size:10px; font-weight:700; cursor:pointer; font-family:var(--font); }
 .fw-liveness { font-size:10px; color:var(--text3); margin-top:3px; text-align:center; }
 
-/* ── BANNERS ── */
+/* BANNERS */
 #afkBanner { display:none; position:fixed; top:0; left:0; right:0; z-index:1000; background:linear-gradient(135deg,var(--danger),#c0392b); color:#fff; text-align:center; padding:10px 16px; font-size:13px; font-weight:700; box-shadow:var(--shadow); animation:slideDown .3s ease; }
 #autoEndBanner { display:none; position:fixed; top:0; left:0; right:0; z-index:1001; background:linear-gradient(135deg,var(--success),#27ae60); color:#fff; text-align:center; padding:10px 16px; font-size:13px; font-weight:700; animation:slideDown .3s ease; }
 #breakBanner { display:none; position:fixed; bottom:0; left:0; right:0; z-index:1000; background:linear-gradient(135deg,var(--warn),#e67e22); color:#fff; text-align:center; padding:8px 16px; font-size:12px; font-weight:700; }
 @keyframes slideDown { from{transform:translateY(-100%)} to{transform:translateY(0)} }
 
-/* ── INSTALL BANNER ── */
+/* INSTALL BANNER */
 #installBanner { display:none; position:fixed; bottom:80px; right:16px; z-index:600; background:var(--card); border:1px solid var(--border2); border-radius:var(--radius); padding:12px 16px; box-shadow:var(--shadow-lg); max-width:280px; }
 #installBanner p { font-size:12px; color:var(--text); margin-bottom:8px; font-weight:600; }
 .install-btns { display:flex; gap:7px; }
 .btn-install { padding:7px 14px; background:var(--accent); color:#fff; border:none; border-radius:var(--radius-sm); font-size:12px; font-weight:700; cursor:pointer; font-family:var(--font); }
 .btn-install-no { padding:7px 10px; background:var(--bg3); color:var(--text2); border:none; border-radius:var(--radius-sm); font-size:12px; cursor:pointer; font-family:var(--font); }
 
-/* ── EMPLOYEE PAGE ── */
-.ehdr { background:var(--header); padding:12px 16px; display:flex; align-items:center; justify-content:space-between; gap:8px; border-bottom:1px solid var(--border); }
-.ehdr h1 { color:#fff; font-size:14px; font-weight:700; white-space:nowrap; }
+/* EMPLOYEE PAGE */
+.ehdr { background:var(--header); padding:13px 18px; display:flex; align-items:center; justify-content:space-between; gap:8px; border-bottom:1px solid rgba(255,255,255,.06); box-shadow:0 2px 12px rgba(0,0,0,.2); }
+/* FIX 3: removed ehdr_t id from showing redundant text — handled in HTML */
+.ehdr-brand { display:flex; align-items:center; gap:10px; }
+.ehdr-brand-name { color:#fff; font-size:15px; font-weight:800; letter-spacing:-.2px; }
+.ehdr-brand-name span { color:#4a8cf5; }
 .ebody { display:grid; grid-template-columns:1fr 1fr; gap:14px; padding:16px; }
 .ec { background:var(--card); border-radius:var(--radius); padding:16px; box-shadow:var(--shadow); border:1px solid var(--border); animation:fadeUp .4s ease both; }
 .ec h2 { font-size:14px; font-weight:700; margin-bottom:12px; }
@@ -325,7 +380,7 @@ html, body { font-family:var(--font); background:var(--bg); color:var(--text); m
 .mflt input { padding:6px 9px; border:1.5px solid var(--border2); border-radius:var(--radius-sm); font-size:12px; background:var(--input-bg); color:var(--text); }
 .note { font-size:10.5px; color:var(--text3); margin-top:8px; }
 
-/* ── FEEDBACK / NOTIFICATIONS ── */
+/* FEEDBACK / NOTIFICATIONS */
 .fb-item { background:var(--bg3); border-radius:var(--radius-sm); padding:12px; margin-bottom:8px; border:1px solid var(--border); animation:fadeUp .3s ease; }
 .fb-item.new-item { border-color:rgba(74,140,245,.4); }
 .fb-header { display:flex; justify-content:space-between; align-items:flex-start; gap:8px; margin-bottom:6px; }
@@ -353,7 +408,7 @@ html, body { font-family:var(--font); background:var(--bg); color:var(--text); m
 .push-notif-btn { width:100%; padding:9px; background:rgba(74,140,245,.15); color:var(--accent); border:1px solid rgba(74,140,245,.3); border-radius:var(--radius-sm); font-size:12px; font-weight:700; cursor:pointer; font-family:var(--font); margin-bottom:10px; transition:var(--transition); }
 .push-notif-btn:hover { background:rgba(74,140,245,.25); }
 
-/* ── FACE REGISTRATION ── */
+/* FACE REGISTRATION */
 .face-reg-box { background:var(--bg3); border-radius:var(--radius); padding:14px; border:1px solid var(--border); margin-bottom:10px; }
 .face-reg-box h4 { font-size:12px; font-weight:700; margin-bottom:8px; }
 .face-samples { display:flex; gap:6px; margin-bottom:8px; flex-wrap:wrap; }
@@ -365,7 +420,7 @@ html, body { font-family:var(--font); background:var(--bg); color:var(--text); m
 .liveness-dot.ok { background:var(--success); }
 .liveness-dot.checking { background:var(--warn); animation:pulse 1s infinite; }
 
-/* ── MODALS ── */
+/* MODALS */
 .ov { position:fixed; inset:0; background:rgba(0,0,0,.6); display:flex; align-items:center; justify-content:center; z-index:9999; padding:16px; backdrop-filter:blur(4px); animation:fadein .2s ease; }
 @keyframes fadein { from{opacity:0} to{opacity:1} }
 .modal { background:var(--card); border-radius:16px; padding:28px 24px; max-width:480px; width:100%; text-align:center; box-shadow:var(--shadow-lg); border:1px solid var(--border2); animation:modalIn .3s ease; }
@@ -382,7 +437,7 @@ html, body { font-family:var(--font); background:var(--bg); color:var(--text); m
 .afk-modal-border { border:2px solid var(--danger) !important; }
 .countdown { font-size:36px; font-weight:900; color:var(--danger); margin:10px 0; font-family:var(--mono); }
 
-/* ── AFK BREAK TRACKER ── */
+/* AFK BREAK TRACKER */
 .break-tracker { background:rgba(255,165,2,.06); border:1.5px solid rgba(255,165,2,.2); border-radius:var(--radius-sm); padding:10px 12px; margin-top:8px; }
 .break-tracker h4 { font-size:11px; color:var(--warn); font-weight:700; margin-bottom:4px; }
 .break-bar-wrap { background:var(--bg3); border-radius:20px; height:6px; margin:6px 0; overflow:hidden; }
@@ -390,14 +445,14 @@ html, body { font-family:var(--font); background:var(--bg); color:var(--text); m
 .break-bar.over { background:linear-gradient(90deg,var(--warn),var(--danger)); }
 .break-info { font-size:11px; color:var(--text2); display:flex; justify-content:space-between; }
 
-/* ── SEND NOTIFICATION (ADMIN) ── */
+/* SEND NOTIFICATION (ADMIN) */
 .notif-send-box { background:var(--bg3); border-radius:var(--radius-sm); padding:14px; margin-bottom:14px; border:1px solid var(--border); }
 .notif-send-box h4 { font-size:12px; font-weight:700; margin-bottom:10px; }
 .notif-send-row { display:flex; gap:8px; flex-wrap:wrap; }
 .notif-send-row input, .notif-send-row textarea, .notif-send-row select { flex:1; padding:8px 10px; background:var(--input-bg); border:1.5px solid var(--border2); border-radius:var(--radius-sm); font-size:12px; color:var(--text); font-family:var(--font); outline:none; min-width:160px; }
 .notif-send-row input:focus, .notif-send-row textarea:focus { border-color:var(--accent); }
 
-/* ── RESPONSIVE ── */
+/* RESPONSIVE */
 @media(max-width:900px){.scards{grid-template-columns:repeat(2,1fr)}.mst{grid-template-columns:repeat(3,1fr)}}
 @media(max-width:680px){
   .sidebar{position:fixed;left:0;top:0;bottom:0;z-index:200;width:210px;transform:translateX(-100%);}
@@ -430,7 +485,6 @@ html, body { font-family:var(--font); background:var(--bg); color:var(--text); m
 </head>
 <body>
 
-<!-- TOAST CONTAINER -->
 <div id="toast-container"></div>
 
 <!-- BANNERS -->
@@ -572,7 +626,6 @@ html, body { font-family:var(--font); background:var(--bg); color:var(--text); m
               </table>
             </div>
           </div>
-          <!-- Monthly report (hidden by default) -->
           <div class="box hidden" id="mbox">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
               <span class="btitle" id="mth_t" style="margin:0">Oylik hisobot</span>
@@ -676,7 +729,7 @@ html, body { font-family:var(--font); background:var(--bg); color:var(--text); m
               <button class="bg2" id="b_myip" onclick="addMyIP()">Mening IP</button>
             </div>
             <p style="font-size:11.5px;color:var(--text2);margin-bottom:8px">Joriy IP: <strong id="my_ip_show" style="font-family:var(--mono)">...</strong></p>
-            <div id="ip_list" style="font-size:12px;color:var(--text2)">Hozircha ruxsat etilgan IP yo'q</div>
+            <div id="ip_list" style="font-size:12px;color:var(--text2)">Yuklanmoqda...</div>
           </div>
           <div class="box">
             <div class="btitle">📅 <span id="hol_t">Dam olish kunlari</span></div>
@@ -718,14 +771,14 @@ html, body { font-family:var(--font); background:var(--bg); color:var(--text); m
 
 <!-- EMPLOYEE -->
 <div id="employeePage">
+  <!-- FIX 3: removed ehdr_t (redundant title text) from header -->
   <div class="ehdr">
-    <div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap">
-      <img src="images/logo2.png" alt="" style="width:28px;height:28px;object-fit:contain;" onerror="this.style.display='none'">
-      <span style="color:#fff;font-size:14px;font-weight:700">Aloqa<span style="color:#6ab3d8">Pro</span></span>
-      <h1 id="ehdr_t">Hodimlar paneli</h1>
+    <div class="ehdr-brand">
+      <img src="images/logo2.png" alt="" style="width:30px;height:30px;object-fit:contain;" onerror="this.style.display='none'">
+      <span class="ehdr-brand-name">Aloqa<span>Pro</span></span>
     </div>
     <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap">
-      <span style="color:rgba(255,255,255,.7);font-size:11px;font-family:var(--mono)" id="empDate"></span>
+      <span style="color:rgba(255,255,255,.6);font-size:11px;font-family:var(--mono);background:rgba(255,255,255,.07);padding:4px 8px;border-radius:6px;" id="empDate"></span>
       <label class="theme-toggle"><input type="checkbox" id="themeToggle3" onchange="toggleTheme()"><span class="theme-slider"></span></label>
       <div class="lsw">
         <button class="lb active" id="el_uz" onclick="setLang('uz')"><span class="flag"><svg viewBox="0 0 34 22"><rect width="34" height="7.33" fill="#1EB3E4"/><rect y="7.33" width="34" height="7.34" fill="#fff"/><rect y="14.67" width="34" height="7.33" fill="#32A84C"/><rect y="6.9" width="34" height=".8" fill="#CE2028"/><rect y="14.3" width="34" height=".8" fill="#CE2028"/><circle cx="9" cy="3.7" r="2.3" fill="#fff"/><circle cx="10.1" cy="3.7" r="2.3" fill="#1EB3E4"/></svg></span></button>
@@ -739,7 +792,6 @@ html, body { font-family:var(--font); background:var(--bg); color:var(--text); m
     </div>
   </div>
 
-  <!-- Employee sub-tabs -->
   <div id="emp_tab_work">
     <div class="ebody">
       <div class="ec">
@@ -759,7 +811,6 @@ html, body { font-family:var(--font); background:var(--bg); color:var(--text); m
           <div class="tb2"><h4 id="ewl">Ish vaqti</h4><div class="tv" id="tw">00:00:00</div></div>
           <div class="tb2"><h4 id="ell">Tushlik</h4><div class="tv" id="tl">00:00:00</div></div>
         </div>
-        <!-- Break tracker -->
         <div class="break-tracker" id="breakTracker">
           <h4>☕ Tanaffus limiti (kun)</h4>
           <div class="break-bar-wrap"><div class="break-bar" id="breakBar" style="width:0%"></div></div>
@@ -768,7 +819,6 @@ html, body { font-family:var(--font); background:var(--bg); color:var(--text); m
             <span id="breakLimit" style="color:var(--warn)">/ 30 daq</span>
           </div>
         </div>
-        <!-- AFK BOX -->
         <div class="afk-box" id="afkBox">
           <h4 id="afk_lbl">⚠️ Joyida bo'lmagan vaqt</h4>
           <div class="afk-total" id="afk_display">00:00:00</div>
@@ -785,11 +835,9 @@ html, body { font-family:var(--font); background:var(--bg); color:var(--text); m
           <div class="ii"><h4 id="ei3">Tushlik boshlangan</h4><p id="i_ls">-</p></div>
           <div class="ii"><h4 id="ei4">Tushlik tugagan</h4><p id="i_le">-</p></div>
         </div>
-        <!-- Face status -->
         <div style="margin-top:10px;padding:12px;background:var(--bg3);border-radius:var(--radius-sm);border:1px solid var(--border)">
           <div style="font-size:11px;color:var(--text2);margin-bottom:5px;font-weight:600" id="face_info_lbl">📷 Yuz nazorati</div>
           <div id="face_status_inline" style="font-size:12.5px;font-weight:700;">⏳ Yuklanmoqda...</div>
-          <!-- Face registration box -->
           <div class="face-reg-box" id="faceRegBox" style="margin-top:8px;">
             <h4 id="face_reg_title">🎯 Yuzni ro'yxatdan o'tkazish</h4>
             <div class="face-samples" id="faceSamples"></div>
@@ -804,7 +852,6 @@ html, body { font-family:var(--font); background:var(--bg); color:var(--text); m
         <p class="note" style="margin-top:8px" id="e_note">Yangi kun boshlanganida vaqtlar 0 ga tushadi.</p>
       </div>
 
-      <!-- History -->
       <div class="ec efw">
         <div class="mhdr">
           <h2 id="eh_t">Oy bo'yicha tarix</h2>
@@ -833,7 +880,6 @@ html, body { font-family:var(--font); background:var(--bg); color:var(--text); m
     </div>
   </div>
 
-  <!-- Employee notifications tab -->
   <div id="emp_tab_notif" class="hidden" style="padding:16px">
     <div class="box">
       <div class="btitle">🔔 Bildirishnomalar</div>
@@ -842,7 +888,6 @@ html, body { font-family:var(--font); background:var(--bg); color:var(--text); m
     </div>
   </div>
 
-  <!-- Employee feedback tab -->
   <div id="emp_tab_feedback" class="hidden" style="padding:16px">
     <div class="box">
       <div class="btitle">💬 Fikr/Shikoyat yuborish</div>
@@ -930,10 +975,11 @@ const SUPABASE_URL  = 'https://auzafnpqavjifgcxdjha.supabase.co';
 const SUPABASE_ANON = 'sb_publishable_42Jv6FiVUPVKItb73z0gkQ_1YyJYIDE';
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
 
-const FACE_MODELS_URL    = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.15/model/';
-const FACE_CHECK_INTERVAL = 1000;       // 1 second
-const AFK_GRACE_SEC       = 300;        // 5 min grace before AFK warning
-const BREAK_LIMIT_SEC     = 1800;       // 30 min daily break allowance
+const FACE_CHECK_INTERVAL = 1000;
+// FIX 1 & CRITICAL: We need STABLE_HIT_REQUIRED consecutive detections to clear AFK/banner
+const STABLE_HIT_REQUIRED = 5;  // require 5 consecutive detections to confirm face present
+const AFK_GRACE_SEC       = 300;
+const BREAK_LIMIT_SEC     = 1800;
 const AUTO_END_HOUR       = 18;
 const AUTO_END_MIN        = 15;
 
@@ -1009,6 +1055,8 @@ function closeSidebar(){document.getElementById('sidebar').classList.remove('ope
 // ============================================================
 let userPublicIP = '';
 async function getUserIP(){try{const r=await fetch('https://api.ipify.org?format=json');const d=await r.json();return d.ip||'';}catch(e){return '';}}
+
+// FIX 6: IP list fully stored and read from Supabase
 async function getAllowedIPs(){
   try{
     const{data,error}=await sb.from('settings').select('value').eq('key','allowed_ips').maybeSingle();
@@ -1025,15 +1073,38 @@ async function saveAllowedIPs(arr){
     }else{
       await sb.from('settings').insert({key:'allowed_ips',value:json});
     }
+    // Always refresh display after saving
+    await updateIPList();
   }catch(e){console.error('saveAllowedIPs error:',e);}
 }
 async function checkIPAccess(role){if(role==='admin')return true;const allowed=await getAllowedIPs();if(allowed.length===0)return true;if(!userPublicIP)userPublicIP=await getUserIP();return allowed.includes(userPublicIP);}
-async function addAllowedIP(){const val=document.getElementById('ip_inp').value.trim();if(!val){toast('warn','IP','IP kiriting!');return;}const arr=await getAllowedIPs();if(!arr.includes(val))arr.push(val);await saveAllowedIPs(arr);document.getElementById('ip_inp').value='';updateIPList();toast('success','IP','Qo\'shildi');}
-async function addMyIP(){if(!userPublicIP)userPublicIP=await getUserIP();if(!userPublicIP){toast('error','Xato','IP aniqlanmadi');return;}const arr=await getAllowedIPs();if(!arr.includes(userPublicIP))arr.push(userPublicIP);await saveAllowedIPs(arr);updateIPList();toast('success','IP','Mening IP qo\'shildi');}
-async function removeIP(ip){const arr=await getAllowedIPs();await saveAllowedIPs(arr.filter(x=>x!==ip));updateIPList();}
+async function addAllowedIP(){
+  const val=document.getElementById('ip_inp').value.trim();
+  if(!val){toast('warn','IP','IP kiriting!');return;}
+  const arr=await getAllowedIPs();
+  if(!arr.includes(val))arr.push(val);
+  await saveAllowedIPs(arr);
+  document.getElementById('ip_inp').value='';
+  toast('success','IP','Qo\'shildi');
+}
+async function addMyIP(){
+  if(!userPublicIP)userPublicIP=await getUserIP();
+  if(!userPublicIP){toast('error','Xato','IP aniqlanmadi');return;}
+  const arr=await getAllowedIPs();
+  if(!arr.includes(userPublicIP))arr.push(userPublicIP);
+  await saveAllowedIPs(arr);
+  toast('success','IP','Mening IP qo\'shildi');
+}
+async function removeIP(ip){
+  const arr=await getAllowedIPs();
+  await saveAllowedIPs(arr.filter(x=>x!==ip));
+}
+// FIX 6: updateIPList always reads from Supabase
 async function updateIPList(){
-  const arr=await getAllowedIPs();const el=document.getElementById('ip_list');if(!el)return;
-  if(arr.length===0){el.innerHTML='Hozircha ruxsat etilgan IP yo\'q (cheklov yo\'q)';return;}
+  const el=document.getElementById('ip_list');if(!el)return;
+  el.innerHTML='<span style="color:var(--text3);font-size:12px">Yuklanmoqda...</span>';
+  const arr=await getAllowedIPs();
+  if(arr.length===0){el.innerHTML='<span style="color:var(--text3);font-size:12px">Hozircha ruxsat etilgan IP yo\'q (cheklov yo\'q)</span>';return;}
   el.innerHTML=arr.map(ip=>`<span style="display:inline-flex;align-items:center;gap:4px;background:var(--bg3);border-radius:6px;padding:3px 9px;font-size:12px;margin:2px;font-family:var(--mono)"><strong>${ip}</strong><button onclick="removeIP('${ip}')" style="background:none;border:none;color:var(--danger);cursor:pointer;font-size:14px;line-height:1">×</button></span>`).join(' ');
 }
 function showIPBlock(ip){['loginPage','adminPage','employeePage'].forEach(id=>{const e=document.getElementById(id);if(e)e.style.display='none';});document.getElementById('ipBlockPage').style.display='flex';st('ipb_val',ip||'—');}
@@ -1042,8 +1113,8 @@ function showIPBlock(ip){['loginPage','adminPage','employeePage'].forEach(id=>{c
 //  TRANSLATIONS
 // ============================================================
 const TR = {
-uz:{loginTitle:'Nazorat tizimiga xush kelibsiz!',loginSub:'Login va parolni kiriting!',loginBtn:'Kirish',loginPH:'Login',passPH:'Parol',loginErr:'Login yoki parol noto\'g\'ri!',loginFill:'Login va parolni kiriting!',exit:'Chiqish',today:'Bugun',nav_m:'Asosiy',nav_s:'Sozlamalar',nav_k:'KPI Qoidalar',adm_m:'Boshqaruv | Asosiy',adm_s:'Boshqaruv | Sozlamalar',adm_k:'Boshqaruv | KPI',sc1:'Bugun ishda',sc2:'Kechikkan',sc3:'Kelmagan',sc4:'Sana',att_t:'Hodimlar nazorati',from_l:'Dan:',to_l:'Gacha:',b_today:'Bugun',b_monthly:'Oylik',b_cm:'Joriy oy',b_ref:'Yangilash',fsearch:'Qidirish...',o_all:'Barcha',o_came:'Keldi',o_late:'Kechikkan',o_abs:'Kelmadi',th1:'Ism familiya',th2:'Login',th4:'O\'zgartirish',th5:'Kelgan vaqti',th6:'Kechikish',th7:'Ishlagan soat',th_afk:'AFK vaqti',th8:'Status',mth_t:'Oylik hisobot',ms1:'Hodimlar',ms2:'Kechikishlar',ms3:'Kelmagan',ms4:'Ish soati',ms5:'Jami KPI',mt1:'Ism familiya',mt2:'Ishlagan soat',mt_afk:'AFK vaqti',mt3:'Kechikish',mt4:'Kelmagan',mt5:'Jarima',mt6:'Qo\'shimcha',mt7:'KPI ball',mt8:'KPI sum',mt9:'Boshqaruv',set_t:'Hodimlar boshqaruvi',b_addemp:'Qo\'shish',et1:'Ism familiya',et2:'Login',et3:'Parol',et4:'KPI summasi',et5:'O\'chirish',hol_t:'Dam olish kunlari',b_addh:'Qo\'shish',hol_info:'Standart: Du–Sha. Yakshanba avtomatik dam olish.',hol_none:'Qo\'shimcha dam olish kuni yo\'q',kpi_t:'KPI Qoidalari',k1:'Asosiy KPI',k2:'Davomat bo\'yicha KPI 100 ballik sistemada!',k3:'Jarimalar',k4:'Kech qolish',k5:'Kelmaslik',k_afk:'AFK (30 daqiqadan ortiq)',k6:'KPI to\'lovlari',k7:'Eski hodimlar',k8:'Yangi hodimlar',ehdr:'Hodimlar paneli',ew_t:'Bugungi ish jarayoni',et_t:'Bugungi ma\'lumot',eh_t:'Oy bo\'yicha tarix',st_pre:'Holat:',lt_pre:'Kechikish:',lt_u:'daqiqa',st0:'Boshlanmagan',st1:'Ishda',st2:'Tushlikda',st4:'Yakunlandi',bs:'Boshlash',bl:'Tushlik',be:'Yakunlash',bc:'Davom ettirish',bb:'Qaytish',ewl:'Ish vaqti',ell:'Tushlik',ewd:'Ish vaqti',eld:'Tushlik vaqti',e_note:'Yangi kun boshlanganida vaqtlar 0 ga tushadi.',ei1:'Ish boshlagan',ei2:'Ish tugagan',ei3:'Tushlik boshlangan',ei4:'Tushlik tugagan',ht1:'Sana',ht2:'Boshlagan',ht3:'Tushlik bosh.',ht4:'Tushlik tug.',ht5:'Tugagan',ht6:'Kechikish',ht7:'Ish vaqti',ht8:'Tushlik',ht_afk:'AFK',ht9:'Status',eh_note:'Faqat tanlangan oy ma\'lumotlari.',el_lbl:'Kechikishlar (oy):',afk_month_lbl:'AFK (oy jami):',e_cm:'Joriy oy',mw_txt:'Eslatma: "Yakunlash" tugmasini faqat ish kuni to\'liq tugagandan keyin bosing!',mw_ok:'OK',mep_t:'Parolni o\'zgartirish',mep_s:'Saqlash',mep_c:'Bekor qilish',ep_ph:'Yangi parol',b_came:'Keldi',b_late:'Kechikkan',b_abs:'Kelmadi',b_off:'Dam olish',del_c:'Hodimni o\'chirishni tasdiqlaysizmi?',no_data:'Ma\'lumot yo\'q',daq:'daq',marta:'marta',kun:'kun',soat:'soat',daqiqa:'daqiqa',ball:'ball',hisobot:'hisobot',change:'O\'zgartirish',delete:'O\'chirish',reset:'Reset',fill_all:'Barcha maydonlarni to\'ldiring!',face_detected:'✅ Yuz aniqlandi',face_not_detected:'❌ Yuz aniqlanmadi',face_loading:'⏳ Yuklanmoqda...',face_unknown:'⚠️ Noma\'lum yuz',afk_lbl:'⚠️ Joyida bo\'lmagan vaqt',afk_cnt_lbl:'marta AFK',afk_warn_title:'⚠️ Yuzingiz aniqlanmadi!',afk_warn_txt:'Kamera oldida o\'tiring. AFK vaqt hisoblanmoqda.',afk_warn_sub:'5 daqiqa ichida yuz aniqlanmasa, AFK hisoblanadi',afk_im_here:'Men shu yerdaman ✋',auto_end_txt:'Soat 18:15 bo\'ldi. Tizim tomonidan ish yakunlandi.',auto_ended:'Tizim yakunladi',afk_banner:'Yuz aniqlanmadi! AFK vaqt hisoblanmoqda...',kpi_sr:'Eski hodim (560K)',kpi_jr:'Yangi hodim (400K)'},
-ru:{loginTitle:'Добро пожаловать!',loginSub:'Введите логин и пароль!',loginBtn:'Войти',loginPH:'Логин',passPH:'Пароль',loginErr:'Неверный логин или пароль!',loginFill:'Введите логин и пароль!',exit:'Выйти',today:'Сегодня',nav_m:'Главная',nav_s:'Настройки',nav_k:'Правила KPI',adm_m:'Управление | Главная',adm_s:'Управление | Настройки',adm_k:'Управление | KPI',sc1:'На работе',sc2:'Опоздали',sc3:'Не пришли',sc4:'Дата',att_t:'Контроль сотрудников',from_l:'От:',to_l:'До:',b_today:'Сегодня',b_monthly:'Месяц',b_cm:'Тек. месяц',b_ref:'Обновить',fsearch:'Поиск...',o_all:'Все',o_came:'Пришёл',o_late:'Опоздал',o_abs:'Не пришёл',th1:'ФИО',th2:'Логин',th4:'Изменить',th5:'Приход',th6:'Опоздание',th7:'Отработано',th_afk:'AFK время',th8:'Статус',mth_t:'Месячный отчёт',ms1:'Сотрудников',ms2:'Опозданий',ms3:'Пропусков',ms4:'Раб.часов',ms5:'Итого KPI',mt1:'ФИО',mt2:'Отработано',mt_afk:'AFK время',mt3:'Опоздания',mt4:'Пропуски',mt5:'Штраф',mt6:'Доп.баллы',mt7:'KPI балл',mt8:'KPI сумма',mt9:'Управление',set_t:'Управление сотрудниками',b_addemp:'Добавить',et1:'ФИО',et2:'Логин',et3:'Пароль',et4:'Сумма KPI',et5:'Удалить',hol_t:'Выходные дни',b_addh:'Добавить',hol_info:'Стандарт: Пн–Сб. Воскресенье — выходной.',hol_none:'Доп. выходных нет',kpi_t:'Правила KPI',k1:'Основной KPI',k2:'KPI в 100-балльной системе!',k3:'Штрафы',k4:'Опоздание',k5:'Прогул',k_afk:'AFK (более 30 минут)',k6:'Выплаты KPI',k7:'Старые сотрудники',k8:'Новые сотрудники',ehdr:'Панель сотрудника',ew_t:'Рабочий процесс',et_t:'Сегодня',eh_t:'История за месяц',st_pre:'Статус:',lt_pre:'Опоздание:',lt_u:'мин',st0:'Не начат',st1:'На работе',st2:'В обеде',st4:'Завершён',bs:'Начать',bl:'Обед',be:'Завершить',bc:'Продолжить',bb:'Вернуться',ewl:'Рабочее время',ell:'Время обеда',ewd:'Рабочее время',eld:'Время обеда',e_note:'При новом дне таймеры сбрасываются.',ei1:'Начало',ei2:'Конец',ei3:'Обед нач.',ei4:'Обед кон.',ht1:'Дата',ht2:'Начало',ht3:'Обед нач.',ht4:'Обед кон.',ht5:'Конец',ht6:'Опоздание',ht7:'Раб.время',ht8:'Обед',ht_afk:'AFK',ht9:'Статус',eh_note:'Данные выбранного месяца.',el_lbl:'Опозданий (месяц):',afk_month_lbl:'AFK (итого за месяц):',e_cm:'Тек. месяц',mw_txt:'Нажимайте "Завершить" только после полного окончания рабочего дня!',mw_ok:'ОК',mep_t:'Изменить пароль',mep_s:'Сохранить',mep_c:'Отмена',ep_ph:'Новый пароль',b_came:'Пришёл',b_late:'Опоздал',b_abs:'Не пришёл',b_off:'Выходной',del_c:'Удалить сотрудника?',no_data:'Нет данных',daq:'мин',marta:'раз',kun:'дн.',soat:'ч',daqiqa:'мин',ball:'балл',hisobot:'отчёт',change:'Изменить',delete:'Удалить',reset:'Сброс',fill_all:'Заполните все поля!',face_detected:'✅ Лицо обнаружено',face_not_detected:'❌ Лицо не обнаружено',face_loading:'⏳ Загрузка...',face_unknown:'⚠️ Неизвестное лицо',afk_lbl:'⚠️ Отсутствие',afk_cnt_lbl:'раз AFK',afk_warn_title:'⚠️ Лицо не распознано!',afk_warn_txt:'Сядьте перед камерой.',afk_warn_sub:'Если лицо не обнаружено в течение 5 минут — AFK',afk_im_here:'Я здесь ✋',auto_end_txt:'18:15. Рабочий день завершён системой.',auto_ended:'Завершено системой',afk_banner:'Лицо не обнаружено! Идёт подсчёт AFK...',kpi_sr:'Старый сотр. (560K)',kpi_jr:'Новый сотр. (400K)'}
+uz:{loginTitle:'Nazorat tizimiga xush kelibsiz!',loginSub:'Login va parolni kiriting!',loginBtn:'Kirish',loginPH:'Login',passPH:'Parol',loginErr:'Login yoki parol noto\'g\'ri!',loginFill:'Login va parolni kiriting!',exit:'Chiqish',today:'Bugun',nav_m:'Asosiy',nav_s:'Sozlamalar',nav_k:'KPI Qoidalar',adm_m:'Boshqaruv | Asosiy',adm_s:'Boshqaruv | Sozlamalar',adm_k:'Boshqaruv | KPI',sc1:'Bugun ishda',sc2:'Kechikkan',sc3:'Kelmagan',sc4:'Sana',att_t:'Hodimlar nazorati',from_l:'Dan:',to_l:'Gacha:',b_today:'Bugun',b_monthly:'Oylik',b_cm:'Joriy oy',b_ref:'Yangilash',fsearch:'Qidirish...',o_all:'Barcha',o_came:'Keldi',o_late:'Kechikkan',o_abs:'Kelmadi',th1:'Ism familiya',th2:'Login',th4:'O\'zgartirish',th5:'Kelgan vaqti',th6:'Kechikish',th7:'Ishlagan soat',th_afk:'AFK vaqti',th8:'Status',mth_t:'Oylik hisobot',ms1:'Hodimlar',ms2:'Kechikishlar',ms3:'Kelmagan',ms4:'Ish soati',ms5:'Jami KPI',mt1:'Ism familiya',mt2:'Ishlagan soat',mt_afk:'AFK vaqti',mt3:'Kechikish',mt4:'Kelmagan',mt5:'Jarima',mt6:'Qo\'shimcha',mt7:'KPI ball',mt8:'KPI sum',mt9:'Boshqaruv',set_t:'Hodimlar boshqaruvi',b_addemp:'Qo\'shish',et1:'Ism familiya',et2:'Login',et3:'Parol',et4:'KPI summasi',et5:'O\'chirish',hol_t:'Dam olish kunlari',b_addh:'Qo\'shish',hol_info:'Standart: Du–Sha. Yakshanba avtomatik dam olish.',hol_none:'Qo\'shimcha dam olish kuni yo\'q',kpi_t:'KPI Qoidalari',k1:'Asosiy KPI',k2:'Davomat bo\'yicha KPI 100 ballik sistemada!',k3:'Jarimalar',k4:'Kech qolish',k5:'Kelmaslik',k_afk:'AFK (30 daqiqadan ortiq)',k6:'KPI to\'lovlari',k7:'Eski hodimlar',k8:'Yangi hodimlar',ew_t:'Bugungi ish jarayoni',et_t:'Bugungi ma\'lumot',eh_t:'Oy bo\'yicha tarix',st_pre:'Holat:',lt_pre:'Kechikish:',lt_u:'daqiqa',st0:'Boshlanmagan',st1:'Ishda',st2:'Tushlikda',st4:'Yakunlandi',bs:'Boshlash',bl:'Tushlik',be:'Yakunlash',bc:'Davom ettirish',bb:'Qaytish',ewl:'Ish vaqti',ell:'Tushlik',ewd:'Ish vaqti',eld:'Tushlik vaqti',e_note:'Yangi kun boshlanganida vaqtlar 0 ga tushadi.',ei1:'Ish boshlagan',ei2:'Ish tugagan',ei3:'Tushlik boshlangan',ei4:'Tushlik tugagan',ht1:'Sana',ht2:'Boshlagan',ht3:'Tushlik bosh.',ht4:'Tushlik tug.',ht5:'Tugagan',ht6:'Kechikish',ht7:'Ish vaqti',ht8:'Tushlik',ht_afk:'AFK',ht9:'Status',eh_note:'Faqat tanlangan oy ma\'lumotlari.',el_lbl:'Kechikishlar (oy):',afk_month_lbl:'AFK (oy jami):',e_cm:'Joriy oy',mw_txt:'Eslatma: "Yakunlash" tugmasini faqat ish kuni to\'liq tugagandan keyin bosing!',mw_ok:'OK',mep_t:'Parolni o\'zgartirish',mep_s:'Saqlash',mep_c:'Bekor qilish',ep_ph:'Yangi parol',b_came:'Keldi',b_late:'Kechikkan',b_abs:'Kelmadi',b_off:'Dam olish',del_c:'Hodimni o\'chirishni tasdiqlaysizmi?',no_data:'Ma\'lumot yo\'q',daq:'daq',marta:'marta',kun:'kun',soat:'soat',daqiqa:'daqiqa',ball:'ball',hisobot:'hisobot',change:'O\'zgartirish',delete:'O\'chirish',reset:'Reset',fill_all:'Barcha maydonlarni to\'ldiring!',face_detected:'✅ Yuz aniqlandi',face_not_detected:'❌ Yuz aniqlanmadi',face_loading:'⏳ Yuklanmoqda...',face_unknown:'⚠️ Noma\'lum yuz',afk_lbl:'⚠️ Joyida bo\'lmagan vaqt',afk_cnt_lbl:'marta AFK',afk_warn_title:'⚠️ Yuzingiz aniqlanmadi!',afk_warn_txt:'Kamera oldida o\'tiring. AFK vaqt hisoblanmoqda.',afk_warn_sub:'5 daqiqa ichida yuz aniqlanmasa, AFK hisoblanadi',afk_im_here:'Men shu yerdaman ✋',auto_end_txt:'Soat 18:15 bo\'ldi. Tizim tomonidan ish yakunlandi.',auto_ended:'Tizim yakunladi',afk_banner:'Yuz aniqlanmadi! AFK vaqt hisoblanmoqda...',kpi_sr:'Eski hodim (560K)',kpi_jr:'Yangi hodim (400K)'},
+ru:{loginTitle:'Добро пожаловать!',loginSub:'Введите логин и пароль!',loginBtn:'Войти',loginPH:'Логин',passPH:'Пароль',loginErr:'Неверный логин или пароль!',loginFill:'Введите логин и пароль!',exit:'Выйти',today:'Сегодня',nav_m:'Главная',nav_s:'Настройки',nav_k:'Правила KPI',adm_m:'Управление | Главная',adm_s:'Управление | Настройки',adm_k:'Управление | KPI',sc1:'На работе',sc2:'Опоздали',sc3:'Не пришли',sc4:'Дата',att_t:'Контроль сотрудников',from_l:'От:',to_l:'До:',b_today:'Сегодня',b_monthly:'Месяц',b_cm:'Тек. месяц',b_ref:'Обновить',fsearch:'Поиск...',o_all:'Все',o_came:'Пришёл',o_late:'Опоздал',o_abs:'Не пришёл',th1:'ФИО',th2:'Логин',th4:'Изменить',th5:'Приход',th6:'Опоздание',th7:'Отработано',th_afk:'AFK время',th8:'Статус',mth_t:'Месячный отчёт',ms1:'Сотрудников',ms2:'Опозданий',ms3:'Пропусков',ms4:'Раб.часов',ms5:'Итого KPI',mt1:'ФИО',mt2:'Отработано',mt_afk:'AFK время',mt3:'Опоздания',mt4:'Пропуски',mt5:'Штраф',mt6:'Доп.баллы',mt7:'KPI балл',mt8:'KPI сумма',mt9:'Управление',set_t:'Управление сотрудниками',b_addemp:'Добавить',et1:'ФИО',et2:'Логин',et3:'Пароль',et4:'Сумма KPI',et5:'Удалить',hol_t:'Выходные дни',b_addh:'Добавить',hol_info:'Стандарт: Пн–Сб. Воскресенье — выходной.',hol_none:'Доп. выходных нет',kpi_t:'Правила KPI',k1:'Основной KPI',k2:'KPI в 100-балльной системе!',k3:'Штрафы',k4:'Опоздание',k5:'Прогул',k_afk:'AFK (более 30 минут)',k6:'Выплаты KPI',k7:'Старые сотрудники',k8:'Новые сотрудники',ew_t:'Рабочий процесс',et_t:'Сегодня',eh_t:'История за месяц',st_pre:'Статус:',lt_pre:'Опоздание:',lt_u:'мин',st0:'Не начат',st1:'На работе',st2:'В обеде',st4:'Завершён',bs:'Начать',bl:'Обед',be:'Завершить',bc:'Продолжить',bb:'Вернуться',ewl:'Рабочее время',ell:'Время обеда',ewd:'Рабочее время',eld:'Время обеда',e_note:'При новом дне таймеры сбрасываются.',ei1:'Начало',ei2:'Конец',ei3:'Обед нач.',ei4:'Обед кон.',ht1:'Дата',ht2:'Начало',ht3:'Обед нач.',ht4:'Обед кон.',ht5:'Конец',ht6:'Опоздание',ht7:'Раб.время',ht8:'Обед',ht_afk:'AFK',ht9:'Статус',eh_note:'Данные выбранного месяца.',el_lbl:'Опозданий (месяц):',afk_month_lbl:'AFK (итого за месяц):',e_cm:'Тек. месяц',mw_txt:'Нажимайте "Завершить" только после полного окончания рабочего дня!',mw_ok:'ОК',mep_t:'Изменить пароль',mep_s:'Сохранить',mep_c:'Отмена',ep_ph:'Новый пароль',b_came:'Пришёл',b_late:'Опоздал',b_abs:'Не пришёл',b_off:'Выходной',del_c:'Удалить сотрудника?',no_data:'Нет данных',daq:'мин',marta:'раз',kun:'дн.',soat:'ч',daqiqa:'мин',ball:'балл',hisobot:'отчёт',change:'Изменить',delete:'Удалить',reset:'Сброс',fill_all:'Заполните все поля!',face_detected:'✅ Лицо обнаружено',face_not_detected:'❌ Лицо не обнаружено',face_loading:'⏳ Загрузка...',face_unknown:'⚠️ Неизвестное лицо',afk_lbl:'⚠️ Отсутствие',afk_cnt_lbl:'раз AFK',afk_warn_title:'⚠️ Лицо не распознано!',afk_warn_txt:'Сядьте перед камерой.',afk_warn_sub:'Если лицо не обнаружено в течение 5 минут — AFK',afk_im_here:'Я здесь ✋',auto_end_txt:'18:15. Рабочий день завершён системой.',auto_ended:'Завершено системой',afk_banner:'Лицо не обнаружено! Идёт подсчёт AFK...',kpi_sr:'Старый сотр. (560K)',kpi_jr:'Новый сотр. (400K)'}
 };
 let lang = localStorage.getItem('aloqa_lang') || 'uz';
 const t = k => (TR[lang]||TR.uz)[k] || k;
@@ -1055,7 +1126,6 @@ function applyLang(){
   ['ll','al','el'].forEach(p=>{const u=document.getElementById(p+'_uz'),r=document.getElementById(p+'_ru');if(u)u.classList.toggle('active',lang==='uz');if(r)r.classList.toggle('active',lang==='ru');});
   st('lc_t',t('loginTitle'));st('lc_s',t('loginSub'));const lb=document.getElementById('lbtn');if(lb)lb.textContent=t('loginBtn');
   sp('inp_l',t('loginPH'));sp('inp_p',t('passPH'));
-  const navKeys=['main','notif','feedback','settings','kpi'];
   ['n_main','n_notif','n_fb','n_set','n_kpi'].forEach((id,i)=>{st(id,t(['nav_m','Bildirishnomalar','Fikrlar','nav_s','nav_k'][i]||''));});
   st('admTitle',t('adm_m'));
   const ae=document.getElementById('admExit');if(ae)ae.textContent=t('exit');
@@ -1066,7 +1136,7 @@ function applyLang(){
    'mt1','mt2','mt_afk','mt3','mt4','mt5','mt6','mt7','mt8','mt9',
    'set_t','b_addemp','et1','et2','et3','et4','et5','hol_t','b_addh','hol_info',
    'kpi_t','k1','k2','k3','k4','k5','k_afk','k6','k7','k8',
-   'ehdr_t','ew_t','et_t','eh_t','ewl','ell','ewd','eld','e_note',
+   'ew_t','et_t','eh_t','ewl','ell','ewd','eld','e_note',
    'ei1','ei2','ei3','ei4','ht1','ht2','ht3','ht4','ht5','ht6','ht7','ht8','ht_afk','ht9',
    'eh_note','el_lbl','afk_month_lbl','e_cm','mw_txt','mw_ok','mep_t','mep_s','mep_c',
    'afk_lbl','afk_warn_title','afk_warn_txt','afk_warn_sub','afk_im_here','auto_end_txt','afkBannerTxt'
@@ -1109,13 +1179,10 @@ async function requestPushPermission() {
     toast('warn','Push','Ruxsat berilmadi');
   }
 }
-
 function scheduleReminders() {
-  // Schedule daily reminders using setInterval check
   checkScheduledNotifs();
   setInterval(checkScheduledNotifs, 60000);
 }
-
 let sentToday = {};
 function checkScheduledNotifs() {
   if (!CU || CU.role !== 'employee') return;
@@ -1124,57 +1191,44 @@ function checkScheduledNotifs() {
   const key = todayISO();
   if (!sentToday[key]) sentToday[key] = {};
   const S = sentToday[key];
-
-  if (h === 9 && m === 0 && !S.s9) {
-    S.s9 = true;
-    showLocalNotif('AloqaPro', lang==='uz'?'Ishingiz boshlandi! Samarali kun tilaymiz 💼':'Рабочий день начался! Удачного дня 💼');
-    saveNotifToDB('work_start', lang==='uz'?'Ish boshlandi':'Начало работы', lang==='uz'?'Ishingiz boshlandi! Samarali kun tilaymiz':'Рабочий день начался!');
-  }
-  if (h === 11 && m === 40 && !S.s11) {
-    S.s11 = true;
-    showLocalNotif('AloqaPro', lang==='uz'?'Tushlik vaqti yaqin (12:00) 🍽️':'Обеденное время скоро (12:00) 🍽️');
-    saveNotifToDB('lunch_soon','Tushlik yaqin','Tushlik vaqti 20 daqiqadan so\'ng');
-  }
-  if (h === 17 && m === 50 && !S.s17) {
-    S.s17 = true;
-    showLocalNotif('AloqaPro', lang==='uz'?'Ish vaqtingiz yakunlanyabdi! Vazifalarni yakunlang ⏰':'Рабочий день заканчивается! Завершите задачи ⏰');
-    saveNotifToDB('work_end_soon','Ish tugayabdi','Ish vaqtingiz yakunlanyabdi, vazifalarni yakunlang');
-  }
-  // Break warnings
-  const breakSec = todayBreakSec();
-  if (breakSec >= 600 && breakSec < 660 && !S.b10) { S.b10=true; showLocalNotif('AloqaPro','⚠️ '+(lang==='uz'?'10 daqiqa tanaffus':'10 минут перерыва')); }
-  if (breakSec >= 1200 && breakSec < 1260 && !S.b20) { S.b20=true; showLocalNotif('AloqaPro','⚠️ '+(lang==='uz'?'20 daqiqa tanaffus — 10 daqiqa qoldi!':'20 минут перерыва — осталось 10 минут!')); }
-  if (breakSec >= 1500 && breakSec < 1560 && !S.b25) { S.b25=true; showLocalNotif('AloqaPro','🔴 '+(lang==='uz'?'25 daqiqa tanaffus! 5 daqiqa qoldi!':'25 минут перерыва! Осталось 5 минут!')); }
-  if (breakSec >= 1800 && !S.b30) { S.b30=true; showLocalNotif('AloqaPro','🚨 '+(lang==='uz'?'30 daqiqa tanaffus tugadi! AFK hisoblanmoqda!':'30 минут перерыва истекло! AFK!')); }
+  if (h===9&&m===0&&!S.s9){S.s9=true;showLocalNotif('AloqaPro',lang==='uz'?'Ishingiz boshlandi! Samarali kun tilaymiz 💼':'Рабочий день начался! Удачного дня 💼');saveNotifToDB('work_start',lang==='uz'?'Ish boshlandi':'Начало работы',lang==='uz'?'Ishingiz boshlandi! Samarali kun tilaymiz':'Рабочий день начался!');}
+  if (h===11&&m===40&&!S.s11){S.s11=true;showLocalNotif('AloqaPro',lang==='uz'?'Tushlik vaqti yaqin (12:00) 🍽️':'Обеденное время скоро (12:00) 🍽️');saveNotifToDB('lunch_soon','Tushlik yaqin','Tushlik vaqti 20 daqiqadan so\'ng');}
+  if (h===17&&m===50&&!S.s17){S.s17=true;showLocalNotif('AloqaPro',lang==='uz'?'Ish vaqtingiz yakunlanyabdi! Vazifalarni yakunlang ⏰':'Рабочий день заканчивается! Завершите задачи ⏰');saveNotifToDB('work_end_soon','Ish tugayabdi','Ish vaqtingiz yakunlanyabdi, vazifalarni yakunlang');}
+  const breakSec=todayBreakSec();
+  if(breakSec>=600&&breakSec<660&&!S.b10){S.b10=true;showLocalNotif('AloqaPro','⚠️ '+(lang==='uz'?'10 daqiqa tanaffus':'10 минут перерыва'));}
+  if(breakSec>=1200&&breakSec<1260&&!S.b20){S.b20=true;showLocalNotif('AloqaPro','⚠️ '+(lang==='uz'?'20 daqiqa tanaffus — 10 daqiqa qoldi!':'20 минут перерыва — осталось 10 минут!'));}
+  if(breakSec>=1500&&breakSec<1560&&!S.b25){S.b25=true;showLocalNotif('AloqaPro','🔴 '+(lang==='uz'?'25 daqiqa tanaffus! 5 daqiqa qoldi!':'25 минут перерыва! Осталось 5 минут!'));}
+  if(breakSec>=1800&&!S.b30){S.b30=true;showLocalNotif('AloqaPro','🚨 '+(lang==='uz'?'30 daqiqa tanaffus tugadi! AFK hisoblanmoqda!':'30 минут перерыва истекло! AFK!'));}
 }
+function showLocalNotif(title,body){if(Notification.permission==='granted'){try{new Notification(title,{body,icon:'/images/logo2.png'});}catch(e){}}}
+async function saveNotifToDB(type,title,body){if(!CU)return;try{await sb.from('notifications').insert({employee_id:CU.id,title,body,type});}catch(e){console.warn('saveNotifToDB:',e);}loadNotificationsEmp();}
 
-function showLocalNotif(title, body) {
-  if (Notification.permission === 'granted') {
-    try { new Notification(title, { body, icon:'/images/logo2.png' }); } catch(e) {}
-  }
-}
-
-async function saveNotifToDB(type, title, body) {
-  if (!CU) return;
-  try{
-    await sb.from('notifications').insert({ employee_id:CU.id, title, body, type });
-  }catch(e){ console.warn('saveNotifToDB:',e); }
-  loadNotificationsEmp();
-}
-
+// FIX 5: adminSendNotif — prevent double sending
 async function adminSendNotif() {
+  const btn = document.querySelector('#tab_notif .bb');
+  if (btn) btn.disabled = true;
   const empId = document.getElementById('ns_emp').value;
   const title = document.getElementById('ns_title_inp').value.trim();
   const body = document.getElementById('ns_body').value.trim();
-  if (!title || !body) { toast('warn','Xato','Sarlavha va matn kiriting'); return; }
-
+  if (!title || !body) {
+    toast('warn','Xato','Sarlavha va matn kiriting');
+    if (btn) btn.disabled = false;
+    return;
+  }
   try{
-    const {data:emps} = await sb.from('employees').select('id');
-    const targets = empId === 'all' ? (emps||[]).map(e=>e.id) : [empId];
-
-    for (const eid of targets) {
-      const {error} = await sb.from('notifications').insert({ employee_id:eid, title, body, type:'admin' });
-      if(error) console.error('Notif insert error:',error.message);
+    // FIX 5: Build target list first, then insert all in one batch
+    let targets = [];
+    if (empId === 'all') {
+      const {data:emps} = await sb.from('employees').select('id');
+      targets = (emps||[]).map(e=>e.id);
+    } else {
+      targets = [empId];
+    }
+    // Insert all notifications in parallel (each employee gets exactly 1)
+    const inserts = targets.map(eid => ({employee_id:eid, title, body, type:'admin'}));
+    if (inserts.length > 0) {
+      const {error} = await sb.from('notifications').insert(inserts);
+      if(error) { console.error('Notif insert error:',error.message); toast('error','Xato',error.message); if(btn)btn.disabled=false; return; }
     }
     document.getElementById('ns_title_inp').value = '';
     document.getElementById('ns_body').value = '';
@@ -1183,6 +1237,8 @@ async function adminSendNotif() {
   }catch(e){
     console.error('adminSendNotif error:',e);
     toast('error','Xato',e.message||'Yuborishda xato');
+  }finally{
+    if(btn)btn.disabled=false;
   }
 }
 
@@ -1227,10 +1283,9 @@ async function sendFeedback() {
   if (!msg) { toast('warn','Xato','Xabar yozing'); return; }
   await sb.from('feedback').insert({ employee_id:CU.id, employee_name:CU.name, type, message:msg });
   document.getElementById('fb_msg').value = '';
-  toast('success','Yuborildi','Fikringiz adminга yuborildi!');
+  toast('success','Yuborildi','Fikringiz adminga yuborildi!');
   loadMyFeedback();
 }
-
 async function loadMyFeedback() {
   if (!CU) return;
   const {data} = await sb.from('feedback').select('*').eq('employee_id',CU.id).order('created_at',{ascending:false}).limit(20);
@@ -1246,14 +1301,13 @@ async function loadMyFeedback() {
       ${fb.admin_reply?`<div class="fb-replied">💬 Admin: ${fb.admin_reply}</div>`:'<div style="font-size:11px;color:var(--text3)">⏳ Javob kutilmoqda</div>'}
     </div>`).join('');
 }
-
 async function loadFeedbackAdmin() {
   const filter = document.getElementById('fb_filter')?.value || '';
   let q = sb.from('feedback').select('*,employees(name)').order('created_at',{ascending:false}).limit(50);
-  if (filter === 'new') q = q.eq('status','new');
-  else if (filter === 'replied') q = q.eq('status','replied');
-  else if (filter === 'complaint') q = q.eq('type','complaint');
-  else if (filter === 'suggestion') q = q.eq('type','suggestion');
+  if (filter==='new') q=q.eq('status','new');
+  else if(filter==='replied') q=q.eq('status','replied');
+  else if(filter==='complaint') q=q.eq('type','complaint');
+  else if(filter==='suggestion') q=q.eq('type','suggestion');
   const {data} = await q;
   const c = document.getElementById('feedback_list_admin'); if (!c) return;
   const newCount = (data||[]).filter(f=>f.status==='new').length;
@@ -1272,12 +1326,11 @@ async function loadFeedbackAdmin() {
       <div class="fb-msg">${fb.message}</div>
       ${fb.admin_reply?`<div class="fb-replied">💬 Javobingiz: ${fb.admin_reply}</div>`:`
         <div class="fb-reply-area">
-          <textarea id="reply_${fb.id}" placeholder="Javob yozing...">${''}</textarea>
+          <textarea id="reply_${fb.id}" placeholder="Javob yozing..."></textarea>
           <button class="bb" style="margin-top:6px;font-size:11px;padding:6px 12px" onclick="replyFeedback('${fb.id}')">📤 Javob yuborish</button>
         </div>`}
     </div>`).join('');
 }
-
 async function replyFeedback(id) {
   const ta = document.getElementById('reply_'+id);
   if (!ta || !ta.value.trim()) { toast('warn','Xato','Javob yozing'); return; }
@@ -1329,14 +1382,14 @@ function showPage(p){
 function empNavTab(tab){
   ['work','notif','feedback'].forEach(t2=>{const e=document.getElementById('emp_tab_'+t2);if(e)e.classList.toggle('hidden',t2!==tab);});
   if(tab==='notif')loadNotificationsEmp();
-  if(tab==='feedback'){loadMyFeedback();}
+  if(tab==='feedback')loadMyFeedback();
 }
 
 // ============================================================
 //  ADMIN
 // ============================================================
 let mVisible = false;
-let monthlyData = []; // for export
+let monthlyData = [];
 
 function initAdmin(){adminTab('main');setToday();setCurMonth();updateDates();updateHolList();updateIPList();loadMyIPDisplay();loadNotifEmpSelect();checkFeedbackBadge();}
 async function loadMyIPDisplay(){if(!userPublicIP)userPublicIP=await getUserIP();const el=document.getElementById('my_ip_show');if(el)el.textContent=userPublicIP||'—';}
@@ -1360,7 +1413,6 @@ function adminTab(tab){
   if(tab==='feedback')loadFeedbackAdmin();
   if(tab==='notif'){loadNotificationsAdmin();loadNotifEmpSelect();}
 }
-
 function setToday(){const today=todayISO();document.getElementById('fd_from').value=today;document.getElementById('fd_to').value=today;loadAtt();}
 function setCurMonth(){document.getElementById('fmonth').value=curM();}
 function toggleMonthly(){mVisible=!mVisible;document.getElementById('mbox').classList.toggle('hidden',!mVisible);if(mVisible)loadMonthly();}
@@ -1427,10 +1479,9 @@ async function loadMonthly(){
     er.forEach(r=>{if(r.start_time){const[h,m]=r.start_time.split(':').map(Number);if(h*60+m>540)late++;came++;}if(r.work_seconds)sec+=r.work_seconds;if(r.afk_seconds)afkSec+=r.afk_seconds;});
     const abs=Math.max(0,wd-came);
     const bon=bons?(bons.find(b=>b.employee_id===emp.id)||{bonus:0}).bonus:0;
-    // AFK: only 30+ min counted against KPI
     const afkOverSec=Math.max(0,afkSec-1800);
-    const afkPenalty=Math.floor(afkOverSec/60); // 1 ball per min over 30min
-    const pen=late*10+abs*20+Math.min(afkPenalty,20); // cap AFK penalty at 20 balls
+    const afkPenalty=Math.floor(afkOverSec/60);
+    const pen=late*10+abs*20+Math.min(afkPenalty,20);
     const fin=Math.min(100,Math.max(0,100-pen+bon));
     const kpi=calcKpi(fin,emp.kpi_type||'senior');
     tL+=late;tA+=abs;tH+=sec;tK+=kpi;
@@ -1483,7 +1534,6 @@ function exportExcel(){
   XLSX.writeFile(wb,'AloqaPro_'+month+'_KPI.xlsx');
   toast('success','Excel','Yuklab olindi!');
 }
-
 function exportPDF(){
   if(!monthlyData||monthlyData.length===0){toast('warn','Export','Avval oylik hisobotni yuklang');return;}
   if(typeof window.jspdf==='undefined'){toast('warn','Export','PDF kutubxonasi hali yuklanmadi, kuting...');return;}
@@ -1508,17 +1558,17 @@ let empState = 'not_started';
 let wStart = null, wAccum = 0;
 let lStart = null, lAccum = 0;
 let wIv = null, lIv = null;
-let afkSeconds = 0;   // total afk seconds (only those > 30min threshold)
+let afkSeconds = 0;
 let afkCount = 0;
+let afkCurSec = 0;
 let afkIv = null;
 let currentAfkStart = null;
 let afkWarnShown = false;
 let isAfk = false;
-let breakSeconds = 0; // total break/AFK seconds today (for 30-min tracking)
+let breakSeconds = 0;
 let autoEndIv = null;
 let autoEndDone = false;
 
-// Break: only in non-work states (lunch or AFK while not working)
 function todayBreakSec(){return breakSeconds;}
 
 function getLS(){return JSON.parse(localStorage.getItem('aloqa_emp_state')||'null');}
@@ -1633,15 +1683,12 @@ function stopLT(){if(lIv){clearInterval(lIv);lIv=null;}}
 function setTV(sec,id){const e=document.getElementById(id);if(e)e.textContent=fmtSec(sec);}
 function stopAll(){stopWT();stopLT();}
 
-// Break bar update
 function updateBreakBar(){
-  const bar=document.getElementById('breakBar');const used=document.getElementById('breakUsed');const bb=document.getElementById('breakBanner');
+  const bar=document.getElementById('breakBar');const used=document.getElementById('breakUsed');
   const total=breakSeconds+(lStart?Math.floor((tzNow()-lStart)/1000):0);
   const pct=Math.min(100,(total/BREAK_LIMIT_SEC)*100);
   if(bar){bar.style.width=pct+'%';bar.classList.toggle('over',total>BREAK_LIMIT_SEC);}
   if(used)used.textContent=Math.floor(total/60)+' daq';
-  if(bb)bb.style.display=(total>0&&empState==='working'&&total<BREAK_LIMIT_SEC)?'none':'none'; // only show when needed
-  // Check break notifications are done via checkScheduledNotifs
 }
 
 // ============================================================
@@ -1659,23 +1706,26 @@ function startAutoEndCheck(){
 }
 
 // ============================================================
-//  FACE DETECTION — stable rewrite
+//  FACE DETECTION — FULLY REWRITTEN
+//
+//  KEY FIXES:
+//  FIX 1: Banner only hides after STABLE_HIT_REQUIRED consecutive detections
+//  FIX 2: AFK timer runs correctly; faceMissCount only resets on stable hit
+//  CRITICAL: After returning to seat, face must be stably detected before AFK stops
 // ============================================================
 let faceApiLoaded   = false;
 let faceStream      = null;
 let faceCheckIv     = null;
-let faceMissCount   = 0;
-let faceConsecHit   = 0;  // consecutive detections
+let faceMissCount   = 0;       // consecutive misses
+let faceHitCount    = 0;       // consecutive hits (FIX 1: need STABLE_HIT_REQUIRED before clearing)
 let faceWidgetMin   = false;
-let afkCurSec       = 0;
 let afkCurIv        = null;
 let afkCountdownIv  = null;
 let afkCountdownSec = AFK_GRACE_SEC;
 let lastFaceBox     = null;
 let livenessScore   = 0;
-let faceDescriptors = [];
 let myFaceDescriptor= null;
-let isDetecting     = false; // prevent concurrent detections
+let isDetecting     = false;
 
 function toggleFaceWidget(){
   faceWidgetMin=!faceWidgetMin;
@@ -1686,37 +1736,25 @@ function toggleFaceWidget(){
 // ── MODEL LOADING ──────────────────────────────────────────
 async function loadFaceModels(){
   if(faceApiLoaded)return true;
-
-  // Wait for faceapi script to be ready (max 20s)
   for(let i=0;i<40;i++){
     if(typeof faceapi!=='undefined')break;
     await new Promise(r=>setTimeout(r,500));
   }
-  if(typeof faceapi==='undefined'){
-    console.error('faceapi undefined — CDN yuklanmadi');
-    return false;
-  }
-
+  if(typeof faceapi==='undefined'){console.error('faceapi undefined');return false;}
   const URLS=[
     'https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.15/model/',
     'https://raw.githubusercontent.com/justadudewhohacks/face-api.js/master/weights/',
     'https://unpkg.com/@vladmandic/face-api@1.7.15/model/'
   ];
-
   for(const url of URLS){
     try{
-      console.log('Trying model URL:', url);
       await faceapi.nets.tinyFaceDetector.loadFromUri(url);
-      try{ await faceapi.nets.faceLandmark68Net.loadFromUri(url); }catch(e){ console.warn('landmark skip'); }
-      try{ await faceapi.nets.faceRecognitionNet.loadFromUri(url); }catch(e){ console.warn('recognition skip'); }
+      try{await faceapi.nets.faceLandmark68Net.loadFromUri(url);}catch(e){}
+      try{await faceapi.nets.faceRecognitionNet.loadFromUri(url);}catch(e){}
       faceApiLoaded=true;
-      console.log('✅ Models loaded from:', url);
       return true;
-    }catch(e){
-      console.warn('URL failed:', url, e.message);
-    }
+    }catch(e){console.warn('URL failed:',url);}
   }
-  console.error('❌ All model URLs failed');
   return false;
 }
 
@@ -1724,19 +1762,15 @@ async function loadFaceModels(){
 async function startCamera(){
   if(faceStream)return true;
   try{
-    faceStream=await navigator.mediaDevices.getUserMedia({
-      video:{width:{ideal:320},height:{ideal:240},facingMode:'user'},
-      audio:false
-    });
+    faceStream=await navigator.mediaDevices.getUserMedia({video:{width:{ideal:320},height:{ideal:240},facingMode:'user'},audio:false});
     const video=document.getElementById('faceVideo');
     video.srcObject=faceStream;
     await new Promise((resolve,reject)=>{
       video.onloadedmetadata=()=>resolve();
       video.onerror=reject;
-      setTimeout(resolve,3000); // fallback
+      setTimeout(resolve,3000);
     });
-    try{ await video.play(); }catch(e){}
-    // Sync canvas size
+    try{await video.play();}catch(e){}
     const canvas=document.getElementById('faceCanvas');
     canvas.width=video.videoWidth||320;
     canvas.height=video.videoHeight||240;
@@ -1750,115 +1784,69 @@ async function startCamera(){
 // ── MAIN ENTRY ─────────────────────────────────────────────
 async function startFaceDetection(){
   if(empState==='ended')return;
-
   const statusEl=document.getElementById('face_status_inline');
-  const setStatus=(txt)=>{ if(statusEl)statusEl.textContent=txt; };
-
+  const setStatus=(txt)=>{if(statusEl)statusEl.textContent=txt;};
   setStatus('⏳ Yuklanmoqda...');
   setFaceDot('yellow','Yuklanmoqda...');
-
-  // 1. Load models
   setStatus('⏳ Modellar yuklanmoqda...');
   const modelsOk=await loadFaceModels();
-  if(!modelsOk){
-    setStatus('⚠️ Model yuklanmadi — internet tekshiring');
-    setFaceDot('gray','Model xatosi');
-    toast('error','Face','Model yuklanmadi');
-    return;
-  }
-
-  // 2. Start camera
+  if(!modelsOk){setStatus('⚠️ Model yuklanmadi');setFaceDot('gray','Model xatosi');toast('error','Face','Model yuklanmadi');return;}
   setStatus('⏳ Kamera yoqilmoqda...');
   const camOk=await startCamera();
-  if(!camOk){
-    setStatus('⚠️ Kamera ruxsati yoq');
-    setFaceDot('gray','Kamera yoq');
-    const frb=document.getElementById('faceRegBox');if(frb)frb.style.display='none';
-    return;
-  }
-
-  // 3. Load my face profile from DB
+  if(!camOk){setStatus('⚠️ Kamera ruxsati yoq');setFaceDot('gray','Kamera yoq');const frb=document.getElementById('faceRegBox');if(frb)frb.style.display='none';return;}
   await loadMyFaceProfile();
-
-  if(myFaceDescriptor){
-    setStatus('✅ Yuz nazorati tayyor');
-    setFaceDot('green','Tayyor');
-  } else {
-    setStatus('📸 Yuzni royxatdan otkazing');
-    setFaceDot('yellow','Royxat kerak');
-  }
-
-  // 4. Start detection loop — clear any old interval first
-  if(faceCheckIv){ clearInterval(faceCheckIv); faceCheckIv=null; }
-  faceMissCount=0; faceConsecHit=0;
-  faceCheckIv=setInterval(runFaceCheck, FACE_CHECK_INTERVAL);
-  console.log('✅ Face detection loop started');
+  if(myFaceDescriptor){setStatus('✅ Yuz nazorati tayyor');setFaceDot('green','Tayyor');}
+  else{setStatus('📸 Yuzni royxatdan otkazing');setFaceDot('yellow','Royxat kerak');}
+  if(faceCheckIv){clearInterval(faceCheckIv);faceCheckIv=null;}
+  faceMissCount=0;faceHitCount=0;
+  faceCheckIv=setInterval(runFaceCheck,FACE_CHECK_INTERVAL);
 }
 
-// ── FACE CHECK (runs every 1s) ─────────────────────────────
+// ── FACE CHECK ─────────────────────────────────────────────
 async function runFaceCheck(){
-  // Skip during lunch, not started, ended
   if(empState==='lunch'||empState==='not_started'||empState==='ended')return;
-  // Prevent overlap
   if(isDetecting)return;
   if(!faceApiLoaded)return;
-
   const video=document.getElementById('faceVideo');
-  if(!video||video.readyState<2||video.paused){
-    // Video stopped — try restart
-    try{ await video.play(); }catch(e){}
-    return;
-  }
-
+  if(!video||video.readyState<2||video.paused){try{await video.play();}catch(e){}return;}
   isDetecting=true;
   try{
     const opts=new faceapi.TinyFaceDetectorOptions({inputSize:160,scoreThreshold:0.35});
-
-    // Basic detection first (fast)
     const det=await faceapi.detectSingleFace(video,opts);
-
     if(det){
-      faceConsecHit++;
+      faceHitCount++;
       faceMissCount=0;
-
-      // Draw box
-      drawFaceBox(det.detection.box, true);
-
-      // Liveness
+      drawFaceBox(det.detection.box,true);
       updateLiveness(det.detection.box);
 
-      // Recognition — only if we have a stored descriptor
-      if(myFaceDescriptor && faceapi.nets.faceRecognitionNet.isLoaded){
+      let reason='detected';
+      if(myFaceDescriptor&&faceapi.nets.faceRecognitionNet.isLoaded){
         try{
           const full=await faceapi.detectSingleFace(video,opts).withFaceLandmarks().withFaceDescriptor();
           if(full){
-            const dist=faceapi.euclideanDistance(Array.from(full.descriptor), Array.from(myFaceDescriptor));
-            if(dist<0.55){
-              onFaceDetected('match');
-            } else {
-              // Unknown face — still count as "someone present" to avoid false AFK
-              onFaceDetected('unknown_face');
-            }
-          } else {
-            onFaceDetected('detected');
+            const dist=faceapi.euclideanDistance(Array.from(full.descriptor),Array.from(myFaceDescriptor));
+            reason=dist<0.55?'match':'unknown_face';
           }
-        }catch(e){
-          // Recognition failed but face was detected — treat as detected
-          onFaceDetected('detected');
-        }
-      } else {
-        onFaceDetected('detected');
+        }catch(e){}
       }
 
-    } else {
-      faceConsecHit=0;
+      // FIX 1 & CRITICAL: Only clear AFK/banner after STABLE_HIT_REQUIRED consecutive detections
+      if(faceHitCount>=STABLE_HIT_REQUIRED){
+        onFaceStablyDetected(reason);
+      } else {
+        // Partial hit — update status text but don't clear AFK yet
+        const statusEl=document.getElementById('face_status_inline');
+        if(statusEl)statusEl.textContent=`🔄 Yuz tasdiqlanyapdi... (${faceHitCount}/${STABLE_HIT_REQUIRED})`;
+        setFaceDot('yellow',`Tasdiqlanyapdi ${faceHitCount}/${STABLE_HIT_REQUIRED}`);
+      }
+    }else{
+      faceHitCount=0;  // reset consecutive hit counter on any miss
       faceMissCount++;
       clearFaceBox();
       lastFaceBox=null;
       livenessScore=Math.max(0,livenessScore-0.05);
       onFaceMissed();
     }
-
   }catch(e){
     console.warn('checkFace error:',e.message);
   }finally{
@@ -1866,91 +1854,81 @@ async function runFaceCheck(){
   }
 }
 
-function drawFaceBox(box, found){
+function drawFaceBox(box,found){
   const canvas=document.getElementById('faceCanvas');
   if(!canvas)return;
   const video=document.getElementById('faceVideo');
-  // Keep canvas in sync with video
-  if(video&&(canvas.width!==video.videoWidth||canvas.height!==video.videoHeight)){
-    canvas.width=video.videoWidth||320;
-    canvas.height=video.videoHeight||240;
-  }
+  if(video&&(canvas.width!==video.videoWidth||canvas.height!==video.videoHeight)){canvas.width=video.videoWidth||320;canvas.height=video.videoHeight||240;}
   const ctx=canvas.getContext('2d');
   ctx.clearRect(0,0,canvas.width,canvas.height);
   ctx.strokeStyle=found?'#2ed573':'#ff4757';
   ctx.lineWidth=2;
   ctx.strokeRect(box.x,box.y,box.width,box.height);
 }
-
 function clearFaceBox(){
   const canvas=document.getElementById('faceCanvas');
-  if(canvas){ const ctx=canvas.getContext('2d'); ctx.clearRect(0,0,canvas.width,canvas.height); }
+  if(canvas){const ctx=canvas.getContext('2d');ctx.clearRect(0,0,canvas.width,canvas.height);}
 }
-
 function updateLiveness(box){
-  if(lastFaceBox){
-    const dx=Math.abs(box.x-lastFaceBox.x)+Math.abs(box.y-lastFaceBox.y)+
-             Math.abs(box.width-lastFaceBox.w)+Math.abs(box.height-lastFaceBox.h);
-    livenessScore=Math.min(1,livenessScore+dx*0.02);
-  }
+  if(lastFaceBox){const dx=Math.abs(box.x-lastFaceBox.x)+Math.abs(box.y-lastFaceBox.y)+Math.abs(box.width-lastFaceBox.w)+Math.abs(box.height-lastFaceBox.h);livenessScore=Math.min(1,livenessScore+dx*0.02);}
   lastFaceBox={x:box.x,y:box.y,w:box.width,h:box.height};
   livenessScore=Math.max(0,livenessScore-0.003);
-
   const ld=document.getElementById('livenessWidgetDot');
   const lt=document.getElementById('livenessWidgetTxt');
   if(ld)ld.className='liveness-dot'+(livenessScore>0.05?' ok':'');
   if(lt)lt.textContent=livenessScore>0.05?'✅ Real yuz':'⚠️ Harakat yoq';
 }
 
-// ── ON FACE DETECTED ───────────────────────────────────────
-function onFaceDetected(reason){
+// FIX 1: Called only when face is stably detected (STABLE_HIT_REQUIRED consecutive)
+function onFaceStablyDetected(reason){
   const statusEl=document.getElementById('face_status_inline');
-  const name = CU?.name||'';
-  let txt = t('face_detected');
-  if(reason==='match') txt='✅ Tanildi: '+name;
-  else if(reason==='unknown_face') txt='👤 Yuz aniqlandi';
+  const name=CU?.name||'';
+  let txt=t('face_detected');
+  if(reason==='match')txt='✅ Tanildi: '+name;
+  else if(reason==='unknown_face')txt='👤 Yuz aniqlandi';
   if(statusEl)statusEl.textContent=txt;
-  setFaceDot('green', reason==='match'?'✅ '+name:'✅ Aniqlandi');
+  setFaceDot('green',reason==='match'?'✅ '+name:'✅ Aniqlandi');
 
   // End AFK session if running
-  if(isAfk) endAfkSession();
+  if(isAfk)endAfkSession();
 
   // Hide AFK warning modal
   if(afkWarnShown){
     document.getElementById('m_afk_warn').classList.add('hidden');
     afkWarnShown=false;
-    if(afkCountdownIv){ clearInterval(afkCountdownIv); afkCountdownIv=null; }
+    if(afkCountdownIv){clearInterval(afkCountdownIv);afkCountdownIv=null;}
   }
 
-  // Hide AFK banner
+  // FIX 1: Only hide banner when stably detected
   document.getElementById('afkBanner').style.display='none';
 
-  // Reset miss counter
-  faceMissCount=0;
+  // Don't reset faceMissCount here — it's already 0 from hit logic
 }
 
-// ── ON FACE MISSED ─────────────────────────────────────────
+// FIX 2: onFaceMissed — AFK timer runs properly
 function onFaceMissed(){
   const statusEl=document.getElementById('face_status_inline');
   if(statusEl)statusEl.textContent=t('face_not_detected');
-  setFaceDot('red', t('face_not_detected'));
+  setFaceDot('red',t('face_not_detected'));
 
   if(empState!=='working')return;
 
-  // Show banner
+  // Show banner immediately on first miss
   document.getElementById('afkBanner').style.display='block';
 
-  // Show warning modal at half grace period
+  // Show warning modal at halfway through grace period
   if(faceMissCount===Math.floor(AFK_GRACE_SEC*0.5)&&!afkWarnShown){
     afkWarnShown=true;
     document.getElementById('m_afk_warn').classList.remove('hidden');
     startAfkCountdown();
   }
 
-  // Start AFK after full grace period
-  if(!isAfk && faceMissCount>=AFK_GRACE_SEC){
+  // FIX 2: Start AFK session after full grace period expires
+  if(!isAfk&&faceMissCount>=AFK_GRACE_SEC){
     startAfkSession();
   }
+
+  // FIX 2: If already in AFK, keep timer running (it runs via afkCurIv interval)
 }
 
 // ── AFK SESSION ────────────────────────────────────────────
@@ -1962,17 +1940,15 @@ function startAfkSession(){
   afkCurSec=0;
   if(afkCurIv)clearInterval(afkCurIv);
   afkCurIv=setInterval(()=>{
-    if(!isAfk){ clearInterval(afkCurIv); afkCurIv=null; return; }
+    if(!isAfk){clearInterval(afkCurIv);afkCurIv=null;return;}
     afkCurSec++;
     afkSeconds++;
     breakSeconds++;
     updateAfkDisplay();
     updateBreakBar();
     saveLS();
-    const tv=document.getElementById('afkTimerVal');
-    if(tv)tv.textContent=fmtSecMM(afkCurSec);
-    const atw=document.getElementById('afkTotalWidget');
-    if(atw)atw.textContent='Jami AFK: '+Math.floor(afkSeconds/60)+' daq';
+    const tv=document.getElementById('afkTimerVal');if(tv)tv.textContent=fmtSecMM(afkCurSec);
+    const atw=document.getElementById('afkTotalWidget');if(atw)atw.textContent='Jami AFK: '+Math.floor(afkSeconds/60)+' daq';
     document.getElementById('afkTimer').classList.remove('hidden');
     checkScheduledNotifs();
   },1000);
@@ -1982,7 +1958,7 @@ function endAfkSession(){
   if(!isAfk)return;
   isAfk=false;
   currentAfkStart=null;
-  if(afkCurIv){ clearInterval(afkCurIv); afkCurIv=null; }
+  if(afkCurIv){clearInterval(afkCurIv);afkCurIv=null;}
   document.getElementById('afkTimer').classList.add('hidden');
   setFaceDot('green',t('face_detected'));
   afkCurSec=0;
@@ -1993,117 +1969,75 @@ function startAfkCountdown(){
   if(afkCountdownIv)clearInterval(afkCountdownIv);
   afkCountdownIv=setInterval(()=>{
     afkCountdownSec--;
-    const cd=document.getElementById('afk_countdown');
-    if(cd)cd.textContent=fmtSecMM(afkCountdownSec);
-    if(afkCountdownSec<=0){
-      clearInterval(afkCountdownIv);
-      afkCountdownIv=null;
-      document.getElementById('m_afk_warn').classList.add('hidden');
-      afkWarnShown=false;
-    }
+    const cd=document.getElementById('afk_countdown');if(cd)cd.textContent=fmtSecMM(afkCountdownSec);
+    if(afkCountdownSec<=0){clearInterval(afkCountdownIv);afkCountdownIv=null;document.getElementById('m_afk_warn').classList.add('hidden');afkWarnShown=false;}
   },1000);
 }
 
 function dismissAfkWarn(){
   document.getElementById('m_afk_warn').classList.add('hidden');
-  if(afkCountdownIv){ clearInterval(afkCountdownIv); afkCountdownIv=null; }
+  if(afkCountdownIv){clearInterval(afkCountdownIv);afkCountdownIv=null;}
   afkWarnShown=false;
-  faceMissCount=0; // reset so grace period starts again
+  // Don't reset faceMissCount — user is claiming to be here, but detection will confirm it
+  // Only reset if face is actually stably detected (handled in onFaceStablyDetected)
 }
 
 // ── FACE REGISTRATION ──────────────────────────────────────
-let regSamples   = [];
-let regCapturing = false;
+let regSamples=[];
+let regCapturing=false;
 
 function startFaceRegistration(){
   if(regCapturing)return;
-  if(!faceApiLoaded){ toast('warn','Face','Model hali yuklanmadi, kuting...'); return; }
-  regCapturing=true;
-  regSamples=[];
-  updateSampleDots();
-  const btn=document.getElementById('faceRegBtn');
-  if(btn)btn.textContent='📸 0/5 tushirilmoqda...';
+  if(!faceApiLoaded){toast('warn','Face','Model hali yuklanmadi, kuting...');return;}
+  regCapturing=true;regSamples=[];updateSampleDots();
+  const btn=document.getElementById('faceRegBtn');if(btn)btn.textContent='📸 0/5 tushirilmoqda...';
   captureNextSample();
 }
 
 async function captureNextSample(){
   if(!regCapturing)return;
   const video=document.getElementById('faceVideo');
-  if(!video||video.readyState<2){
-    toast('warn','Face','Kamera tayyor emas');
-    regCapturing=false;
-    return;
-  }
+  if(!video||video.readyState<2){toast('warn','Face','Kamera tayyor emas');regCapturing=false;return;}
   try{
     const opts=new faceapi.TinyFaceDetectorOptions({inputSize:320,scoreThreshold:0.5});
     const det=await faceapi.detectSingleFace(video,opts).withFaceLandmarks().withFaceDescriptor();
     if(det){
       const area=(det.detection.box.width*det.detection.box.height)/(video.videoWidth*video.videoHeight);
-      if(area<0.015){
-        updateQuality('Kameraga yaqinroq turing...');
-        setTimeout(captureNextSample,700);
-        return;
-      }
-      regSamples.push(Array.from(det.descriptor));
-      updateSampleDots();
-      updateQuality(regSamples.length+'/5 ✅');
-      const btn=document.getElementById('faceRegBtn');
-      if(btn)btn.textContent='📸 '+regSamples.length+'/5...';
-      if(regSamples.length>=5){
-        await saveFaceProfile();
-        regCapturing=false;
-        return;
-      }
+      if(area<0.015){updateQuality('Kameraga yaqinroq turing...');setTimeout(captureNextSample,700);return;}
+      regSamples.push(Array.from(det.descriptor));updateSampleDots();updateQuality(regSamples.length+'/5 ✅');
+      const btn=document.getElementById('faceRegBtn');if(btn)btn.textContent='📸 '+regSamples.length+'/5...';
+      if(regSamples.length>=5){await saveFaceProfile();regCapturing=false;return;}
       setTimeout(captureNextSample,600);
-    } else {
-      updateQuality('Yuz aniqlanmadi — togri qarang');
-      setTimeout(captureNextSample,800);
-    }
-  }catch(e){
-    console.warn('captureNextSample error:',e.message);
-    regCapturing=false;
-  }
+    }else{updateQuality('Yuz aniqlanmadi — togri qarang');setTimeout(captureNextSample,800);}
+  }catch(e){console.warn('captureNextSample error:',e.message);regCapturing=false;}
 }
 
 function updateSampleDots(){
-  const c=document.getElementById('faceSamples');
-  if(!c)return;
+  const c=document.getElementById('faceSamples');if(!c)return;
   c.innerHTML='';
-  for(let i=0;i<5;i++){
-    const d=document.createElement('div');
-    d.className='face-sample-dot'+(i<regSamples.length?' done':'');
-    d.textContent=i<regSamples.length?'✅':'📷';
-    c.appendChild(d);
-  }
+  for(let i=0;i<5;i++){const d=document.createElement('div');d.className='face-sample-dot'+(i<regSamples.length?' done':'');d.textContent=i<regSamples.length?'✅':'📷';c.appendChild(d);}
 }
-function updateQuality(txt){
-  const el=document.getElementById('faceQuality');
-  if(el)el.textContent=txt;
-}
+function updateQuality(txt){const el=document.getElementById('faceQuality');if(el)el.textContent=txt;}
 
 async function saveFaceProfile(){
   if(!CU||regSamples.length===0)return;
-  // Average all sample descriptors
   const avg=new Float32Array(128);
   regSamples.forEach(d=>d.forEach((v,i)=>avg[i]+=v));
   avg.forEach((v,i)=>avg[i]=v/regSamples.length);
   const descriptor=Array.from(avg);
   try{
     const{data:ex}=await sb.from('face_profiles').select('id').eq('employee_id',CU.id).maybeSingle();
-    if(ex) await sb.from('face_profiles').update({descriptor}).eq('employee_id',CU.id);
-    else   await sb.from('face_profiles').insert({employee_id:CU.id,descriptor});
+    if(ex)await sb.from('face_profiles').update({descriptor}).eq('employee_id',CU.id);
+    else await sb.from('face_profiles').insert({employee_id:CU.id,descriptor});
     await sb.from('employees').update({face_registered:true}).eq('id',CU.id);
     myFaceDescriptor=avg;
-    const frb=document.getElementById('faceRegBox');
-    if(frb)frb.style.display='none';
+    const frb=document.getElementById('faceRegBox');if(frb)frb.style.display='none';
     toast('success','Yuz','Royxatdan otdi! ✅');
     setFaceDot('green','✅ Royxatdan otdi');
-    const btn=document.getElementById('faceRegBtn');
-    if(btn)btn.textContent='✅ Royxatdan otdi';
-  }catch(e){
-    toast('error','Yuz',e.message);
-    regCapturing=false;
-  }
+    const btn=document.getElementById('faceRegBtn');if(btn)btn.textContent='✅ Royxatdan otdi';
+    // Reset hit counter so it re-confirms
+    faceHitCount=0;
+  }catch(e){toast('error','Yuz',e.message);regCapturing=false;}
 }
 
 async function loadMyFaceProfile(){
@@ -2112,42 +2046,30 @@ async function loadMyFaceProfile(){
     const{data}=await sb.from('face_profiles').select('descriptor').eq('employee_id',CU.id).maybeSingle();
     if(data&&data.descriptor){
       myFaceDescriptor=new Float32Array(data.descriptor);
-      const frb=document.getElementById('faceRegBox');
-      if(frb)frb.style.display='none';
-      console.log('✅ Face profile loaded');
-    } else {
+      const frb=document.getElementById('faceRegBox');if(frb)frb.style.display='none';
+    }else{
       myFaceDescriptor=null;
-      const frb=document.getElementById('faceRegBox');
-      if(frb)frb.style.display='block';
+      const frb=document.getElementById('faceRegBox');if(frb)frb.style.display='block';
     }
-  }catch(e){
-    console.warn('loadMyFaceProfile:',e.message);
-  }
+  }catch(e){console.warn('loadMyFaceProfile:',e.message);}
 }
 
 function updateAfkDisplay(){
-  const d=document.getElementById('afk_display');
-  if(d)d.textContent=fmtSec(afkSeconds);
-  const c=document.getElementById('afk_cnt_lbl');
-  if(c)c.textContent=afkCount+' '+t('afk_cnt_lbl');
-  const ok=document.getElementById('afk_break_ok');
-  if(ok)ok.classList.toggle('hidden',breakSeconds>0);
+  const d=document.getElementById('afk_display');if(d)d.textContent=fmtSec(afkSeconds);
+  const c=document.getElementById('afk_cnt_lbl');if(c)c.textContent=afkCount+' '+t('afk_cnt_lbl');
+  const ok=document.getElementById('afk_break_ok');if(ok)ok.classList.toggle('hidden',breakSeconds>0);
 }
 
 function setFaceDot(color,txt){
-  const dot=document.getElementById('faceDot');
-  const ftxt=document.getElementById('faceTxt');
-  if(dot)dot.className='fw-dot '+color;
-  if(ftxt)ftxt.textContent=txt;
+  const dot=document.getElementById('faceDot');const ftxt=document.getElementById('faceTxt');
+  if(dot)dot.className='fw-dot '+color;if(ftxt)ftxt.textContent=txt;
 }
 
 function stopFaceDetection(){
-  if(faceCheckIv){ clearInterval(faceCheckIv); faceCheckIv=null; }
-  if(afkCurIv){ clearInterval(afkCurIv); afkCurIv=null; }
-  if(faceStream){ faceStream.getTracks().forEach(t2=>t2.stop()); faceStream=null; }
-  isDetecting=false;
-  isAfk=false;
-  currentAfkStart=null;
+  if(faceCheckIv){clearInterval(faceCheckIv);faceCheckIv=null;}
+  if(afkCurIv){clearInterval(afkCurIv);afkCurIv=null;}
+  if(faceStream){faceStream.getTracks().forEach(t2=>t2.stop());faceStream=null;}
+  isDetecting=false;isAfk=false;currentAfkStart=null;
   document.getElementById('afkBanner').style.display='none';
 }
 
@@ -2156,7 +2078,7 @@ function stopFaceDetection(){
 // ============================================================
 function updateEmpBtns(){
   const bsE=document.getElementById('bs'),blE=document.getElementById('bl'),beE=document.getElementById('be');
-  const dis=(b,d)=>{if(b){b.disabled=d;}};
+  const dis=(b,d)=>{if(b)b.disabled=d;};
   if(empState==='not_started'){dis(bsE,false);dis(blE,true);dis(beE,true);if(blE){blE.textContent=t('bl');blE.onclick=empLunch;}}
   else if(empState==='working'){dis(bsE,true);dis(blE,false);dis(beE,false);if(blE){blE.textContent=t('bl');blE.onclick=empLunch;}}
   else if(empState==='lunch'){dis(bsE,true);dis(blE,false);dis(beE,true);if(blE){blE.textContent=t('bb');blE.onclick=empBackLunch;}}
