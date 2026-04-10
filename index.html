@@ -2033,7 +2033,12 @@ async function saveFaceProfile(){
     // ✅ FIX: Face profile ni qayta yukla va detection ni qayta boshlash
     await loadMyFaceProfile();
     setTimeout(()=>startFaceDetection(), 500);
-  }catch(e){toast('error','Yuz',e.message);regCapturing=false;}
+  }catch(e){
+  console.error('saveFaceReg xato:', e);
+  console.error('xato message:', e.message);
+  toast('error','Yuz',e.message);
+  regCapturing=false;
+}
 }
 async function loadMyFaceProfile(){
   if(!CU)return;
