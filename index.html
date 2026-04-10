@@ -1768,13 +1768,10 @@ async function runFaceCheck(){
 
       // Recognition tekshiruvi
       let reason='detected';
-      if(myFaceDescriptor && faceapi.nets.faceRecognitionNet.isLoaded){
+      if(myFaceDescriptor){
         try{
-          const full=await faceapi.detectSingleFace(video,opts).withFaceLandmarks().withFaceDescriptor();
-          if(full){
-            const dist=faceapi.euclideanDistance(Array.from(full.descriptor),Array.from(myFaceDescriptor));
-            reason=dist<0.55?'match':'unknown_face';
-          }
+          const dist=faceapi.euclideanDistance(Array.from(det.descriptor||[]),Array.from(myFaceDescriptor));
+          reason=dist<0.55?'match':'unknown_face';
         }catch(e){}
       }
 
