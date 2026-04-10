@@ -1771,7 +1771,7 @@ async function runFaceCheck(){
       if(myFaceDescriptor){
         try{
           const dist=faceapi.euclideanDistance(Array.from(det.descriptor||[]),Array.from(myFaceDescriptor));
-          reason=dist<0.72?'match':'unknown_face';
+          reason=dist<0.45?'match':'unknown_face';
         }catch(e){}
       }
 
@@ -1841,13 +1841,19 @@ function onFaceStablyDetected(reason){
   const name=CU?.name||'';
   let txt=t('face_detected');
   if(reason==='match')txt='✅ Tanildi: '+name;
-  else if(reason==='unknown_face')txt='👤 Yuz aniqlandi';
+  else if(reason==='unknown_face')txt='⚠️ Noto\'g\'ri yuz!';
   if(statusEl)statusEl.textContent=txt;
-  setFaceDot('green',reason==='match'?'✅ '+name:'✅ Aniqlandi');
-
-  // AFK sessiyani tugatish
+  
+  // ✅ Noto'g'ri yuz — AFK davom etsin, yashil dot ko'rsatma
+  if(reason==='unknown_face'){
+    setFaceDot('red','⚠️ Boshqa shaxs!');
+    onFaceMissed(); // AFK hisoblansin
+    return;
+  }
+  
+  setFaceDot('green','✅ '+name);
+  // AFK sessiyani tugatish — faqat to'g'ri yuz bo'lsa
   if(isAfk)endAfkSession();
-
   // AFK ogohlantirish modalini yashirish
   if(afkWarnShown){
     document.getElementById('m_afk_warn').classList.add('hidden');
