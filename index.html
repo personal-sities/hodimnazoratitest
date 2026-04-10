@@ -1753,7 +1753,7 @@ async function runFaceCheck(){
 
   try{
     const opts=new faceapi.TinyFaceDetectorOptions({inputSize:160,scoreThreshold:0.5});
-    const det=await faceapi.detectSingleFace(video,opts);
+    const det=await faceapi.detectSingleFace(video,opts).withFaceLandmarks().withFaceDescriptor();
 
     if(det && det.detection && det.detection.box &&
    det.detection.box._width > 0){
