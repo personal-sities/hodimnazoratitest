@@ -1752,7 +1752,7 @@ async function runFaceCheck(){
   isDetectingStartTime=Date.now();
 
   try{
-    const opts=new faceapi.TinyFaceDetectorOptions({inputSize:160,scoreThreshold:0.35});
+    const opts=new faceapi.TinyFaceDetectorOptions({inputSize:160,scoreThreshold:0.5});
     const det=await faceapi.detectSingleFace(video,opts);
 
     if(det && det.detection && det.detection.box){
@@ -1789,14 +1789,17 @@ async function runFaceCheck(){
       }
 
     } else {
-      // ✅ Yuz topilmadi
-      faceHitCount = Math.max(0, faceHitCount - 1); // Hit sanoqini nolga tushir — ketma-ket bo'lishi shart
-      faceMissCount++;
-      clearFaceBox();
-      lastFaceBox=null;
-      livenessScore=Math.max(0,livenessScore-0.05);
-      onFaceMissed();
-    }
+  // ✅ Yuz topilmadi
+  faceHitCount = Math.max(0, faceHitCount - 1);
+  faceMissCount++;
+
+  if(faceMissCount >= 3){   // <<< MUHIM
+    clearFaceBox();
+    lastFaceBox=null;
+    livenessScore=Math.max(0,livenessScore-0.05);
+    onFaceMissed();
+  }
+}
 
   }catch(e){
     console.warn('runFaceCheck error:',e.message);
