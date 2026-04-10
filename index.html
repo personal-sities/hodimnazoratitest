@@ -2027,9 +2027,11 @@ async function saveFaceProfile(){
     const btn=document.getElementById('faceRegBtn');if(btn)btn.textContent='✅ Royxatdan otdi';
     // ✅ Hit counterni reset — qayta tasdiqlash kerak
     faceHitCount=0;
+    // ✅ FIX: Face profile ni qayta yukla va detection ni qayta boshlash
+    await loadMyFaceProfile();
+    setTimeout(()=>startFaceDetection(), 500);
   }catch(e){toast('error','Yuz',e.message);regCapturing=false;}
 }
-
 async function loadMyFaceProfile(){
   if(!CU)return;
   try{
