@@ -1755,8 +1755,9 @@ async function runFaceCheck(){
     const opts=new faceapi.TinyFaceDetectorOptions({inputSize:160,scoreThreshold:0.5});
     const det=await faceapi.detectSingleFace(video,opts);
 
-    if(det && det.detection && det.detection.box){
-
+    if(det && det.detection && det.detection.box &&
+   det.detection.box.left !== null &&
+   det.detection.box.width > 0){
   const box = det.detection.box;
 
   // ✅ Yuz topildi
