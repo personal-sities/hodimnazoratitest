@@ -1757,11 +1757,10 @@ async function runFaceCheck(){
 
     if(det && det.detection && det.detection.box &&
    det.detection.box._width > 0){
-
+  const box = det.detection.box;
   // ✅ Yuz topildi
   faceHitCount++;
   faceMissCount = 0;
-
   drawFaceBox(box, true);
   updateLiveness(box);
 
