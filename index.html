@@ -1771,7 +1771,7 @@ async function runFaceCheck(){
       if(myFaceDescriptor){
         try{
           const dist=faceapi.euclideanDistance(Array.from(det.descriptor||[]),Array.from(myFaceDescriptor));
-          reason=dist<0.55?'match':'unknown_face';
+          reason=dist<0.72?'match':'unknown_face';
         }catch(e){}
       }
 
