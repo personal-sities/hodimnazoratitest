@@ -1756,7 +1756,8 @@ async function runFaceCheck(){
     const det=await faceapi.detectSingleFace(video,opts).withFaceLandmarks().withFaceDescriptor();
 
     if(det && det.detection && det.detection.box &&
-   det.detection.box._width > 0){
+   det.detection.box._width > 0 &&
+   det.detection.box._x !== null){
   const box = det.detection.box;
   // ✅ Yuz topildi
   faceHitCount++;
@@ -1965,9 +1966,8 @@ async function captureNextSample(){
     const det=await faceapi.detectSingleFace(video,opts).withFaceLandmarks().withFaceDescriptor();
 
     const box = det?.detection?.box;
-    const descriptor = det?.descriptor;
-
-    if(box && descriptor){
+const descriptor = det?.descriptor;
+if(box && descriptor && box._width > 0 && box._x !== null && box._y !== null){
 
       const area = (box.width * box.height) / (video.videoWidth * video.videoHeight);
 
