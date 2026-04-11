@@ -1753,7 +1753,7 @@ async function runFaceCheck(){
 
   try{
     const opts=new faceapi.TinyFaceDetectorOptions({inputSize:160,scoreThreshold:0.5});
-    const det=await faceapi.detectSingleFace(video,opts).withFaceDescriptor();
+    const det=await faceapi.detectSingleFace(video,opts).withFaceLandmarks(true).withFaceDescriptor();
 
     if(det && det.detection && det.detection.box &&
    det.detection.box._width > 0 &&
@@ -1963,7 +1963,7 @@ async function captureNextSample(){
 
   try{
     const opts=new faceapi.TinyFaceDetectorOptions({inputSize:320,scoreThreshold:0.5});
-    const det=await faceapi.detectSingleFace(video,opts).withFaceDescriptor();
+    const det=await faceapi.detectSingleFace(video,opts).withFaceLandmarks(true).withFaceDescriptor();
 
     const box = det?.detection?.box;
 const descriptor = det?.descriptor;
