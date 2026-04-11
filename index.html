@@ -1650,8 +1650,9 @@ async function loadFaceModels(){
   for(const url of URLS){
     try{
       await faceapi.nets.tinyFaceDetector.loadFromUri(url);
-      try{await faceapi.nets.faceLandmark68Net.loadFromUri(url);}catch(e){}
-      try{await faceapi.nets.faceRecognitionNet.loadFromUri(url);}catch(e){}
+        try{await faceapi.nets.faceLandmark68Net.loadFromUri(url);}catch(e){}
+        try{await faceapi.nets.faceLandmark68TinyNet.loadFromUri(url);}catch(e){}
+        try{await faceapi.nets.faceRecognitionNet.loadFromUri(url);}catch(e){}
       faceApiLoaded=true;
       return true;
     }catch(e){console.warn('URL failed:',url);}
