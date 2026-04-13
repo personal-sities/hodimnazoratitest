@@ -9,11 +9,11 @@
 <meta name="theme-color" content="#4a7ab5">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script async src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.15/dist/face-api.js"></script>
-<script async src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-<script async src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
-<script async src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
+<script src="./supabase.js"></script>
+<script async src="./face-api.js"></script>
+<script async src="./xlsx.full.min.js"></script>
+<script src="./jspdf.umd.min.js"></script>
+<script src="./jspdf.plugin.autotable.min.js"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap');
 
@@ -369,27 +369,61 @@ html, body { font-family:var(--font); background:var(--bg); color:var(--text); m
 .notif-send-row { display:flex; gap:8px; flex-wrap:wrap; }
 .notif-send-row input, .notif-send-row textarea, .notif-send-row select { flex:1; padding:8px 10px; background:var(--input-bg); border:1.5px solid var(--border2); border-radius:var(--radius-sm); font-size:12px; color:var(--text); font-family:var(--font); outline:none; min-width:160px; }
 .notif-send-row input:focus, .notif-send-row textarea:focus { border-color:var(--accent); }
+.sb-bottom { display:none; padding:12px 16px; border-top:1px solid rgba(255,255,255,.08); gap:10px; align-items:center; justify-content:space-between; }
 
 @media(max-width:900px){.scards{grid-template-columns:repeat(2,1fr)}.mst{grid-template-columns:repeat(3,1fr)}}
 @media(max-width:680px){
-  .sidebar{position:fixed;left:0;top:0;bottom:0;z-index:200;width:210px;transform:translateX(-100%);}
+  .sidebar{position:fixed;left:0;top:0;bottom:0;z-index:200;width:230px;transform:translateX(-100%);}
   .sidebar.open{transform:translateX(0);}
   .hamburger{display:flex;}
   .tophdr{padding:10px 12px;}
   .tophdr h1{font-size:13px;}
   .hdr-date{display:none;}
   .xbtn{padding:6px 9px;font-size:11px;}
-  .pbody{padding:12px 12px;}
+  .pbody{padding:10px 8px;}
   .scards{grid-template-columns:1fr 1fr;gap:8px;}
   .snum{font-size:22px;}
   .mst{grid-template-columns:1fr 1fr;}
-  .tbl{font-size:11.5px;}
+  .tbl{font-size:11px;}
   .ebody{grid-template-columns:1fr;gap:12px;padding:12px;}
   .efw{grid-column:1;}
   .abtns{gap:5px;}
   .abtn{padding:12px 4px;font-size:12px;}
   .modal{padding:22px 16px;}
   #faceWidget{width:150px;bottom:8px;right:8px;}
+
+  /* Admin header telefonda — til va theme ni yashir, faqat muhimlari qolsin */
+  .hdr-r .lsw{display:none;}
+  .hdr-r .theme-toggle{display:none;}
+  .hdr-r{gap:6px;}
+
+  /* Sidebar ichida til va theme tugmalari ko'rsatiladi */
+  .sb-bottom{display:flex !important;}
+
+  /* Kartochkalar */
+  .scard{padding:10px 12px;}
+  .scard h4{font-size:10px;}
+
+  /* Filtr qatori vertikal */
+  .frow{flex-direction:column;align-items:stretch;}
+  .frow input,.frow select{width:100%;min-width:unset;}
+  .drange{flex-wrap:wrap;}
+  .drange input{flex:1;min-width:120px;}
+
+  /* Oylik statistika */
+  .mst{grid-template-columns:1fr 1fr;gap:8px;}
+
+  /* Jadval scroll */
+  .tbl-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;}
+  .tbl th,.tbl td{padding:7px 8px;white-space:nowrap;}
+
+  /* Box padding */
+  .box{padding:12px 10px;}
+  .btitle{font-size:13px;}
+
+  /* Notif va feedback */
+  .notif-send-row{flex-direction:column;}
+  .notif-send-row input,.notif-send-row textarea,.notif-send-row select{width:100%;min-width:unset;}
 }
 @media(max-width:400px){
   .tgrid{grid-template-columns:1fr;}
@@ -397,6 +431,8 @@ html, body { font-family:var(--font); background:var(--bg); color:var(--text); m
   .abtns{flex-direction:column;}
   .tv{font-size:24px;}
   .mst{grid-template-columns:1fr 1fr;}
+  .scards{grid-template-columns:1fr 1fr;}
+  .pbody{padding:8px 6px;}
 }
 </style>
 </head>
@@ -474,6 +510,15 @@ html, body { font-family:var(--font); background:var(--bg); color:var(--text); m
         <button class="nbtn" id="nav_feedback" onclick="adminTab('feedback');closeSidebar()"><span class="ni">💬</span><span id="n_fb">Fikrlar</span> <span id="fbBadge" class="notif-badge hidden">0</span></button>
         <button class="nbtn" id="nav_settings" onclick="adminTab('settings');closeSidebar()"><span class="ni">⚙️</span><span id="n_set">Sozlamalar</span></button>
         <button class="nbtn" id="nav_kpi" onclick="adminTab('kpi');closeSidebar()"><span class="ni">🏆</span><span id="n_kpi">KPI Qoidalar</span></button>
+      </div>
+      <div class="sb-bottom">
+        <label class="theme-toggle" title="Mavzu"><input type="checkbox" id="themeToggle4" onchange="toggleTheme()"><span class="theme-slider"></span></label>
+        <div class="lsw">
+          <button class="lb active" id="sl_uz" onclick="setLang('uz')"><span class="flag"><svg viewBox="0 0 34 22"><rect width="34" height="7.33" fill="#1EB3E4"/><rect y="7.33" width="34" height="7.34" fill="#fff"/><rect y="14.67" width="34" height="7.33" fill="#32A84C"/><rect y="6.9" width="34" height=".8" fill="#CE2028"/><rect y="14.3" width="34" height=".8" fill="#CE2028"/><circle cx="9" cy="3.7" r="2.3" fill="#fff"/><circle cx="10.1" cy="3.7" r="2.3" fill="#1EB3E4"/></svg></span></button>
+          <span class="lsep"></span>
+          <button class="lb" id="sl_ru" onclick="setLang('ru')"><span class="flag"><svg viewBox="0 0 34 22"><rect width="34" height="7.33" fill="#fff"/><rect y="7.33" width="34" height="7.34" fill="#1C3F94"/><rect y="14.67" width="34" height="7.33" fill="#CE2028"/></svg></span></button>
+        </div>
+        <button class="xbtn" onclick="doLogout()" style="font-size:11px;padding:5px 10px">Chiqish</button>
       </div>
     </div>
     <div class="mcol">
@@ -892,7 +937,7 @@ const AUTO_END_MIN        = 15;
 let currentTheme = localStorage.getItem('aloqa_theme') || 'dark';
 function applyTheme(th) {
   document.documentElement.setAttribute('data-theme', th);
-  ['themeToggle','themeToggle2','themeToggle3'].forEach(id => {
+  ['themeToggle','themeToggle2','themeToggle3','themeToggle4'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.checked = th === 'light';
   });
@@ -901,7 +946,7 @@ function applyTheme(th) {
 }
 function toggleTheme() {
   applyTheme(currentTheme === 'dark' ? 'light' : 'dark');
-  ['themeToggle','themeToggle2','themeToggle3'].forEach(id => {
+  ['themeToggle','themeToggle2','themeToggle3','themeToggle4'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.checked = currentTheme === 'light';
   });
@@ -1013,8 +1058,8 @@ function showIPBlock(ip){['loginPage','adminPage','employeePage'].forEach(id=>{c
 //  TRANSLATIONS
 // ============================================================
 const TR = {
-uz:{loginTitle:'Nazorat tizimiga xush kelibsiz!',loginSub:'Login va parolni kiriting!',loginBtn:'Kirish',loginPH:'Login',passPH:'Parol',loginErr:'Login yoki parol noto\'g\'ri!',loginFill:'Login va parolni kiriting!',exit:'Chiqish',today:'Bugun',nav_m:'Asosiy',nav_s:'Sozlamalar',nav_k:'KPI Qoidalar',adm_m:'Boshqaruv | Asosiy',adm_s:'Boshqaruv | Sozlamalar',adm_k:'Boshqaruv | KPI',sc1:'Bugun ishda',sc2:'Kechikkan',sc3:'Kelmagan',sc4:'Sana',att_t:'Hodimlar nazorati',from_l:'Dan:',to_l:'Gacha:',b_today:'Bugun',b_monthly:'Oylik',b_cm:'Joriy oy',b_ref:'Yangilash',fsearch:'Qidirish...',o_all:'Barcha',o_came:'Keldi',o_late:'Kechikkan',o_abs:'Kelmadi',th1:'Ism familiya',th2:'Login',th4:'O\'zgartirish',th5:'Kelgan vaqti',th6:'Kechikish',th7:'Ishlagan soat',th_afk:'AFK vaqti',th8:'Status',mth_t:'Oylik hisobot',ms1:'Hodimlar',ms2:'Kechikishlar',ms3:'Kelmagan',ms4:'Ish soati',ms5:'Jami KPI',mt1:'Ism familiya',mt2:'Ishlagan soat',mt_afk:'AFK vaqti',mt3:'Kechikish',mt4:'Kelmagan',mt5:'Jarima',mt6:'Qo\'shimcha',mt7:'KPI ball',mt8:'KPI sum',mt9:'Boshqaruv',set_t:'Hodimlar boshqaruvi',b_addemp:'Qo\'shish',et1:'Ism familiya',et2:'Login',et3:'Parol',et4:'KPI summasi',et5:'O\'chirish',hol_t:'Dam olish kunlari',b_addh:'Qo\'shish',hol_info:'Standart: Du–Sha. Yakshanba avtomatik dam olish.',hol_none:'Qo\'shimcha dam olish kuni yo\'q',kpi_t:'KPI Qoidalari',k1:'Asosiy KPI',k2:'Davomat bo\'yicha KPI 100 ballik sistemada!',k3:'Jarimalar',k4:'Kech qolish',k5:'Kelmaslik',k_afk:'AFK (30 daqiqadan ortiq)',k6:'KPI to\'lovlari',k7:'Eski hodimlar',k8:'Yangi hodimlar',ew_t:'Bugungi ish jarayoni',et_t:'Bugungi ma\'lumot',eh_t:'Oy bo\'yicha tarix',st_pre:'Holat:',lt_pre:'Kechikish:',lt_u:'daqiqa',st0:'Boshlanmagan',st1:'Ishda',st2:'Tushlikda',st4:'Yakunlandi',bs:'Boshlash',bl:'Tushlik',be:'Yakunlash',bc:'Davom ettirish',bb:'Qaytish',ewl:'Ish vaqti',ell:'Tushlik',ewd:'Ish vaqti',eld:'Tushlik vaqti',e_note:'Yangi kun boshlanganida vaqtlar 0 ga tushadi.',ei1:'Ish boshlagan',ei2:'Ish tugagan',ei3:'Tushlik boshlangan',ei4:'Tushlik tugagan',ht1:'Sana',ht2:'Boshlagan',ht3:'Tushlik bosh.',ht4:'Tushlik tug.',ht5:'Tugagan',ht6:'Kechikish',ht7:'Ish vaqti',ht8:'Tushlik',ht_afk:'AFK',ht9:'Status',eh_note:'Faqat tanlangan oy ma\'lumotlari.',el_lbl:'Kechikishlar (oy):',afk_month_lbl:'AFK (oy jami):',e_cm:'Joriy oy',mw_txt:'Eslatma: "Yakunlash" tugmasini faqat ish kuni to\'liq tugagandan keyin bosing!',mw_ok:'OK',mep_t:'Parolni o\'zgartirish',mep_s:'Saqlash',mep_c:'Bekor qilish',ep_ph:'Yangi parol',b_came:'Keldi',b_late:'Kechikkan',b_abs:'Kelmadi',b_off:'Dam olish',del_c:'Hodimni o\'chirishni tasdiqlaysizmi?',no_data:'Ma\'lumot yo\'q',daq:'daq',marta:'marta',kun:'kun',soat:'soat',daqiqa:'daqiqa',ball:'ball',hisobot:'hisobot',change:'O\'zgartirish',delete:'O\'chirish',reset:'Reset',fill_all:'Barcha maydonlarni to\'ldiring!',face_detected:'✅ Yuz aniqlandi',face_not_detected:'❌ Yuz aniqlanmadi',face_loading:'⏳ Yuklanmoqda...',face_unknown:'⚠️ Noma\'lum yuz',afk_lbl:'⚠️ Joyida bo\'lmagan vaqt',afk_cnt_lbl:'marta AFK',afk_warn_title:'⚠️ Yuzingiz aniqlanmadi!',afk_warn_txt:'Kamera oldida o\'tiring. AFK vaqt hisoblanmoqda.',afk_warn_sub:'5 daqiqa ichida yuz aniqlanmasa, AFK hisoblanadi',afk_im_here:'Men shu yerdaman ✋',auto_end_txt:'Soat 18:15 bo\'ldi. Tizim tomonidan ish yakunlandi.',auto_ended:'Tizim yakunladi',afk_banner:'Yuz aniqlanmadi! AFK vaqt hisoblanmoqda...',kpi_sr:'Eski hodim (560K)',kpi_jr:'Yangi hodim (400K)'},
-ru:{loginTitle:'Добро пожаловать!',loginSub:'Введите логин и пароль!',loginBtn:'Войти',loginPH:'Логин',passPH:'Пароль',loginErr:'Неверный логин или пароль!',loginFill:'Введите логин и пароль!',exit:'Выйти',today:'Сегодня',nav_m:'Главная',nav_s:'Настройки',nav_k:'Правила KPI',adm_m:'Управление | Главная',adm_s:'Управление | Настройки',adm_k:'Управление | KPI',sc1:'На работе',sc2:'Опоздали',sc3:'Не пришли',sc4:'Дата',att_t:'Контроль сотрудников',from_l:'От:',to_l:'До:',b_today:'Сегодня',b_monthly:'Месяц',b_cm:'Тек. месяц',b_ref:'Обновить',fsearch:'Поиск...',o_all:'Все',o_came:'Пришёл',o_late:'Опоздал',o_abs:'Не пришёл',th1:'ФИО',th2:'Логин',th4:'Изменить',th5:'Приход',th6:'Опоздание',th7:'Отработано',th_afk:'AFK время',th8:'Статус',mth_t:'Месячный отчёт',ms1:'Сотрудников',ms2:'Опозданий',ms3:'Пропусков',ms4:'Раб.часов',ms5:'Итого KPI',mt1:'ФИО',mt2:'Отработано',mt_afk:'AFK время',mt3:'Опоздания',mt4:'Пропуски',mt5:'Штраф',mt6:'Доп.баллы',mt7:'KPI балл',mt8:'KPI сумма',mt9:'Управление',set_t:'Управление сотрудниками',b_addemp:'Добавить',et1:'ФИО',et2:'Логин',et3:'Пароль',et4:'Сумма KPI',et5:'Удалить',hol_t:'Выходные дни',b_addh:'Добавить',hol_info:'Стандарт: Пн–Сб. Воскресенье — выходной.',hol_none:'Доп. выходных нет',kpi_t:'Правила KPI',k1:'Основной KPI',k2:'KPI в 100-балльной системе!',k3:'Штрафы',k4:'Опоздание',k5:'Прогул',k_afk:'AFK (более 30 минут)',k6:'Выплаты KPI',k7:'Старые сотрудники',k8:'Новые сотрудники',ew_t:'Рабочий процесс',et_t:'Сегодня',eh_t:'История за месяц',st_pre:'Статус:',lt_pre:'Опоздание:',lt_u:'мин',st0:'Не начат',st1:'На работе',st2:'В обеде',st4:'Завершён',bs:'Начать',bl:'Обед',be:'Завершить',bc:'Продолжить',bb:'Вернуться',ewl:'Рабочее время',ell:'Время обеда',ewd:'Рабочее время',eld:'Время обеда',e_note:'При новом дне таймеры сбрасываются.',ei1:'Начало',ei2:'Конец',ei3:'Обед нач.',ei4:'Обед кон.',ht1:'Дата',ht2:'Начало',ht3:'Обед нач.',ht4:'Обед кон.',ht5:'Конец',ht6:'Опоздание',ht7:'Раб.время',ht8:'Обед',ht_afk:'AFK',ht9:'Статус',eh_note:'Данные выбранного месяца.',el_lbl:'Опозданий (месяц):',afk_month_lbl:'AFK (итого за месяц):',e_cm:'Тек. месяц',mw_txt:'Нажимайте "Завершить" только после полного окончания рабочего дня!',mw_ok:'ОК',mep_t:'Изменить пароль',mep_s:'Сохранить',mep_c:'Отмена',ep_ph:'Новый пароль',b_came:'Пришёл',b_late:'Опоздал',b_abs:'Не пришёл',b_off:'Выходной',del_c:'Удалить сотрудника?',no_data:'Нет данных',daq:'мин',marta:'раз',kun:'дн.',soat:'ч',daqiqa:'мин',ball:'балл',hisobot:'отчёт',change:'Изменить',delete:'Удалить',reset:'Сброс',fill_all:'Заполните все поля!',face_detected:'✅ Лицо обнаружено',face_not_detected:'❌ Лицо не обнаружено',face_loading:'⏳ Загрузка...',face_unknown:'⚠️ Неизвестное лицо',afk_lbl:'⚠️ Отсутствие',afk_cnt_lbl:'раз AFK',afk_warn_title:'⚠️ Лицо не распознано!',afk_warn_txt:'Сядьте перед камерой.',afk_warn_sub:'Если лицо не обнаружено в течение 5 минут — AFK',afk_im_here:'Я здесь ✋',auto_end_txt:'18:15. Рабочий день завершён системой.',auto_ended:'Завершено системой',afk_banner:'Лицо не обнаружено! Идёт подсчёт AFK...',kpi_sr:'Старый сотр. (560K)',kpi_jr:'Новый сотр. (400K)'}
+uz:{loginTitle:'Nazorat tizimiga xush kelibsiz!',loginSub:'Login va parolni kiriting!',loginBtn:'Kirish',loginPH:'Login',passPH:'Parol',loginErr:'Login yoki parol noto\'g\'ri!',loginFill:'Login va parolni kiriting!',exit:'Chiqish',today:'Bugun',nav_m:'Asosiy',nav_notif:'Bildirishnomalar',nav_fb:'Fikrlar',nav_s:'Sozlamalar',nav_k:'KPI Qoidalar',adm_m:'Boshqaruv | Asosiy',adm_s:'Boshqaruv | Sozlamalar',adm_k:'Boshqaruv | KPI',sc1:'Bugun ishda',sc2:'Kechikkan',sc3:'Kelmagan',sc4:'Sana',att_t:'Hodimlar nazorati',from_l:'Dan:',to_l:'Gacha:',b_today:'Bugun',b_monthly:'Oylik',b_cm:'Joriy oy',b_ref:'Yangilash',fsearch:'Qidirish...',o_all:'Barcha',o_came:'Keldi',o_late:'Kechikkan',o_abs:'Kelmadi',th1:'Ism familiya',th2:'Login',th4:'O\'zgartirish',th5:'Kelgan vaqti',th6:'Kechikish',th7:'Ishlagan soat',th_afk:'AFK vaqti',th8:'Status',mth_t:'Oylik hisobot',ms1:'Hodimlar',ms2:'Kechikishlar',ms3:'Kelmagan',ms4:'Ish soati',ms5:'Jami KPI',mt1:'Ism familiya',mt2:'Ishlagan soat',mt_afk:'AFK vaqti',mt3:'Kechikish',mt4:'Kelmagan',mt5:'Jarima',mt6:'Qo\'shimcha',mt7:'KPI ball',mt8:'KPI sum',mt9:'Boshqaruv',set_t:'Hodimlar boshqaruvi',b_addemp:'Qo\'shish',et1:'Ism familiya',et2:'Login',et3:'Parol',et4:'KPI summasi',et5:'O\'chirish',hol_t:'Dam olish kunlari',b_addh:'Qo\'shish',hol_info:'Standart: Du–Sha. Yakshanba avtomatik dam olish.',hol_none:'Qo\'shimcha dam olish kuni yo\'q',kpi_t:'KPI Qoidalari',k1:'Asosiy KPI',k2:'Davomat bo\'yicha KPI 100 ballik sistemada!',k3:'Jarimalar',k4:'Kech qolish',k5:'Kelmaslik',k_afk:'AFK (30 daqiqadan ortiq)',k6:'KPI to\'lovlari',k7:'Eski hodimlar',k8:'Yangi hodimlar',ew_t:'Bugungi ish jarayoni',et_t:'Bugungi ma\'lumot',eh_t:'Oy bo\'yicha tarix',st_pre:'Holat:',lt_pre:'Kechikish:',lt_u:'daqiqa',st0:'Boshlanmagan',st1:'Ishda',st2:'Tushlikda',st4:'Yakunlandi',bs:'Boshlash',bl:'Tushlik',be:'Yakunlash',bc:'Davom ettirish',bb:'Qaytish',ewl:'Ish vaqti',ell:'Tushlik',ewd:'Ish vaqti',eld:'Tushlik vaqti',e_note:'Yangi kun boshlanganida vaqtlar 0 ga tushadi.',ei1:'Ish boshlagan',ei2:'Ish tugagan',ei3:'Tushlik boshlangan',ei4:'Tushlik tugagan',ht1:'Sana',ht2:'Boshlagan',ht3:'Tushlik bosh.',ht4:'Tushlik tug.',ht5:'Tugagan',ht6:'Kechikish',ht7:'Ish vaqti',ht8:'Tushlik',ht_afk:'AFK',ht9:'Status',eh_note:'Faqat tanlangan oy ma\'lumotlari.',el_lbl:'Kechikishlar (oy):',afk_month_lbl:'AFK (oy jami):',e_cm:'Joriy oy',mw_txt:'Eslatma: "Yakunlash" tugmasini faqat ish kuni to\'liq tugagandan keyin bosing!',mw_ok:'OK',mep_t:'Parolni o\'zgartirish',mep_s:'Saqlash',mep_c:'Bekor qilish',ep_ph:'Yangi parol',b_came:'Keldi',b_late:'Kechikkan',b_abs:'Kelmadi',b_off:'Dam olish',del_c:'Hodimni o\'chirishni tasdiqlaysizmi?',no_data:'Ma\'lumot yo\'q',daq:'daq',marta:'marta',kun:'kun',soat:'soat',daqiqa:'daqiqa',ball:'ball',hisobot:'hisobot',change:'O\'zgartirish',delete:'O\'chirish',reset:'Reset',fill_all:'Barcha maydonlarni to\'ldiring!',face_detected:'✅ Yuz aniqlandi',face_not_detected:'❌ Yuz aniqlanmadi',face_loading:'⏳ Yuklanmoqda...',face_unknown:'⚠️ Noma\'lum yuz',afk_lbl:'⚠️ Joyida bo\'lmagan vaqt',afk_cnt_lbl:'marta AFK',afk_warn_title:'⚠️ Yuzingiz aniqlanmadi!',afk_warn_txt:'Kamera oldida o\'tiring. AFK vaqt hisoblanmoqda.',afk_warn_sub:'5 daqiqa ichida yuz aniqlanmasa, AFK hisoblanadi',afk_im_here:'Men shu yerdaman ✋',auto_end_txt:'Soat 18:15 bo\'ldi. Tizim tomonidan ish yakunlandi.',auto_ended:'Tizim yakunladi',afk_banner:'Yuz aniqlanmadi! AFK vaqt hisoblanmoqda...',kpi_sr:'Eski hodim (560K)',kpi_jr:'Yangi hodim (400K)'},
+ru:{loginTitle:'Добро пожаловать!',loginSub:'Введите логин и пароль!',loginBtn:'Войти',loginPH:'Логин',passPH:'Пароль',loginErr:'Неверный логин или пароль!',loginFill:'Введите логин и пароль!',exit:'Выйти',today:'Сегодня',nav_m:'Главная',nav_notif:'Уведомления',nav_fb:'Отзывы',nav_s:'Настройки',nav_k:'Правила KPI',adm_m:'Управление | Главная',adm_s:'Управление | Настройки',adm_k:'Управление | KPI',sc1:'На работе',sc2:'Опоздали',sc3:'Не пришли',sc4:'Дата',att_t:'Контроль сотрудников',from_l:'От:',to_l:'До:',b_today:'Сегодня',b_monthly:'Месяц',b_cm:'Тек. месяц',b_ref:'Обновить',fsearch:'Поиск...',o_all:'Все',o_came:'Пришёл',o_late:'Опоздал',o_abs:'Не пришёл',th1:'ФИО',th2:'Логин',th4:'Изменить',th5:'Приход',th6:'Опоздание',th7:'Отработано',th_afk:'AFK время',th8:'Статус',mth_t:'Месячный отчёт',ms1:'Сотрудников',ms2:'Опозданий',ms3:'Пропусков',ms4:'Раб.часов',ms5:'Итого KPI',mt1:'ФИО',mt2:'Отработано',mt_afk:'AFK время',mt3:'Опоздания',mt4:'Пропуски',mt5:'Штраф',mt6:'Доп.баллы',mt7:'KPI балл',mt8:'KPI сумма',mt9:'Управление',set_t:'Управление сотрудниками',b_addemp:'Добавить',et1:'ФИО',et2:'Логин',et3:'Пароль',et4:'Сумма KPI',et5:'Удалить',hol_t:'Выходные дни',b_addh:'Добавить',hol_info:'Стандарт: Пн–Сб. Воскресенье — выходной.',hol_none:'Доп. выходных нет',kpi_t:'Правила KPI',k1:'Основной KPI',k2:'KPI в 100-балльной системе!',k3:'Штрафы',k4:'Опоздание',k5:'Прогул',k_afk:'AFK (более 30 минут)',k6:'Выплаты KPI',k7:'Старые сотрудники',k8:'Новые сотрудники',ew_t:'Рабочий процесс',et_t:'Сегодня',eh_t:'История за месяц',st_pre:'Статус:',lt_pre:'Опоздание:',lt_u:'мин',st0:'Не начат',st1:'На работе',st2:'В обеде',st4:'Завершён',bs:'Начать',bl:'Обед',be:'Завершить',bc:'Продолжить',bb:'Вернуться',ewl:'Рабочее время',ell:'Время обеда',ewd:'Рабочее время',eld:'Время обеда',e_note:'При новом дне таймеры сбрасываются.',ei1:'Начало',ei2:'Конец',ei3:'Обед нач.',ei4:'Обед кон.',ht1:'Дата',ht2:'Начало',ht3:'Обед нач.',ht4:'Обед кон.',ht5:'Конец',ht6:'Опоздание',ht7:'Раб.время',ht8:'Обед',ht_afk:'AFK',ht9:'Статус',eh_note:'Данные выбранного месяца.',el_lbl:'Опозданий (месяц):',afk_month_lbl:'AFK (итого за месяц):',e_cm:'Тек. месяц',mw_txt:'Нажимайте "Завершить" только после полного окончания рабочего дня!',mw_ok:'ОК',mep_t:'Изменить пароль',mep_s:'Сохранить',mep_c:'Отмена',ep_ph:'Новый пароль',b_came:'Пришёл',b_late:'Опоздал',b_abs:'Не пришёл',b_off:'Выходной',del_c:'Удалить сотрудника?',no_data:'Нет данных',daq:'мин',marta:'раз',kun:'дн.',soat:'ч',daqiqa:'мин',ball:'балл',hisobot:'отчёт',change:'Изменить',delete:'Удалить',reset:'Сброс',fill_all:'Заполните все поля!',face_detected:'✅ Лицо обнаружено',face_not_detected:'❌ Лицо не обнаружено',face_loading:'⏳ Загрузка...',face_unknown:'⚠️ Неизвестное лицо',afk_lbl:'⚠️ Отсутствие',afk_cnt_lbl:'раз AFK',afk_warn_title:'⚠️ Лицо не распознано!',afk_warn_txt:'Сядьте перед камерой.',afk_warn_sub:'Если лицо не обнаружено в течение 5 минут — AFK',afk_im_here:'Я здесь ✋',auto_end_txt:'18:15. Рабочий день завершён системой.',auto_ended:'Завершено системой',afk_banner:'Лицо не обнаружено! Идёт подсчёт AFK...',kpi_sr:'Старый сотр. (560K)',kpi_jr:'Новый сотр. (400K)'}
 };
 let lang = localStorage.getItem('aloqa_lang') || 'uz';
 const t = k => (TR[lang]||TR.uz)[k] || k;
@@ -1023,10 +1068,10 @@ function st(id,v){const e=document.getElementById(id);if(e&&v!==undefined)e.text
 function sp(id,v){const e=document.getElementById(id);if(e)e.placeholder=v;}
 
 function applyLang(){
-  ['ll','al','el'].forEach(p=>{const u=document.getElementById(p+'_uz'),r=document.getElementById(p+'_ru');if(u)u.classList.toggle('active',lang==='uz');if(r)r.classList.toggle('active',lang==='ru');});
+  ['ll','al','el','sl'].forEach(p=>{const u=document.getElementById(p+'_uz'),r=document.getElementById(p+'_ru');if(u)u.classList.toggle('active',lang==='uz');if(r)r.classList.toggle('active',lang==='ru');});
   st('lc_t',t('loginTitle'));st('lc_s',t('loginSub'));const lb=document.getElementById('lbtn');if(lb)lb.textContent=t('loginBtn');
   sp('inp_l',t('loginPH'));sp('inp_p',t('passPH'));
-  ['n_main','n_notif','n_fb','n_set','n_kpi'].forEach((id,i)=>{st(id,t(['nav_m','Bildirishnomalar','Fikrlar','nav_s','nav_k'][i]||''));});
+  ['n_main','n_notif','n_fb','n_set','n_kpi'].forEach((id,i)=>{st(id,t(['nav_m','nav_notif','nav_fb','nav_s','nav_k'][i]||''));});
   st('admTitle',t('adm_m'));
   const ae=document.getElementById('admExit');if(ae)ae.textContent=t('exit');
   const ee=document.getElementById('empExit');if(ee)ee.textContent=t('exit');
@@ -1304,7 +1349,7 @@ async function checkFeedbackBadge(){
 function adminTab(tab){
   ['main','notif','feedback','settings','kpi'].forEach(n=>{const el=document.getElementById('tab_'+n);if(el)el.classList.toggle('hidden',n!==tab);});
   ['nav_main','nav_notif','nav_feedback','nav_settings','nav_kpi'].forEach((id,i)=>{const el=document.getElementById(id);if(el)el.classList.toggle('active',['main','notif','feedback','settings','kpi'][i]===tab);});
-  const titles={main:t('adm_m'),settings:t('adm_s'),kpi:t('adm_k'),notif:'Bildirishnomalar',feedback:'Fikrlar'};
+  const titles={main:t('adm_m'),settings:t('adm_s'),kpi:t('adm_k'),notif:t('nav_notif'),feedback:t('nav_fb')};
   st('admTitle',titles[tab]||'');
   if(tab==='settings'){loadEmpList();updateIPList();}
   if(tab==='feedback')loadFeedbackAdmin();
@@ -1643,9 +1688,7 @@ async function loadFaceModels(){
   }
   if(typeof faceapi==='undefined'){console.error('faceapi undefined');return false;}
   const URLS=[
-    'https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.15/model/',
-    'https://raw.githubusercontent.com/justadudewhohacks/face-api.js/master/weights/',
-    'https://unpkg.com/@vladmandic/face-api@1.7.15/model/'
+    './model/'
   ];
   for(const url of URLS){
     try{
