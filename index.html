@@ -1815,14 +1815,19 @@ async function runFaceCheck(){
 
   if(!faceApiLoaded)return;
 
-  const video=document.getElementById('faceVideo');
-  if(!video)return;
+  const video = document.getElementById('faceVideo');
+if (!video) return;
 
-  // ✅ FIX 2: Video paused yoki to'xtagan bo'lsa — play() chaqir, skip qilma
-  if(video.readyState < 2){
-    try{ await video.play(); }catch(e){}
-    return; // Keyingi tick da qayta urinib ko'riladi
-  }
+// ✅ Video o'lchamlari tayyor emasligini tekshir
+if (!video.videoWidth || !video.videoHeight || video.videoWidth === 0) {
+  return;
+}
+
+// ✅ FIX 2: Video paused yoki to'xtagan bo'lsa — play() chaqir, skip qilma
+if (video.readyState < 2) {
+  try { await video.play(); } catch(e) {}
+  return;
+}
   if(video.paused || video.ended){
     try{
       await video.play();
