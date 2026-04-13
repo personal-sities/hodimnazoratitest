@@ -1753,15 +1753,24 @@ async function startCamera(){
     faceStream=await navigator.mediaDevices.getUserMedia({video:{width:{ideal:320},height:{ideal:240},facingMode:'user'},audio:false});
     const video=document.getElementById('faceVideo');
     video.srcObject=faceStream;
-    await new Promise((resolve,reject)=>{
-      video.onloadedmetadata=()=>resolve();
-      video.onerror=reject;
-      setTimeout(resolve,3000);
-    });
-    try{await video.play();}catch(e){}
-    const canvas=document.getElementById('faceCanvas');
-    canvas.width=video.videoWidth||320;
-    canvas.height=video.videoHeight||240;
+    await new Promise((resolve, reject) => {
+  video.onloadedmetadata = () => {
+    video.play().catch(() => {}).finally(resolve);
+  };
+  video.onerror = reject;
+  setTimeout(resolve, 5000);
+});
+
+// ✅ videoWidth tayyor bo'lgunicha kut
+let waited = 0;
+while ((!video.videoWidth || !video.videoHeight) && waited < 3000) {
+  await new Promise(r => setTimeout(r, 100));
+  waited += 100;
+}
+
+const canvas = document.getElementById('faceCanvas');
+canvas.width = video.videoWidth || 320;
+canvas.height = video.videoHeight || 240;
     return true;
   }catch(e){
     console.error('Camera error:',e.message);
