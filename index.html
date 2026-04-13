@@ -301,6 +301,7 @@ html, body { font-family:var(--font); background:var(--bg); color:var(--text); m
 .mhdr h2 { margin:0; }
 .mflt { display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
 .mflt input { padding:6px 9px; border:1.5px solid var(--border2); border-radius:var(--radius-sm); font-size:12px; background:var(--input-bg); color:var(--text); }
+.emp-bottom-nav { display:none; }
 .note { font-size:10.5px; color:var(--text3); margin-top:8px; }
 
 .fb-item { background:var(--bg3); border-radius:var(--radius-sm); padding:12px; margin-bottom:8px; border:1px solid var(--border); animation:fadeUp .3s ease; }
@@ -373,6 +374,47 @@ html, body { font-family:var(--font); background:var(--bg); color:var(--text); m
 
 @media(max-width:900px){.scards{grid-template-columns:repeat(2,1fr)}.mst{grid-template-columns:repeat(3,1fr)}}
 @media(max-width:680px){
+  /* ── HODIM BOTTOM NAV ── */
+  .emp-bottom-nav{
+    display:flex;position:fixed;bottom:0;left:0;right:0;z-index:300;
+    background:var(--header);border-top:1px solid rgba(255,255,255,.1);
+    padding:6px 0 10px;gap:0;
+  }
+  .ebn-btn{
+    flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;
+    background:none;border:none;color:rgba(255,255,255,.5);font-size:10px;
+    font-family:var(--font);cursor:pointer;padding:4px 2px;transition:var(--transition);
+  }
+  .ebn-btn span:first-child{font-size:20px;}
+  .ebn-btn.active{color:var(--accent);}
+  /* Pastki nav uchun joy qoldirish */
+  #employeePage { padding-bottom:70px; }
+
+  /* ── HODIM HEADER telefonda faqat logo + chiqish ── */
+  .ehdr{padding:10px 12px;}
+  .ehdr > div:last-child .xbtn:not(#empExit){display:none;}
+  .ehdr .lsw{display:none;}
+  .ehdr .theme-toggle{display:none;}
+
+  /* ── HODIM BODY ── */
+  .ebody{grid-template-columns:1fr;gap:10px;padding:10px 8px;}
+  .efw{grid-column:1;}
+
+  /* ── ISH TUGMALARI ── */
+  .abtns{gap:6px;}
+  .abtn{padding:14px 4px;font-size:13px;}
+
+  /* ── TAYMER ── */
+  .tgrid{grid-template-columns:1fr 1fr;gap:8px;}
+  .tv{font-size:28px;}
+
+  /* ── BUGUNGI MA'LUMOT ── */
+  .igrid{grid-template-columns:1fr 1fr;gap:8px;}
+  .ii{padding:8px;}
+  .ii h4{font-size:10px;}
+  .ii p{font-size:12px;}
+
+  /* ── ADMIN SIDEBAR ── */
   .sidebar{position:fixed;left:0;top:0;bottom:0;z-index:200;width:230px;transform:translateX(-100%);}
   .sidebar.open{transform:translateX(0);}
   .hamburger{display:flex;}
@@ -383,56 +425,39 @@ html, body { font-family:var(--font); background:var(--bg); color:var(--text); m
   .pbody{padding:10px 8px;}
   .scards{grid-template-columns:1fr 1fr;gap:8px;}
   .snum{font-size:22px;}
-  .mst{grid-template-columns:1fr 1fr;}
-  .tbl{font-size:11px;}
-  .ebody{grid-template-columns:1fr;gap:12px;padding:12px;}
-  .efw{grid-column:1;}
-  .abtns{gap:5px;}
-  .abtn{padding:12px 4px;font-size:12px;}
-  .modal{padding:22px 16px;}
-  #faceWidget{width:150px;bottom:8px;right:8px;}
-
-  /* Admin header telefonda — til va theme ni yashir, faqat muhimlari qolsin */
+  .mst{grid-template-columns:1fr 1fr;gap:8px;}
   .hdr-r .lsw{display:none;}
   .hdr-r .theme-toggle{display:none;}
   .hdr-r{gap:6px;}
-
-  /* Sidebar ichida til va theme tugmalari ko'rsatiladi */
   .sb-bottom{display:flex !important;}
-
-  /* Kartochkalar */
   .scard{padding:10px 12px;}
   .scard h4{font-size:10px;}
-
-  /* Filtr qatori vertikal */
   .frow{flex-direction:column;align-items:stretch;}
   .frow input,.frow select{width:100%;min-width:unset;}
   .drange{flex-wrap:wrap;}
   .drange input{flex:1;min-width:120px;}
-
-  /* Oylik statistika */
-  .mst{grid-template-columns:1fr 1fr;gap:8px;}
-
-  /* Jadval scroll */
-  .tbl-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;}
-  .tbl th,.tbl td{padding:7px 8px;white-space:nowrap;}
-
-  /* Box padding */
   .box{padding:12px 10px;}
   .btitle{font-size:13px;}
-
-  /* Notif va feedback */
   .notif-send-row{flex-direction:column;}
   .notif-send-row input,.notif-send-row textarea,.notif-send-row select{width:100%;min-width:unset;}
+
+  /* ── UMUMIY ── */
+  .tbl-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;}
+  .tbl th,.tbl td{padding:7px 8px;white-space:nowrap;font-size:11px;}
+  .modal{padding:22px 16px;}
+  #faceWidget{width:150px;bottom:8px;right:8px;}
 }
+
 @media(max-width:400px){
-  .tgrid{grid-template-columns:1fr;}
-  .igrid{grid-template-columns:1fr;}
-  .abtns{flex-direction:column;}
+  .tgrid{grid-template-columns:1fr 1fr;}
+  .igrid{grid-template-columns:1fr 1fr;}
+  .abtns{gap:4px;}
+  .abtn{font-size:12px;padding:12px 2px;}
   .tv{font-size:24px;}
-  .mst{grid-template-columns:1fr 1fr;}
+  .ebody{padding:8px 6px;}
   .scards{grid-template-columns:1fr 1fr;}
   .pbody{padding:8px 6px;}
+  .mst{grid-template-columns:1fr 1fr;}
 }
 </style>
 </head>
@@ -740,6 +765,14 @@ html, body { font-family:var(--font); background:var(--bg); color:var(--text); m
       <button class="xbtn" onclick="empNavTab('feedback')">💬</button>
       <button class="xbtn" id="empExit" onclick="doLogout()">Chiqish</button>
     </div>
+  </div>
+
+  <!-- Mobil uchun pastki navigatsiya -->
+  <div class="emp-bottom-nav" id="empBottomNav">
+    <button class="ebn-btn active" id="ebn_work" onclick="empNavTab('work')"><span>💼</span><span>Ish</span></button>
+    <button class="ebn-btn" id="ebn_notif" onclick="empNavTab('notif')"><span>🔔</span><span>Xabar <span id="empNotifBadge2" class="notif-badge hidden">0</span></span></button>
+    <button class="ebn-btn" id="ebn_feedback" onclick="empNavTab('feedback')"><span>💬</span><span>Fikr</span></button>
+    <button class="ebn-btn" onclick="doLogout()"><span>🚪</span><span>Chiqish</span></button>
   </div>
 
   <div id="emp_tab_work">
@@ -1324,6 +1357,8 @@ function showPage(p){
 // ============================================================
 function empNavTab(tab){
   ['work','notif','feedback'].forEach(t2=>{const e=document.getElementById('emp_tab_'+t2);if(e)e.classList.toggle('hidden',t2!==tab);});
+  // Bottom nav active holati
+  ['work','notif','feedback'].forEach(t2=>{const b=document.getElementById('ebn_'+t2);if(b)b.classList.toggle('active',t2===tab);});
   if(tab==='notif')loadNotificationsEmp();
   if(tab==='feedback')loadMyFeedback();
 }
