@@ -1058,8 +1058,8 @@ function showIPBlock(ip){['loginPage','adminPage','employeePage'].forEach(id=>{c
 //  TRANSLATIONS
 // ============================================================
 const TR = {
-uz:{loginTitle:'Nazorat tizimiga xush kelibsiz!',loginSub:'Login va parolni kiriting!',loginBtn:'Kirish',loginPH:'Login',passPH:'Parol',loginErr:'Login yoki parol noto\'g\'ri!',loginFill:'Login va parolni kiriting!',exit:'Chiqish',today:'Bugun',nav_m:'Asosiy',nav_notif:'Bildirishnomalar',nav_fb:'Fikrlar',nav_s:'Sozlamalar',nav_k:'KPI Qoidalar',adm_m:'Boshqaruv | Asosiy',adm_s:'Boshqaruv | Sozlamalar',adm_k:'Boshqaruv | KPI',sc1:'Bugun ishda',sc2:'Kechikkan',sc3:'Kelmagan',sc4:'Sana',att_t:'Hodimlar nazorati',from_l:'Dan:',to_l:'Gacha:',b_today:'Bugun',b_monthly:'Oylik',b_cm:'Joriy oy',b_ref:'Yangilash',fsearch:'Qidirish...',o_all:'Barcha',o_came:'Keldi',o_late:'Kechikkan',o_abs:'Kelmadi',th1:'Ism familiya',th2:'Login',th4:'O\'zgartirish',th5:'Kelgan vaqti',th6:'Kechikish',th7:'Ishlagan soat',th_afk:'AFK vaqti',th8:'Status',mth_t:'Oylik hisobot',ms1:'Hodimlar',ms2:'Kechikishlar',ms3:'Kelmagan',ms4:'Ish soati',ms5:'Jami KPI',mt1:'Ism familiya',mt2:'Ishlagan soat',mt_afk:'AFK vaqti',mt3:'Kechikish',mt4:'Kelmagan',mt5:'Jarima',mt6:'Qo\'shimcha',mt7:'KPI ball',mt8:'KPI sum',mt9:'Boshqaruv',set_t:'Hodimlar boshqaruvi',b_addemp:'Qo\'shish',et1:'Ism familiya',et2:'Login',et3:'Parol',et4:'KPI summasi',et5:'O\'chirish',hol_t:'Dam olish kunlari',b_addh:'Qo\'shish',hol_info:'Standart: Du–Sha. Yakshanba avtomatik dam olish.',hol_none:'Qo\'shimcha dam olish kuni yo\'q',kpi_t:'KPI Qoidalari',k1:'Asosiy KPI',k2:'Davomat bo\'yicha KPI 100 ballik sistemada!',k3:'Jarimalar',k4:'Kech qolish',k5:'Kelmaslik',k_afk:'AFK (30 daqiqadan ortiq)',k6:'KPI to\'lovlari',k7:'Eski hodimlar',k8:'Yangi hodimlar',ew_t:'Bugungi ish jarayoni',et_t:'Bugungi ma\'lumot',eh_t:'Oy bo\'yicha tarix',st_pre:'Holat:',lt_pre:'Kechikish:',lt_u:'daqiqa',st0:'Boshlanmagan',st1:'Ishda',st2:'Tushlikda',st4:'Yakunlandi',bs:'Boshlash',bl:'Tushlik',be:'Yakunlash',bc:'Davom ettirish',bb:'Qaytish',ewl:'Ish vaqti',ell:'Tushlik',ewd:'Ish vaqti',eld:'Tushlik vaqti',e_note:'Yangi kun boshlanganida vaqtlar 0 ga tushadi.',ei1:'Ish boshlagan',ei2:'Ish tugagan',ei3:'Tushlik boshlangan',ei4:'Tushlik tugagan',ht1:'Sana',ht2:'Boshlagan',ht3:'Tushlik bosh.',ht4:'Tushlik tug.',ht5:'Tugagan',ht6:'Kechikish',ht7:'Ish vaqti',ht8:'Tushlik',ht_afk:'AFK',ht9:'Status',eh_note:'Faqat tanlangan oy ma\'lumotlari.',el_lbl:'Kechikishlar (oy):',afk_month_lbl:'AFK (oy jami):',e_cm:'Joriy oy',mw_txt:'Eslatma: "Yakunlash" tugmasini faqat ish kuni to\'liq tugagandan keyin bosing!',mw_ok:'OK',mep_t:'Parolni o\'zgartirish',mep_s:'Saqlash',mep_c:'Bekor qilish',ep_ph:'Yangi parol',b_came:'Keldi',b_late:'Kechikkan',b_abs:'Kelmadi',b_off:'Dam olish',del_c:'Hodimni o\'chirishni tasdiqlaysizmi?',no_data:'Ma\'lumot yo\'q',daq:'daq',marta:'marta',kun:'kun',soat:'soat',daqiqa:'daqiqa',ball:'ball',hisobot:'hisobot',change:'O\'zgartirish',delete:'O\'chirish',reset:'Reset',fill_all:'Barcha maydonlarni to\'ldiring!',face_detected:'✅ Yuz aniqlandi',face_not_detected:'❌ Yuz aniqlanmadi',face_loading:'⏳ Yuklanmoqda...',face_unknown:'⚠️ Noma\'lum yuz',afk_lbl:'⚠️ Joyida bo\'lmagan vaqt',afk_cnt_lbl:'marta AFK',afk_warn_title:'⚠️ Yuzingiz aniqlanmadi!',afk_warn_txt:'Kamera oldida o\'tiring. AFK vaqt hisoblanmoqda.',afk_warn_sub:'5 daqiqa ichida yuz aniqlanmasa, AFK hisoblanadi',afk_im_here:'Men shu yerdaman ✋',auto_end_txt:'Soat 18:15 bo\'ldi. Tizim tomonidan ish yakunlandi.',auto_ended:'Tizim yakunladi',afk_banner:'Yuz aniqlanmadi! AFK vaqt hisoblanmoqda...',kpi_sr:'Eski hodim (560K)',kpi_jr:'Yangi hodim (400K)'},
-ru:{loginTitle:'Добро пожаловать!',loginSub:'Введите логин и пароль!',loginBtn:'Войти',loginPH:'Логин',passPH:'Пароль',loginErr:'Неверный логин или пароль!',loginFill:'Введите логин и пароль!',exit:'Выйти',today:'Сегодня',nav_m:'Главная',nav_notif:'Уведомления',nav_fb:'Отзывы',nav_s:'Настройки',nav_k:'Правила KPI',adm_m:'Управление | Главная',adm_s:'Управление | Настройки',adm_k:'Управление | KPI',sc1:'На работе',sc2:'Опоздали',sc3:'Не пришли',sc4:'Дата',att_t:'Контроль сотрудников',from_l:'От:',to_l:'До:',b_today:'Сегодня',b_monthly:'Месяц',b_cm:'Тек. месяц',b_ref:'Обновить',fsearch:'Поиск...',o_all:'Все',o_came:'Пришёл',o_late:'Опоздал',o_abs:'Не пришёл',th1:'ФИО',th2:'Логин',th4:'Изменить',th5:'Приход',th6:'Опоздание',th7:'Отработано',th_afk:'AFK время',th8:'Статус',mth_t:'Месячный отчёт',ms1:'Сотрудников',ms2:'Опозданий',ms3:'Пропусков',ms4:'Раб.часов',ms5:'Итого KPI',mt1:'ФИО',mt2:'Отработано',mt_afk:'AFK время',mt3:'Опоздания',mt4:'Пропуски',mt5:'Штраф',mt6:'Доп.баллы',mt7:'KPI балл',mt8:'KPI сумма',mt9:'Управление',set_t:'Управление сотрудниками',b_addemp:'Добавить',et1:'ФИО',et2:'Логин',et3:'Пароль',et4:'Сумма KPI',et5:'Удалить',hol_t:'Выходные дни',b_addh:'Добавить',hol_info:'Стандарт: Пн–Сб. Воскресенье — выходной.',hol_none:'Доп. выходных нет',kpi_t:'Правила KPI',k1:'Основной KPI',k2:'KPI в 100-балльной системе!',k3:'Штрафы',k4:'Опоздание',k5:'Прогул',k_afk:'AFK (более 30 минут)',k6:'Выплаты KPI',k7:'Старые сотрудники',k8:'Новые сотрудники',ew_t:'Рабочий процесс',et_t:'Сегодня',eh_t:'История за месяц',st_pre:'Статус:',lt_pre:'Опоздание:',lt_u:'мин',st0:'Не начат',st1:'На работе',st2:'В обеде',st4:'Завершён',bs:'Начать',bl:'Обед',be:'Завершить',bc:'Продолжить',bb:'Вернуться',ewl:'Рабочее время',ell:'Время обеда',ewd:'Рабочее время',eld:'Время обеда',e_note:'При новом дне таймеры сбрасываются.',ei1:'Начало',ei2:'Конец',ei3:'Обед нач.',ei4:'Обед кон.',ht1:'Дата',ht2:'Начало',ht3:'Обед нач.',ht4:'Обед кон.',ht5:'Конец',ht6:'Опоздание',ht7:'Раб.время',ht8:'Обед',ht_afk:'AFK',ht9:'Статус',eh_note:'Данные выбранного месяца.',el_lbl:'Опозданий (месяц):',afk_month_lbl:'AFK (итого за месяц):',e_cm:'Тек. месяц',mw_txt:'Нажимайте "Завершить" только после полного окончания рабочего дня!',mw_ok:'ОК',mep_t:'Изменить пароль',mep_s:'Сохранить',mep_c:'Отмена',ep_ph:'Новый пароль',b_came:'Пришёл',b_late:'Опоздал',b_abs:'Не пришёл',b_off:'Выходной',del_c:'Удалить сотрудника?',no_data:'Нет данных',daq:'мин',marta:'раз',kun:'дн.',soat:'ч',daqiqa:'мин',ball:'балл',hisobot:'отчёт',change:'Изменить',delete:'Удалить',reset:'Сброс',fill_all:'Заполните все поля!',face_detected:'✅ Лицо обнаружено',face_not_detected:'❌ Лицо не обнаружено',face_loading:'⏳ Загрузка...',face_unknown:'⚠️ Неизвестное лицо',afk_lbl:'⚠️ Отсутствие',afk_cnt_lbl:'раз AFK',afk_warn_title:'⚠️ Лицо не распознано!',afk_warn_txt:'Сядьте перед камерой.',afk_warn_sub:'Если лицо не обнаружено в течение 5 минут — AFK',afk_im_here:'Я здесь ✋',auto_end_txt:'18:15. Рабочий день завершён системой.',auto_ended:'Завершено системой',afk_banner:'Лицо не обнаружено! Идёт подсчёт AFK...',kpi_sr:'Старый сотр. (560K)',kpi_jr:'Новый сотр. (400K)'}
+uz:{loginTitle:'Nazorat tizimiga xush kelibsiz!',loginSub:'Login va parolni kiriting!',loginBtn:'Kirish',loginPH:'Login',passPH:'Parol',loginErr:'Login yoki parol noto\'g\'ri!',loginFill:'Login va parolni kiriting!',exit:'Chiqish',today:'Bugun',nav_m:'Asosiy',nav_notif:'Bildirishnomalar',nav_fb:'Fikrlar',nav_s:'Sozlamalar',nav_k:'KPI Qoidalar',adm_m:'Boshqaruv | Asosiy',adm_s:'Boshqaruv | Sozlamalar',adm_k:'Boshqaruv | KPI',sc1:'Bugun ishda',sc2:'Kechikkan',sc3:'Kelmagan',sc4:'Sana',att_t:'Hodimlar nazorati',from_l:'Dan:',to_l:'Gacha:',b_today:'Bugun',b_monthly:'Oylik',b_cm:'Joriy oy',b_ref:'Yangilash',fsearch:'Qidirish...',o_all:'Barcha',o_came:'Keldi',o_late:'Kechikkan',o_abs:'Kelmadi',th1:'Ism familiya',th2:'Login',th4:'O\'zgartirish',th5:'Kelgan vaqti',th6:'Kechikish',th7:'Ishlagan soat',th_afk:'AFK vaqti',th8:'Status',mth_t:'Oylik hisobot',ms1:'Hodimlar',ms2:'Kechikishlar',ms3:'Kelmagan',ms4:'Ish soati',ms5:'Jami KPI',mt1:'Ism familiya',mt2:'Ishlagan soat',mt_afk:'AFK vaqti',mt3:'Kechikish',mt4:'Kelmagan',mt5:'Jarima',mt6:'Qo\'shimcha',mt7:'KPI ball',mt8:'KPI sum',mt9:'Boshqaruv',set_t:'Hodimlar boshqaruvi',b_addemp:'Qo\'shish',et1:'Ism familiya',et2:'Login',et3:'Parol',et4:'KPI summasi',et5:'O\'chirish',hol_t:'Dam olish kunlari',b_addh:'Qo\'shish',hol_info:'Standart: Du–Sha. Yakshanba avtomatik dam olish.',hol_none:'Qo\'shimcha dam olish kuni yo\'q',kpi_t:'KPI Qoidalari',k1:'Asosiy KPI',k2:'Davomat bo\'yicha KPI 100 ballik sistemada!',k3:'Jarimalar',k4:'Kech qolish',k5:'Kelmaslik',k_afk:'AFK (30 daqiqadan ortiq)',k6:'KPI to\'lovlari',k7:'Eski hodimlar',k8:'Yangi hodimlar',ew_t:'Bugungi ish jarayoni',et_t:'Bugungi ma\'lumot',eh_t:'Oy bo\'yicha tarix',st_pre:'Holat:',lt_pre:'Kechikish:',lt_u:'daqiqa',st0:'Boshlanmagan',st1:'Ishda',st2:'Tushlikda',st4:'Yakunlandi',bs:'Boshlash',bl:'Tushlik',be:'Yakunlash',bc:'Davom ettirish',bb:'Qaytish',ewl:'Ish vaqti',ell:'Tushlik',ewd:'Ish vaqti',eld:'Tushlik vaqti',e_note:'Yangi kun boshlanganida vaqtlar 0 ga tushadi.',ei1:'Ish boshlagan',ei2:'Ish tugagan',ei3:'Tushlik boshlangan',ei4:'Tushlik tugagan',ht1:'Sana',ht2:'Boshlagan',ht3:'Tushlik bosh.',ht4:'Tushlik tug.',ht5:'Tugagan',ht6:'Kechikish',ht7:'Ish vaqti',ht8:'Tushlik',ht_afk:'AFK',ht9:'Status',eh_note:'Faqat tanlangan oy ma\'lumotlari.',el_lbl:'Kechikishlar (oy):',afk_month_lbl:'AFK (oy jami):',e_cm:'Joriy oy',mw_txt:'Eslatma: "Yakunlash" tugmasini faqat ish kuni to\'liq tugagandan keyin bosing!',mw_ok:'OK',mep_t:'Parolni o\'zgartirish',mep_s:'Saqlash',mep_c:'Bekor qilish',ep_ph:'Yangi parol',b_came:'Keldi',b_late:'Kechikkan',b_abs:'Kelmadi',b_off:'Dam olish',del_c:'Hodimni o\'chirishni tasdiqlaysizmi?',no_data:'Ma\'lumot yo\'q',daq:'daq',marta:'marta',kun:'kun',soat:'soat',daqiqa:'daqiqa',ball:'ball',hisobot:'hisobot',change:'O\'zgartirish',delete:'O\'chirish',reset:'Reset',fill_all:'Barcha maydonlarni to\'ldiring!',face_detected:'✅ Yuz aniqlandi',face_not_detected:'❌ Yuz aniqlanmadi',face_loading:'⏳ Yuklanmoqda...',face_unknown:'⚠️ Noma\'lum yuz',afk_lbl:'⚠️ Joyida bo\'lmagan vaqt',afk_cnt_lbl:'marta AFK',afk_warn_title:'⚠️ Yuzingiz aniqlanmadi!',afk_warn_txt:'Kamera oldida o\'tiring. AFK vaqt hisoblanmoqda.',afk_warn_sub:'5 daqiqa ichida yuz aniqlanmasa, AFK hisoblanadi',afk_im_here:'Men shu yerdaman ✋',auto_end_txt:'Soat 18:15 bo\'ldi. Tizim tomonidan ish yakunlandi.',auto_ended:'Tizim yakunladi',afk_banner:'Yuz aniqlanmadi! AFK vaqt hisoblanmoqda...',afk_over:'oshiqcha',kpi_sr:'Eski hodim (560K)',kpi_jr:'Yangi hodim (400K)'},
+ru:{loginTitle:'Добро пожаловать!',loginSub:'Введите логин и пароль!',loginBtn:'Войти',loginPH:'Логин',passPH:'Пароль',loginErr:'Неверный логин или пароль!',loginFill:'Введите логин и пароль!',exit:'Выйти',today:'Сегодня',nav_m:'Главная',nav_notif:'Уведомления',nav_fb:'Отзывы',nav_s:'Настройки',nav_k:'Правила KPI',adm_m:'Управление | Главная',adm_s:'Управление | Настройки',adm_k:'Управление | KPI',sc1:'На работе',sc2:'Опоздали',sc3:'Не пришли',sc4:'Дата',att_t:'Контроль сотрудников',from_l:'От:',to_l:'До:',b_today:'Сегодня',b_monthly:'Месяц',b_cm:'Тек. месяц',b_ref:'Обновить',fsearch:'Поиск...',o_all:'Все',o_came:'Пришёл',o_late:'Опоздал',o_abs:'Не пришёл',th1:'ФИО',th2:'Логин',th4:'Изменить',th5:'Приход',th6:'Опоздание',th7:'Отработано',th_afk:'AFK время',th8:'Статус',mth_t:'Месячный отчёт',ms1:'Сотрудников',ms2:'Опозданий',ms3:'Пропусков',ms4:'Раб.часов',ms5:'Итого KPI',mt1:'ФИО',mt2:'Отработано',mt_afk:'AFK время',mt3:'Опоздания',mt4:'Пропуски',mt5:'Штраф',mt6:'Доп.баллы',mt7:'KPI балл',mt8:'KPI сумма',mt9:'Управление',set_t:'Управление сотрудниками',b_addemp:'Добавить',et1:'ФИО',et2:'Логин',et3:'Пароль',et4:'Сумма KPI',et5:'Удалить',hol_t:'Выходные дни',b_addh:'Добавить',hol_info:'Стандарт: Пн–Сб. Воскресенье — выходной.',hol_none:'Доп. выходных нет',kpi_t:'Правила KPI',k1:'Основной KPI',k2:'KPI в 100-балльной системе!',k3:'Штрафы',k4:'Опоздание',k5:'Прогул',k_afk:'AFK (более 30 минут)',k6:'Выплаты KPI',k7:'Старые сотрудники',k8:'Новые сотрудники',ew_t:'Рабочий процесс',et_t:'Сегодня',eh_t:'История за месяц',st_pre:'Статус:',lt_pre:'Опоздание:',lt_u:'мин',st0:'Не начат',st1:'На работе',st2:'В обеде',st4:'Завершён',bs:'Начать',bl:'Обед',be:'Завершить',bc:'Продолжить',bb:'Вернуться',ewl:'Рабочее время',ell:'Время обеда',ewd:'Рабочее время',eld:'Время обеда',e_note:'При новом дне таймеры сбрасываются.',ei1:'Начало',ei2:'Конец',ei3:'Обед нач.',ei4:'Обед кон.',ht1:'Дата',ht2:'Начало',ht3:'Обед нач.',ht4:'Обед кон.',ht5:'Конец',ht6:'Опоздание',ht7:'Раб.время',ht8:'Обед',ht_afk:'AFK',ht9:'Статус',eh_note:'Данные выбранного месяца.',el_lbl:'Опозданий (месяц):',afk_month_lbl:'AFK (итого за месяц):',e_cm:'Тек. месяц',mw_txt:'Нажимайте "Завершить" только после полного окончания рабочего дня!',mw_ok:'ОК',mep_t:'Изменить пароль',mep_s:'Сохранить',mep_c:'Отмена',ep_ph:'Новый пароль',b_came:'Пришёл',b_late:'Опоздал',b_abs:'Не пришёл',b_off:'Выходной',del_c:'Удалить сотрудника?',no_data:'Нет данных',daq:'мин',marta:'раз',kun:'дн.',soat:'ч',daqiqa:'мин',ball:'балл',hisobot:'отчёт',change:'Изменить',delete:'Удалить',reset:'Сброс',fill_all:'Заполните все поля!',face_detected:'✅ Лицо обнаружено',face_not_detected:'❌ Лицо не обнаружено',face_loading:'⏳ Загрузка...',face_unknown:'⚠️ Неизвестное лицо',afk_lbl:'⚠️ Отсутствие',afk_cnt_lbl:'раз AFK',afk_warn_title:'⚠️ Лицо не распознано!',afk_warn_txt:'Сядьте перед камерой.',afk_warn_sub:'Если лицо не обнаружено в течение 5 минут — AFK',afk_im_here:'Я здесь ✋',auto_end_txt:'18:15. Рабочий день завершён системой.',auto_ended:'Завершено системой',afk_banner:'Лицо не обнаружено! Идёт подсчёт AFK...',afk_over:'сверх лимита',kpi_sr:'Старый сотр. (560K)',kpi_jr:'Новый сотр. (400K)'}
 };
 let lang = localStorage.getItem('aloqa_lang') || 'uz';
 const t = k => (TR[lang]||TR.uz)[k] || k;
@@ -1084,8 +1084,9 @@ function applyLang(){
    'ew_t','et_t','eh_t','ewl','ell','ewd','eld','e_note',
    'ei1','ei2','ei3','ei4','ht1','ht2','ht3','ht4','ht5','ht6','ht7','ht8','ht_afk','ht9',
    'eh_note','el_lbl','afk_month_lbl','e_cm','mw_txt','mw_ok','mep_t','mep_s','mep_c',
-   'afk_lbl','afk_warn_title','afk_warn_txt','afk_warn_sub','afk_im_here','auto_end_txt','afkBannerTxt'
+   'afk_lbl','afk_warn_title','afk_warn_txt','afk_warn_sub','afk_im_here','auto_end_txt'
   ].forEach(k=>st(k,t(k)));
+  st('afkBannerTxt', t('afk_banner'));
   sp('ep_np',t('ep_ph'));sp('fsearch',t('fsearch'));
   const bsE=document.getElementById('bs');if(bsE)bsE.textContent=t('bs');
   const blE=document.getElementById('bl');if(blE)blE.textContent=(empState==='lunch'?t('bb'):t('bl'));
@@ -1803,13 +1804,8 @@ async function runFaceCheck(){
    det.detection.box._width > 0 &&
    det.detection.box._x !== null){
   const box = det.detection.box;
-  // ✅ Yuz topildi
-  faceHitCount++;
-  faceMissCount = 0;
-  drawFaceBox(box, true);
-  updateLiveness(box);
 
-      // Recognition tekshiruvi
+      // Recognition tekshiruvi — oldin tekshir, keyin hitCount oshir
       let reason='detected';
       if(myFaceDescriptor){
         try{
@@ -1817,6 +1813,24 @@ async function runFaceCheck(){
           reason=dist<0.45?'match':'unknown_face';
         }catch(e){}
       }
+
+      // ❌ Boshqa odam yuzi — darhol miss sifatida hisoblash
+      if(reason==='unknown_face'){
+        faceHitCount=0; // reset — stabil bo'lmasin
+        faceMissCount++;
+        drawFaceBox(box,false); // qizil ramka
+        setFaceDot('red','⚠️ Boshqa shaxs!');
+        const statusEl=document.getElementById('face_status_inline');
+        if(statusEl)statusEl.textContent='⚠️ Noto\'g\'ri yuz! AFK hisoblanmoqda';
+        if(faceMissCount>=3)onFaceMissed();
+        return;
+      }
+
+  // ✅ O'z yuzi — hit hisoblash
+  faceHitCount++;
+  faceMissCount = 0;
+  drawFaceBox(box, true);
+  updateLiveness(box);
 
       // ✅ FIX 4+5: STABLE_HIT_REQUIRED=3 ketma-ket detection — faqat shundan keyin AFK/banner tozalanadi
       if(faceHitCount >= STABLE_HIT_REQUIRED){
@@ -1882,18 +1896,8 @@ function updateLiveness(box){
 function onFaceStablyDetected(reason){
   const statusEl=document.getElementById('face_status_inline');
   const name=CU?.name||'';
-  let txt=t('face_detected');
-  if(reason==='match')txt='✅ Tanildi: '+name;
-  else if(reason==='unknown_face')txt='⚠️ Noto\'g\'ri yuz!';
+  let txt='✅ Tanildi: '+name;
   if(statusEl)statusEl.textContent=txt;
-  
-  // ✅ Noto'g'ri yuz — AFK davom etsin, yashil dot ko'rsatma
-  if(reason==='unknown_face'){
-    setFaceDot('red','⚠️ Boshqa shaxs!');
-    onFaceMissed(); // AFK hisoblansin
-    return;
-  }
-  
   setFaceDot('green','✅ '+name);
   // AFK sessiyani tugatish — faqat to'g'ri yuz bo'lsa
   if(isAfk)endAfkSession();
@@ -1903,7 +1907,6 @@ function onFaceStablyDetected(reason){
     afkWarnShown=false;
     if(afkCountdownIv){clearInterval(afkCountdownIv);afkCountdownIv=null;}
   }
-
   // ✅ FIX 5: Banner faqat stabil detectiondan keyin yashiriladi
   document.getElementById('afkBanner').style.display='none';
 }
@@ -2159,7 +2162,7 @@ async function loadHist(){
     else bdg=`<span class="badge br">${t('b_abs')}</span>`;
     if(r.auto_ended)bdg+=` <span class="badge bauto" style="font-size:10px">⚙️ auto</span>`;
     const tr=document.createElement('tr');
-    tr.innerHTML=`<td>${i+1}</td><td style="font-family:var(--mono)">${r.work_date}</td><td style="font-family:var(--mono)">${r.start_time?r.start_time.substring(0,5):'-'}</td><td>${r.lunch_start?r.lunch_start.substring(0,5):'-'}</td><td>${r.lunch_end?r.lunch_end.substring(0,5):'-'}</td><td>${r.end_time?r.end_time.substring(0,5):'-'}</td><td>${r.late_minutes?r.late_minutes+' '+t('daq'):'-'}</td><td style="font-family:var(--mono)">${wh}h ${wm}m</td><td>${lh}h ${lm2}m</td><td style="color:${afkOver>0?'var(--danger)':'inherit'};font-family:var(--mono)">${afkMin>0?afkMin+' '+t('daq'):'—'}${afkOver>0?` <span style="font-size:10px;color:var(--danger)">(+${afkOver} over)</span>`:''}</td><td>${bdg}</td>`;
+    tr.innerHTML=`<td>${i+1}</td><td style="font-family:var(--mono)">${r.work_date}</td><td style="font-family:var(--mono)">${r.start_time?r.start_time.substring(0,5):'-'}</td><td>${r.lunch_start?r.lunch_start.substring(0,5):'-'}</td><td>${r.lunch_end?r.lunch_end.substring(0,5):'-'}</td><td>${r.end_time?r.end_time.substring(0,5):'-'}</td><td>${r.late_minutes?r.late_minutes+' '+t('daq'):'-'}</td><td style="font-family:var(--mono)">${wh}h ${wm}m</td><td>${lh}h ${lm2}m</td><td style="color:${afkOver>0?'var(--danger)':'inherit'};font-family:var(--mono)">${afkMin>0?afkMin+' '+t('daq'):'—'}${afkOver>0?` <span style="font-size:10px;color:var(--danger)">(+${afkOver} ${t('daq')} ${t('afk_over')})</span>`:''}</td><td>${bdg}</td>`;
     tbody.appendChild(tr);
   });
   st('e_lc',''+lc);st('e_afk_total',Math.floor(totalAfkSec/60)+' '+t('daqiqa'));
