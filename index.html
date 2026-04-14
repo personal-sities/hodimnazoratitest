@@ -2106,9 +2106,10 @@ async function saveFaceProfile(){
   avg.forEach((v,i)=>avg[i]=v/regSamples.length);
   const descriptor=Array.from(avg);
   try{
-    const{data:ex}=await sb.from('face_profiles').select('id').eq('employee_id',CU.id).maybeSingle();
-    if(ex)await sb.from('face_profiles').update({descriptor}).eq('employee_id',CU.id);
-    else await sb.from('face_profiles').insert({employee_id:CU.id,descriptor});
+    await sb.from('face_profiles').upsert(
+      {employee_id:CU.id, descriptor},
+      {onConflict:'employee_id'}
+    );
     await sb.from('employees').update({face_registered:true}).eq('id',CU.id);
     myFaceDescriptor=avg;
     const frb=document.getElementById('faceRegBox');if(frb)frb.style.display='none';
