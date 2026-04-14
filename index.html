@@ -1732,7 +1732,7 @@ async function loadFaceModels(){
     }
   }catch(e){}
 
-  const URLS=['./model/'];
+  const URLS=['/hodimnazoratitest/model/'];
   for(const url of URLS){
     try{
       await faceapi.nets.tinyFaceDetector.loadFromUri(url);
