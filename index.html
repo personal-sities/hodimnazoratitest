@@ -10,6 +10,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <script src="./supabase.js"></script>
+<script>window.wasmPath = './';</script>
 <script async src="./face-api.js"></script>
 <script async src="./xlsx.full.min.js"></script>
 <script src="./jspdf.umd.min.js"></script>
@@ -1723,9 +1724,15 @@ async function loadFaceModels(){
     await new Promise(r=>setTimeout(r,500));
   }
   if(typeof faceapi==='undefined'){console.error('faceapi undefined');return false;}
-  const URLS=[
-    './model/'
-  ];
+
+  // ✅ WASM fayllar lokal papkada ekanligini ko'rsatish
+  try{
+    if(typeof tf!=='undefined' && tf.wasm){
+      tf.wasm.setWasmPaths('./');
+    }
+  }catch(e){}
+
+  const URLS=['./model/'];
   for(const url of URLS){
     try{
       await faceapi.nets.tinyFaceDetector.loadFromUri(url);
@@ -1753,24 +1760,15 @@ async function startCamera(){
     faceStream=await navigator.mediaDevices.getUserMedia({video:{width:{ideal:320},height:{ideal:240},facingMode:'user'},audio:false});
     const video=document.getElementById('faceVideo');
     video.srcObject=faceStream;
-    await new Promise((resolve, reject) => {
-  video.onloadedmetadata = () => {
-    video.play().catch(() => {}).finally(resolve);
-  };
-  video.onerror = reject;
-  setTimeout(resolve, 5000);
-});
-
-// ✅ videoWidth tayyor bo'lgunicha kut
-let waited = 0;
-while ((!video.videoWidth || !video.videoHeight) && waited < 3000) {
-  await new Promise(r => setTimeout(r, 100));
-  waited += 100;
-}
-
-const canvas = document.getElementById('faceCanvas');
-canvas.width = video.videoWidth || 320;
-canvas.height = video.videoHeight || 240;
+    await new Promise((resolve,reject)=>{
+      video.onloadedmetadata=()=>resolve();
+      video.onerror=reject;
+      setTimeout(resolve,3000);
+    });
+    try{await video.play();}catch(e){}
+    const canvas=document.getElementById('faceCanvas');
+    canvas.width=video.videoWidth||320;
+    canvas.height=video.videoHeight||240;
     return true;
   }catch(e){
     console.error('Camera error:',e.message);
@@ -1815,19 +1813,14 @@ async function runFaceCheck(){
 
   if(!faceApiLoaded)return;
 
-  const video = document.getElementById('faceVideo');
-if (!video) return;
+  const video=document.getElementById('faceVideo');
+  if(!video)return;
 
-// ✅ Video o'lchamlari tayyor emasligini tekshir
-if (!video.videoWidth || !video.videoHeight || video.videoWidth === 0) {
-  return;
-}
-
-// ✅ FIX 2: Video paused yoki to'xtagan bo'lsa — play() chaqir, skip qilma
-if (video.readyState < 2) {
-  try { await video.play(); } catch(e) {}
-  return;
-}
+  // ✅ FIX 2: Video paused yoki to'xtagan bo'lsa — play() chaqir, skip qilma
+  if(video.readyState < 2){
+    try{ await video.play(); }catch(e){}
+    return; // Keyingi tick da qayta urinib ko'riladi
+  }
   if(video.paused || video.ended){
     try{
       await video.play();
