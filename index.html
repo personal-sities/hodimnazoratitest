@@ -1719,33 +1719,45 @@ function toggleFaceWidget(){
 // ── MODEL LOADING ──────────────────────────────────────────
 async function loadFaceModels(){
   if(faceApiLoaded)return true;
+
   for(let i=0;i<40;i++){
     if(typeof faceapi!=='undefined')break;
     await new Promise(r=>setTimeout(r,500));
   }
-  if(typeof faceapi==='undefined'){console.error('faceapi undefined');return false;}
 
-  // ✅ WASM fayllar lokal papkada ekanligini ko'rsatish
-  try{
-    if(typeof tf!=='undefined' && tf.wasm){
-      tf.wasm.setWasmPaths('./');
-    }
-  }catch(e){}
+  if(typeof faceapi==='undefined'){
+    console.error('faceapi undefined');
+    return false;
+  }
+
+  // 🔴 MUHIM FIX
+  try {
+    await faceapi.tf.setBackend('cpu');
+    await faceapi.tf.ready();
+    console.log("Backend:", faceapi.tf.getBackend());
+  } catch(e){
+    console.warn("Backend set error", e);
+  }
 
   const URLS=['/hodimnazoratitest/model/'];
+
   for(const url of URLS){
     try{
       await faceapi.nets.tinyFaceDetector.loadFromUri(url);
-        try{await faceapi.nets.faceLandmark68Net.loadFromUri(url);}catch(e){}
-        try{await faceapi.nets.faceLandmark68TinyNet.loadFromUri(url);}catch(e){}
-        try{await faceapi.nets.faceRecognitionNet.loadFromUri(url);}catch(e){}
+      try{await faceapi.nets.faceLandmark68Net.loadFromUri(url);}catch(e){}
+      try{await faceapi.nets.faceLandmark68TinyNet.loadFromUri(url);}catch(e){}
+      try{await faceapi.nets.faceRecognitionNet.loadFromUri(url);}catch(e){}
+
       faceApiLoaded=true;
       return true;
-    }catch(e){console.warn('URL failed:',url);}
+
+    }catch(e){
+      console.warn('URL failed:',url);
+    }
   }
+
   return false;
 }
-
 // ── START CAMERA ───────────────────────────────────────────
 async function startCamera(){
   if(faceStream){
