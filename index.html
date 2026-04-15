@@ -510,7 +510,7 @@ html, body { font-family:var(--font); background:var(--bg); color:var(--text); m
   <div class="login-card">
     <h2 id="lc_t">Nazorat tizimiga xush kelibsiz!</h2>
     <p id="lc_s">Login va parolni kiriting!</p>
-    <div class="iw"><input type="text" id="inp_l" placeholder="Login" autocomplete="off"></div>
+    <div class="iw"><input type="email" id="inp_l" placeholder="Email" autocomplete="off"></div>
     <div class="iw">
       <input type="password" id="inp_p" placeholder="Parol">
       <button class="eye" onclick="toggleEye()" type="button">
@@ -685,7 +685,7 @@ html, body { font-family:var(--font); background:var(--bg); color:var(--text); m
             <div class="btitle">⚙️ <span id="set_t">Hodimlar boshqaruvi</span></div>
             <div class="sf">
               <input type="text" id="ne_n" placeholder="Ism familiya">
-              <input type="text" id="ne_l" placeholder="Login">
+              <input type="email" id="ne_l" placeholder="Email">
               <input type="password" id="ne_p" placeholder="Parol">
               <select id="ne_k">
                 <option value="senior">Eski hodim (560 000 UZS)</option>
@@ -1324,22 +1324,107 @@ async function replyFeedback(id) {
 // ============================================================
 let CU = null;
 async function doLogin(){
-  const lg=document.getElementById('inp_l').value.trim();
-  const ps=document.getElementById('inp_p').value.trim();
-  const err=document.getElementById('lerr');err.textContent='';
-  if(!lg||!ps){err.textContent=t('loginFill');return;}
-  const lbtn=document.getElementById('lbtn');lbtn.textContent='⏳';lbtn.disabled=true;
-  const{data:adm}=await sb.from('admins').select('*').eq('login',lg).eq('password',ps).maybeSingle();
-  if(adm){CU={...adm,role:'admin'};localStorage.setItem('aloqa_u',JSON.stringify(CU));lbtn.textContent=t('loginBtn');lbtn.disabled=false;showPage('admin');return;}
-  const{data:emp}=await sb.from('employees').select('*').eq('login',lg).eq('password',ps).maybeSingle();
-  if(emp){
-    const allowed=await checkIPAccess('employee');
-    if(!allowed){lbtn.textContent=t('loginBtn');lbtn.disabled=false;if(!userPublicIP)userPublicIP=await getUserIP();showIPBlock(userPublicIP);return;}
-    CU={...emp,role:'employee'};localStorage.setItem('aloqa_u',JSON.stringify(CU));lbtn.textContent=t('loginBtn');lbtn.disabled=false;showPage('employee');return;
+  const email = document.getElementById('inp_l').value.trim().toLowerCase();
+  const ps = document.getElementById('inp_p').value.trim();
+  const err = document.getElementById('lerr');
+  err.textContent = '';
+
+  if(!email || !ps){
+    err.textContent = t('loginFill');
+    return;
   }
-  err.textContent=t('loginErr');lbtn.textContent=t('loginBtn');lbtn.disabled=false;
+
+  const lbtn = document.getElementById('lbtn');
+  lbtn.textContent = '⏳';
+  lbtn.disabled = true;
+
+  try {
+    // 🔐 AUTH LOGIN
+    const { data, error } = await sb.auth.signInWithPassword({
+      email,
+      password: ps
+    });
+
+    if (error || !data?.user) {
+      err.textContent = t('loginErr');
+      lbtn.textContent = t('loginBtn');
+      lbtn.disabled = false;
+      return;
+    }
+
+    const uid = data.user.id;
+
+    // 🔍 ADMIN TEKSHIRISH
+    const { data: adm } = await sb
+      .from('admins')
+      .select('*')
+      .eq('user_id', uid)
+      .maybeSingle();
+
+    if (adm) {
+      CU = {...adm, role:'admin'};
+      localStorage.setItem('aloqa_u', JSON.stringify(CU));
+
+      lbtn.textContent = t('loginBtn');
+      lbtn.disabled = false;
+
+      showPage('admin');
+      return;
+    }
+
+    // 🔍 EMPLOYEE TEKSHIRISH
+    const { data: emp } = await sb
+      .from('employees')
+      .select('*')
+      .eq('user_id', uid)
+      .maybeSingle();
+
+    if (emp) {
+      const allowed = await checkIPAccess('employee');
+
+      if (!allowed) {
+        lbtn.textContent = t('loginBtn');
+        lbtn.disabled = false;
+
+        if (!userPublicIP) userPublicIP = await getUserIP();
+        showIPBlock(userPublicIP);
+
+        await sb.auth.signOut();
+        return;
+      }
+
+      CU = {...emp, role:'employee'};
+      localStorage.setItem('aloqa_u', JSON.stringify(CU));
+
+      lbtn.textContent = t('loginBtn');
+      lbtn.disabled = false;
+
+      showPage('employee');
+      return;
+    }
+
+    err.textContent = "User bazaga bog‘lanmagan";
+    await sb.auth.signOut();
+
+  } catch (e) {
+    console.error(e);
+    err.textContent = "Tizim xatoligi";
+  }
+
+  lbtn.textContent = t('loginBtn');
+  lbtn.disabled = false;
 }
-function doLogout(){stopAll();stopFaceDetection();CU=null;localStorage.removeItem('aloqa_u');showPage('login');}
+async function doLogout(){
+  stopAll();
+  stopFaceDetection();
+
+  await sb.auth.signOut(); // 🔐 muhim
+
+  CU = null;
+  localStorage.removeItem('aloqa_u');
+
+  showPage('login');
+}
 function toggleEye(){const i=document.getElementById('inp_p');i.type=i.type==='password'?'text':'password';}
 
 function showPage(p){
@@ -1489,7 +1574,58 @@ async function loadEmpList(){
     tbody.appendChild(tr);
   });
 }
-async function addEmp(){const nm=document.getElementById('ne_n').value.trim();const lg=document.getElementById('ne_l').value.trim();const ps=document.getElementById('ne_p').value.trim();const kp=document.getElementById('ne_k').value;if(!nm||!lg||!ps){toast('warn','Xato',t('fill_all'));return;}const{error}=await sb.from('employees').insert({name:nm,login:lg,password:ps,kpi_type:kp});if(!error){document.getElementById('ne_n').value='';document.getElementById('ne_l').value='';document.getElementById('ne_p').value='';loadEmpList();toast('success','Hodim','Qo\'shildi!');}else toast('error','Xato',error.message);}
+async function addEmp(){
+  const nm = document.getElementById('ne_n').value.trim();
+  const email = document.getElementById('ne_l').value.trim().toLowerCase();
+  const ps = document.getElementById('ne_p').value.trim();
+  const kp = document.getElementById('ne_k').value;
+
+  if(!nm || !email || !ps){
+    toast('warn','Xato',t('fill_all'));
+    return;
+  }
+
+  try {
+    const { data: sessData } = await sb.auth.getSession();
+    const token = sessData?.session?.access_token;
+
+    if (!token) {
+      toast('error', 'Xato', 'Admin sessiyasi topilmadi');
+      return;
+    }
+
+    const res = await fetch('https://auzafnpqavjifgcxdjha.supabase.co/functions/v1/create-employee', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${token}`
+  },
+  body: JSON.stringify({
+    name: nm,
+    email,
+    password: ps,
+    kpi_type: kp
+  })
+});
+
+    const result = await res.json();
+
+    if (!res.ok) {
+      toast('error', 'Xato', result.error || 'Hodim qo‘shilmadi');
+      return;
+    }
+
+    document.getElementById('ne_n').value = '';
+    document.getElementById('ne_l').value = '';
+    document.getElementById('ne_p').value = '';
+
+    await loadEmpList();
+    toast('success', 'Hodim', 'Qo‘shildi!');
+  } catch (e) {
+    console.error(e);
+    toast('error', 'Xato', e.message || 'Tizim xatoligi');
+  }
+}
 async function delEmp(id){if(!confirm(t('del_c')))return;await sb.from('employees').delete().eq('id',id);loadEmpList();toast('info','Hodim','O\'chirildi');}
 function addHol(){const d=document.getElementById('hol_d').value;if(!d)return;const h=JSON.parse(localStorage.getItem('aloqa_hols')||'[]');if(!h.includes(d))h.push(d);localStorage.setItem('aloqa_hols',JSON.stringify(h));document.getElementById('hol_d').value='';updateHolList();}
 function updateHolList(){const h=JSON.parse(localStorage.getItem('aloqa_hols')||'[]');const el=document.getElementById('hol_list');if(!el)return;el.textContent=h.length===0?t('hol_none'):'Dam olish: '+h.join(', ');}
