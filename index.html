@@ -2074,10 +2074,12 @@ async function loadFaceModels(){
 
   const URLS = ['./model'];
 
-    for (const url of URLS) {
-    try {
+for (const url of URLS) {
+  try {
+    console.log('Loading models from:', url);
+
     await faceapi.nets.tinyFaceDetector.loadFromUri(url);
-    await faceapi.nets.faceLandmark68Net.loadFromUri(url);
+    await faceapi.nets.faceLandmark68TinyNet.loadFromUri(url);
     await faceapi.nets.faceRecognitionNet.loadFromUri(url);
 
     faceApiLoaded = true;
@@ -2085,7 +2087,7 @@ async function loadFaceModels(){
     return true;
 
   } catch (e) {
-    console.warn('URL failed:', url, e);
+    console.error('MODEL LOAD FAILED:', url, e);
   }
 }
 
