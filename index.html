@@ -953,8 +953,8 @@ html, body { font-family:var(--font); background:var(--bg); color:var(--text); m
 // ============================================================
 //  CONFIG
 // ============================================================
-const SUPABASE_URL  = 'https://auzafnpqavjifgcxdjha.supabase.co';
-const SUPABASE_ANON = 'sb_publishable_42Jv6FiVUPVKItb73z0gkQ_1YyJYIDE';
+const SUPABASE_URL  = 'https://hdbhdddekjjjtwtyocfa.supabase.co';
+const SUPABASE_ANON = 'sb_publishable_CZUB0mOSzmmCvviNzWykzw_B3_0-5bE';
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
 
 const FACE_CHECK_INTERVAL = 1000;
@@ -1159,9 +1159,16 @@ async function requestPushPermission() {
     toast('warn','Push','Ruxsat berilmadi');
   }
 }
+let remindersInterval = null;
+
 function scheduleReminders() {
   checkScheduledNotifs();
-  setInterval(checkScheduledNotifs, 60000);
+
+  if (remindersInterval) return;
+
+  remindersInterval = setInterval(() => {
+    checkScheduledNotifs();
+  }, 60000);
 }
 let sentToday = {};
 function checkScheduledNotifs() {
@@ -1481,49 +1488,134 @@ function setToday(){const today=todayISO();document.getElementById('fd_from').va
 function setCurMonth(){document.getElementById('fmonth').value=curM();}
 function toggleMonthly(){mVisible=!mVisible;document.getElementById('mbox').classList.toggle('hidden',!mVisible);if(mVisible)loadMonthly();}
 
-async function loadAtt(){
-  const dateFrom=document.getElementById('fd_from').value||todayISO();
-  const dateTo=document.getElementById('fd_to').value||todayISO();
-  const{data:emps}=await sb.from('employees').select('*');if(!emps)return;
-  let recs;
-  if(dateFrom===dateTo){const{data}=await sb.from('attendance').select('*').eq('work_date',dateFrom);recs=data;}
-  else{const{data}=await sb.from('attendance').select('*').gte('work_date',dateFrom).lte('work_date',dateTo);recs=data;}
-  const tbody=document.getElementById('att_body');tbody.innerHTML='';
-  let w=0,l=0,a=0;
-  emps.forEach((emp,i)=>{
-    const empRecs=recs?recs.filter(r=>r.employee_id===emp.id):[];
-    if(dateFrom===dateTo){
-      const rec=empRecs[0]||null;
-      let status='kelmadi',arr='-',lm=0,hrs='-',afkSec=0;
-      const wd=isWorkDay(dateFrom);
-      if(!wd){status='off';}
-      else if(rec&&rec.start_time){
-        arr=rec.start_time.substring(0,5);
-        const[h,mm]=rec.start_time.split(':').map(Number);
-        lm=Math.max(0,h*60+mm-9*60);
-        status=rec.auto_ended?'auto_ended':(lm>0?'kechikkan':'keldi');
-        if(status==='keldi'||status==='auto_ended')w++;else if(status==='kechikkan')l++;
-        if(rec.work_seconds){const s=rec.work_seconds;hrs=Math.floor(s/3600)+'h '+Math.floor((s%3600)/60)+'m';}
-        afkSec=rec.afk_seconds||0;
-      }else if(wd)a++;
-      let bc2='bgr',bt=t('b_off');
-      if(status==='keldi'){bc2='bg';bt=t('b_came');}else if(status==='kechikkan'){bc2='by';bt=t('b_late');}else if(status==='kelmadi'){bc2='br';bt=t('b_abs');}else if(status==='auto_ended'){bc2='bg';bt='⚙️ Auto';}
-      const afkFmt=afkSec>0?(Math.floor(afkSec/60)+' '+t('daq')):'—';
-      const tr=document.createElement('tr');tr.dataset.name=emp.name.toLowerCase();tr.dataset.st=status;
-      tr.innerHTML=`<td>${i+1}</td><td>${emp.name}</td><td style="font-family:var(--mono)">${emp.login}</td><td><button class="bsm bsm-g" onclick="openEP('${emp.id}')">${t('change')}</button></td><td style="font-family:var(--mono)">${arr}</td><td>${lm>0?lm+' '+t('daq'):'-'}</td><td style="font-family:var(--mono)">${hrs}</td><td style="color:${afkSec>1800?'var(--danger)':'var(--text2)'};">${afkFmt}</td><td><span class="badge ${bc2}">${bt}</span></td>`;
-      tbody.appendChild(tr);
-    } else {
-      if(empRecs.length===0){const tr=document.createElement('tr');tr.dataset.name=emp.name.toLowerCase();tr.dataset.st='kelmadi';tr.innerHTML=`<td>${i+1}</td><td>${emp.name}</td><td>${emp.login}</td><td><button class="bsm bsm-g" onclick="openEP('${emp.id}')">${t('change')}</button></td><td>—</td><td>—</td><td>—</td><td>—</td><td><span class="badge bgr">—</span></td>`;tbody.appendChild(tr);return;}
-      let totalSec=0,totalAfk=0,totalLate=0;
-      empRecs.forEach(r=>{totalSec+=r.work_seconds||0;totalAfk+=r.afk_seconds||0;if(r.late_minutes>0)totalLate+=r.late_minutes;});
-      const hrs2=Math.floor(totalSec/3600)+'h '+Math.floor((totalSec%3600)/60)+'m';
-      const afkFmt2=totalAfk>0?(Math.floor(totalAfk/60)+' '+t('daq')):'—';
-      const tr=document.createElement('tr');tr.dataset.name=emp.name.toLowerCase();tr.dataset.st='keldi';
-      tr.innerHTML=`<td>${i+1}</td><td>${emp.name}</td><td>${emp.login}</td><td><button class="bsm bsm-g" onclick="openEP('${emp.id}')">${t('change')}</button></td><td>${empRecs.length} ${t('kun')}</td><td>${totalLate>0?totalLate+' '+t('daq'):'-'}</td><td>${hrs2}</td><td style="color:${totalAfk>1800?'var(--danger)':'var(--text2)'}">${afkFmt2}</td><td><span class="badge bg">${empRecs.length} ${t('kun')}</span></td>`;
-      tbody.appendChild(tr);
-    }
+async function loadAtt() {
+  const dateFrom = document.getElementById('fd_from').value || todayISO();
+  const dateTo = document.getElementById('fd_to').value || todayISO();
+  const search = document.getElementById('fsearch').value || '';
+  const statusFilter = document.getElementById('fstatus').value || '';
+
+  const { data, error } = await sb.rpc('admin_attendance_range', {
+    p_from: dateFrom,
+    p_to: dateTo,
+    p_search: search,
+    p_status: statusFilter
   });
-  st('sw',''+w);st('sl',''+l);st('sa',''+a);st('sd',dateFrom===dateTo?fmtD(new Date(dateFrom+'T12:00:00')):dateFrom+' → '+dateTo);
+
+  if (error) {
+    console.error('loadAtt rpc error:', error);
+    toast('error', 'Xato', error.message || 'Davomat yuklanmadi');
+    return;
+  }
+
+  const tbody = document.getElementById('att_body');
+  tbody.innerHTML = '';
+
+  let w = 0, l = 0, a = 0;
+
+  if (dateFrom === dateTo) {
+    (data || []).forEach((row, i) => {
+      let status = row.status || 'kelmadi';
+      let arr = row.start_time ? row.start_time.substring(0, 5) : '-';
+      let lm = row.late_minutes || 0;
+      let hrs = row.worked_seconds ? secToHMS(row.worked_seconds) : '-';
+      let afkSec = row.afk_seconds || 0;
+
+      if (status === 'keldi' || status === 'auto_ended') w++;
+      else if (status === 'kechikkan') l++;
+      else if (status === 'kelmadi') a++;
+
+      let bc2 = 'bgr', bt = t('b_off');
+      if (status === 'keldi') {
+        bc2 = 'bg';
+        bt = t('b_came');
+      } else if (status === 'kechikkan') {
+        bc2 = 'by';
+        bt = t('b_late');
+      } else if (status === 'kelmadi') {
+        bc2 = 'br';
+        bt = t('b_abs');
+      } else if (status === 'auto_ended') {
+        bc2 = 'bg';
+        bt = '⚙️ Auto';
+      }
+
+      const afkFmt = afkSec > 0 ? (Math.floor(afkSec / 60) + ' ' + t('daq')) : '—';
+
+      const tr = document.createElement('tr');
+      tr.dataset.name = (row.employee_name || '').toLowerCase();
+      tr.dataset.st = status;
+
+      tr.innerHTML = `
+        <td>${i + 1}</td>
+        <td>${row.employee_name || '-'}</td>
+        <td style="font-family:var(--mono)">${row.employee_login || '-'}</td>
+        <td><button class="bsm bsm-g" onclick="openEP('${row.employee_id}')">${t('change')}</button></td>
+        <td style="font-family:var(--mono)">${arr}</td>
+        <td>${lm > 0 ? lm + ' ' + t('daq') : '-'}</td>
+        <td style="font-family:var(--mono)">${hrs}</td>
+        <td style="color:${afkSec > 1800 ? 'var(--danger)' : 'var(--text2)'};">${afkFmt}</td>
+        <td><span class="badge ${bc2}">${bt}</span></td>
+      `;
+
+      tbody.appendChild(tr);
+    });
+  } else {
+    const grouped = {};
+
+    (data || []).forEach((row) => {
+      const id = row.employee_id;
+      if (!grouped[id]) {
+        grouped[id] = {
+          employee_id: row.employee_id,
+          employee_name: row.employee_name,
+          employee_login: row.employee_login,
+          totalSec: 0,
+          totalAfk: 0,
+          totalLate: 0,
+          dayCount: 0
+        };
+      }
+
+      grouped[id].totalSec += row.worked_seconds || 0;
+      grouped[id].totalAfk += row.afk_seconds || 0;
+      grouped[id].totalLate += row.late_minutes || 0;
+
+      if (row.work_date) grouped[id].dayCount++;
+    });
+
+    Object.values(grouped).forEach((emp, i) => {
+      const hrs2 = emp.totalSec > 0
+        ? Math.floor(emp.totalSec / 3600) + 'h ' + Math.floor((emp.totalSec % 3600) / 60) + 'm'
+        : '—';
+
+      const afkFmt2 = emp.totalAfk > 0
+        ? Math.floor(emp.totalAfk / 60) + ' ' + t('daq')
+        : '—';
+
+      const tr = document.createElement('tr');
+      tr.dataset.name = (emp.employee_name || '').toLowerCase();
+      tr.dataset.st = 'keldi';
+
+      tr.innerHTML = `
+        <td>${i + 1}</td>
+        <td>${emp.employee_name || '-'}</td>
+        <td>${emp.employee_login || '-'}</td>
+        <td><button class="bsm bsm-g" onclick="openEP('${emp.employee_id}')">${t('change')}</button></td>
+        <td>${emp.dayCount} ${t('kun')}</td>
+        <td>${emp.totalLate > 0 ? emp.totalLate + ' ' + t('daq') : '-'}</td>
+        <td>${hrs2}</td>
+        <td style="color:${emp.totalAfk > 1800 ? 'var(--danger)' : 'var(--text2)'}">${afkFmt2}</td>
+        <td><span class="badge bg">${emp.dayCount} ${t('kun')}</span></td>
+      `;
+
+      tbody.appendChild(tr);
+    });
+  }
+
+  st('sw', '' + w);
+  st('sl', '' + l);
+  st('sa', '' + a);
+  st('sd', dateFrom === dateTo ? fmtD(new Date(dateFrom + 'T12:00:00')) : dateFrom + ' → ' + dateTo);
 }
 function filterAtt(){const q=document.getElementById('fsearch').value.toLowerCase();const s=document.getElementById('fstatus').value;document.querySelectorAll('#att_body tr').forEach(tr=>{tr.style.display=((tr.dataset.name||'').includes(q)&&(!s||tr.dataset.st===s))?'':'none';});}
 
@@ -1563,55 +1655,112 @@ async function loadMonthly(){
 function calcKpi(ball,type){if(type==='senior'){if(ball>=90)return 560000;if(ball>=80)return 420000;if(ball>=70)return 280000;return 0;}if(ball>=90)return 400000;if(ball>=80)return 300000;if(ball>=70)return 210000;return 0;}
 async function adjKpi(eid,month,delta,reset=false){const{data:ex}=await sb.from('kpi_bonuses').select('*').eq('employee_id',eid).eq('month',month).maybeSingle();if(reset){if(ex)await sb.from('kpi_bonuses').update({bonus:0}).eq('id',ex.id);else await sb.from('kpi_bonuses').insert({employee_id:eid,month,bonus:0});}else{const nv=(ex?ex.bonus:0)+delta;if(ex)await sb.from('kpi_bonuses').update({bonus:nv}).eq('id',ex.id);else await sb.from('kpi_bonuses').insert({employee_id:eid,month,bonus:delta});}loadMonthly();}
 
-async function loadEmpList(){
-  const{data:emps}=await sb.from('employees').select('*');if(!emps)return;
-  const tbody=document.getElementById('emp_body');tbody.innerHTML='';
-  emps.forEach((emp,i)=>{
-    const ka=emp.kpi_type==='junior'?'400 000':'560 000';
-    const faceStatus=emp.face_registered?'<span style="color:var(--success);font-size:11px">✅ Ro\'yxatda</span>':'<span style="color:var(--text3);font-size:11px">❌ Yo\'q</span>';
-    const tr=document.createElement('tr');
-    tr.innerHTML=`<td>${i+1}</td><td>${emp.name}</td><td style="font-family:var(--mono)">${emp.login}</td><td style="font-family:var(--mono)">*****</td><td>${faceStatus}</td><td style="font-family:var(--mono)">+${ka} UZS</td><td><button class="brd" onclick="delEmp('${emp.id}')">${t('delete')}</button></td>`;
+async function loadEmpList() {
+  const { data: emps, error } = await sb
+    .from('employees')
+    .select('id,name,login,kpi_type,face_registered')
+    .eq('active', true)
+    .order('name');
+
+  if (error || !emps) {
+    toast('error', 'Xato', error?.message || 'Hodimlar yuklanmadi');
+    return;
+  }
+
+  const tbody = document.getElementById('emp_body');
+  tbody.innerHTML = '';
+
+  emps.forEach((emp, i) => {
+    const ka = emp.kpi_type === 'junior' ? '400 000' : '560 000';
+    const faceStatus = emp.face_registered
+      ? '<span style="color:var(--success);font-size:11px">✅ Ro\'yxatda</span>'
+      : '<span style="color:var(--text3);font-size:11px">❌ Yo\'q</span>';
+
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${i + 1}</td>
+      <td>${emp.name}</td>
+      <td style="font-family:var(--mono)">${emp.login}</td>
+      <td style="font-family:var(--mono)">*****</td>
+      <td>${faceStatus}</td>
+      <td style="font-family:var(--mono)">+${ka} UZS</td>
+      <td><button class="brd" onclick="delEmp('${emp.id}')">${t('delete')}</button></td>
+    `;
     tbody.appendChild(tr);
   });
 }
-async function addEmp(){
+async function addEmp() {
   const nm = document.getElementById('ne_n').value.trim();
   const email = document.getElementById('ne_l').value.trim().toLowerCase();
   const ps = document.getElementById('ne_p').value.trim();
   const kp = document.getElementById('ne_k').value;
 
-  if(!nm || !email || !ps){
-    toast('warn','Xato',t('fill_all'));
+  console.log('--- addEmp START ---');
+  console.log('FORM VALUES:', { nm, email, psLength: ps.length, kp });
+
+  if (!nm || !email || !ps) {
+    toast('warn', 'Xato', 'Hammasini to‘ldiring');
     return;
   }
 
   try {
-    const { data: sessData } = await sb.auth.getSession();
+    const { data: userData, error: userErr } = await sb.auth.getUser();
+    console.log('GET USER DATA:', userData);
+    console.log('GET USER ERROR:', userErr);
+
+    if (userErr || !userData?.user) {
+      toast('error', 'Xato', 'Auth sessiya yaroqsiz. Qayta login qiling.');
+      return;
+    }
+
+    const { data: sessData, error: sessErr } = await sb.auth.getSession();
+    console.log('GET SESSION RESULT:', sessData);
+    console.log('GET SESSION ERROR:', sessErr);
+
     const token = sessData?.session?.access_token;
+    console.log('ACCESS TOKEN:', token);
+    console.log('ACCESS TOKEN EXISTS:', !!token);
 
     if (!token) {
       toast('error', 'Xato', 'Admin sessiyasi topilmadi');
       return;
     }
 
-    const res = await fetch('https://auzafnpqavjifgcxdjha.supabase.co/functions/v1/create-employee', {
-  method: 'POST',
-  headers: {
-    'Content-Type': 'application/json',
-    'Authorization': `Bearer ${token}`
-  },
-  body: JSON.stringify({
-    name: nm,
-    email,
-    password: ps,
-    kpi_type: kp
-  })
-});
+    const payload = {
+      name: nm,
+      email,
+      password: ps,
+      kpi_type: kp
+    };
 
-    const result = await res.json();
+    console.log('REQUEST PAYLOAD:', payload);
+
+    const res = await fetch('https://hdbhdddekjjjtwtyocfa.supabase.co/functions/v1/create-employee', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify(payload)
+    });
+
+    console.log('HTTP STATUS:', res.status);
+    console.log('HTTP OK:', res.ok);
+
+    const raw = await res.text();
+    console.log('RAW RESPONSE:', raw);
+
+    let result = {};
+    try {
+      result = raw ? JSON.parse(raw) : {};
+    } catch {
+      result = { error: raw || 'Noma’lum xato' };
+    }
+
+    console.log('PARSED RESPONSE:', result);
 
     if (!res.ok) {
-      toast('error', 'Xato', result.error || 'Hodim qo‘shilmadi');
+      toast('error', 'Xato', result.error || result.message || 'Hodim qo‘shilmadi');
       return;
     }
 
@@ -1622,17 +1771,65 @@ async function addEmp(){
     await loadEmpList();
     toast('success', 'Hodim', 'Qo‘shildi!');
   } catch (e) {
-    console.error(e);
+    console.error('addEmp CATCH ERROR:', e);
     toast('error', 'Xato', e.message || 'Tizim xatoligi');
+  } finally {
+    console.log('--- addEmp END ---');
   }
 }
-async function delEmp(id){if(!confirm(t('del_c')))return;await sb.from('employees').delete().eq('id',id);loadEmpList();toast('info','Hodim','O\'chirildi');}
 function addHol(){const d=document.getElementById('hol_d').value;if(!d)return;const h=JSON.parse(localStorage.getItem('aloqa_hols')||'[]');if(!h.includes(d))h.push(d);localStorage.setItem('aloqa_hols',JSON.stringify(h));document.getElementById('hol_d').value='';updateHolList();}
 function updateHolList(){const h=JSON.parse(localStorage.getItem('aloqa_hols')||'[]');const el=document.getElementById('hol_list');if(!el)return;el.textContent=h.length===0?t('hol_none'):'Dam olish: '+h.join(', ');}
 function openEP(id){document.getElementById('ep_id').value=id;document.getElementById('ep_np').value='';document.getElementById('m_ep').classList.remove('hidden');}
 function closeEP(){document.getElementById('m_ep').classList.add('hidden');}
-async function savePass(){const id=document.getElementById('ep_id').value;const np=document.getElementById('ep_np').value.trim();if(!np)return;await sb.from('employees').update({password:np}).eq('id',id);closeEP();toast('success','Parol','Saqlandi!');}
+async function savePass() {
+  const id = document.getElementById('ep_id').value;
+  const np = document.getElementById('ep_np').value.trim();
 
+  if (!np) {
+    toast('warn', 'Parol', 'Yangi parol kiriting');
+    return;
+  }
+
+  try {
+    const { data: sessData, error: sessErr } = await sb.auth.getSession();
+    if (sessErr || !sessData?.session?.access_token) {
+      throw new Error('Admin sessiyasi topilmadi');
+    }
+
+    const token = sessData.session.access_token;
+
+    const res = await fetch('https://hdbhdddekjjjtwtyocfa.supabase.co/functions/v1/reset-employee-password', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({
+        employee_id: id,
+        new_password: np
+      })
+    });
+
+    const raw = await res.text();
+    let result = {};
+    try {
+      result = raw ? JSON.parse(raw) : {};
+    } catch {
+      result = { error: raw || 'Noma’lum xato' };
+    }
+
+    if (!res.ok) {
+      throw new Error(result.error || 'Parol yangilanmadi');
+    }
+
+    document.getElementById('ep_np').value = '';
+    closeEP();
+    toast('success', 'Parol', 'Auth orqali yangilandi');
+  } catch (err) {
+    console.error('savePass error:', err);
+    toast('error', 'Xato', err.message || 'Parolni yangilab bo‘lmadi');
+  }
+}
 // ============================================================
 //  EXPORT
 // ============================================================
@@ -1642,7 +1839,7 @@ function exportExcel(){
   const month=document.getElementById('fmonth').value||curM();
   const headers=['#','Ism familiya','Ishlagan soat','AFK vaqti','Kechikish','Kelmagan','Jarima','Qo\'shimcha','KPI ball','KPI sum (UZS)'];
   const rows=monthlyData.map((d,i)=>[i+1,d.name,d.hours,d.afk,d.late,d.abs,d.penalty,'+'+d.bonus,d.ball,d.kpi]);
-  const ws=XLSX.utils.aoa_to_sheet([headers,...rows]);
+  const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
   ws['!cols']=headers.map(()=>({wch:18}));
   const wb=XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb,ws,month+' Hisobot');
@@ -1875,22 +2072,22 @@ async function loadFaceModels(){
     console.warn("Backend set error", e);
   }
 
-  const URLS=['/hodimnazoratitest/model/'];
+  const URLS = ['./model'];
 
-  for(const url of URLS){
-    try{
-      await faceapi.nets.tinyFaceDetector.loadFromUri(url);
-      try{await faceapi.nets.faceLandmark68Net.loadFromUri(url);}catch(e){}
-      try{await faceapi.nets.faceLandmark68TinyNet.loadFromUri(url);}catch(e){}
-      try{await faceapi.nets.faceRecognitionNet.loadFromUri(url);}catch(e){}
+    for (const url of URLS) {
+    try {
+    await faceapi.nets.tinyFaceDetector.loadFromUri(url);
+    await faceapi.nets.faceLandmark68Net.loadFromUri(url);
+    await faceapi.nets.faceRecognitionNet.loadFromUri(url);
 
-      faceApiLoaded=true;
-      return true;
+    faceApiLoaded = true;
+    console.log('FACE API LOADED FROM:', url);
+    return true;
 
-    }catch(e){
-      console.warn('URL failed:',url);
-    }
+  } catch (e) {
+    console.warn('URL failed:', url, e);
   }
+}
 
   return false;
 }
