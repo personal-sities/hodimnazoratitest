@@ -285,6 +285,7 @@ html, body { font-family:var(--font); background:var(--bg); color:var(--text); m
 .aen { background:linear-gradient(135deg,var(--danger),#c0392b); color:#fff; }
 .aco { background:linear-gradient(135deg,var(--accent),#3a6ee0); color:#fff; width:100%; display:block; padding:12px; margin-bottom:12px; border:none; border-radius:var(--radius-sm); font-size:13px; font-weight:700; cursor:pointer; font-family:var(--font); transition:var(--transition); }
 .aco:hover { transform:translateY(-1px); }
+.apr { background:linear-gradient(135deg,var(--purple),#7d3cff); color:#fff; }
 .tgrid { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:8px; }
 .tb2 h4 { font-size:10.5px; color:var(--text2); margin-bottom:4px; text-transform:uppercase; letter-spacing:.4px; }
 .tv { font-size:22px; font-weight:800; font-family:var(--mono); color:var(--text); }
@@ -788,12 +789,21 @@ html, body { font-family:var(--font); background:var(--bg); color:var(--text); m
         <div class="abtns">
           <button class="abtn ast" id="bs" onclick="empStart()">Boshlash</button>
           <button class="abtn alu" id="bl" onclick="empLunch()">Tushlik</button>
+          <button class="abtn apr" id="bp" onclick="empPrayer()">Namoz</button>
           <button class="abtn aen" id="be" onclick="empEnd()">Yakunlash</button>
         </div>
         <button class="aco hidden" id="bc" onclick="empContinue()">Davom ettirish</button>
         <div class="tgrid">
           <div class="tb2"><h4 id="ewl">Ish vaqti</h4><div class="tv" id="tw">00:00:00</div></div>
           <div class="tb2"><h4 id="ell">Tushlik</h4><div class="tv" id="tl">00:00:00</div></div>
+          <div class="tb2"><h4 id="eprl">Namoz</h4><div class="tv" id="tp">00:00:00</div></div>
+        </div>
+        <div class="break-tracker" id="prayerTracker" style="margin-bottom:8px;background:rgba(165,94,234,.06);border-color:rgba(165,94,234,.25)">
+          <h4 id="prayer_next_lbl">🕌 Keyingi namoz vaqti</h4>
+          <div class="break-info" style="margin-top:6px">
+            <span id="nextPrayerName">—</span>
+            <span id="nextPrayerTime" style="color:var(--purple);font-family:var(--mono)">--:--</span>
+          </div>
         </div>
         <div class="break-tracker" id="breakTracker">
           <h4>☕ Tanaffus limiti (kun)</h4>
@@ -818,6 +828,8 @@ html, body { font-family:var(--font); background:var(--bg); color:var(--text); m
           <div class="ii"><h4 id="ei2">Ish tugagan</h4><p id="i_e">-</p></div>
           <div class="ii"><h4 id="ei3">Tushlik boshlangan</h4><p id="i_ls">-</p></div>
           <div class="ii"><h4 id="ei4">Tushlik tugagan</h4><p id="i_le">-</p></div>
+          <div class="ii"><h4 id="ei5">Namoz boshlangan</h4><p id="i_ps">-</p></div>
+          <div class="ii"><h4 id="ei6">Namoz tugagan</h4><p id="i_pe">-</p></div>
         </div>
         <div style="margin-top:10px;padding:12px;background:var(--bg3);border-radius:var(--radius-sm);border:1px solid var(--border)">
           <div style="font-size:11px;color:var(--text2);margin-bottom:5px;font-weight:600" id="face_info_lbl">📷 Yuz nazorati</div>
@@ -953,17 +965,20 @@ html, body { font-family:var(--font); background:var(--bg); color:var(--text); m
 // ============================================================
 //  CONFIG
 // ============================================================
-const SUPABASE_URL  = 'https://hdbhdddekjjjtwtyocfa.supabase.co';
-const SUPABASE_ANON = 'sb_publishable_CZUB0mOSzmmCvviNzWykzw_B3_0-5bE';
+const SUPABASE_URL  = 'https://nbxpdssdeeamypvecyba.supabase.co';
+const SUPABASE_ANON = 'sb_publishable_xPke9lNej4mAiyLUtxvEIA_DAhmEg_j';
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
 
-const FACE_CHECK_INTERVAL = 1000;
-// ✅ FIX: 3 ketma-ket detection yetarli (5 emas — video paused holatda 5 hech to'planmaydi)
-const STABLE_HIT_REQUIRED = 3;
+const FACE_CHECK_INTERVAL = 120000;
+const STABLE_HIT_REQUIRED = 1;
 const AFK_GRACE_SEC       = 300;
 const BREAK_LIMIT_SEC     = 1800;
 const AUTO_END_HOUR       = 18;
 const AUTO_END_MIN        = 15;
+const LATE_AFTER_MINUTES  = 9 * 60 + 5;
+const HALF_DAY_START_MINUTES = 11 * 60;
+const HALF_DAY_END_MINUTES   = 15 * 60;
+const NOTIF_POLL_INTERVAL = 30000;
 
 // ============================================================
 //  THEME
@@ -1092,7 +1107,7 @@ function showIPBlock(ip){['loginPage','adminPage','employeePage'].forEach(id=>{c
 //  TRANSLATIONS
 // ============================================================
 const TR = {
-uz:{loginTitle:'Nazorat tizimiga xush kelibsiz!',loginSub:'Login va parolni kiriting!',loginBtn:'Kirish',loginPH:'Login',passPH:'Parol',loginErr:'Login yoki parol noto\'g\'ri!',loginFill:'Login va parolni kiriting!',exit:'Chiqish',today:'Bugun',nav_m:'Asosiy',nav_notif:'Bildirishnomalar',nav_fb:'Fikrlar',nav_s:'Sozlamalar',nav_k:'KPI Qoidalar',adm_m:'Boshqaruv | Asosiy',adm_s:'Boshqaruv | Sozlamalar',adm_k:'Boshqaruv | KPI',sc1:'Bugun ishda',sc2:'Kechikkan',sc3:'Kelmagan',sc4:'Sana',att_t:'Hodimlar nazorati',from_l:'Dan:',to_l:'Gacha:',b_today:'Bugun',b_monthly:'Oylik',b_cm:'Joriy oy',b_ref:'Yangilash',fsearch:'Qidirish...',o_all:'Barcha',o_came:'Keldi',o_late:'Kechikkan',o_abs:'Kelmadi',th1:'Ism familiya',th2:'Login',th4:'O\'zgartirish',th5:'Kelgan vaqti',th6:'Kechikish',th7:'Ishlagan soat',th_afk:'AFK vaqti',th8:'Status',mth_t:'Oylik hisobot',ms1:'Hodimlar',ms2:'Kechikishlar',ms3:'Kelmagan',ms4:'Ish soati',ms5:'Jami KPI',mt1:'Ism familiya',mt2:'Ishlagan soat',mt_afk:'AFK vaqti',mt3:'Kechikish',mt4:'Kelmagan',mt5:'Jarima',mt6:'Qo\'shimcha',mt7:'KPI ball',mt8:'KPI sum',mt9:'Boshqaruv',set_t:'Hodimlar boshqaruvi',b_addemp:'Qo\'shish',et1:'Ism familiya',et2:'Login',et3:'Parol',et4:'KPI summasi',et5:'O\'chirish',hol_t:'Dam olish kunlari',b_addh:'Qo\'shish',hol_info:'Standart: Du–Sha. Yakshanba avtomatik dam olish.',hol_none:'Qo\'shimcha dam olish kuni yo\'q',kpi_t:'KPI Qoidalari',k1:'Asosiy KPI',k2:'Davomat bo\'yicha KPI 100 ballik sistemada!',k3:'Jarimalar',k4:'Kech qolish',k5:'Kelmaslik',k_afk:'AFK (30 daqiqadan ortiq)',k6:'KPI to\'lovlari',k7:'Eski hodimlar',k8:'Yangi hodimlar',ew_t:'Bugungi ish jarayoni',et_t:'Bugungi ma\'lumot',eh_t:'Oy bo\'yicha tarix',st_pre:'Holat:',lt_pre:'Kechikish:',lt_u:'daqiqa',st0:'Boshlanmagan',st1:'Ishda',st2:'Tushlikda',st4:'Yakunlandi',bs:'Boshlash',bl:'Tushlik',be:'Yakunlash',bc:'Davom ettirish',bb:'Qaytish',ewl:'Ish vaqti',ell:'Tushlik',ewd:'Ish vaqti',eld:'Tushlik vaqti',e_note:'Yangi kun boshlanganida vaqtlar 0 ga tushadi.',ei1:'Ish boshlagan',ei2:'Ish tugagan',ei3:'Tushlik boshlangan',ei4:'Tushlik tugagan',ht1:'Sana',ht2:'Boshlagan',ht3:'Tushlik bosh.',ht4:'Tushlik tug.',ht5:'Tugagan',ht6:'Kechikish',ht7:'Ish vaqti',ht8:'Tushlik',ht_afk:'AFK',ht9:'Status',eh_note:'Faqat tanlangan oy ma\'lumotlari.',el_lbl:'Kechikishlar (oy):',afk_month_lbl:'AFK (oy jami):',e_cm:'Joriy oy',mw_txt:'Eslatma: "Yakunlash" tugmasini faqat ish kuni to\'liq tugagandan keyin bosing!',mw_ok:'OK',mep_t:'Parolni o\'zgartirish',mep_s:'Saqlash',mep_c:'Bekor qilish',ep_ph:'Yangi parol',b_came:'Keldi',b_late:'Kechikkan',b_abs:'Kelmadi',b_off:'Dam olish',del_c:'Hodimni o\'chirishni tasdiqlaysizmi?',no_data:'Ma\'lumot yo\'q',daq:'daq',marta:'marta',kun:'kun',soat:'soat',daqiqa:'daqiqa',ball:'ball',hisobot:'hisobot',change:'O\'zgartirish',delete:'O\'chirish',reset:'Reset',fill_all:'Barcha maydonlarni to\'ldiring!',face_detected:'✅ Yuz aniqlandi',face_not_detected:'❌ Yuz aniqlanmadi',face_loading:'⏳ Yuklanmoqda...',face_unknown:'⚠️ Noma\'lum yuz',afk_lbl:'⚠️ Joyida bo\'lmagan vaqt',afk_cnt_lbl:'marta AFK',afk_warn_title:'⚠️ Yuzingiz aniqlanmadi!',afk_warn_txt:'Kamera oldida o\'tiring. AFK vaqt hisoblanmoqda.',afk_warn_sub:'5 daqiqa ichida yuz aniqlanmasa, AFK hisoblanadi',afk_im_here:'Men shu yerdaman ✋',auto_end_txt:'Soat 18:15 bo\'ldi. Tizim tomonidan ish yakunlandi.',auto_ended:'Tizim yakunladi',afk_banner:'Yuz aniqlanmadi! AFK vaqt hisoblanmoqda...',afk_over:'oshiqcha',kpi_sr:'Eski hodim (560K)',kpi_jr:'Yangi hodim (400K)'},
+uz:{loginTitle:'Nazorat tizimiga xush kelibsiz!',loginSub:'Login va parolni kiriting!',loginBtn:'Kirish',loginPH:'Login',passPH:'Parol',loginErr:'Login yoki parol noto\'g\'ri!',loginFill:'Login va parolni kiriting!',exit:'Chiqish',today:'Bugun',nav_m:'Asosiy',nav_notif:'Bildirishnomalar',nav_fb:'Fikrlar',nav_s:'Sozlamalar',nav_k:'KPI Qoidalar',adm_m:'Boshqaruv | Asosiy',adm_s:'Boshqaruv | Sozlamalar',adm_k:'Boshqaruv | KPI',sc1:'Bugun ishda',sc2:'Kechikkan',sc3:'Kelmagan',sc4:'Sana',att_t:'Hodimlar nazorati',from_l:'Dan:',to_l:'Gacha:',b_today:'Bugun',b_monthly:'Oylik',b_cm:'Joriy oy',b_ref:'Yangilash',fsearch:'Qidirish...',o_all:'Barcha',o_came:'Keldi',o_late:'Kechikkan',o_abs:'Kelmadi',th1:'Ism familiya',th2:'Login',th4:'O\'zgartirish',th5:'Kelgan vaqti',th6:'Kechikish',th7:'Ishlagan soat',th_afk:'AFK vaqti',th8:'Status',mth_t:'Oylik hisobot',ms1:'Hodimlar',ms2:'Kechikishlar',ms3:'Kelmagan',ms4:'Ish soati',ms5:'Jami KPI',mt1:'Ism familiya',mt2:'Ishlagan soat',mt_afk:'AFK vaqti',mt3:'Kechikish',mt4:'Kelmagan',mt5:'Jarima',mt6:'Qo\'shimcha',mt7:'KPI ball',mt8:'KPI sum',mt9:'Boshqaruv',set_t:'Hodimlar boshqaruvi',b_addemp:'Qo\'shish',et1:'Ism familiya',et2:'Login',et3:'Parol',et4:'KPI summasi',et5:'O\'chirish',hol_t:'Dam olish kunlari',b_addh:'Qo\'shish',hol_info:'Standart: Du–Sha. Yakshanba avtomatik dam olish.',hol_none:'Qo\'shimcha dam olish kuni yo\'q',kpi_t:'KPI Qoidalari',k1:'Asosiy KPI',k2:'Davomat bo\'yicha KPI 100 ballik sistemada!',k3:'Jarimalar',k4:'Kech qolish',k5:'Kelmaslik',k_afk:'AFK (30 daqiqadan ortiq)',k6:'KPI to\'lovlari',k7:'Eski hodimlar',k8:'Yangi hodimlar',ew_t:'Bugungi ish jarayoni',et_t:'Bugungi ma\'lumot',eh_t:'Oy bo\'yicha tarix',st_pre:'Holat:',lt_pre:'Kechikish:',lt_u:'daqiqa',st0:'Boshlanmagan',st1:'Ishda',st2:'Tushlikda',st4:'Yakunlandi',bs:'Boshlash',bl:'Tushlik',be:'Yakunlash',bc:'Davom ettirish',bb:'Qaytish',ewl:'Ish vaqti',ell:'Tushlik',ewd:'Ish vaqti',eld:'Tushlik vaqti',e_note:'Yangi kun boshlanganida vaqtlar 0 ga tushadi.',eprl:'Namoz',prayer_next_lbl:'🕌 Keyingi namoz vaqti',prayer_btn:'Namoz',prayer_back:'Namozdan qaytish',ei1:'Ish boshlagan',ei2:'Ish tugagan',ei3:'Tushlik boshlangan',ei4:'Tushlik tugagan',ei5:'Namoz boshlangan',ei6:'Namoz tugagan',ht1:'Sana',ht2:'Boshlagan',ht3:'Tushlik bosh.',ht4:'Tushlik tug.',ht5:'Tugagan',ht6:'Kechikish',ht7:'Ish vaqti',ht8:'Tushlik',ht_afk:'AFK',ht9:'Status',eh_note:'Faqat tanlangan oy ma\'lumotlari.',el_lbl:'Kechikishlar (oy):',afk_month_lbl:'AFK (oy jami):',e_cm:'Joriy oy',mw_txt:'Eslatma: "Yakunlash" tugmasini faqat ish kuni to\'liq tugagandan keyin bosing!',mw_ok:'OK',mep_t:'Parolni o\'zgartirish',mep_s:'Saqlash',mep_c:'Bekor qilish',ep_ph:'Yangi parol',b_came:'Keldi',b_late:'Kechikkan',b_abs:'Kelmadi',b_half:'Yarim kun',b_off:'Dam olish',del_c:'Hodimni o\'chirishni tasdiqlaysizmi?',no_data:'Ma\'lumot yo\'q',daq:'daq',marta:'marta',kun:'kun',soat:'soat',daqiqa:'daqiqa',ball:'ball',hisobot:'hisobot',change:'O\'zgartirish',delete:'O\'chirish',reset:'Reset',fill_all:'Barcha maydonlarni to\'ldiring!',face_detected:'✅ Yuz aniqlandi',face_not_detected:'❌ Yuz aniqlanmadi',face_loading:'⏳ Yuklanmoqda...',face_unknown:'⚠️ Noma\'lum yuz',afk_lbl:'⚠️ Joyida bo\'lmagan vaqt',afk_cnt_lbl:'marta AFK',afk_warn_title:'⚠️ Yuzingiz aniqlanmadi!',afk_warn_txt:'Kamera oldida o\'tiring. AFK vaqt hisoblanmoqda.',afk_warn_sub:'5 daqiqa ichida yuz aniqlanmasa, AFK hisoblanadi',afk_im_here:'Men shu yerdaman ✋',auto_end_txt:'Soat 18:15 bo\'ldi. Tizim tomonidan ish yakunlandi.',auto_ended:'Tizim yakunladi',afk_banner:'Yuz aniqlanmadi! AFK vaqt hisoblanmoqda...',afk_over:'oshiqcha',kpi_sr:'Eski hodim (560K)',kpi_jr:'Yangi hodim (400K)'},
 ru:{loginTitle:'Добро пожаловать!',loginSub:'Введите логин и пароль!',loginBtn:'Войти',loginPH:'Логин',passPH:'Пароль',loginErr:'Неверный логин или пароль!',loginFill:'Введите логин и пароль!',exit:'Выйти',today:'Сегодня',nav_m:'Главная',nav_notif:'Уведомления',nav_fb:'Отзывы',nav_s:'Настройки',nav_k:'Правила KPI',adm_m:'Управление | Главная',adm_s:'Управление | Настройки',adm_k:'Управление | KPI',sc1:'На работе',sc2:'Опоздали',sc3:'Не пришли',sc4:'Дата',att_t:'Контроль сотрудников',from_l:'От:',to_l:'До:',b_today:'Сегодня',b_monthly:'Месяц',b_cm:'Тек. месяц',b_ref:'Обновить',fsearch:'Поиск...',o_all:'Все',o_came:'Пришёл',o_late:'Опоздал',o_abs:'Не пришёл',th1:'ФИО',th2:'Логин',th4:'Изменить',th5:'Приход',th6:'Опоздание',th7:'Отработано',th_afk:'AFK время',th8:'Статус',mth_t:'Месячный отчёт',ms1:'Сотрудников',ms2:'Опозданий',ms3:'Пропусков',ms4:'Раб.часов',ms5:'Итого KPI',mt1:'ФИО',mt2:'Отработано',mt_afk:'AFK время',mt3:'Опоздания',mt4:'Пропуски',mt5:'Штраф',mt6:'Доп.баллы',mt7:'KPI балл',mt8:'KPI сумма',mt9:'Управление',set_t:'Управление сотрудниками',b_addemp:'Добавить',et1:'ФИО',et2:'Логин',et3:'Пароль',et4:'Сумма KPI',et5:'Удалить',hol_t:'Выходные дни',b_addh:'Добавить',hol_info:'Стандарт: Пн–Сб. Воскресенье — выходной.',hol_none:'Доп. выходных нет',kpi_t:'Правила KPI',k1:'Основной KPI',k2:'KPI в 100-балльной системе!',k3:'Штрафы',k4:'Опоздание',k5:'Прогул',k_afk:'AFK (более 30 минут)',k6:'Выплаты KPI',k7:'Старые сотрудники',k8:'Новые сотрудники',ew_t:'Рабочий процесс',et_t:'Сегодня',eh_t:'История за месяц',st_pre:'Статус:',lt_pre:'Опоздание:',lt_u:'мин',st0:'Не начат',st1:'На работе',st2:'В обеде',st4:'Завершён',bs:'Начать',bl:'Обед',be:'Завершить',bc:'Продолжить',bb:'Вернуться',ewl:'Рабочее время',ell:'Время обеда',ewd:'Рабочее время',eld:'Время обеда',e_note:'При новом дне таймеры сбрасываются.',ei1:'Начало',ei2:'Конец',ei3:'Обед нач.',ei4:'Обед кон.',ht1:'Дата',ht2:'Начало',ht3:'Обед нач.',ht4:'Обед кон.',ht5:'Конец',ht6:'Опоздание',ht7:'Раб.время',ht8:'Обед',ht_afk:'AFK',ht9:'Статус',eh_note:'Данные выбранного месяца.',el_lbl:'Опозданий (месяц):',afk_month_lbl:'AFK (итого за месяц):',e_cm:'Тек. месяц',mw_txt:'Нажимайте "Завершить" только после полного окончания рабочего дня!',mw_ok:'ОК',mep_t:'Изменить пароль',mep_s:'Сохранить',mep_c:'Отмена',ep_ph:'Новый пароль',b_came:'Пришёл',b_late:'Опоздал',b_abs:'Не пришёл',b_off:'Выходной',del_c:'Удалить сотрудника?',no_data:'Нет данных',daq:'мин',marta:'раз',kun:'дн.',soat:'ч',daqiqa:'мин',ball:'балл',hisobot:'отчёт',change:'Изменить',delete:'Удалить',reset:'Сброс',fill_all:'Заполните все поля!',face_detected:'✅ Лицо обнаружено',face_not_detected:'❌ Лицо не обнаружено',face_loading:'⏳ Загрузка...',face_unknown:'⚠️ Неизвестное лицо',afk_lbl:'⚠️ Отсутствие',afk_cnt_lbl:'раз AFK',afk_warn_title:'⚠️ Лицо не распознано!',afk_warn_txt:'Сядьте перед камерой.',afk_warn_sub:'Если лицо не обнаружено в течение 5 минут — AFK',afk_im_here:'Я здесь ✋',auto_end_txt:'18:15. Рабочий день завершён системой.',auto_ended:'Завершено системой',afk_banner:'Лицо не обнаружено! Идёт подсчёт AFK...',afk_over:'сверх лимита',kpi_sr:'Старый сотр. (560K)',kpi_jr:'Новый сотр. (400K)'}
 };
 let lang = localStorage.getItem('aloqa_lang') || 'uz';
@@ -1115,8 +1130,8 @@ function applyLang(){
    'mt1','mt2','mt_afk','mt3','mt4','mt5','mt6','mt7','mt8','mt9',
    'set_t','b_addemp','et1','et2','et3','et4','et5','hol_t','b_addh','hol_info',
    'kpi_t','k1','k2','k3','k4','k5','k_afk','k6','k7','k8',
-   'ew_t','et_t','eh_t','ewl','ell','ewd','eld','e_note',
-   'ei1','ei2','ei3','ei4','ht1','ht2','ht3','ht4','ht5','ht6','ht7','ht8','ht_afk','ht9',
+   'ew_t','et_t','eh_t','ewl','ell','eprl','ewd','eld','e_note','prayer_next_lbl',
+   'ei1','ei2','ei3','ei4','ei5','ei6','ht1','ht2','ht3','ht4','ht5','ht6','ht7','ht8','ht_afk','ht9',
    'eh_note','el_lbl','afk_month_lbl','e_cm','mw_txt','mw_ok','mep_t','mep_s','mep_c',
    'afk_lbl','afk_warn_title','afk_warn_txt','afk_warn_sub','afk_im_here','auto_end_txt'
   ].forEach(k=>st(k,t(k)));
@@ -1125,6 +1140,7 @@ function applyLang(){
   const bsE=document.getElementById('bs');if(bsE)bsE.textContent=t('bs');
   const blE=document.getElementById('bl');if(blE)blE.textContent=(empState==='lunch'?t('bb'):t('bl'));
   const beE=document.getElementById('be');if(beE)beE.textContent=t('be');
+  const bpE=document.getElementById('bp');if(bpE)bpE.textContent=(empState==='prayer'?t('prayer_back'):t('prayer_btn'));
   const bcE=document.getElementById('bc');if(bcE)bcE.textContent=t('bc');
   const ks=document.getElementById('ne_k');if(ks){ks.options[0].text=t('kpi_sr');ks.options[1].text=t('kpi_jr');}
   updateHolList();updateEmpStatusTag();
@@ -1140,6 +1156,14 @@ function curM(){const d=tzNow();return d.getFullYear()+'-'+String(d.getMonth()+1
 function fmtHM(d){return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');}
 function fmtSec(s){s=Math.max(0,Math.floor(s));return String(Math.floor(s/3600)).padStart(2,'0')+':'+String(Math.floor((s%3600)/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0');}
 function fmtSecMM(s){s=Math.max(0,Math.floor(s));return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0');}
+function hmToMinutes(v){if(!v||typeof v!=='string'||!v.includes(':'))return null;const[a,b]=v.split(':').map(Number);return a*60+b;}
+function computeLateMinutesFromDate(d){if(!d)return 0;const mins=d.getHours()*60+d.getMinutes();return Math.max(0, mins - LATE_AFTER_MINUTES);}
+function computeStatusByTimes(startHM,endHM,lateMin,workSec){
+  const s=hmToMinutes(startHM), e=hmToMinutes(endHM);
+  if(s!==null && e!==null && s>=HALF_DAY_START_MINUTES && e<=HALF_DAY_END_MINUTES && workSec>=4*3600) return 'yarim_kun';
+  if((lateMin||0)>0) return 'kechikkan';
+  return 'keldi';
+}
 function isWorkDay(ds){const d=new Date(ds+'T12:00:00');if(d.getDay()===0)return false;return!JSON.parse(localStorage.getItem('aloqa_hols')||'[]').includes(ds);}
 function updateDates(){const s=t('today')+': '+fmtD(tzNow());st('admDate',s);st('empDate',s);}
 setInterval(updateDates,30000);
@@ -1147,28 +1171,59 @@ setInterval(updateDates,30000);
 // ============================================================
 //  PUSH NOTIFICATIONS
 // ============================================================
+const notifChannel = ('BroadcastChannel' in window) ? new BroadcastChannel('aloqapro_notifications') : null;
+let remindersInterval = null;
+let notifPollIv = null;
+let seenNotifIds = new Set(JSON.parse(localStorage.getItem('aloqa_seen_notif_ids')||'[]'));
+
+function saveSeenNotifIds(){
+  localStorage.setItem('aloqa_seen_notif_ids', JSON.stringify(Array.from(seenNotifIds).slice(-200)));
+}
+async function showAppNotification(title, body, extra = {}) {
+  try{
+    if ('serviceWorker' in navigator) {
+      const reg = await navigator.serviceWorker.ready;
+      if (reg && reg.showNotification && Notification.permission === 'granted') {
+        await reg.showNotification(title, {
+          body,
+          icon: './images/logo2.png',
+          badge: './images/logo2.png',
+          tag: extra.tag || ('aloqapro-' + Date.now()),
+          data: extra.data || {},
+          renotify: true
+        });
+        if (navigator.serviceWorker.controller) {
+          navigator.serviceWorker.controller.postMessage({type:'SHOW_NOTIFICATION', title, body, data:extra.data||{}});
+        }
+        return;
+      }
+    }
+  }catch(e){}
+  if (Notification.permission === 'granted') {
+    try { new Notification(title, { body, icon: './images/logo2.png' }); } catch(e){}
+  }
+}
 async function requestPushPermission() {
   if (!('Notification' in window)) { toast('warn','Push','Bu brauzer bildirishnomalarni qo\'llab-quvvatlamaydi'); return; }
   const perm = await Notification.requestPermission();
   if (perm === 'granted') {
     toast('success','Push','Bildirishnomalar yoqildi!');
     scheduleReminders();
+    startNotificationPolling();
     const btn = document.getElementById('enablePushBtn');
     if (btn) btn.style.display = 'none';
   } else {
     toast('warn','Push','Ruxsat berilmadi');
   }
 }
-let remindersInterval = null;
-
 function scheduleReminders() {
   checkScheduledNotifs();
-
   if (remindersInterval) return;
-
-  remindersInterval = setInterval(() => {
-    checkScheduledNotifs();
-  }, 60000);
+  remindersInterval = setInterval(() => { checkScheduledNotifs(); }, 60000);
+}
+function startNotificationPolling() {
+  if (notifPollIv) return;
+  notifPollIv = setInterval(() => { if (CU && CU.role === 'employee') loadNotificationsEmp(true); }, NOTIF_POLL_INTERVAL);
 }
 let sentToday = {};
 function checkScheduledNotifs() {
@@ -1178,18 +1233,16 @@ function checkScheduledNotifs() {
   const key = todayISO();
   if (!sentToday[key]) sentToday[key] = {};
   const S = sentToday[key];
-  if (h===9&&m===0&&!S.s9){S.s9=true;showLocalNotif('AloqaPro',lang==='uz'?'Ishingiz boshlandi! Samarali kun tilaymiz 💼':'Рабочий день начался! Удачного дня 💼');saveNotifToDB('work_start',lang==='uz'?'Ish boshlandi':'Начало работы',lang==='uz'?'Ishingiz boshlandi! Samarali kun tilaymiz':'Рабочий день начался!');}
-  if (h===11&&m===40&&!S.s11){S.s11=true;showLocalNotif('AloqaPro',lang==='uz'?'Tushlik vaqti yaqin (12:00) 🍽️':'Обеденное время скоро (12:00) 🍽️');saveNotifToDB('lunch_soon','Tushlik yaqin','Tushlik vaqti 20 daqiqadan so\'ng');}
-  if (h===17&&m===50&&!S.s17){S.s17=true;showLocalNotif('AloqaPro',lang==='uz'?'Ish vaqtingiz yakunlanyabdi! Vazifalarni yakunlang ⏰':'Рабочий день заканчивается! Завершите задачи ⏰');saveNotifToDB('work_end_soon','Ish tugayabdi','Ish vaqtingiz yakunlanyabdi, vazifalarni yakunlang');}
+  if (h===9&&m===0&&!S.s9){S.s9=true;showAppNotification('AloqaPro',lang==='uz'?'Ishingiz boshlandi! Samarali kun tilaymiz 💼':'Рабочий день начался! Удачного дня 💼');saveNotifToDB('work_start',lang==='uz'?'Ish boshlandi':'Начало работы',lang==='uz'?'Ishingiz boshlandi! Samarali kun tilaymiz':'Рабочий день начался!');}
+  if (h===11&&m===40&&!S.s11){S.s11=true;showAppNotification('AloqaPro',lang==='uz'?'Tushlik vaqti yaqin (12:00) 🍽️':'Обеденное время скоро (12:00) 🍽️');saveNotifToDB('lunch_soon','Tushlik yaqin','Tushlik vaqti 20 daqiqadan so\'ng');}
+  if (h===17&&m===50&&!S.s17){S.s17=true;showAppNotification('AloqaPro',lang==='uz'?'Ish vaqtingiz yakunlanyabdi! Vazifalarni yakunlang ⏰':'Рабочий день заканчивается! Завершите задачи ⏰');saveNotifToDB('work_end_soon','Ish tugayabdi','Ish vaqtingiz yakunlanyabdi, vazifalarni yakunlang');}
   const breakSec=todayBreakSec();
-  if(breakSec>=600&&breakSec<660&&!S.b10){S.b10=true;showLocalNotif('AloqaPro','⚠️ '+(lang==='uz'?'10 daqiqa tanaffus':'10 минут перерыва'));}
-  if(breakSec>=1200&&breakSec<1260&&!S.b20){S.b20=true;showLocalNotif('AloqaPro','⚠️ '+(lang==='uz'?'20 daqiqa tanaffus — 10 daqiqa qoldi!':'20 минут перерыва — осталось 10 минут!'));}
-  if(breakSec>=1500&&breakSec<1560&&!S.b25){S.b25=true;showLocalNotif('AloqaPro','🔴 '+(lang==='uz'?'25 daqiqa tanaffus! 5 daqiqa qoldi!':'25 минут перерыва! Осталось 5 минут!'));}
-  if(breakSec>=1800&&!S.b30){S.b30=true;showLocalNotif('AloqaPro','🚨 '+(lang==='uz'?'30 daqiqa tanaffus tugadi! AFK hisoblanmoqda!':'30 минут перерыва истекло! AFK!'));}
+  if(breakSec>=600&&breakSec<660&&!S.b10){S.b10=true;showAppNotification('AloqaPro','⚠️ '+(lang==='uz'?'10 daqiqa tanaffus':'10 минут перерыва'));}
+  if(breakSec>=1200&&breakSec<1260&&!S.b20){S.b20=true;showAppNotification('AloqaPro','⚠️ '+(lang==='uz'?'20 daqiqa tanaffus — 10 daqiqa qoldi!':'20 минут перерыва — осталось 10 минут!'));}
+  if(breakSec>=1500&&breakSec<1560&&!S.b25){S.b25=true;showAppNotification('AloqaPro','🔴 '+(lang==='uz'?'25 daqiqa tanaffus! 5 daqiqa qoldi!':'25 минут перерыва! Осталось 5 минут!'));}
+  if(breakSec>=1800&&!S.b30){S.b30=true;showAppNotification('AloqaPro','🚨 '+(lang==='uz'?'30 daqiqa tanaffus tugadi! AFK hisoblanmoqda!':'30 минут перерыва истекло! AFK!'));}
 }
-function showLocalNotif(title,body){if(Notification.permission==='granted'){try{new Notification(title,{body,icon:'/images/logo2.png'});}catch(e){}}}
-async function saveNotifToDB(type,title,body){if(!CU)return;try{await sb.from('notifications').insert({employee_id:CU.id,title,body,type});}catch(e){console.warn('saveNotifToDB:',e);}loadNotificationsEmp();}
-
+async function saveNotifToDB(type,title,body){if(!CU)return;try{await sb.from('notifications').insert({employee_id:CU.id,title,body,type});}catch(e){console.warn('saveNotifToDB:',e);}loadNotificationsEmp(false);}
 async function adminSendNotif() {
   const btn = document.querySelector('#tab_notif .bb');
   if (btn) btn.disabled = true;
@@ -1214,6 +1267,7 @@ async function adminSendNotif() {
       const {error} = await sb.from('notifications').insert(inserts);
       if(error) { console.error('Notif insert error:',error.message); toast('error','Xato',error.message); if(btn)btn.disabled=false; return; }
     }
+    if (notifChannel) notifChannel.postMessage({type:'new-notification', title, body});
     document.getElementById('ns_title_inp').value = '';
     document.getElementById('ns_body').value = '';
     toast('success','Bildirishnoma','Yuborildi!');
@@ -1225,15 +1279,28 @@ async function adminSendNotif() {
     if(btn)btn.disabled=false;
   }
 }
-
-async function loadNotificationsEmp() {
+async function loadNotificationsEmp(notifyNew = true) {
   if (!CU) return;
   const {data} = await sb.from('notifications').select('*').eq('employee_id',CU.id).order('sent_at',{ascending:false}).limit(30);
   const c = document.getElementById('notif_list_emp'); if (!c) return;
   const unread = (data||[]).filter(n=>!n.is_read).length;
   const badge = document.getElementById('empNotifBadge');
+  const badge2 = document.getElementById('empNotifBadge2');
   if (badge) { badge.textContent = unread; badge.classList.toggle('hidden', unread===0); }
+  if (badge2) { badge2.textContent = unread; badge2.classList.toggle('hidden', unread===0); }
   if (!data || data.length===0) { c.innerHTML=`<p style="color:var(--text3);font-size:12px;padding:10px">Bildirishnomalar yo'q</p>`; return; }
+  if (notifyNew && Notification.permission === 'granted') {
+    for (const n of data.slice().reverse()) {
+      if (!seenNotifIds.has(n.id) && !n.is_read) {
+        seenNotifIds.add(n.id);
+        await showAppNotification(n.title, n.body, { tag: 'notif-'+n.id, data:{id:n.id} });
+      }
+    }
+    saveSeenNotifIds();
+  } else {
+    data.forEach(n=>seenNotifIds.add(n.id));
+    saveSeenNotifIds();
+  }
   c.innerHTML = data.map(n=>`
     <div class="notif-item ${n.is_read?'':'unread'}" onclick="markNotifRead('${n.id}')">
       <div class="notif-dot ${n.is_read?'read':''}"></div>
@@ -1244,19 +1311,24 @@ async function loadNotificationsEmp() {
       </div>
     </div>`).join('');
 }
-
 async function loadNotificationsAdmin() {
   const {data} = await sb.from('notifications').select('*,employees(name)').order('sent_at',{ascending:false}).limit(50);
   const c = document.getElementById('notif_list_admin'); if (!c) return;
   if (!data||data.length===0){c.innerHTML=`<p style="color:var(--text3);font-size:12px">Bildirishnomalar yo'q</p>`;return;}
   c.innerHTML=data.map(n=>`<div class="notif-item"><div class="notif-body"><div class="notif-title">${n.title} <span style="color:var(--text3);font-size:11px">→ ${n.employees?.name||'?'}</span></div><div class="notif-msg">${n.body}</div><div class="notif-time">${new Date(n.sent_at).toLocaleString()}</div></div></div>`).join('');
 }
-
 async function markNotifRead(id) {
   await sb.from('notifications').update({is_read:true}).eq('id',id);
-  loadNotificationsEmp();
+  loadNotificationsEmp(false);
 }
-
+if (notifChannel) {
+  notifChannel.onmessage = async (ev) => {
+    const msg = ev.data || {};
+    if (msg.type === 'new-notification' && Notification.permission === 'granted') {
+      await showAppNotification(msg.title || 'AloqaPro', msg.body || '');
+    }
+  };
+}
 // ============================================================
 //  FEEDBACK
 // ============================================================
@@ -1520,7 +1592,7 @@ async function loadAtt() {
       let hrs = row.worked_seconds ? secToHMS(row.worked_seconds) : '-';
       let afkSec = row.afk_seconds || 0;
 
-      if (status === 'keldi' || status === 'auto_ended') w++;
+      if (status === 'keldi' || status === 'auto_ended' || status === 'yarim_kun') w++;
       else if (status === 'kechikkan') l++;
       else if (status === 'kelmadi') a++;
 
@@ -1534,6 +1606,9 @@ async function loadAtt() {
       } else if (status === 'kelmadi') {
         bc2 = 'br';
         bt = t('b_abs');
+      } else if (status === 'yarim_kun') {
+        bc2 = 'bauto';
+        bt = t('b_half');
       } else if (status === 'auto_ended') {
         bc2 = 'bg';
         bt = '⚙️ Auto';
@@ -1735,7 +1810,7 @@ async function addEmp() {
 
     console.log('REQUEST PAYLOAD:', payload);
 
-    const res = await fetch('https://hdbhdddekjjjtwtyocfa.supabase.co/functions/v1/create-employee', {
+    const res = await fetch('https://nbxpdssdeeamypvecyba.supabase.co/functions/v1/create-employee', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -1798,7 +1873,7 @@ async function savePass() {
 
     const token = sessData.session.access_token;
 
-    const res = await fetch('https://hdbhdddekjjjtwtyocfa.supabase.co/functions/v1/reset-employee-password', {
+    const res = await fetch('https://nbxpdssdeeamypvecyba.supabase.co/functions/v1/reset-employee-password', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -1878,6 +1953,9 @@ let currentAfkStart = null;
 let afkWarnShown = false;
 let isAfk = false;
 let breakSeconds = 0;
+let prayerAccum = 0;
+let prayerStart = null;
+let pIv = null;
 let autoEndIv = null;
 let autoEndDone = false;
 
@@ -1886,21 +1964,23 @@ function todayBreakSec(){return breakSeconds;}
 function getLS(){return JSON.parse(localStorage.getItem('aloqa_emp_state')||'null');}
 function saveLS(){
   const ss=getLS()||{};
-  const data={date:todayISO(),state:empState,wAccum,lAccum,afkSeconds,afkCount,breakSeconds,wStartISO:wStart?wStart.toISOString():null,lStartISO:lStart?lStart.toISOString():null,afkStartISO:currentAfkStart?currentAfkStart.toISOString():null,i_s:document.getElementById('i_s')?.textContent||'-',i_e:document.getElementById('i_e')?.textContent||'-',i_ls:document.getElementById('i_ls')?.textContent||'-',i_le:document.getElementById('i_le')?.textContent||'-',lateMin:ss.lateMin||0,autoEndDone:autoEndDone||false};
+  const data={date:todayISO(),state:empState,wAccum,lAccum,prayerAccum,afkSeconds,afkCount,breakSeconds,wStartISO:wStart?wStart.toISOString():null,lStartISO:lStart?lStart.toISOString():null,prayerStartISO:prayerStart?prayerStart.toISOString():null,afkStartISO:currentAfkStart?currentAfkStart.toISOString():null,i_s:document.getElementById('i_s')?.textContent||'-',i_e:document.getElementById('i_e')?.textContent||'-',i_ls:document.getElementById('i_ls')?.textContent||'-',i_le:document.getElementById('i_le')?.textContent||'-',i_ps:document.getElementById('i_ps')?.textContent||'-',i_pe:document.getElementById('i_pe')?.textContent||'-',lateMin:ss.lateMin||0,autoEndDone:autoEndDone||false};
   localStorage.setItem('aloqa_emp_state',JSON.stringify(data));
 }
 function restoreLS(){
   const ss=getLS();
   if(!ss||ss.date!==todayISO()){localStorage.removeItem('aloqa_emp_state');updateEmpBtns();return false;}
-  empState=ss.state||'not_started';wAccum=ss.wAccum||0;lAccum=ss.lAccum||0;afkSeconds=ss.afkSeconds||0;afkCount=ss.afkCount||0;breakSeconds=ss.breakSeconds||0;autoEndDone=ss.autoEndDone||false;
+  empState=ss.state||'not_started';wAccum=ss.wAccum||0;lAccum=ss.lAccum||0;prayerAccum=ss.prayerAccum||0;afkSeconds=ss.afkSeconds||0;afkCount=ss.afkCount||0;breakSeconds=ss.breakSeconds||0;autoEndDone=ss.autoEndDone||false;
   if(ss.wStartISO)wStart=new Date(ss.wStartISO);
   if(ss.lStartISO)lStart=new Date(ss.lStartISO);
+  if(ss.prayerStartISO)prayerStart=new Date(ss.prayerStartISO);
   if(ss.afkStartISO){currentAfkStart=new Date(ss.afkStartISO);isAfk=true;const elapsed=Math.floor((tzNow()-currentAfkStart)/1000);if(elapsed>0){afkSeconds+=elapsed;breakSeconds+=elapsed;}currentAfkStart=null;isAfk=false;}
-  st('i_s',ss.i_s||'-');st('i_e',ss.i_e||'-');st('i_ls',ss.i_ls||'-');st('i_le',ss.i_le||'-');
+  st('i_s',ss.i_s||'-');st('i_e',ss.i_e||'-');st('i_ls',ss.i_ls||'-');st('i_le',ss.i_le||'-');st('i_ps',ss.i_ps||'-');st('i_pe',ss.i_pe||'-');
   const lt=document.getElementById('e_ltag');if(lt&&ss.lateMin!==undefined)lt.textContent=t('lt_pre')+' '+ss.lateMin+' '+t('lt_u');
-  setTV(wAccum,'tw');setTV(lAccum,'tl');updateAfkDisplay();updateBreakBar();updateEmpBtns();updateEmpStatusTag();
+  setTV(wAccum,'tw');setTV(lAccum,'tl');setTV(prayerAccum,'tp');updateAfkDisplay();updateBreakBar();updatePrayerInfo();updateEmpBtns();updateEmpStatusTag();
   if(empState==='working')startWT();
   if(empState==='lunch')startLT();
+  if(empState==='prayer')startPT();
   return true;
 }
 
@@ -1911,9 +1991,9 @@ function initEmp(){
   restoreLS();setEmpMonth();loadHist();updateDates();
   document.getElementById('m_welcome').classList.remove('hidden');
   const mt=document.getElementById('e_mtag');if(mt)mt.textContent=curM();
-  startFaceDetection();startAutoEndCheck();
-  if(Notification.permission==='granted')scheduleReminders();
-  loadNotificationsEmp();
+  startFaceDetection();startAutoEndCheck();startPrayerClock();
+  if(Notification.permission==='granted'){scheduleReminders();startNotificationPolling();}
+  loadNotificationsEmp(false);
   empNavTab('work');
 }
 function closeWelcome(){document.getElementById('m_welcome').classList.add('hidden');}
@@ -1921,38 +2001,70 @@ function closeWelcome(){document.getElementById('m_welcome').classList.add('hidd
 // ============================================================
 //  EMPLOYEE ACTIONS
 // ============================================================
-function empStart(){
+async function empStart(){
   if(empState!=='not_started')return;
   wStart=tzNow();empState='working';
   st('i_s',fmtHM(wStart));
-  const lm=Math.max(0,wStart.getHours()*60+wStart.getMinutes()-9*60);
+  const lm=computeLateMinutesFromDate(wStart);
   const el=document.getElementById('e_ltag');if(el)el.textContent=t('lt_pre')+' '+lm+' '+t('lt_u');
   const ss=getLS()||{};ss.lateMin=lm;localStorage.setItem('aloqa_emp_state',JSON.stringify(ss));
   updateEmpBtns();updateEmpStatusTag();startWT();saveLS();
+  await savePartial();
   toast('success',t('bs'),'Ish vaqti boshlandi! Omad 💼');
 }
-function empLunch(){
-  if(empState==='lunch'){empBackLunch();return;}
+async function empLunch(){
+  if(empState==='lunch'){await empBackLunch();return;}
   if(empState!=='working')return;
   lStart=tzNow();if(wStart)wAccum+=Math.floor((lStart-wStart)/1000);wStart=null;
   empState='lunch';st('i_ls',fmtHM(lStart));stopWT();updateEmpBtns();updateEmpStatusTag();startLT();saveLS();
+  await savePartial();
   toast('info','Tushlik','Yaxshi dam oling! 🍽️');
 }
-function empBackLunch(){
+async function empBackLunch(){
   if(empState!=='lunch')return;
   const now=tzNow();if(lStart)lAccum+=Math.floor((now-lStart)/1000);lStart=null;
   st('i_le',fmtHM(now));empState='working';wStart=now;stopLT();updateEmpBtns();updateEmpStatusTag();startWT();saveLS();
+  await savePartial();
   toast('success','Tushlik','Ish davom etadi 💼');
 }
-function empContinue(){if(empState!=='paused')return;empState='working';wStart=tzNow();document.getElementById('bc').classList.add('hidden');updateEmpBtns();updateEmpStatusTag();startWT();saveLS();}
+async function empPrayer(){
+  if(empState==='prayer'){await empBackPrayer();return;}
+  if(empState!=='working')return;
+  prayerStart=tzNow();
+  if(wStart)wAccum+=Math.floor((prayerStart-wStart)/1000);
+  wStart=null;
+  empState='prayer';
+  st('i_ps',fmtHM(prayerStart));
+  stopWT();
+  stopFaceDetection();
+  updateEmpBtns();updateEmpStatusTag();startPT();saveLS();
+  await savePartial();
+  toast('info',t('prayer_btn'),'Namoz vaqti boshlandi 🕌');
+}
+async function empBackPrayer(){
+  if(empState!=='prayer')return;
+  const now=tzNow();
+  if(prayerStart)prayerAccum+=Math.floor((now-prayerStart)/1000);
+  prayerStart=null;
+  st('i_pe',fmtHM(now));
+  empState='working';
+  wStart=now;
+  stopPT();
+  startFaceDetection();
+  updateEmpBtns();updateEmpStatusTag();startWT();saveLS();
+  await savePartial();
+  toast('success',t('prayer_btn'),'Ish davom etadi 💼');
+}
+async function empContinue(){if(empState!=='paused')return;empState='working';wStart=tzNow();document.getElementById('bc').classList.add('hidden');updateEmpBtns();updateEmpStatusTag();startWT();saveLS();await savePartial();}
 async function empEnd(auto=false){
-  if(!['working','lunch','paused'].includes(empState))return;
+  if(!['working','lunch','paused','prayer'].includes(empState))return;
   const now=tzNow();
   if(empState==='working'&&wStart)wAccum+=Math.floor((now-wStart)/1000);
   if(empState==='lunch'&&lStart)lAccum+=Math.floor((now-lStart)/1000);
-  wStart=null;lStart=null;empState='ended';st('i_e',fmtHM(now));
-  stopWT();stopLT();document.getElementById('bc').classList.add('hidden');
-  setTV(wAccum,'tw');setTV(lAccum,'tl');updateEmpBtns();updateEmpStatusTag();stopFaceDetection();
+  if(empState==='prayer'&&prayerStart)prayerAccum+=Math.floor((now-prayerStart)/1000);
+  wStart=null;lStart=null;prayerStart=null;empState='ended';st('i_e',fmtHM(now));
+  stopWT();stopLT();stopPT();document.getElementById('bc').classList.add('hidden');
+  setTV(wAccum,'tw');setTV(lAccum,'tl');setTV(prayerAccum,'tp');updateEmpBtns();updateEmpStatusTag();stopFaceDetection();
   if(auto){autoEndDone=true;document.getElementById('m_auto_end').classList.remove('hidden');document.getElementById('autoEndBanner').style.display='block';setTimeout(()=>document.getElementById('autoEndBanner').style.display='none',5000);}
   else toast('success','Yakunlandi','Yaxshi ish kuni! 🎉');
   saveLS();await saveAtt(auto);
@@ -1960,7 +2072,9 @@ async function empEnd(auto=false){
 async function saveAtt(autoEnded=false){
   if(!CU)return;
   const today=todayISO();const ss=getLS()||{};const lm=ss.lateMin||0;
-  const payload={employee_id:CU.id,work_date:today,start_time:ss.i_s&&ss.i_s!=='-'?ss.i_s+':00':null,end_time:ss.i_e&&ss.i_e!=='-'?ss.i_e+':00':null,lunch_start:ss.i_ls&&ss.i_ls!=='-'?ss.i_ls+':00':null,lunch_end:ss.i_le&&ss.i_le!=='-'?ss.i_le+':00':null,work_seconds:wAccum,lunch_seconds:lAccum,afk_seconds:afkSeconds,afk_count:afkCount,late_minutes:lm,status:lm>0?'kechikkan':'keldi',auto_ended:autoEnded};
+  const startHM = ss.i_s&&ss.i_s!=='-'?ss.i_s:null;
+  const endHM = ss.i_e&&ss.i_e!=='-'?ss.i_e:null;
+  const payload={employee_id:CU.id,work_date:today,start_time:startHM?startHM+':00':null,end_time:endHM?endHM+':00':null,lunch_start:ss.i_ls&&ss.i_ls!=='-'?ss.i_ls+':00':null,lunch_end:ss.i_le&&ss.i_le!=='-'?ss.i_le+':00':null,work_seconds:wAccum,lunch_seconds:lAccum,afk_seconds:afkSeconds,afk_count:afkCount,late_minutes:lm,status:computeStatusByTimes(startHM,endHM,lm,wAccum),auto_ended:autoEnded};
   const{data:ex}=await sb.from('attendance').select('id').eq('employee_id',CU.id).eq('work_date',today).maybeSingle();
   if(ex)await sb.from('attendance').update(payload).eq('id',ex.id);else await sb.from('attendance').insert(payload);
   loadHist();
@@ -1971,7 +2085,8 @@ async function savePartial(){
   let cw=wAccum;if(empState==='working'&&wStart)cw+=Math.floor((tzNow()-wStart)/1000);
   let cl=lAccum;if(empState==='lunch'&&lStart)cl+=Math.floor((tzNow()-lStart)/1000);
   let afkNow=afkSeconds;if(isAfk&&currentAfkStart)afkNow+=Math.floor((tzNow()-currentAfkStart)/1000);
-  const payload={employee_id:CU.id,work_date:today,start_time:ss.i_s&&ss.i_s!=='-'?ss.i_s+':00':null,work_seconds:cw,lunch_seconds:cl,afk_seconds:afkNow,afk_count:afkCount,late_minutes:lm,status:lm>0?'kechikkan':'keldi',auto_ended:false};
+  const startHM = ss.i_s&&ss.i_s!=='-'?ss.i_s:null;
+  const payload={employee_id:CU.id,work_date:today,start_time:startHM?startHM+':00':null,end_time:ss.i_e&&ss.i_e!=='-'?ss.i_e+':00':null,lunch_start:ss.i_ls&&ss.i_ls!=='-'?ss.i_ls+':00':null,lunch_end:ss.i_le&&ss.i_le!=='-'?ss.i_le+':00':null,work_seconds:cw,lunch_seconds:cl,afk_seconds:afkNow,afk_count:afkCount,late_minutes:lm,status:computeStatusByTimes(startHM,ss.i_e&&ss.i_e!=='-'?ss.i_e:null,lm,cw),auto_ended:false};
   const{data:ex}=await sb.from('attendance').select('id').eq('employee_id',CU.id).eq('work_date',today).maybeSingle();
   if(ex)await sb.from('attendance').update(payload).eq('id',ex.id);else await sb.from('attendance').insert(payload);
 }
@@ -1992,6 +2107,8 @@ function startLT(){
   lIv=setInterval(()=>{let tot=lAccum;if(lStart)tot+=Math.floor((tzNow()-lStart)/1000);setTV(tot,'tl');updateBreakBar();},1000);
 }
 function stopLT(){if(lIv){clearInterval(lIv);lIv=null;}}
+function startPT(){stopPT();pIv=setInterval(()=>{let tot=prayerAccum;if(prayerStart)tot+=Math.floor((tzNow()-prayerStart)/1000);setTV(tot,'tp');saveLS();},1000);}
+function stopPT(){if(pIv){clearInterval(pIv);pIv=null;}}
 function setTV(sec,id){const e=document.getElementById(id);if(e)e.textContent=fmtSec(sec);}
 function stopAll(){stopWT();stopLT();}
 
@@ -2001,6 +2118,98 @@ function updateBreakBar(){
   const pct=Math.min(100,(total/BREAK_LIMIT_SEC)*100);
   if(bar){bar.style.width=pct+'%';bar.classList.toggle('over',total>BREAK_LIMIT_SEC);}
   if(used)used.textContent=Math.floor(total/60)+' daq';
+}
+
+
+// ============================================================
+//  PRAYER TIMES (local only, Supabase ga yuborilmaydi)
+// ============================================================
+let prayerClockIv = null;
+let prayerGeo = null;
+function deg2rad(v){return v*Math.PI/180;}
+function rad2deg(v){return v*180/Math.PI;}
+function fixAngle(v){v%=360; return v<0?v+360:v;}
+function dayOfYear(d){const s=new Date(Date.UTC(d.getFullYear(),0,0)); return Math.floor((d-s)/86400000);}
+function calcSolar(date, lat, lng){
+  const n = dayOfYear(date);
+  const gamma = 2 * Math.PI / 365 * (n - 1 + ((date.getHours() - 12) / 24));
+  const eqtime = 229.18 * (0.000075 + 0.001868*Math.cos(gamma) - 0.032077*Math.sin(gamma) - 0.014615*Math.cos(2*gamma) - 0.040849*Math.sin(2*gamma));
+  const decl = 0.006918 - 0.399912*Math.cos(gamma) + 0.070257*Math.sin(gamma) - 0.006758*Math.cos(2*gamma) + 0.000907*Math.sin(2*gamma) - 0.002697*Math.cos(3*gamma) + 0.00148*Math.sin(3*gamma);
+  const tz = 5;
+  const noon = (720 - 4*lng - eqtime + tz*60) / 60;
+  const latR = deg2rad(lat);
+  function hourAngle(angleDeg){
+    const angle = deg2rad(angleDeg);
+    const c = (Math.sin(angle) - Math.sin(latR)*Math.sin(decl)) / (Math.cos(latR)*Math.cos(decl));
+    if (c <= -1) return 180;
+    if (c >= 1) return 0;
+    return rad2deg(Math.acos(c));
+  }
+  function timeFor(angleDeg, afterNoon){
+    const ha = hourAngle(angleDeg) / 15;
+    return noon + (afterNoon ? ha : -ha);
+  }
+  function asrTime(){
+    const factor = 1;
+    const angle = -rad2deg(Math.atan(1 / (factor + Math.tan(Math.abs(latR - decl)))));
+    return timeFor(angle, true);
+  }
+  return {
+    fajr: timeFor(-18, false),
+    sunrise: timeFor(-0.833, false),
+    dhuhr: noon + (10/60),
+    asr: asrTime(),
+    maghrib: timeFor(-0.833, true),
+    isha: timeFor(-17, true)
+  };
+}
+function minutesToHM(v){
+  let mins = Math.round(v*60);
+  while(mins<0) mins += 1440;
+  mins %= 1440;
+  return String(Math.floor(mins/60)).padStart(2,'0') + ':' + String(mins%60).padStart(2,'0');
+}
+async function initPrayerGeo(){
+  try{
+    const saved = JSON.parse(localStorage.getItem('aloqa_prayer_geo') || 'null');
+    if (saved && saved.lat && saved.lng) { prayerGeo = saved; return prayerGeo; }
+  }catch(e){}
+  prayerGeo = { lat: 41.3111, lng: 69.2797, name: 'Tashkent' };
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition((pos)=>{
+      prayerGeo = { lat: pos.coords.latitude, lng: pos.coords.longitude, name: 'me' };
+      localStorage.setItem('aloqa_prayer_geo', JSON.stringify(prayerGeo));
+      updatePrayerInfo();
+    }, ()=>{}, { enableHighAccuracy:false, timeout:5000, maximumAge:3600000 });
+  }
+  return prayerGeo;
+}
+function getPrayerSchedule(){
+  const geo = prayerGeo || { lat: 41.3111, lng: 69.2797 };
+  const now = tzNow();
+  const raw = calcSolar(now, geo.lat, geo.lng);
+  return [
+    { key:'fajr', name: lang==='uz'?'Bomdod':'Фаджр', time: minutesToHM(raw.fajr) },
+    { key:'dhuhr', name: lang==='uz'?'Peshin':'Зухр', time: minutesToHM(raw.dhuhr) },
+    { key:'asr', name: lang==='uz'?'Asr':'Аср', time: minutesToHM(raw.asr) },
+    { key:'maghrib', name: lang==='uz'?'Shom':'Магриб', time: minutesToHM(raw.maghrib) },
+    { key:'isha', name: lang==='uz'?'Xufton':'Иша', time: minutesToHM(raw.isha) }
+  ];
+}
+function updatePrayerInfo(){
+  const list = getPrayerSchedule();
+  const nowMin = tzNow().getHours()*60 + tzNow().getMinutes();
+  let next = list.find(x => hmToMinutes(x.time) > nowMin) || list[0];
+  const npn = document.getElementById('nextPrayerName');
+  const npt = document.getElementById('nextPrayerTime');
+  if (npn) npn.textContent = next.name;
+  if (npt) npt.textContent = next.time;
+}
+function startPrayerClock(){
+  initPrayerGeo();
+  updatePrayerInfo();
+  if (prayerClockIv) clearInterval(prayerClockIv);
+  prayerClockIv = setInterval(updatePrayerInfo, 60000);
 }
 
 // ============================================================
@@ -2140,6 +2349,7 @@ async function startFaceDetection(){
   if(faceCheckIv){clearInterval(faceCheckIv);faceCheckIv=null;}
   // ✅ FIX 3: Yangi detection siklida counterlarni reset qil
   faceMissCount=0;faceHitCount=0;isDetecting=false;isDetectingStartTime=0;
+  runFaceCheck();
   faceCheckIv=setInterval(runFaceCheck,FACE_CHECK_INTERVAL);
 }
 
@@ -2311,15 +2521,7 @@ function onFaceMissed(){
   // Birinchi miss da bannerni ko'rsat
   document.getElementById('afkBanner').style.display='block';
 
-  // Grace period yarimida ogohlantirish modali
-  if(faceMissCount===Math.floor(AFK_GRACE_SEC*0.5)&&!afkWarnShown){
-    afkWarnShown=true;
-    document.getElementById('m_afk_warn').classList.remove('hidden');
-    startAfkCountdown();
-  }
-
-  // Grace period to'liq tugagach AFK sessiya boshlash
-  if(!isAfk && faceMissCount>=AFK_GRACE_SEC){
+  if(!isAfk){
     startAfkSession();
   }
 }
@@ -2518,15 +2720,16 @@ function stopFaceDetection(){
 //  EMP UI HELPERS
 // ============================================================
 function updateEmpBtns(){
-  const bsE=document.getElementById('bs'),blE=document.getElementById('bl'),beE=document.getElementById('be');
+  const bsE=document.getElementById('bs'),blE=document.getElementById('bl'),bpE=document.getElementById('bp'),beE=document.getElementById('be');
   const dis=(b,d)=>{if(b)b.disabled=d;};
-  if(empState==='not_started'){dis(bsE,false);dis(blE,true);dis(beE,true);if(blE){blE.textContent=t('bl');blE.onclick=empLunch;}}
-  else if(empState==='working'){dis(bsE,true);dis(blE,false);dis(beE,false);if(blE){blE.textContent=t('bl');blE.onclick=empLunch;}}
-  else if(empState==='lunch'){dis(bsE,true);dis(blE,false);dis(beE,true);if(blE){blE.textContent=t('bb');blE.onclick=empBackLunch;}}
-  else if(empState==='paused'||empState==='ended'){dis(bsE,true);dis(blE,true);dis(beE,true);}
+  if(empState==='not_started'){dis(bsE,false);dis(blE,true);dis(bpE,true);dis(beE,true);if(blE){blE.textContent=t('bl');blE.onclick=empLunch;} if(bpE){bpE.textContent=t('prayer_btn');bpE.onclick=empPrayer;}}
+  else if(empState==='working'){dis(bsE,true);dis(blE,false);dis(bpE,false);dis(beE,false);if(blE){blE.textContent=t('bl');blE.onclick=empLunch;} if(bpE){bpE.textContent=t('prayer_btn');bpE.onclick=empPrayer;}}
+  else if(empState==='lunch'){dis(bsE,true);dis(blE,false);dis(bpE,true);dis(beE,true);if(blE){blE.textContent=t('bb');blE.onclick=empBackLunch;} if(bpE){bpE.textContent=t('prayer_btn');bpE.onclick=empPrayer;}}
+  else if(empState==='prayer'){dis(bsE,true);dis(blE,true);dis(bpE,false);dis(beE,true);if(bpE){bpE.textContent=t('prayer_back');bpE.onclick=empBackPrayer;}}
+  else if(empState==='paused'||empState==='ended'){dis(bsE,true);dis(blE,true);dis(bpE,true);dis(beE,true);}
 }
 function updateEmpStatusTag(){
-  const map={not_started:t('st0'),working:t('st1'),lunch:t('st2'),paused:'Pauza',ended:t('st4')};
+  const map={not_started:t('st0'),working:t('st1'),lunch:t('st2'),prayer:t('prayer_btn'),paused:'Pauza',ended:t('st4')};
   const el=document.getElementById('e_stag');if(el)el.textContent=t('st_pre')+' '+(map[empState]||'');
 }
 function setEmpMonth(){document.getElementById('e_month').value=curM();loadHist();}
@@ -2549,6 +2752,7 @@ async function loadHist(){
     let bdg='';
     if(r.status==='keldi')bdg=`<span class="badge bg">${t('b_came')}</span>`;
     else if(r.status==='kechikkan')bdg=`<span class="badge by">${t('b_late')}</span>`;
+    else if(r.status==='yarim_kun')bdg=`<span class="badge bauto">${t('b_half')}</span>`;
     else bdg=`<span class="badge br">${t('b_abs')}</span>`;
     if(r.auto_ended)bdg+=` <span class="badge bauto" style="font-size:10px">⚙️ auto</span>`;
     const tr=document.createElement('tr');
@@ -2576,6 +2780,7 @@ async function loadHist(){
 
   // ✅ FIX 3: Tab qaytganda — faceHitCount reset, video qayta yoqiladi
   document.addEventListener('visibilitychange',()=>{
+    if(!document.hidden && CU && CU.role==='employee'){ loadNotificationsEmp(true); }
     if(!document.hidden && CU && CU.role==='employee' && empState==='working'){
       if(!faceStream){
         // Stream yo'q — to'liq qayta boshlash
