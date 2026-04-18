@@ -1034,6 +1034,7 @@ const SUPABASE_ANON = 'sb_publishable_xPke9lNej4mAiyLUtxvEIA_DAhmEg_j';
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
 
 const FACE_CHECK_INTERVAL = 120000;
+const FACE_RETRY_INTERVAL = 1000;
 const STABLE_HIT_REQUIRED = 1;
 const AFK_GRACE_SEC       = 300;
 const BREAK_LIMIT_SEC     = 1800;
@@ -1223,6 +1224,7 @@ function todayISO(){const d=tzNow();return d.getFullYear()+'-'+String(d.getMonth
 function curM(){const d=tzNow();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');}
 function fmtHM(d){return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');}
 function fmtSec(s){s=Math.max(0,Math.floor(s));return String(Math.floor(s/3600)).padStart(2,'0')+':'+String(Math.floor((s%3600)/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0');}
+function secToHMS(sec){return fmtSec(sec);}
 function fmtSecMM(s){s=Math.max(0,Math.floor(s));return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0');}
 function hmToMinutes(v){if(!v||typeof v!=='string'||!v.includes(':'))return null;const[a,b]=v.split(':').map(Number);return a*60+b;}
 function computeLateMinutesFromDate(d){if(!d)return 0;const mins=d.getHours()*60+d.getMinutes();return Math.max(0, mins - LATE_AFTER_MINUTES);}
@@ -1949,6 +1951,27 @@ async function loadEmpList() {
     tbody.appendChild(tr);
   });
 }
+async function delEmp(id) {
+  if (!id) return;
+  if (!confirm(t('del_c'))) return;
+
+  try {
+    const { error } = await sb
+      .from('employees')
+      .update({ active: false })
+      .eq('id', id);
+
+    if (error) throw error;
+
+    toast('success', 'Hodim', 'Ro\'yxatdan olib tashlandi');
+    await loadEmpList();
+    loadDashboard();
+    if (mVisible) loadMonthly();
+  } catch (e) {
+    console.error('delEmp error:', e);
+    toast('error', 'Xato', e.message || 'Hodimni o\'chirib bo\'lmadi');
+  }
+}
 async function addEmp() {
   const nm = document.getElementById('ne_n').value.trim();
   const email = document.getElementById('ne_l').value.trim().toLowerCase();
@@ -2424,8 +2447,10 @@ function startAutoEndCheck(){
 let faceApiLoaded   = false;
 let faceStream      = null;
 let faceCheckIv     = null;
+let faceCheckTimer  = null;
 let faceMissCount   = 0;
 let faceHitCount    = 0;
+let faceUnknownCount= 0;
 let faceWidgetMin   = false;
 let afkCurIv        = null;
 let afkCountdownIv  = null;
@@ -2436,6 +2461,12 @@ let myFaceDescriptor= null;
 let isDetecting     = false;
 // ✅ FIX 1: isDetecting stuck bo'lsa aniqlash uchun timestamp
 let isDetectingStartTime = 0;
+
+function scheduleFaceCheck(ms){
+  if(faceCheckTimer){clearTimeout(faceCheckTimer);faceCheckTimer=null;}
+  if(!faceApiLoaded||empState==='ended'||empState==='not_started')return;
+  faceCheckTimer=setTimeout(runFaceCheck,ms);
+}
 
 function toggleFaceWidget(){
   faceWidgetMin=!faceWidgetMin;
@@ -2532,15 +2563,18 @@ async function startFaceDetection(){
   if(myFaceDescriptor){setStatus('✅ Yuz nazorati tayyor');setFaceDot('green','Tayyor');}
   else{setStatus('📸 Yuzni royxatdan otkazing');setFaceDot('yellow','Royxat kerak');}
   if(faceCheckIv){clearInterval(faceCheckIv);faceCheckIv=null;}
+  if(faceCheckTimer){clearTimeout(faceCheckTimer);faceCheckTimer=null;}
   // ✅ FIX 3: Yangi detection siklida counterlarni reset qil
-  faceMissCount=0;faceHitCount=0;isDetecting=false;isDetectingStartTime=0;
+  faceMissCount=0;faceHitCount=0;faceUnknownCount=0;isDetecting=false;isDetectingStartTime=0;
   runFaceCheck();
-  faceCheckIv=setInterval(runFaceCheck,FACE_CHECK_INTERVAL);
 }
 
 // ── FACE CHECK — TO'LIQ QAYTA YOZILGAN ────────────────────
 async function runFaceCheck(){
-  if(empState==='lunch'||empState==='not_started'||empState==='ended')return;
+  if(empState==='lunch'||empState==='not_started'||empState==='ended'){
+    scheduleFaceCheck(FACE_CHECK_INTERVAL);
+    return;
+  }
 
   // ✅ FIX 1: isDetecting 10 soniyadan ortiq stuck bo'lsa majburan reset
   if(isDetecting){
@@ -2549,18 +2583,26 @@ async function runFaceCheck(){
       isDetecting=false;
       isDetectingStartTime=0;
     } else {
+      scheduleFaceCheck(FACE_RETRY_INTERVAL);
       return; // Hali processing davom etmoqda, chiqib ket
     }
   }
 
-  if(!faceApiLoaded)return;
+  if(!faceApiLoaded){
+    scheduleFaceCheck(FACE_RETRY_INTERVAL);
+    return;
+  }
 
   const video=document.getElementById('faceVideo');
-  if(!video)return;
+  if(!video){
+    scheduleFaceCheck(FACE_RETRY_INTERVAL);
+    return;
+  }
 
   // ✅ FIX 2: Video paused yoki to'xtagan bo'lsa — play() chaqir, skip qilma
   if(video.readyState < 2){
     try{ await video.play(); }catch(e){}
+    scheduleFaceCheck(FACE_RETRY_INTERVAL);
     return; // Keyingi tick da qayta urinib ko'riladi
   }
   if(video.paused || video.ended){
@@ -2570,10 +2612,14 @@ async function runFaceCheck(){
       await new Promise(r=>setTimeout(r,200));
     }catch(e){
       console.warn('video.play() error:',e.message);
+      scheduleFaceCheck(FACE_RETRY_INTERVAL);
       return;
     }
     // Agar hali readyState past bo'lsa, keyingi tickda qayta urinadi
-    if(video.readyState < 2) return;
+    if(video.readyState < 2){
+      scheduleFaceCheck(FACE_RETRY_INTERVAL);
+      return;
+    }
   }
 
   // Detection boshlanmoqda
@@ -2594,25 +2640,33 @@ async function runFaceCheck(){
       if(myFaceDescriptor){
         try{
           const dist=faceapi.euclideanDistance(Array.from(det.descriptor||[]),Array.from(myFaceDescriptor));
-          reason=dist<0.45?'match':'unknown_face';
+          reason=dist<0.56?'match':'unknown_face';
         }catch(e){}
       }
 
-      // ❌ Boshqa odam yuzi — darhol miss sifatida hisoblash
+      // ❌ Boshqa odam yuzi — bir necha marta ketma-ket chiqsa miss sifatida hisoblash
       if(reason==='unknown_face'){
         faceHitCount=0; // reset — stabil bo'lmasin
-        faceMissCount++;
+        faceUnknownCount++;
         drawFaceBox(box,false); // qizil ramka
-        setFaceDot('red','⚠️ Boshqa shaxs!');
+        setFaceDot('yellow','Yuz qayta tekshirilyapti...');
         const statusEl=document.getElementById('face_status_inline');
-        if(statusEl)statusEl.textContent='⚠️ Noto\'g\'ri yuz! AFK hisoblanmoqda';
-        if(faceMissCount>=3)onFaceMissed();
+        if(statusEl)statusEl.textContent='🔄 Yuz qayta tekshirilyapti...';
+        if(faceUnknownCount>=3){
+          faceMissCount++;
+          setFaceDot('red','⚠️ Boshqa shaxs!');
+          if(statusEl)statusEl.textContent='⚠️ Noto\'g\'ri yuz! AFK hisoblanmoqda';
+          onFaceMissed();
+        }else{
+          scheduleFaceCheck(FACE_RETRY_INTERVAL);
+        }
         return;
       }
 
   // ✅ O'z yuzi — hit hisoblash
   faceHitCount++;
   faceMissCount = 0;
+  faceUnknownCount = 0;
   drawFaceBox(box, true);
   updateLiveness(box);
 
@@ -2624,23 +2678,31 @@ async function runFaceCheck(){
         const statusEl=document.getElementById('face_status_inline');
         if(statusEl)statusEl.textContent=`🔄 Tasdiqlanyapdi... (${faceHitCount}/${STABLE_HIT_REQUIRED})`;
         setFaceDot('yellow',`Tasdiqlanyapdi ${faceHitCount}/${STABLE_HIT_REQUIRED}`);
+        scheduleFaceCheck(FACE_RETRY_INTERVAL);
       }
 
     } else {
   // ✅ Yuz topilmadi
   faceHitCount = Math.max(0, faceHitCount - 1);
   faceMissCount++;
+  faceUnknownCount=0;
 
   if(faceMissCount >= 3){   // <<< MUHIM
     clearFaceBox();
     lastFaceBox=null;
     livenessScore=Math.max(0,livenessScore-0.05);
     onFaceMissed();
+  }else{
+    setFaceDot('yellow','Yuz qidirilyapti...');
+    const statusEl=document.getElementById('face_status_inline');
+    if(statusEl)statusEl.textContent='🔎 Yuz qidirilyapti...';
+    scheduleFaceCheck(FACE_RETRY_INTERVAL);
   }
 }
 
   }catch(e){
     console.warn('runFaceCheck error:',e.message);
+    scheduleFaceCheck(FACE_RETRY_INTERVAL);
   }finally{
     // ✅ FIX 1: Har doim finally da isDetecting ni reset qil
     isDetecting=false;
@@ -2693,6 +2755,7 @@ function onFaceStablyDetected(reason){
   }
   // ✅ FIX 5: Banner faqat stabil detectiondan keyin yashiriladi
   document.getElementById('afkBanner').style.display='none';
+  scheduleFaceCheck(FACE_CHECK_INTERVAL);
 }
 
 // ── onFaceMissed ───────────────────────────────────────────
@@ -2709,6 +2772,7 @@ function onFaceMissed(){
   if(!isAfk){
     startAfkSession();
   }
+  scheduleFaceCheck(FACE_RETRY_INTERVAL);
 }
 
 // ── AFK SESSION ────────────────────────────────────────────
@@ -2889,6 +2953,7 @@ function setFaceDot(color,txt){
 
 function stopFaceDetection(){
   if(faceCheckIv){clearInterval(faceCheckIv);faceCheckIv=null;}
+  if(faceCheckTimer){clearTimeout(faceCheckTimer);faceCheckTimer=null;}
   if(afkCurIv){clearInterval(afkCurIv);afkCurIv=null;}
   if(faceStream){faceStream.getTracks().forEach(t2=>t2.stop());faceStream=null;}
   // ✅ Barcha flaglarni reset
@@ -2898,6 +2963,7 @@ function stopFaceDetection(){
   currentAfkStart=null;
   faceHitCount=0;
   faceMissCount=0;
+  faceUnknownCount=0;
   document.getElementById('afkBanner').style.display='none';
 }
 
@@ -2985,8 +3051,10 @@ async function loadHist(){
         // ✅ MUHIM: Tab qaytganda ketma-ket detection yangilansin
         faceHitCount=0;
         faceMissCount=0;
+        faceUnknownCount=0;
         isDetecting=false;
         isDetectingStartTime=0;
+        scheduleFaceCheck(FACE_RETRY_INTERVAL);
       }
     }
   });
