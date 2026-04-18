@@ -1,5 +1,5 @@
 /* AloqaPro Service Worker */
-const CACHE_NAME = 'aloqapro-v5';
+const CACHE_NAME = 'aloqapro-v6';
 const BASE = self.registration.scope;
 
 const OFFLINE_ASSETS = [
