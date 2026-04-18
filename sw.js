@@ -1,57 +1,126 @@
-/* AloqaPro Service Worker v1.0 */
-const CACHE_NAME = 'aloqapro-v4.2';
+/* AloqaPro Service Worker */
+const CACHE_NAME = 'aloqapro-v5';
+const BASE = self.registration.scope;
+
 const OFFLINE_ASSETS = [
-  '/',
-  '/index.html',
-  '/manifest.json',
-  'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2',
-  'https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.15/dist/face-api.js'
+  BASE,
+  BASE + 'index.html',
+  BASE + 'manifest.json',
+  BASE + 'images/logo2.png'
 ];
 
-self.addEventListener('install', e => {
-  e.waitUntil(
-    caches.open(CACHE_NAME).then(c => c.addAll(OFFLINE_ASSETS).catch(() => {}))
-  );
-  self.skipWaiting();
+self.addEventListener('install', event => {
+  event.waitUntil((async () => {
+    const cache = await caches.open(CACHE_NAME);
+    for (const asset of OFFLINE_ASSETS) {
+      try {
+        await cache.add(asset);
+      } catch (err) {
+        console.warn('Cache add failed:', asset, err);
+      }
+    }
+    await self.skipWaiting();
+  })());
 });
 
-self.addEventListener('activate', e => {
-  e.waitUntil(
-    caches.keys().then(keys =>
-      Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)))
-    )
-  );
-  self.clients.claim();
+self.addEventListener('activate', event => {
+  event.waitUntil((async () => {
+    const keys = await caches.keys();
+    await Promise.all(
+      keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k))
+    );
+    await self.clients.claim();
+  })());
 });
 
-self.addEventListener('fetch', e => {
-  if (e.request.method !== 'GET') return;
-  e.respondWith(
-    fetch(e.request)
-      .then(r => {
-        const clone = r.clone();
-        caches.open(CACHE_NAME).then(c => c.put(e.request, clone));
-        return r;
-      })
-      .catch(() => caches.match(e.request))
-  );
+self.addEventListener('fetch', event => {
+  const req = event.request;
+  if (req.method !== 'GET') return;
+
+  event.respondWith((async () => {
+    try {
+      const response = await fetch(req);
+
+      if (
+        response &&
+        response.status === 200 &&
+        (req.url.startsWith(self.location.origin) || req.url.startsWith('https://cdn.jsdelivr.net'))
+      ) {
+        const cache = await caches.open(CACHE_NAME);
+        cache.put(req, response.clone()).catch(() => {});
+      }
+
+      return response;
+    } catch (err) {
+      const cached = await caches.match(req);
+      if (cached) return cached;
+
+      if (req.mode === 'navigate') {
+        const fallback = await caches.match(BASE + 'index.html');
+        if (fallback) return fallback;
+      }
+
+      throw err;
+    }
+  })());
 });
 
-// Push notification handler
-self.addEventListener('push', e => {
-  const data = e.data ? e.data.json() : { title: 'AloqaPro', body: 'Yangi xabar' };
-  e.waitUntil(
-    self.registration.showNotification(data.title, {
-      body: data.body,
-      icon: '/images/logo2.png',
-      badge: '/images/logo2.png',
+self.addEventListener('push', event => {
+  let data = { title: 'AloqaPro', body: 'Yangi xabar' };
+
+  try {
+    if (event.data) data = event.data.json();
+  } catch {
+    data = {
+      title: 'AloqaPro',
+      body: event.data ? event.data.text() : 'Yangi xabar'
+    };
+  }
+
+  event.waitUntil(
+    self.registration.showNotification(data.title || 'AloqaPro', {
+      body: data.body || 'Yangi xabar',
+      icon: BASE + 'images/logo2.png',
+      badge: BASE + 'images/logo2.png',
       tag: data.tag || 'aloqapro',
-      data: data
+      data: data.data || {}
     })
   );
 });
 
-self.addEventListener('notificationclick', e => {
-  e.notification.close();
-  e.waitUntil(clients.openWindow('/'));
+self.addEventListener('message', event => {
+  const data = event.data || {};
+  if (data.type === 'SHOW_NOTIFICATION') {
+    event.waitUntil(
+      self.registration.showNotification(data.title || 'AloqaPro', {
+        body: data.body || '',
+        icon: BASE + 'images/logo2.png',
+        badge: BASE + 'images/logo2.png',
+        tag: data.tag || ('local-' + Date.now()),
+        data: data.data || {}
+      })
+    );
+  }
+});
+
+self.addEventListener('notificationclick', event => {
+  event.notification.close();
+
+  event.waitUntil((async () => {
+    const allClients = await clients.matchAll({
+      type: 'window',
+      includeUncontrolled: true
+    });
+
+    for (const client of allClients) {
+      if ('focus' in client) {
+        await client.focus();
+        return;
+      }
+    }
+
+    if (clients.openWindow) {
+      await clients.openWindow(BASE);
+    }
+  })());
 });
