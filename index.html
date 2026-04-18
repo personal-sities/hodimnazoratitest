@@ -626,11 +626,11 @@ html, body { font-family:var(--font); background:var(--bg); color:var(--text); m
               <div class="ms"><h5 id="ms5">Jami KPI</h5><div class="v" id="mk" style="color:var(--success)">0</div></div>
             </div>
             <div class="tbl-wrap">
-              <table class="tbl" id="monthly_table" style="min-width:820px;">
+              <table class="tbl" id="monthly_table" style="min-width:900px;">
                 <thead><tr>
                   <th>#</th><th id="mt1">Ism familiya</th><th id="mt2">Ishlagan soat</th>
                   <th id="mt_afk">AFK vaqti</th><th id="mt3">Kechikish</th>
-                  <th id="mt4">Kelmagan</th><th id="mt5">Jarima</th>
+                  <th id="mt_half">Yarim kun</th><th id="mt4">Kelmagan</th><th id="mt5">Jarima</th>
                   <th id="mt6">Qo'shimcha</th><th id="mt7">KPI ball</th>
                   <th id="mt8">KPI sum</th><th id="mt9">Boshqaruv</th>
                 </tr></thead>
@@ -1110,6 +1110,8 @@ const TR = {
 uz:{loginTitle:'Nazorat tizimiga xush kelibsiz!',loginSub:'Login va parolni kiriting!',loginBtn:'Kirish',loginPH:'Login',passPH:'Parol',loginErr:'Login yoki parol noto\'g\'ri!',loginFill:'Login va parolni kiriting!',exit:'Chiqish',today:'Bugun',nav_m:'Asosiy',nav_notif:'Bildirishnomalar',nav_fb:'Fikrlar',nav_s:'Sozlamalar',nav_k:'KPI Qoidalar',adm_m:'Boshqaruv | Asosiy',adm_s:'Boshqaruv | Sozlamalar',adm_k:'Boshqaruv | KPI',sc1:'Bugun ishda',sc2:'Kechikkan',sc3:'Kelmagan',sc4:'Sana',att_t:'Hodimlar nazorati',from_l:'Dan:',to_l:'Gacha:',b_today:'Bugun',b_monthly:'Oylik',b_cm:'Joriy oy',b_ref:'Yangilash',fsearch:'Qidirish...',o_all:'Barcha',o_came:'Keldi',o_late:'Kechikkan',o_abs:'Kelmadi',th1:'Ism familiya',th2:'Login',th4:'O\'zgartirish',th5:'Kelgan vaqti',th6:'Kechikish',th7:'Ishlagan soat',th_afk:'AFK vaqti',th8:'Status',mth_t:'Oylik hisobot',ms1:'Hodimlar',ms2:'Kechikishlar',ms3:'Kelmagan',ms4:'Ish soati',ms5:'Jami KPI',mt1:'Ism familiya',mt2:'Ishlagan soat',mt_afk:'AFK vaqti',mt3:'Kechikish',mt4:'Kelmagan',mt5:'Jarima',mt6:'Qo\'shimcha',mt7:'KPI ball',mt8:'KPI sum',mt9:'Boshqaruv',set_t:'Hodimlar boshqaruvi',b_addemp:'Qo\'shish',et1:'Ism familiya',et2:'Login',et3:'Parol',et4:'KPI summasi',et5:'O\'chirish',hol_t:'Dam olish kunlari',b_addh:'Qo\'shish',hol_info:'Standart: Du–Sha. Yakshanba avtomatik dam olish.',hol_none:'Qo\'shimcha dam olish kuni yo\'q',kpi_t:'KPI Qoidalari',k1:'Asosiy KPI',k2:'Davomat bo\'yicha KPI 100 ballik sistemada!',k3:'Jarimalar',k4:'Kech qolish',k5:'Kelmaslik',k_afk:'AFK (30 daqiqadan ortiq)',k6:'KPI to\'lovlari',k7:'Eski hodimlar',k8:'Yangi hodimlar',ew_t:'Bugungi ish jarayoni',et_t:'Bugungi ma\'lumot',eh_t:'Oy bo\'yicha tarix',st_pre:'Holat:',lt_pre:'Kechikish:',lt_u:'daqiqa',st0:'Boshlanmagan',st1:'Ishda',st2:'Tushlikda',st4:'Yakunlandi',bs:'Boshlash',bl:'Tushlik',be:'Yakunlash',bc:'Davom ettirish',bb:'Qaytish',ewl:'Ish vaqti',ell:'Tushlik',ewd:'Ish vaqti',eld:'Tushlik vaqti',e_note:'Yangi kun boshlanganida vaqtlar 0 ga tushadi.',eprl:'Namoz',prayer_next_lbl:'🕌 Keyingi namoz vaqti',prayer_btn:'Namoz',prayer_back:'Namozdan qaytish',ei1:'Ish boshlagan',ei2:'Ish tugagan',ei3:'Tushlik boshlangan',ei4:'Tushlik tugagan',ei5:'Namoz boshlangan',ei6:'Namoz tugagan',ht1:'Sana',ht2:'Boshlagan',ht3:'Tushlik bosh.',ht4:'Tushlik tug.',ht5:'Tugagan',ht6:'Kechikish',ht7:'Ish vaqti',ht8:'Tushlik',ht_afk:'AFK',ht9:'Status',eh_note:'Faqat tanlangan oy ma\'lumotlari.',el_lbl:'Kechikishlar (oy):',afk_month_lbl:'AFK (oy jami):',e_cm:'Joriy oy',mw_txt:'Eslatma: "Yakunlash" tugmasini faqat ish kuni to\'liq tugagandan keyin bosing!',mw_ok:'OK',mep_t:'Parolni o\'zgartirish',mep_s:'Saqlash',mep_c:'Bekor qilish',ep_ph:'Yangi parol',b_came:'Keldi',b_late:'Kechikkan',b_abs:'Kelmadi',b_half:'Yarim kun',b_off:'Dam olish',del_c:'Hodimni o\'chirishni tasdiqlaysizmi?',no_data:'Ma\'lumot yo\'q',daq:'daq',marta:'marta',kun:'kun',soat:'soat',daqiqa:'daqiqa',ball:'ball',hisobot:'hisobot',change:'O\'zgartirish',delete:'O\'chirish',reset:'Reset',fill_all:'Barcha maydonlarni to\'ldiring!',face_detected:'✅ Yuz aniqlandi',face_not_detected:'❌ Yuz aniqlanmadi',face_loading:'⏳ Yuklanmoqda...',face_unknown:'⚠️ Noma\'lum yuz',afk_lbl:'⚠️ Joyida bo\'lmagan vaqt',afk_cnt_lbl:'marta AFK',afk_warn_title:'⚠️ Yuzingiz aniqlanmadi!',afk_warn_txt:'Kamera oldida o\'tiring. AFK vaqt hisoblanmoqda.',afk_warn_sub:'5 daqiqa ichida yuz aniqlanmasa, AFK hisoblanadi',afk_im_here:'Men shu yerdaman ✋',auto_end_txt:'Soat 18:15 bo\'ldi. Tizim tomonidan ish yakunlandi.',auto_ended:'Tizim yakunladi',afk_banner:'Yuz aniqlanmadi! AFK vaqt hisoblanmoqda...',afk_over:'oshiqcha',kpi_sr:'Eski hodim (560K)',kpi_jr:'Yangi hodim (400K)'},
 ru:{loginTitle:'Добро пожаловать!',loginSub:'Введите логин и пароль!',loginBtn:'Войти',loginPH:'Логин',passPH:'Пароль',loginErr:'Неверный логин или пароль!',loginFill:'Введите логин и пароль!',exit:'Выйти',today:'Сегодня',nav_m:'Главная',nav_notif:'Уведомления',nav_fb:'Отзывы',nav_s:'Настройки',nav_k:'Правила KPI',adm_m:'Управление | Главная',adm_s:'Управление | Настройки',adm_k:'Управление | KPI',sc1:'На работе',sc2:'Опоздали',sc3:'Не пришли',sc4:'Дата',att_t:'Контроль сотрудников',from_l:'От:',to_l:'До:',b_today:'Сегодня',b_monthly:'Месяц',b_cm:'Тек. месяц',b_ref:'Обновить',fsearch:'Поиск...',o_all:'Все',o_came:'Пришёл',o_late:'Опоздал',o_abs:'Не пришёл',th1:'ФИО',th2:'Логин',th4:'Изменить',th5:'Приход',th6:'Опоздание',th7:'Отработано',th_afk:'AFK время',th8:'Статус',mth_t:'Месячный отчёт',ms1:'Сотрудников',ms2:'Опозданий',ms3:'Пропусков',ms4:'Раб.часов',ms5:'Итого KPI',mt1:'ФИО',mt2:'Отработано',mt_afk:'AFK время',mt3:'Опоздания',mt4:'Пропуски',mt5:'Штраф',mt6:'Доп.баллы',mt7:'KPI балл',mt8:'KPI сумма',mt9:'Управление',set_t:'Управление сотрудниками',b_addemp:'Добавить',et1:'ФИО',et2:'Логин',et3:'Пароль',et4:'Сумма KPI',et5:'Удалить',hol_t:'Выходные дни',b_addh:'Добавить',hol_info:'Стандарт: Пн–Сб. Воскресенье — выходной.',hol_none:'Доп. выходных нет',kpi_t:'Правила KPI',k1:'Основной KPI',k2:'KPI в 100-балльной системе!',k3:'Штрафы',k4:'Опоздание',k5:'Прогул',k_afk:'AFK (более 30 минут)',k6:'Выплаты KPI',k7:'Старые сотрудники',k8:'Новые сотрудники',ew_t:'Рабочий процесс',et_t:'Сегодня',eh_t:'История за месяц',st_pre:'Статус:',lt_pre:'Опоздание:',lt_u:'мин',st0:'Не начат',st1:'На работе',st2:'В обеде',st4:'Завершён',bs:'Начать',bl:'Обед',be:'Завершить',bc:'Продолжить',bb:'Вернуться',ewl:'Рабочее время',ell:'Время обеда',ewd:'Рабочее время',eld:'Время обеда',e_note:'При новом дне таймеры сбрасываются.',ei1:'Начало',ei2:'Конец',ei3:'Обед нач.',ei4:'Обед кон.',ht1:'Дата',ht2:'Начало',ht3:'Обед нач.',ht4:'Обед кон.',ht5:'Конец',ht6:'Опоздание',ht7:'Раб.время',ht8:'Обед',ht_afk:'AFK',ht9:'Статус',eh_note:'Данные выбранного месяца.',el_lbl:'Опозданий (месяц):',afk_month_lbl:'AFK (итого за месяц):',e_cm:'Тек. месяц',mw_txt:'Нажимайте "Завершить" только после полного окончания рабочего дня!',mw_ok:'ОК',mep_t:'Изменить пароль',mep_s:'Сохранить',mep_c:'Отмена',ep_ph:'Новый пароль',b_came:'Пришёл',b_late:'Опоздал',b_abs:'Не пришёл',b_off:'Выходной',del_c:'Удалить сотрудника?',no_data:'Нет данных',daq:'мин',marta:'раз',kun:'дн.',soat:'ч',daqiqa:'мин',ball:'балл',hisobot:'отчёт',change:'Изменить',delete:'Удалить',reset:'Сброс',fill_all:'Заполните все поля!',face_detected:'✅ Лицо обнаружено',face_not_detected:'❌ Лицо не обнаружено',face_loading:'⏳ Загрузка...',face_unknown:'⚠️ Неизвестное лицо',afk_lbl:'⚠️ Отсутствие',afk_cnt_lbl:'раз AFK',afk_warn_title:'⚠️ Лицо не распознано!',afk_warn_txt:'Сядьте перед камерой.',afk_warn_sub:'Если лицо не обнаружено в течение 5 минут — AFK',afk_im_here:'Я здесь ✋',auto_end_txt:'18:15. Рабочий день завершён системой.',auto_ended:'Завершено системой',afk_banner:'Лицо не обнаружено! Идёт подсчёт AFK...',afk_over:'сверх лимита',kpi_sr:'Старый сотр. (560K)',kpi_jr:'Новый сотр. (400K)'}
 };
+TR.uz.mt_half='Yarim kun';
+TR.ru.mt_half='Полдня';
 let lang = localStorage.getItem('aloqa_lang') || 'uz';
 const t = k => (TR[lang]||TR.uz)[k] || k;
 function setLang(l){lang=l;localStorage.setItem('aloqa_lang',l);applyLang();}
@@ -1127,7 +1129,7 @@ function applyLang(){
   updateDates();
   ['sc1','sc2','sc3','sc4','att_t','from_l','to_l','b_today','b_monthly','b_cm','b_ref','o_all','o_came','o_late','o_abs',
    'th1','th2','th4','th5','th6','th7','th_afk','th8','mth_t','ms1','ms2','ms3','ms4','ms5',
-   'mt1','mt2','mt_afk','mt3','mt4','mt5','mt6','mt7','mt8','mt9',
+   'mt1','mt2','mt_afk','mt3','mt_half','mt4','mt5','mt6','mt7','mt8','mt9',
    'set_t','b_addemp','et1','et2','et3','et4','et5','hol_t','b_addh','hol_info',
    'kpi_t','k1','k2','k3','k4','k5','k_afk','k6','k7','k8',
    'ew_t','et_t','eh_t','ewl','ell','eprl','ewd','eld','e_note','prayer_next_lbl',
@@ -1158,9 +1160,12 @@ function fmtSec(s){s=Math.max(0,Math.floor(s));return String(Math.floor(s/3600))
 function fmtSecMM(s){s=Math.max(0,Math.floor(s));return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0');}
 function hmToMinutes(v){if(!v||typeof v!=='string'||!v.includes(':'))return null;const[a,b]=v.split(':').map(Number);return a*60+b;}
 function computeLateMinutesFromDate(d){if(!d)return 0;const mins=d.getHours()*60+d.getMinutes();return Math.max(0, mins - LATE_AFTER_MINUTES);}
-function computeStatusByTimes(startHM,endHM,lateMin,workSec){
+function isHalfDayByTimes(startHM,endHM){
   const s=hmToMinutes(startHM), e=hmToMinutes(endHM);
-  if(s!==null && e!==null && s>=HALF_DAY_START_MINUTES && e<=HALF_DAY_END_MINUTES && workSec>=4*3600) return 'yarim_kun';
+  return (s!==null && s>=HALF_DAY_START_MINUTES) || (e!==null && e<HALF_DAY_END_MINUTES);
+}
+function computeStatusByTimes(startHM,endHM,lateMin,workSec){
+  if(isHalfDayByTimes(startHM,endHM)) return 'yarim_kun';
   if((lateMin||0)>0) return 'kechikkan';
   return 'keldi';
 }
@@ -1706,8 +1711,22 @@ async function loadMonthly(){
   let tL=0,tA=0,tH=0,tK=0;monthlyData=[];const tbody=document.getElementById('mbody');tbody.innerHTML='';
   emps.forEach((emp,i)=>{
     const er=recs?recs.filter(r=>r.employee_id===emp.id):[];
-    let late=0,came=0,sec=0,afkSec=0;
-    er.forEach(r=>{if(r.start_time){const[h,m]=r.start_time.split(':').map(Number);if(h*60+m>540)late++;came++;}if(r.work_seconds)sec+=r.work_seconds;if(r.afk_seconds)afkSec+=r.afk_seconds;});
+    let late=0,came=0,half=0,sec=0,afkSec=0;
+    er.forEach(r=>{
+      if(r.start_time){
+        const[h,m]=r.start_time.split(':').map(Number);
+        if(h*60+m>540)late++;
+        came++;
+      }
+      if(computeStatusByTimes(
+        r.start_time?r.start_time.substring(0,5):null,
+        r.end_time?r.end_time.substring(0,5):null,
+        r.late_minutes||0,
+        r.work_seconds||0
+      )==='yarim_kun')half++;
+      if(r.work_seconds)sec+=r.work_seconds;
+      if(r.afk_seconds)afkSec+=r.afk_seconds;
+    });
     const abs=Math.max(0,wd-came);
     const bon=bons?(bons.find(b=>b.employee_id===emp.id)||{bonus:0}).bonus:0;
     const afkOverSec=Math.max(0,afkSec-1800);
@@ -1719,9 +1738,9 @@ async function loadMonthly(){
     const hs=Math.floor(sec/3600)+'h '+Math.floor((sec%3600)/60)+'m';
     const afkMin=Math.floor(afkSec/60);
     const afkOver=Math.max(0,afkMin-30);
-    monthlyData.push({name:emp.name,hours:hs,afk:afkMin+' '+t('daq'),late,abs,penalty:-pen,bonus:bon,ball:fin,kpi});
+    monthlyData.push({name:emp.name,hours:hs,afk:afkMin+' '+t('daq'),late,half,abs,penalty:-pen,bonus:bon,ball:fin,kpi});
     const tr=document.createElement('tr');
-    tr.innerHTML=`<td>${i+1}</td><td>${emp.name}</td><td style="font-family:var(--mono)">${hs}</td><td style="color:${afkOver>0?'var(--danger)':'var(--text2)'};">${afkMin} ${t('daq')}${afkOver>0?` <span style="color:var(--danger);font-size:10px">(+${afkOver})</span>`:''}</td><td>${late} ${t('marta')}</td><td>${abs} ${t('kun')}</td><td style="color:var(--danger)">-${pen} ${t('ball')}</td><td style="color:var(--success)">+${bon} ${t('ball')}</td><td><strong style="font-family:var(--mono)">${fin} ${t('ball')}</strong></td><td style="color:var(--success);font-weight:700;font-family:var(--mono)">${kpi.toLocaleString()} UZS</td><td><div style="display:flex;gap:3px"><button class="bsm bsm-g" onclick="adjKpi('${emp.id}','${month}',10)">+10</button><button class="bsm bsm-r" onclick="adjKpi('${emp.id}','${month}',-10)">-10</button><button class="bsm bsm-gr" onclick="adjKpi('${emp.id}','${month}',0,true)">${t('reset')}</button></div></td>`;
+    tr.innerHTML=`<td>${i+1}</td><td>${emp.name}</td><td style="font-family:var(--mono)">${hs}</td><td style="color:${afkOver>0?'var(--danger)':'var(--text2)'};">${afkMin} ${t('daq')}${afkOver>0?` <span style="color:var(--danger);font-size:10px">(+${afkOver})</span>`:''}</td><td>${late} ${t('marta')}</td><td>${half} ${t('kun')}</td><td>${abs} ${t('kun')}</td><td style="color:var(--danger)">-${pen} ${t('ball')}</td><td style="color:var(--success)">+${bon} ${t('ball')}</td><td><strong style="font-family:var(--mono)">${fin} ${t('ball')}</strong></td><td style="color:var(--success);font-weight:700;font-family:var(--mono)">${kpi.toLocaleString()} UZS</td><td><div style="display:flex;gap:3px"><button class="bsm bsm-g" onclick="adjKpi('${emp.id}','${month}',10)">+10</button><button class="bsm bsm-r" onclick="adjKpi('${emp.id}','${month}',-10)">-10</button><button class="bsm bsm-gr" onclick="adjKpi('${emp.id}','${month}',0,true)">${t('reset')}</button></div></td>`;
     tbody.appendChild(tr);
   });
   st('me',''+emps.length);st('ml',''+tL);st('ma',''+tA);st('mh',Math.floor(tH/3600)+'h '+Math.floor((tH%3600)/60)+'m');st('mk',tK.toLocaleString()+' UZS');
@@ -1912,8 +1931,8 @@ function exportExcel(){
   if(!monthlyData||monthlyData.length===0){toast('warn','Export','Avval oylik hisobotni yuklang');return;}
   if(typeof XLSX==='undefined'){toast('warn','Export','Excel kutubxonasi hali yuklanmadi, kuting...');return;}
   const month=document.getElementById('fmonth').value||curM();
-  const headers=['#','Ism familiya','Ishlagan soat','AFK vaqti','Kechikish','Kelmagan','Jarima','Qo\'shimcha','KPI ball','KPI sum (UZS)'];
-  const rows=monthlyData.map((d,i)=>[i+1,d.name,d.hours,d.afk,d.late,d.abs,d.penalty,'+'+d.bonus,d.ball,d.kpi]);
+  const headers=['#','Ism familiya','Ishlagan soat','AFK vaqti','Kechikish','Yarim kun','Kelmagan','Jarima','Qo\'shimcha','KPI ball','KPI sum (UZS)'];
+  const rows=monthlyData.map((d,i)=>[i+1,d.name,d.hours,d.afk,d.late,d.half,d.abs,d.penalty,'+'+d.bonus,d.ball,d.kpi]);
   const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
   ws['!cols']=headers.map(()=>({wch:18}));
   const wb=XLSX.utils.book_new();
@@ -1931,8 +1950,8 @@ function exportPDF(){
   doc.text('AloqaPro — KPI Hisobot: '+month,14,14);
   doc.setFontSize(10);
   doc.text('Sana: '+new Date().toLocaleDateString(),14,22);
-  const headers=[['#','Ism familiya','Ish soat','AFK','Kechikish','Kelmagan','Jarima','Bonus','Ball','KPI (UZS)']];
-  const rows=monthlyData.map((d,i)=>[i+1,d.name,d.hours,d.afk,d.late,d.abs,d.penalty,'+'+d.bonus,d.ball,d.kpi.toLocaleString()]);
+  const headers=[['#','Ism familiya','Ish soat','AFK','Kechikish','Yarim kun','Kelmagan','Jarima','Bonus','Ball','KPI (UZS)']];
+  const rows=monthlyData.map((d,i)=>[i+1,d.name,d.hours,d.afk,d.late,d.half,d.abs,d.penalty,'+'+d.bonus,d.ball,d.kpi.toLocaleString()]);
   doc.autoTable({head:headers,body:rows,startY:28,styles:{fontSize:9,cellPadding:2},headStyles:{fillColor:[74,140,245],textColor:[255,255,255],fontStyle:'bold'},alternateRowStyles:{fillColor:[245,248,252]},margin:{left:14,right:14}});
   doc.save('AloqaPro_'+month+'_KPI.pdf');
   toast('success','PDF','Yuklab olindi!');
@@ -2749,10 +2768,16 @@ async function loadHist(){
     const lh=Math.floor((r.lunch_seconds||0)/3600),lm2=Math.floor(((r.lunch_seconds||0)%3600)/60);
     const afkMin=Math.floor((r.afk_seconds||0)/60);
     const afkOver=Math.max(0,afkMin-30);
+    const status=computeStatusByTimes(
+      r.start_time?r.start_time.substring(0,5):null,
+      r.end_time?r.end_time.substring(0,5):null,
+      r.late_minutes||0,
+      r.work_seconds||0
+    );
     let bdg='';
-    if(r.status==='keldi')bdg=`<span class="badge bg">${t('b_came')}</span>`;
-    else if(r.status==='kechikkan')bdg=`<span class="badge by">${t('b_late')}</span>`;
-    else if(r.status==='yarim_kun')bdg=`<span class="badge bauto">${t('b_half')}</span>`;
+    if(status==='keldi')bdg=`<span class="badge bg">${t('b_came')}</span>`;
+    else if(status==='kechikkan')bdg=`<span class="badge by">${t('b_late')}</span>`;
+    else if(status==='yarim_kun')bdg=`<span class="badge bauto">${t('b_half')}</span>`;
     else bdg=`<span class="badge br">${t('b_abs')}</span>`;
     if(r.auto_ended)bdg+=` <span class="badge bauto" style="font-size:10px">⚙️ auto</span>`;
     const tr=document.createElement('tr');
