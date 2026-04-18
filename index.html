@@ -1044,6 +1044,7 @@ const LATE_AFTER_MINUTES  = 9 * 60 + 5;
 const HALF_DAY_START_MINUTES = 11 * 60;
 const HALF_DAY_END_MINUTES   = 15 * 60;
 const NOTIF_POLL_INTERVAL = 30000;
+const ABSENCE_START_KEY = 'aloqa_absence_start_date';
 
 // ============================================================
 //  THEME
@@ -1238,6 +1239,40 @@ function computeStatusByTimes(startHM,endHM,lateMin,workSec){
   return 'keldi';
 }
 function isWorkDay(ds){const d=new Date(ds+'T12:00:00');if(d.getDay()===0)return false;return!JSON.parse(localStorage.getItem('aloqa_hols')||'[]').includes(ds);}
+function getAbsenceStartDate(){
+  let ds=localStorage.getItem(ABSENCE_START_KEY);
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(ds||'')){
+    ds=todayISO();
+    localStorage.setItem(ABSENCE_START_KEY,ds);
+  }
+  return ds;
+}
+function addDaysISO(ds,days){
+  const d=new Date(ds+'T12:00:00');
+  d.setDate(d.getDate()+days);
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+function monthEndISO(month){
+  const[y,mo]=month.split('-').map(Number);
+  return `${month}-${String(new Date(y,mo,0).getDate()).padStart(2,'0')}`;
+}
+function isAbsenceReadyDate(ds){
+  const today=todayISO();
+  if(ds<today)return true;
+  if(ds>today)return false;
+  const now=tzNow();
+  return now.getHours()*60+now.getMinutes()>=AUTO_END_HOUR*60+AUTO_END_MIN;
+}
+function countAbsencesForMonth(month,cameDates){
+  const start=[`${month}-01`,getAbsenceStartDate()].sort().pop();
+  const end=[monthEndISO(month),todayISO()].sort()[0];
+  if(start>end)return 0;
+  let cnt=0;
+  for(let ds=start;ds<=end;ds=addDaysISO(ds,1)){
+    if(isWorkDay(ds)&&isAbsenceReadyDate(ds)&&!cameDates.has(ds))cnt++;
+  }
+  return cnt;
+}
 function updateDates(){const s=t('today')+': '+fmtD(tzNow());st('admDate',s);st('empDate',s);}
 setInterval(updateDates,30000);
 
@@ -1716,13 +1751,18 @@ async function loadDashboard(){
   const rows=(emps||[]).map(emp=>{
     const er=(recs||[]).filter(r=>r.employee_id===emp.id);
     let sec=0,afkSec=0,late=0,lateMin=0,came=0;
+    const cameDates=new Set();
     er.forEach(r=>{
-      if(r.start_time){came++;const[h,m]=r.start_time.split(':').map(Number);if(h*60+m>540)late++;}
+      if(r.start_time){
+        came++;
+        if(r.work_date)cameDates.add(r.work_date);
+        const[h,m]=r.start_time.split(':').map(Number);if(h*60+m>540)late++;
+      }
       sec+=r.work_seconds||0;
       afkSec+=r.afk_seconds||0;
       lateMin+=r.late_minutes||0;
     });
-    const abs=Math.max(0,wd-came);
+    const abs=countAbsencesForMonth(month,cameDates);
     const bon=(bons||[]).find(b=>b.employee_id===emp.id)?.bonus||0;
     const afkPenalty=Math.floor(Math.max(0,afkSec-1800)/60);
     const pen=late*10+abs*20+Math.min(afkPenalty,20);
@@ -1880,11 +1920,13 @@ async function loadMonthly(){
   emps.forEach((emp,i)=>{
     const er=recs?recs.filter(r=>r.employee_id===emp.id):[];
     let late=0,came=0,half=0,sec=0,afkSec=0;
+    const cameDates=new Set();
     er.forEach(r=>{
       if(r.start_time){
         const[h,m]=r.start_time.split(':').map(Number);
         if(h*60+m>540)late++;
         came++;
+        if(r.work_date)cameDates.add(r.work_date);
       }
       if(computeStatusByTimes(
         r.start_time?r.start_time.substring(0,5):null,
@@ -1895,7 +1937,7 @@ async function loadMonthly(){
       if(r.work_seconds)sec+=r.work_seconds;
       if(r.afk_seconds)afkSec+=r.afk_seconds;
     });
-    const abs=Math.max(0,wd-came);
+    const abs=countAbsencesForMonth(month,cameDates);
     const bon=bons?(bons.find(b=>b.employee_id===emp.id)||{bonus:0}).bonus:0;
     const afkOverSec=Math.max(0,afkSec-1800);
     const afkPenalty=Math.floor(afkOverSec/60);
