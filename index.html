@@ -1042,6 +1042,16 @@ html, body { font-family:var(--font); background:var(--bg); color:var(--text); m
     <button class="msingle" onclick="document.getElementById('m_auto_end').classList.add('hidden')">OK</button>
   </div>
 </div>
+<div class="ov hidden" id="m_lunch_shift">
+  <div class="modal">
+    <h3 style="color:var(--warn)" id="lunch_shift_title">🍽️ Abed smenasini tanlang</h3>
+    <p id="lunch_shift_text">Bugun abedni qaysi smenada qilasiz?</p>
+    <div class="mbtns">
+      <button class="mok" onclick="saveLunchShiftChoice('shift_1')" id="lunch_shift_btn_1">1-smena</button>
+      <button class="msingle" onclick="saveLunchShiftChoice('shift_2')" id="lunch_shift_btn_2">2-smena</button>
+    </div>
+  </div>
+</div>
 
 <script>
 // ============================================================
@@ -1429,6 +1439,62 @@ let notifPollIv = null;
 let seenNotifIds = new Set(JSON.parse(localStorage.getItem('aloqa_seen_notif_ids')||'[]'));
 let employeeNotifRealtime = null;
 let adminRealtime = null;
+let todayLunchShift = null;
+
+function lunchPlanLocalKey(){
+  return `aloqa_lunch_plan_${todayISO()}`;
+}
+function loadLunchPlanLocal(){
+  try{return JSON.parse(localStorage.getItem(lunchPlanLocalKey())||'null');}catch(e){return null;}
+}
+function saveLunchPlanLocal(shift){
+  localStorage.setItem(lunchPlanLocalKey(), JSON.stringify({shift, work_date:todayISO()}));
+}
+async function loadTodayLunchPlan(){
+  todayLunchShift = null;
+  const local = loadLunchPlanLocal();
+  if (local?.shift) {
+    todayLunchShift = local.shift;
+  }
+  if (!CU || CU.role !== 'employee') return todayLunchShift;
+  try{
+    const { data } = await sb
+      .from('lunch_plans')
+      .select('shift')
+      .eq('employee_id', CU.id)
+      .eq('work_date', todayISO())
+      .maybeSingle();
+    if (data?.shift) {
+      todayLunchShift = data.shift;
+      saveLunchPlanLocal(data.shift);
+    }
+  }catch(e){
+    console.warn('loadTodayLunchPlan:', e.message || e);
+  }
+  return todayLunchShift;
+}
+async function ensureLunchShiftPrompt() {
+  if (!CU || CU.role !== 'employee' || todayLunchShift) return;
+  const now = tzNow();
+  const mins = now.getHours() * 60 + now.getMinutes();
+  if (mins < (11 * 60 + 40)) return;
+  document.getElementById('m_lunch_shift').classList.remove('hidden');
+}
+async function saveLunchShiftChoice(shift) {
+  if (!CU) return;
+  try{
+    const payload = { employee_id: CU.id, work_date: todayISO(), shift };
+    const { error } = await sb.from('lunch_plans').upsert(payload, { onConflict: 'employee_id,work_date' });
+    if (error) throw error;
+    todayLunchShift = shift;
+    saveLunchPlanLocal(shift);
+    document.getElementById('m_lunch_shift').classList.add('hidden');
+    toast('success', 'Abed', shift === 'shift_1' ? '1-smena tanlandi' : '2-smena tanlandi');
+  }catch(e){
+    console.error('saveLunchShiftChoice:', e);
+    toast('error', 'Abed', e.message || 'Tanlov saqlanmadi');
+  }
+}
 
 function removeRealtimeChannel(channelRef){
   if(!channelRef)return null;
@@ -1543,13 +1609,23 @@ function checkScheduledNotifs() {
   if (!sentToday[key]) sentToday[key] = {};
   const S = sentToday[key];
   if (h===9&&m===0&&!S.s9){S.s9=true;showAppNotification('AloqaPro',lang==='uz'?'Ishingiz boshlandi! Samarali kun tilaymiz 💼':'Рабочий день начался! Удачного дня 💼');saveNotifToDB('work_start',lang==='uz'?'Ish boshlandi':'Начало работы',lang==='uz'?'Ishingiz boshlandi! Samarali kun tilaymiz':'Рабочий день начался!');}
-  if (h===11&&m===40&&!S.s11){S.s11=true;showAppNotification('AloqaPro',lang==='uz'?'Tushlik vaqti yaqin (12:00) 🍽️':'Обеденное время скоро (12:00) 🍽️');saveNotifToDB('lunch_soon','Tushlik yaqin','Tushlik vaqti 20 daqiqadan so\'ng');}
+  if (h===11&&m===40&&!S.s11){
+    S.s11=true;
+    showAppNotification('AloqaPro',lang==='uz'?'Abed smenasini tanlang 🍽️':'Выберите обеденную смену 🍽️');
+    saveNotifToDB(
+      'lunch_shift_prompt',
+      lang==='uz'?'Abed smenasini tanlang':'Выберите обеденную смену',
+      lang==='uz'?'Bugun 1-smena yoki 2-smena abedni tanlang':'Выберите 1-ю или 2-ю смену обеда на сегодня'
+    );
+    ensureLunchShiftPrompt();
+  }
   if (h===17&&m===50&&!S.s17){S.s17=true;showAppNotification('AloqaPro',lang==='uz'?'Ish vaqtingiz yakunlanyabdi! Vazifalarni yakunlang ⏰':'Рабочий день заканчивается! Завершите задачи ⏰');saveNotifToDB('work_end_soon','Ish tugayabdi','Ish vaqtingiz yakunlanyabdi, vazifalarni yakunlang');}
   const breakSec=todayBreakSec();
   if(breakSec>=600&&breakSec<660&&!S.b10){S.b10=true;showAppNotification('AloqaPro','⚠️ '+(lang==='uz'?'10 daqiqa tanaffus':'10 минут перерыва'));}
   if(breakSec>=1200&&breakSec<1260&&!S.b20){S.b20=true;showAppNotification('AloqaPro','⚠️ '+(lang==='uz'?'20 daqiqa tanaffus — 10 daqiqa qoldi!':'20 минут перерыва — осталось 10 минут!'));}
   if(breakSec>=1500&&breakSec<1560&&!S.b25){S.b25=true;showAppNotification('AloqaPro','🔴 '+(lang==='uz'?'25 daqiqa tanaffus! 5 daqiqa qoldi!':'25 минут перерыва! Осталось 5 минут!'));}
   if(breakSec>=1800&&!S.b30){S.b30=true;showAppNotification('AloqaPro','🚨 '+(lang==='uz'?'30 daqiqa tanaffus tugadi! AFK hisoblanmoqda!':'30 минут перерыва истекло! AFK!'));}
+  if (!todayLunchShift && h >= 11 && (h < 14 || (h === 14 && m === 0))) ensureLunchShiftPrompt();
 }
 async function saveNotifToDB(type,title,body){if(!CU)return;try{await sb.from('notifications').insert({employee_id:CU.id,title,body,type});}catch(e){console.warn('saveNotifToDB:',e);}loadNotificationsEmp(false);}
 async function adminSendNotif() {
@@ -2462,6 +2538,7 @@ function initEmp(){
   document.getElementById('m_welcome').classList.remove('hidden');
   const mt=document.getElementById('e_mtag');if(mt)mt.textContent=curM();
   startFaceDetection();startAutoEndCheck();startPrayerClock();
+  loadTodayLunchPlan().then(()=>ensureLunchShiftPrompt());
   if(Notification.permission==='granted'){scheduleReminders();}
   subscribeEmployeeRealtime();
   loadNotificationsEmp(false);
