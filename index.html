@@ -1029,14 +1029,15 @@ html, body { font-family:var(--font); background:var(--bg); color:var(--text); m
 // ============================================================
 //  CONFIG
 // ============================================================
-const SUPABASE_URL  = 'https://nbxpdssdeeamypvecyba.supabase.co';
-const SUPABASE_ANON = 'sb_publishable_xPke9lNej4mAiyLUtxvEIA_DAhmEg_j';
+const SUPABASE_URL  = 'https://hdbhdddekjjjtwtyocfa.supabase.co';
+const SUPABASE_ANON = 'sb_publishable_CZUB0mOSzmmCvviNzWykzw_B3_0-5bE';
+const FUNCTIONS_BASE = `${SUPABASE_URL}/functions/v1`;
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
 
 const FACE_CHECK_INTERVAL = 120000;
 const FACE_RETRY_INTERVAL = 1000;
 const STABLE_HIT_REQUIRED = 1;
-const AFK_GRACE_SEC       = 300;
+const AFK_GRACE_SEC       = 600;
 const BREAK_LIMIT_SEC     = 1800;
 const AUTO_END_HOUR       = 18;
 const AUTO_END_MIN        = 15;
@@ -1044,6 +1045,7 @@ const LATE_AFTER_MINUTES  = 9 * 60 + 5;
 const HALF_DAY_START_MINUTES = 11 * 60;
 const HALF_DAY_END_MINUTES   = 15 * 60;
 const NOTIF_POLL_INTERVAL = 30000;
+const REALTIME_SCHEMA = 'public';
 const ABSENCE_START_KEY = 'aloqa_absence_start_date';
 
 // ============================================================
@@ -1129,12 +1131,7 @@ async function getAllowedIPs(){
 async function saveAllowedIPs(arr){
   try{
     const json=JSON.stringify(arr);
-    const{data:ex}=await sb.from('settings').select('id').eq('key','allowed_ips').maybeSingle();
-    if(ex){
-      await sb.from('settings').update({value:json}).eq('key','allowed_ips');
-    }else{
-      await sb.from('settings').insert({key:'allowed_ips',value:json});
-    }
+    await sb.from('settings').upsert({key:'allowed_ips',value:json},{onConflict:'key'});
     await updateIPList();
   }catch(e){console.error('saveAllowedIPs error:',e);}
 }
@@ -1173,8 +1170,8 @@ function showIPBlock(ip){['loginPage','adminPage','employeePage'].forEach(id=>{c
 //  TRANSLATIONS
 // ============================================================
 const TR = {
-uz:{loginTitle:'Nazorat tizimiga xush kelibsiz!',loginSub:'Login va parolni kiriting!',loginBtn:'Kirish',loginPH:'Login',passPH:'Parol',loginErr:'Login yoki parol noto\'g\'ri!',loginFill:'Login va parolni kiriting!',exit:'Chiqish',today:'Bugun',nav_m:'Asosiy',nav_notif:'Bildirishnomalar',nav_fb:'Fikrlar',nav_s:'Sozlamalar',nav_k:'KPI Qoidalar',adm_m:'Boshqaruv | Asosiy',adm_s:'Boshqaruv | Sozlamalar',adm_k:'Boshqaruv | KPI',sc1:'Bugun ishda',sc2:'Kechikkan',sc3:'Kelmagan',sc4:'Sana',att_t:'Hodimlar nazorati',from_l:'Dan:',to_l:'Gacha:',b_today:'Bugun',b_monthly:'Oylik',b_cm:'Joriy oy',b_ref:'Yangilash',fsearch:'Qidirish...',o_all:'Barcha',o_came:'Keldi',o_late:'Kechikkan',o_abs:'Kelmadi',th1:'Ism familiya',th2:'Login',th4:'O\'zgartirish',th5:'Kelgan vaqti',th6:'Kechikish',th7:'Ishlagan soat',th_afk:'AFK vaqti',th8:'Status',mth_t:'Oylik hisobot',ms1:'Hodimlar',ms2:'Kechikishlar',ms3:'Kelmagan',ms4:'Ish soati',ms5:'Jami KPI',mt1:'Ism familiya',mt2:'Ishlagan soat',mt_afk:'AFK vaqti',mt3:'Kechikish',mt4:'Kelmagan',mt5:'Jarima',mt6:'Qo\'shimcha',mt7:'KPI ball',mt8:'KPI sum',mt9:'Boshqaruv',set_t:'Hodimlar boshqaruvi',b_addemp:'Qo\'shish',et1:'Ism familiya',et2:'Login',et3:'Parol',et4:'KPI summasi',et5:'O\'chirish',hol_t:'Dam olish kunlari',b_addh:'Qo\'shish',hol_info:'Standart: Du–Sha. Yakshanba avtomatik dam olish.',hol_none:'Qo\'shimcha dam olish kuni yo\'q',kpi_t:'KPI Qoidalari',k1:'Asosiy KPI',k2:'Davomat bo\'yicha KPI 100 ballik sistemada!',k3:'Jarimalar',k4:'Kech qolish',k5:'Kelmaslik',k_afk:'AFK (30 daqiqadan ortiq)',k6:'KPI to\'lovlari',k7:'Eski hodimlar',k8:'Yangi hodimlar',ew_t:'Bugungi ish jarayoni',et_t:'Bugungi ma\'lumot',eh_t:'Oy bo\'yicha tarix',st_pre:'Holat:',lt_pre:'Kechikish:',lt_u:'daqiqa',st0:'Boshlanmagan',st1:'Ishda',st2:'Tushlikda',st4:'Yakunlandi',bs:'Boshlash',bl:'Tushlik',be:'Yakunlash',bc:'Davom ettirish',bb:'Qaytish',ewl:'Ish vaqti',ell:'Tushlik',ewd:'Ish vaqti',eld:'Tushlik vaqti',e_note:'Yangi kun boshlanganida vaqtlar 0 ga tushadi.',eprl:'Namoz',prayer_next_lbl:'🕌 Keyingi namoz vaqti',prayer_btn:'Namoz',prayer_back:'Namozdan qaytish',ei1:'Ish boshlagan',ei2:'Ish tugagan',ei3:'Tushlik boshlangan',ei4:'Tushlik tugagan',ei5:'Namoz boshlangan',ei6:'Namoz tugagan',ht1:'Sana',ht2:'Boshlagan',ht3:'Tushlik bosh.',ht4:'Tushlik tug.',ht5:'Tugagan',ht6:'Kechikish',ht7:'Ish vaqti',ht8:'Tushlik',ht_afk:'AFK',ht9:'Status',eh_note:'Faqat tanlangan oy ma\'lumotlari.',el_lbl:'Kechikishlar (oy):',afk_month_lbl:'AFK (oy jami):',e_cm:'Joriy oy',mw_txt:'Eslatma: "Yakunlash" tugmasini faqat ish kuni to\'liq tugagandan keyin bosing!',mw_ok:'OK',mep_t:'Parolni o\'zgartirish',mep_s:'Saqlash',mep_c:'Bekor qilish',ep_ph:'Yangi parol',b_came:'Keldi',b_late:'Kechikkan',b_abs:'Kelmadi',b_half:'Yarim kun',b_off:'Dam olish',del_c:'Hodimni o\'chirishni tasdiqlaysizmi?',no_data:'Ma\'lumot yo\'q',daq:'daq',marta:'marta',kun:'kun',soat:'soat',daqiqa:'daqiqa',ball:'ball',hisobot:'hisobot',change:'O\'zgartirish',delete:'O\'chirish',reset:'Reset',fill_all:'Barcha maydonlarni to\'ldiring!',face_detected:'✅ Yuz aniqlandi',face_not_detected:'❌ Yuz aniqlanmadi',face_loading:'⏳ Yuklanmoqda...',face_unknown:'⚠️ Noma\'lum yuz',afk_lbl:'⚠️ Joyida bo\'lmagan vaqt',afk_cnt_lbl:'marta AFK',afk_warn_title:'⚠️ Yuzingiz aniqlanmadi!',afk_warn_txt:'Kamera oldida o\'tiring. AFK vaqt hisoblanmoqda.',afk_warn_sub:'5 daqiqa ichida yuz aniqlanmasa, AFK hisoblanadi',afk_im_here:'Men shu yerdaman ✋',auto_end_txt:'Soat 18:15 bo\'ldi. Tizim tomonidan ish yakunlandi.',auto_ended:'Tizim yakunladi',afk_banner:'Yuz aniqlanmadi! AFK vaqt hisoblanmoqda...',afk_over:'oshiqcha',kpi_sr:'Eski hodim (560K)',kpi_jr:'Yangi hodim (400K)'},
-ru:{loginTitle:'Добро пожаловать!',loginSub:'Введите логин и пароль!',loginBtn:'Войти',loginPH:'Логин',passPH:'Пароль',loginErr:'Неверный логин или пароль!',loginFill:'Введите логин и пароль!',exit:'Выйти',today:'Сегодня',nav_m:'Главная',nav_notif:'Уведомления',nav_fb:'Отзывы',nav_s:'Настройки',nav_k:'Правила KPI',adm_m:'Управление | Главная',adm_s:'Управление | Настройки',adm_k:'Управление | KPI',sc1:'На работе',sc2:'Опоздали',sc3:'Не пришли',sc4:'Дата',att_t:'Контроль сотрудников',from_l:'От:',to_l:'До:',b_today:'Сегодня',b_monthly:'Месяц',b_cm:'Тек. месяц',b_ref:'Обновить',fsearch:'Поиск...',o_all:'Все',o_came:'Пришёл',o_late:'Опоздал',o_abs:'Не пришёл',th1:'ФИО',th2:'Логин',th4:'Изменить',th5:'Приход',th6:'Опоздание',th7:'Отработано',th_afk:'AFK время',th8:'Статус',mth_t:'Месячный отчёт',ms1:'Сотрудников',ms2:'Опозданий',ms3:'Пропусков',ms4:'Раб.часов',ms5:'Итого KPI',mt1:'ФИО',mt2:'Отработано',mt_afk:'AFK время',mt3:'Опоздания',mt4:'Пропуски',mt5:'Штраф',mt6:'Доп.баллы',mt7:'KPI балл',mt8:'KPI сумма',mt9:'Управление',set_t:'Управление сотрудниками',b_addemp:'Добавить',et1:'ФИО',et2:'Логин',et3:'Пароль',et4:'Сумма KPI',et5:'Удалить',hol_t:'Выходные дни',b_addh:'Добавить',hol_info:'Стандарт: Пн–Сб. Воскресенье — выходной.',hol_none:'Доп. выходных нет',kpi_t:'Правила KPI',k1:'Основной KPI',k2:'KPI в 100-балльной системе!',k3:'Штрафы',k4:'Опоздание',k5:'Прогул',k_afk:'AFK (более 30 минут)',k6:'Выплаты KPI',k7:'Старые сотрудники',k8:'Новые сотрудники',ew_t:'Рабочий процесс',et_t:'Сегодня',eh_t:'История за месяц',st_pre:'Статус:',lt_pre:'Опоздание:',lt_u:'мин',st0:'Не начат',st1:'На работе',st2:'В обеде',st4:'Завершён',bs:'Начать',bl:'Обед',be:'Завершить',bc:'Продолжить',bb:'Вернуться',ewl:'Рабочее время',ell:'Время обеда',ewd:'Рабочее время',eld:'Время обеда',e_note:'При новом дне таймеры сбрасываются.',ei1:'Начало',ei2:'Конец',ei3:'Обед нач.',ei4:'Обед кон.',ht1:'Дата',ht2:'Начало',ht3:'Обед нач.',ht4:'Обед кон.',ht5:'Конец',ht6:'Опоздание',ht7:'Раб.время',ht8:'Обед',ht_afk:'AFK',ht9:'Статус',eh_note:'Данные выбранного месяца.',el_lbl:'Опозданий (месяц):',afk_month_lbl:'AFK (итого за месяц):',e_cm:'Тек. месяц',mw_txt:'Нажимайте "Завершить" только после полного окончания рабочего дня!',mw_ok:'ОК',mep_t:'Изменить пароль',mep_s:'Сохранить',mep_c:'Отмена',ep_ph:'Новый пароль',b_came:'Пришёл',b_late:'Опоздал',b_abs:'Не пришёл',b_off:'Выходной',del_c:'Удалить сотрудника?',no_data:'Нет данных',daq:'мин',marta:'раз',kun:'дн.',soat:'ч',daqiqa:'мин',ball:'балл',hisobot:'отчёт',change:'Изменить',delete:'Удалить',reset:'Сброс',fill_all:'Заполните все поля!',face_detected:'✅ Лицо обнаружено',face_not_detected:'❌ Лицо не обнаружено',face_loading:'⏳ Загрузка...',face_unknown:'⚠️ Неизвестное лицо',afk_lbl:'⚠️ Отсутствие',afk_cnt_lbl:'раз AFK',afk_warn_title:'⚠️ Лицо не распознано!',afk_warn_txt:'Сядьте перед камерой.',afk_warn_sub:'Если лицо не обнаружено в течение 5 минут — AFK',afk_im_here:'Я здесь ✋',auto_end_txt:'18:15. Рабочий день завершён системой.',auto_ended:'Завершено системой',afk_banner:'Лицо не обнаружено! Идёт подсчёт AFK...',afk_over:'сверх лимита',kpi_sr:'Старый сотр. (560K)',kpi_jr:'Новый сотр. (400K)'}
+uz:{loginTitle:'Nazorat tizimiga xush kelibsiz!',loginSub:'Login va parolni kiriting!',loginBtn:'Kirish',loginPH:'Login',passPH:'Parol',loginErr:'Login yoki parol noto\'g\'ri!',loginFill:'Login va parolni kiriting!',exit:'Chiqish',today:'Bugun',nav_m:'Asosiy',nav_notif:'Bildirishnomalar',nav_fb:'Fikrlar',nav_s:'Sozlamalar',nav_k:'KPI Qoidalar',adm_m:'Boshqaruv | Asosiy',adm_s:'Boshqaruv | Sozlamalar',adm_k:'Boshqaruv | KPI',sc1:'Bugun ishda',sc2:'Kechikkan',sc3:'Kelmagan',sc4:'Sana',att_t:'Hodimlar nazorati',from_l:'Dan:',to_l:'Gacha:',b_today:'Bugun',b_monthly:'Oylik',b_cm:'Joriy oy',b_ref:'Yangilash',fsearch:'Qidirish...',o_all:'Barcha',o_came:'Keldi',o_late:'Kechikkan',o_abs:'Kelmadi',th1:'Ism familiya',th2:'Login',th4:'O\'zgartirish',th5:'Kelgan vaqti',th6:'Kechikish',th7:'Ishlagan soat',th_afk:'AFK vaqti',th8:'Status',mth_t:'Oylik hisobot',ms1:'Hodimlar',ms2:'Kechikishlar',ms3:'Kelmagan',ms4:'Ish soati',ms5:'Jami KPI',mt1:'Ism familiya',mt2:'Ishlagan soat',mt_afk:'AFK vaqti',mt3:'Kechikish',mt4:'Kelmagan',mt5:'Jarima',mt6:'Qo\'shimcha',mt7:'KPI ball',mt8:'KPI sum',mt9:'Boshqaruv',set_t:'Hodimlar boshqaruvi',b_addemp:'Qo\'shish',et1:'Ism familiya',et2:'Login',et3:'Parol',et4:'KPI summasi',et5:'O\'chirish',hol_t:'Dam olish kunlari',b_addh:'Qo\'shish',hol_info:'Standart: Du–Sha. Yakshanba avtomatik dam olish.',hol_none:'Qo\'shimcha dam olish kuni yo\'q',kpi_t:'KPI Qoidalari',k1:'Asosiy KPI',k2:'Davomat bo\'yicha KPI 100 ballik sistemada!',k3:'Jarimalar',k4:'Kech qolish',k5:'Kelmaslik',k_afk:'AFK (30 daqiqadan ortiq)',k6:'KPI to\'lovlari',k7:'Eski hodimlar',k8:'Yangi hodimlar',ew_t:'Bugungi ish jarayoni',et_t:'Bugungi ma\'lumot',eh_t:'Oy bo\'yicha tarix',st_pre:'Holat:',lt_pre:'Kechikish:',lt_u:'daqiqa',st0:'Boshlanmagan',st1:'Ishda',st2:'Tushlikda',st4:'Yakunlandi',bs:'Boshlash',bl:'Tushlik',be:'Yakunlash',bc:'Davom ettirish',bb:'Qaytish',ewl:'Ish vaqti',ell:'Tushlik',ewd:'Ish vaqti',eld:'Tushlik vaqti',e_note:'Yangi kun boshlanganida vaqtlar 0 ga tushadi.',eprl:'Namoz',prayer_next_lbl:'🕌 Keyingi namoz vaqti',prayer_btn:'Namoz',prayer_back:'Namozdan qaytish',ei1:'Ish boshlagan',ei2:'Ish tugagan',ei3:'Tushlik boshlangan',ei4:'Tushlik tugagan',ei5:'Namoz boshlangan',ei6:'Namoz tugagan',ht1:'Sana',ht2:'Boshlagan',ht3:'Tushlik bosh.',ht4:'Tushlik tug.',ht5:'Tugagan',ht6:'Kechikish',ht7:'Ish vaqti',ht8:'Tushlik',ht_afk:'AFK',ht9:'Status',eh_note:'Faqat tanlangan oy ma\'lumotlari.',el_lbl:'Kechikishlar (oy):',afk_month_lbl:'AFK (oy jami):',e_cm:'Joriy oy',mw_txt:'Eslatma: "Yakunlash" tugmasini faqat ish kuni to\'liq tugagandan keyin bosing!',mw_ok:'OK',mep_t:'Parolni o\'zgartirish',mep_s:'Saqlash',mep_c:'Bekor qilish',ep_ph:'Yangi parol',b_came:'Keldi',b_late:'Kechikkan',b_abs:'Kelmadi',b_half:'Yarim kun',b_off:'Dam olish',del_c:'Hodimni o\'chirishni tasdiqlaysizmi?',no_data:'Ma\'lumot yo\'q',daq:'daq',marta:'marta',kun:'kun',soat:'soat',daqiqa:'daqiqa',ball:'ball',hisobot:'hisobot',change:'O\'zgartirish',delete:'O\'chirish',reset:'Reset',fill_all:'Barcha maydonlarni to\'ldiring!',face_detected:'✅ Yuz aniqlandi',face_not_detected:'❌ Yuz aniqlanmadi',face_loading:'⏳ Yuklanmoqda...',face_unknown:'⚠️ Noma\'lum yuz',afk_lbl:'⚠️ Joyida bo\'lmagan vaqt',afk_cnt_lbl:'marta AFK',afk_warn_title:'⚠️ Yuzingiz aniqlanmadi!',afk_warn_txt:'Kamera oldida o\'tiring. 10 daqiqadan keyin AFK vaqt hisoblanadi.',afk_warn_sub:'10 daqiqa ichida yuz aniqlanmasa, AFK hisoblanadi',afk_im_here:'Men shu yerdaman ✋',auto_end_txt:'Soat 18:15 bo\'ldi. Tizim tomonidan ish yakunlandi.',auto_ended:'Tizim yakunladi',afk_banner:'Yuz aniqlanmadi! 10 daqiqadan keyin AFK vaqt hisoblanadi...',afk_over:'oshiqcha',kpi_sr:'Eski hodim (560K)',kpi_jr:'Yangi hodim (400K)'},
+ru:{loginTitle:'Добро пожаловать!',loginSub:'Введите логин и пароль!',loginBtn:'Войти',loginPH:'Логин',passPH:'Пароль',loginErr:'Неверный логин или пароль!',loginFill:'Введите логин и пароль!',exit:'Выйти',today:'Сегодня',nav_m:'Главная',nav_notif:'Уведомления',nav_fb:'Отзывы',nav_s:'Настройки',nav_k:'Правила KPI',adm_m:'Управление | Главная',adm_s:'Управление | Настройки',adm_k:'Управление | KPI',sc1:'На работе',sc2:'Опоздали',sc3:'Не пришли',sc4:'Дата',att_t:'Контроль сотрудников',from_l:'От:',to_l:'До:',b_today:'Сегодня',b_monthly:'Месяц',b_cm:'Тек. месяц',b_ref:'Обновить',fsearch:'Поиск...',o_all:'Все',o_came:'Пришёл',o_late:'Опоздал',o_abs:'Не пришёл',th1:'ФИО',th2:'Логин',th4:'Изменить',th5:'Приход',th6:'Опоздание',th7:'Отработано',th_afk:'AFK время',th8:'Статус',mth_t:'Месячный отчёт',ms1:'Сотрудников',ms2:'Опозданий',ms3:'Пропусков',ms4:'Раб.часов',ms5:'Итого KPI',mt1:'ФИО',mt2:'Отработано',mt_afk:'AFK время',mt3:'Опоздания',mt4:'Пропуски',mt5:'Штраф',mt6:'Доп.баллы',mt7:'KPI балл',mt8:'KPI сумма',mt9:'Управление',set_t:'Управление сотрудниками',b_addemp:'Добавить',et1:'ФИО',et2:'Логин',et3:'Пароль',et4:'Сумма KPI',et5:'Удалить',hol_t:'Выходные дни',b_addh:'Добавить',hol_info:'Стандарт: Пн–Сб. Воскресенье — выходной.',hol_none:'Доп. выходных нет',kpi_t:'Правила KPI',k1:'Основной KPI',k2:'KPI в 100-балльной системе!',k3:'Штрафы',k4:'Опоздание',k5:'Прогул',k_afk:'AFK (более 30 минут)',k6:'Выплаты KPI',k7:'Старые сотрудники',k8:'Новые сотрудники',ew_t:'Рабочий процесс',et_t:'Сегодня',eh_t:'История за месяц',st_pre:'Статус:',lt_pre:'Опоздание:',lt_u:'мин',st0:'Не начат',st1:'На работе',st2:'В обеде',st4:'Завершён',bs:'Начать',bl:'Обед',be:'Завершить',bc:'Продолжить',bb:'Вернуться',ewl:'Рабочее время',ell:'Время обеда',ewd:'Рабочее время',eld:'Время обеда',e_note:'При новом дне таймеры сбрасываются.',ei1:'Начало',ei2:'Конец',ei3:'Обед нач.',ei4:'Обед кон.',ht1:'Дата',ht2:'Начало',ht3:'Обед нач.',ht4:'Обед кон.',ht5:'Конец',ht6:'Опоздание',ht7:'Раб.время',ht8:'Обед',ht_afk:'AFK',ht9:'Статус',eh_note:'Данные выбранного месяца.',el_lbl:'Опозданий (месяц):',afk_month_lbl:'AFK (итого за месяц):',e_cm:'Тек. месяц',mw_txt:'Нажимайте "Завершить" только после полного окончания рабочего дня!',mw_ok:'ОК',mep_t:'Изменить пароль',mep_s:'Сохранить',mep_c:'Отмена',ep_ph:'Новый пароль',b_came:'Пришёл',b_late:'Опоздал',b_abs:'Не пришёл',b_off:'Выходной',del_c:'Удалить сотрудника?',no_data:'Нет данных',daq:'мин',marta:'раз',kun:'дн.',soat:'ч',daqiqa:'мин',ball:'балл',hisobot:'отчёт',change:'Изменить',delete:'Удалить',reset:'Сброс',fill_all:'Заполните все поля!',face_detected:'✅ Лицо обнаружено',face_not_detected:'❌ Лицо не обнаружено',face_loading:'⏳ Загрузка...',face_unknown:'⚠️ Неизвестное лицо',afk_lbl:'⚠️ Отсутствие',afk_cnt_lbl:'раз AFK',afk_warn_title:'⚠️ Лицо не распознано!',afk_warn_txt:'Сядьте перед камерой. AFK начнёт считаться через 10 минут.',afk_warn_sub:'Если лицо не обнаружено в течение 10 минут — AFK',afk_im_here:'Я здесь ✋',auto_end_txt:'18:15. Рабочий день завершён системой.',auto_ended:'Завершено системой',afk_banner:'Лицо не обнаружено! AFK начнёт считаться через 10 минут...',afk_over:'сверх лимита',kpi_sr:'Старый сотр. (560K)',kpi_jr:'Новый сотр. (400K)'}
 };
 TR.uz.mt_half='Yarim kun';
 TR.ru.mt_half='Полдня';
@@ -1283,6 +1280,64 @@ const notifChannel = ('BroadcastChannel' in window) ? new BroadcastChannel('aloq
 let remindersInterval = null;
 let notifPollIv = null;
 let seenNotifIds = new Set(JSON.parse(localStorage.getItem('aloqa_seen_notif_ids')||'[]'));
+let employeeNotifRealtime = null;
+let adminRealtime = null;
+
+function removeRealtimeChannel(channelRef){
+  if(!channelRef)return null;
+  try{sb.removeChannel(channelRef);}catch(e){console.warn('removeChannel:',e);}
+  return null;
+}
+function stopRealtimeSubscriptions(){
+  employeeNotifRealtime = removeRealtimeChannel(employeeNotifRealtime);
+  adminRealtime = removeRealtimeChannel(adminRealtime);
+}
+function subscribeEmployeeRealtime(){
+  if(!CU||CU.role!=='employee')return;
+  employeeNotifRealtime = removeRealtimeChannel(employeeNotifRealtime);
+  employeeNotifRealtime = sb
+    .channel(`employee-notifications-${CU.id}`)
+    .on('postgres_changes',{
+      event:'*',
+      schema:REALTIME_SCHEMA,
+      table:'notifications',
+      filter:`employee_id=eq.${CU.id}`
+    }, async payload => {
+      await loadNotificationsEmp(payload.eventType==='INSERT');
+    })
+    .on('postgres_changes',{
+      event:'*',
+      schema:REALTIME_SCHEMA,
+      table:'feedback',
+      filter:`employee_id=eq.${CU.id}`
+    }, async () => {
+      await loadMyFeedback();
+    })
+    .subscribe();
+}
+function subscribeAdminRealtime(){
+  if(!CU||CU.role!=='admin')return;
+  adminRealtime = removeRealtimeChannel(adminRealtime);
+  adminRealtime = sb
+    .channel('admin-live-updates')
+    .on('postgres_changes',{
+      event:'*',
+      schema:REALTIME_SCHEMA,
+      table:'notifications'
+    }, async () => {
+      await loadNotificationsAdmin();
+    })
+    .on('postgres_changes',{
+      event:'*',
+      schema:REALTIME_SCHEMA,
+      table:'feedback'
+    }, async () => {
+      await checkFeedbackBadge();
+      const tab=document.getElementById('tab_feedback');
+      if(tab&&!tab.classList.contains('hidden'))await loadFeedbackAdmin();
+    })
+    .subscribe();
+}
 
 function saveSeenNotifIds(){
   localStorage.setItem('aloqa_seen_notif_ids', JSON.stringify(Array.from(seenNotifIds).slice(-200)));
@@ -1317,7 +1372,6 @@ async function requestPushPermission() {
   if (perm === 'granted') {
     toast('success','Push','Bildirishnomalar yoqildi!');
     scheduleReminders();
-    startNotificationPolling();
     const btn = document.getElementById('enablePushBtn');
     if (btn) btn.style.display = 'none';
   } else {
@@ -1604,6 +1658,7 @@ async function doLogin(){
 async function doLogout(){
   stopAll();
   stopFaceDetection();
+  stopRealtimeSubscriptions();
 
   await sb.auth.signOut(); // 🔐 muhim
 
@@ -1615,6 +1670,7 @@ async function doLogout(){
 function toggleEye(){const i=document.getElementById('inp_p');i.type=i.type==='password'?'text':'password';}
 
 function showPage(p){
+  stopRealtimeSubscriptions();
   document.getElementById('loginPage').style.display=p==='login'?'flex':'none';
   document.getElementById('adminPage').style.display=p==='admin'?'block':'none';
   document.getElementById('employeePage').style.display=p==='employee'?'block':'none';
@@ -1642,7 +1698,7 @@ function empNavTab(tab){
 let mVisible = false;
 let monthlyData = [];
 
-function initAdmin(){adminTab('main');setToday();setCurMonth();updateDates();updateHolList();updateIPList();loadMyIPDisplay();loadNotifEmpSelect();checkFeedbackBadge();}
+function initAdmin(){adminTab('main');setToday();setCurMonth();updateDates();updateHolList();updateIPList();loadMyIPDisplay();loadNotifEmpSelect();checkFeedbackBadge();subscribeAdminRealtime();}
 async function loadMyIPDisplay(){if(!userPublicIP)userPublicIP=await getUserIP();const el=document.getElementById('my_ip_show');if(el)el.textContent=userPublicIP||'—';}
 async function loadNotifEmpSelect(){
   const{data:emps}=await sb.from('employees').select('id,name');
@@ -1957,7 +2013,7 @@ async function loadMonthly(){
 }
 
 function calcKpi(ball,type){if(type==='senior'){if(ball>=90)return 560000;if(ball>=80)return 420000;if(ball>=70)return 280000;return 0;}if(ball>=90)return 400000;if(ball>=80)return 300000;if(ball>=70)return 210000;return 0;}
-async function adjKpi(eid,month,delta,reset=false){const{data:ex}=await sb.from('kpi_bonuses').select('*').eq('employee_id',eid).eq('month',month).maybeSingle();if(reset){if(ex)await sb.from('kpi_bonuses').update({bonus:0}).eq('id',ex.id);else await sb.from('kpi_bonuses').insert({employee_id:eid,month,bonus:0});}else{const nv=(ex?ex.bonus:0)+delta;if(ex)await sb.from('kpi_bonuses').update({bonus:nv}).eq('id',ex.id);else await sb.from('kpi_bonuses').insert({employee_id:eid,month,bonus:delta});}loadMonthly();loadDashboard();}
+async function adjKpi(eid,month,delta,reset=false){const{data:ex}=await sb.from('kpi_bonuses').select('bonus').eq('employee_id',eid).eq('month',month).maybeSingle();const bonus=reset?0:((ex?.bonus||0)+delta);await sb.from('kpi_bonuses').upsert({employee_id:eid,month,bonus},{onConflict:'employee_id,month'});loadMonthly();loadDashboard();}
 
 async function loadEmpList() {
   const { data: emps, error } = await sb
@@ -1998,12 +2054,31 @@ async function delEmp(id) {
   if (!confirm(t('del_c'))) return;
 
   try {
-    const { error } = await sb
-      .from('employees')
-      .update({ active: false })
-      .eq('id', id);
+    const { data: sessData, error: sessErr } = await sb.auth.getSession();
+    if (sessErr || !sessData?.session?.access_token) {
+      throw new Error('Admin sessiyasi topilmadi');
+    }
 
-    if (error) throw error;
+    const res = await fetch(`${FUNCTIONS_BASE}/delete-employee`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${sessData.session.access_token}`
+      },
+      body: JSON.stringify({ employee_id: id })
+    });
+
+    const raw = await res.text();
+    let result = {};
+    try {
+      result = raw ? JSON.parse(raw) : {};
+    } catch {
+      result = { error: raw || 'Noma’lum xato' };
+    }
+
+    if (!res.ok) {
+      throw new Error(result.error || 'Hodim o‘chirilmadi');
+    }
 
     toast('success', 'Hodim', 'Ro\'yxatdan olib tashlandi');
     await loadEmpList();
@@ -2060,7 +2135,7 @@ async function addEmp() {
 
     console.log('REQUEST PAYLOAD:', payload);
 
-    const res = await fetch('https://nbxpdssdeeamypvecyba.supabase.co/functions/v1/create-employee', {
+    const res = await fetch(`${FUNCTIONS_BASE}/create-employee`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -2123,7 +2198,7 @@ async function savePass() {
 
     const token = sessData.session.access_token;
 
-    const res = await fetch('https://nbxpdssdeeamypvecyba.supabase.co/functions/v1/reset-employee-password', {
+    const res = await fetch(`${FUNCTIONS_BASE}/reset-employee-password`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -2242,7 +2317,8 @@ function initEmp(){
   document.getElementById('m_welcome').classList.remove('hidden');
   const mt=document.getElementById('e_mtag');if(mt)mt.textContent=curM();
   startFaceDetection();startAutoEndCheck();startPrayerClock();
-  if(Notification.permission==='granted'){scheduleReminders();startNotificationPolling();}
+  if(Notification.permission==='granted'){scheduleReminders();}
+  subscribeEmployeeRealtime();
   loadNotificationsEmp(false);
   empNavTab('work');
 }
@@ -2325,8 +2401,7 @@ async function saveAtt(autoEnded=false){
   const startHM = ss.i_s&&ss.i_s!=='-'?ss.i_s:null;
   const endHM = ss.i_e&&ss.i_e!=='-'?ss.i_e:null;
   const payload={employee_id:CU.id,work_date:today,start_time:startHM?startHM+':00':null,end_time:endHM?endHM+':00':null,lunch_start:ss.i_ls&&ss.i_ls!=='-'?ss.i_ls+':00':null,lunch_end:ss.i_le&&ss.i_le!=='-'?ss.i_le+':00':null,work_seconds:wAccum,lunch_seconds:lAccum,afk_seconds:afkSeconds,afk_count:afkCount,late_minutes:lm,status:computeStatusByTimes(startHM,endHM,lm,wAccum),auto_ended:autoEnded};
-  const{data:ex}=await sb.from('attendance').select('id').eq('employee_id',CU.id).eq('work_date',today).maybeSingle();
-  if(ex)await sb.from('attendance').update(payload).eq('id',ex.id);else await sb.from('attendance').insert(payload);
+  await sb.from('attendance').upsert(payload,{onConflict:'employee_id,work_date'});
   loadHist();
 }
 async function savePartial(){
@@ -2337,8 +2412,7 @@ async function savePartial(){
   let afkNow=afkSeconds;if(isAfk&&currentAfkStart)afkNow+=Math.floor((tzNow()-currentAfkStart)/1000);
   const startHM = ss.i_s&&ss.i_s!=='-'?ss.i_s:null;
   const payload={employee_id:CU.id,work_date:today,start_time:startHM?startHM+':00':null,end_time:ss.i_e&&ss.i_e!=='-'?ss.i_e+':00':null,lunch_start:ss.i_ls&&ss.i_ls!=='-'?ss.i_ls+':00':null,lunch_end:ss.i_le&&ss.i_le!=='-'?ss.i_le+':00':null,work_seconds:cw,lunch_seconds:cl,afk_seconds:afkNow,afk_count:afkCount,late_minutes:lm,status:computeStatusByTimes(startHM,ss.i_e&&ss.i_e!=='-'?ss.i_e:null,lm,cw),auto_ended:false};
-  const{data:ex}=await sb.from('attendance').select('id').eq('employee_id',CU.id).eq('work_date',today).maybeSingle();
-  if(ex)await sb.from('attendance').update(payload).eq('id',ex.id);else await sb.from('attendance').insert(payload);
+  await sb.from('attendance').upsert(payload,{onConflict:'employee_id,work_date'});
 }
 
 // ============================================================
@@ -2497,6 +2571,7 @@ let faceWidgetMin   = false;
 let afkCurIv        = null;
 let afkCountdownIv  = null;
 let afkCountdownSec = AFK_GRACE_SEC;
+let afkPending      = false;
 let lastFaceBox     = null;
 let livenessScore   = 0;
 let myFaceDescriptor= null;
@@ -2789,12 +2864,13 @@ function onFaceStablyDetected(reason){
   setFaceDot('green','✅ '+name);
   // AFK sessiyani tugatish — faqat to'g'ri yuz bo'lsa
   if(isAfk)endAfkSession();
+  afkPending=false;
   // AFK ogohlantirish modalini yashirish
   if(afkWarnShown){
     document.getElementById('m_afk_warn').classList.add('hidden');
     afkWarnShown=false;
-    if(afkCountdownIv){clearInterval(afkCountdownIv);afkCountdownIv=null;}
   }
+  if(afkCountdownIv){clearInterval(afkCountdownIv);afkCountdownIv=null;}
   // ✅ FIX 5: Banner faqat stabil detectiondan keyin yashiriladi
   document.getElementById('afkBanner').style.display='none';
   scheduleFaceCheck(FACE_CHECK_INTERVAL);
@@ -2811,8 +2887,12 @@ function onFaceMissed(){
   // Birinchi miss da bannerni ko'rsat
   document.getElementById('afkBanner').style.display='block';
 
-  if(!isAfk){
-    startAfkSession();
+  if(!isAfk && !afkPending){
+    afkPending=true;
+    const modal=document.getElementById('m_afk_warn');
+    if(modal)modal.classList.remove('hidden');
+    afkWarnShown=true;
+    startAfkCountdown();
   }
   scheduleFaceCheck(FACE_RETRY_INTERVAL);
 }
@@ -2820,6 +2900,7 @@ function onFaceMissed(){
 // ── AFK SESSION ────────────────────────────────────────────
 function startAfkSession(){
   if(isAfk)return;
+  afkPending=false;
   isAfk=true;
   currentAfkStart=tzNow();
   afkCount++;
@@ -2844,6 +2925,7 @@ function endAfkSession(){
   isAfk=false;
   currentAfkStart=null;
   if(afkCurIv){clearInterval(afkCurIv);afkCurIv=null;}
+  if(afkCountdownIv){clearInterval(afkCountdownIv);afkCountdownIv=null;}
   document.getElementById('afkTimer').classList.add('hidden');
   setFaceDot('green',t('face_detected'));
   afkCurSec=0;
@@ -2851,17 +2933,23 @@ function endAfkSession(){
 
 function startAfkCountdown(){
   afkCountdownSec=AFK_GRACE_SEC;
+  const cd=document.getElementById('afk_countdown');if(cd)cd.textContent=fmtSecMM(afkCountdownSec);
   if(afkCountdownIv)clearInterval(afkCountdownIv);
   afkCountdownIv=setInterval(()=>{
     afkCountdownSec--;
     const cd=document.getElementById('afk_countdown');if(cd)cd.textContent=fmtSecMM(afkCountdownSec);
-    if(afkCountdownSec<=0){clearInterval(afkCountdownIv);afkCountdownIv=null;document.getElementById('m_afk_warn').classList.add('hidden');afkWarnShown=false;}
+    if(afkCountdownSec<=0){
+      clearInterval(afkCountdownIv);
+      afkCountdownIv=null;
+      document.getElementById('m_afk_warn').classList.add('hidden');
+      afkWarnShown=false;
+      if(!isAfk && afkPending && empState==='working')startAfkSession();
+    }
   },1000);
 }
 
 function dismissAfkWarn(){
   document.getElementById('m_afk_warn').classList.add('hidden');
-  if(afkCountdownIv){clearInterval(afkCountdownIv);afkCountdownIv=null;}
   afkWarnShown=false;
   // ✅ MUHIM: faceMissCount reset qilinmaydi!
   // Yuz haqiqatan aniqlanganida (STABLE_HIT_REQUIRED marta ketma-ket)
@@ -3002,6 +3090,7 @@ function stopFaceDetection(){
   isDetecting=false;
   isDetectingStartTime=0;
   isAfk=false;
+  afkPending=false;
   currentAfkStart=null;
   faceHitCount=0;
   faceMissCount=0;
@@ -3069,10 +3158,38 @@ async function loadHist(){
   userPublicIP=await getUserIP();
   const myIPEl=document.getElementById('ipb_val');if(myIPEl)myIPEl.textContent=userPublicIP||'—';
 
-  const s=localStorage.getItem('aloqa_u');
-  if(s){try{CU=JSON.parse(s);if(CU&&CU.role==='employee'){const allowed=await checkIPAccess('employee');if(!allowed){showIPBlock(userPublicIP);return;}}}catch(e){CU=null;}}
+  try{
+    const { data: sessionData } = await sb.auth.getSession();
+    const uid = sessionData?.session?.user?.id;
+    if(uid){
+      const { data: adm } = await sb.from('admins').select('*').eq('user_id', uid).maybeSingle();
+      if(adm){
+        CU = {...adm, role:'admin'};
+      }else{
+        const { data: emp } = await sb.from('employees').select('*').eq('user_id', uid).maybeSingle();
+        if(emp){
+          const allowed=await checkIPAccess('employee');
+          if(!allowed){showIPBlock(userPublicIP);return;}
+          CU = {...emp, role:'employee'};
+        }
+      }
+    }
+  }catch(e){
+    console.warn('session restore error:',e);
+    CU = null;
+  }
+  if(CU)localStorage.setItem('aloqa_u', JSON.stringify(CU));
+  else localStorage.removeItem('aloqa_u');
 
   showPage(CU?(CU.role==='admin'?'admin':'employee'):'login');
+  sb.auth.onAuthStateChange((event) => {
+    if(event==='SIGNED_OUT'){
+      CU = null;
+      localStorage.removeItem('aloqa_u');
+      stopRealtimeSubscriptions();
+      showPage('login');
+    }
+  });
 
   document.getElementById('inp_p').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
   document.getElementById('inp_l').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
