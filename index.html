@@ -776,6 +776,24 @@ html, body { font-family:var(--font); background:var(--bg); color:var(--text); m
             <div id="ip_list" style="font-size:12px;color:var(--text2)">Yuklanmoqda...</div>
           </div>
           <div class="box">
+            <div class="btitle">📍 GPS hudud</div>
+            <div class="sf">
+              <input type="number" id="gps_lat" placeholder="Latitude" step="0.000001">
+              <input type="number" id="gps_lng" placeholder="Longitude" step="0.000001">
+              <input type="number" id="gps_radius" placeholder="Radius (metr)" min="10" step="10">
+              <button class="bb" onclick="saveGPSRegion()">Saqlash</button>
+              <button class="bg2" onclick="fillCurrentGPS()">Mening joylashuvim</button>
+            </div>
+            <div class="sf" style="margin-top:8px">
+              <label style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text2)">
+                <input type="checkbox" id="gps_enabled">
+                GPS cheklovni yoqish
+              </label>
+            </div>
+            <p style="font-size:11.5px;color:var(--text2);margin-top:8px">Joriy GPS: <strong id="gps_now_show" style="font-family:var(--mono)">aniqlanmagan</strong></p>
+            <p style="font-size:11.5px;color:var(--text2)" id="gps_saved_info">GPS cheklov o'chirilgan</p>
+          </div>
+          <div class="box">
             <div class="btitle">📅 <span id="hol_t">Dam olish kunlari</span></div>
             <div class="sf">
               <input type="date" id="hol_d">
@@ -1119,6 +1137,7 @@ function closeSidebar(){document.getElementById('sidebar').classList.remove('ope
 //  IP CHECK
 // ============================================================
 let userPublicIP = '';
+let userGeoPosition = null;
 async function getUserIP(){try{const r=await fetch('https://api.ipify.org?format=json');const d=await r.json();return d.ip||'';}catch(e){return '';}}
 
 async function getAllowedIPs(){
@@ -1136,6 +1155,81 @@ async function saveAllowedIPs(arr){
   }catch(e){console.error('saveAllowedIPs error:',e);}
 }
 async function checkIPAccess(role){if(role==='admin')return true;const allowed=await getAllowedIPs();if(allowed.length===0)return true;if(!userPublicIP)userPublicIP=await getUserIP();return allowed.includes(userPublicIP);}
+async function getGPSRegionSettings(){
+  try{
+    const{data,error}=await sb.from('settings').select('value').eq('key','allowed_gps_region').maybeSingle();
+    if(error||!data)return {enabled:false,latitude:null,longitude:null,radius_m:200};
+    const parsed=JSON.parse(data.value||'{}');
+    return {
+      enabled:Boolean(parsed.enabled),
+      latitude:parsed.latitude===null||parsed.latitude===undefined?null:Number(parsed.latitude),
+      longitude:parsed.longitude===null||parsed.longitude===undefined?null:Number(parsed.longitude),
+      radius_m:parsed.radius_m===null||parsed.radius_m===undefined?200:Number(parsed.radius_m)
+    };
+  }catch(e){
+    return {enabled:false,latitude:null,longitude:null,radius_m:200};
+  }
+}
+async function saveGPSRegionSettings(cfg){
+  try{
+    await sb.from('settings').upsert({key:'allowed_gps_region',value:JSON.stringify(cfg)},{onConflict:'key'});
+    await loadGPSSettingsUI();
+  }catch(e){
+    console.error('saveGPSRegionSettings error:',e);
+    toast('error','GPS','Sozlamani saqlab bo\'lmadi');
+  }
+}
+function formatCoords(lat,lng){
+  if(lat===null||lng===null||lat===undefined||lng===undefined)return 'aniqlanmagan';
+  return `${Number(lat).toFixed(6)}, ${Number(lng).toFixed(6)}`;
+}
+function haversineMeters(lat1,lng1,lat2,lng2){
+  const R=6371000;
+  const dLat=(lat2-lat1)*Math.PI/180;
+  const dLng=(lng2-lng1)*Math.PI/180;
+  const a=Math.sin(dLat/2)**2+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLng/2)**2;
+  return 2*R*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+}
+async function getCurrentPosition(){
+  if(userGeoPosition)return userGeoPosition;
+  if(!navigator.geolocation)throw new Error('GPS qo\'llab-quvvatlanmaydi');
+  const pos=await new Promise((resolve,reject)=>{
+    navigator.geolocation.getCurrentPosition(resolve,reject,{enableHighAccuracy:true,timeout:12000,maximumAge:60000});
+  });
+  userGeoPosition={lat:pos.coords.latitude,lng:pos.coords.longitude,accuracy:pos.coords.accuracy||null};
+  const el=document.getElementById('gps_now_show');
+  if(el)el.textContent=`${formatCoords(userGeoPosition.lat,userGeoPosition.lng)}${userGeoPosition.accuracy?` (±${Math.round(userGeoPosition.accuracy)}m)`:''}`;
+  return userGeoPosition;
+}
+async function checkGPSAccess(role){
+  if(role==='admin')return {ok:true};
+  const cfg=await getGPSRegionSettings();
+  if(!cfg.enabled||cfg.latitude===null||cfg.longitude===null||!cfg.radius_m)return {ok:true};
+  try{
+    const pos=await getCurrentPosition();
+    const dist=haversineMeters(pos.lat,pos.lng,cfg.latitude,cfg.longitude);
+    return {
+      ok:dist<=cfg.radius_m,
+      distance_m:Math.round(dist),
+      radius_m:cfg.radius_m,
+      coords:pos
+    };
+  }catch(e){
+    return {ok:false,error:e.message||'GPS aniqlanmadi'};
+  }
+}
+async function checkRegionAccess(role){
+  const ipOk=await checkIPAccess(role);
+  if(!ipOk){
+    return {ok:false,mode:'ip',title:'Kirish taqiqlandi',message:'Bu tizimga faqat ruxsat berilgan tarmoq orqali kirishingiz mumkin.',value:userPublicIP||'—'};
+  }
+  const gps=await checkGPSAccess(role);
+  if(!gps.ok){
+    const detail=gps.distance_m?`Masofa: ${gps.distance_m}m / radius: ${gps.radius_m}m`:(gps.error||'GPS aniqlanmadi');
+    return {ok:false,mode:'gps',title:'Hududdan tashqarida',message:`Tizim faqat belgilangan hudud ichida ishlaydi. ${detail}`,value:userGeoPosition?formatCoords(userGeoPosition.lat,userGeoPosition.lng):'aniqlanmagan'};
+  }
+  return {ok:true};
+}
 async function addAllowedIP(){
   const val=document.getElementById('ip_inp').value.trim();
   if(!val){toast('warn','IP','IP kiriting!');return;}
@@ -1164,7 +1258,60 @@ async function updateIPList(){
   if(arr.length===0){el.innerHTML='<span style="color:var(--text3);font-size:12px">Hozircha ruxsat etilgan IP yo\'q (cheklov yo\'q)</span>';return;}
   el.innerHTML=arr.map(ip=>`<span style="display:inline-flex;align-items:center;gap:4px;background:var(--bg3);border-radius:6px;padding:3px 9px;font-size:12px;margin:2px;font-family:var(--mono)"><strong>${ip}</strong><button onclick="removeIP('${ip}')" style="background:none;border:none;color:var(--danger);cursor:pointer;font-size:14px;line-height:1">×</button></span>`).join(' ');
 }
-function showIPBlock(ip){['loginPage','adminPage','employeePage'].forEach(id=>{const e=document.getElementById(id);if(e)e.style.display='none';});document.getElementById('ipBlockPage').style.display='flex';st('ipb_val',ip||'—');}
+async function loadGPSSettingsUI(){
+  const cfg=await getGPSRegionSettings();
+  const lat=document.getElementById('gps_lat');
+  const lng=document.getElementById('gps_lng');
+  const radius=document.getElementById('gps_radius');
+  const enabled=document.getElementById('gps_enabled');
+  const info=document.getElementById('gps_saved_info');
+  if(lat)lat.value=cfg.latitude??'';
+  if(lng)lng.value=cfg.longitude??'';
+  if(radius)radius.value=cfg.radius_m||200;
+  if(enabled)enabled.checked=cfg.enabled;
+  if(info){
+    info.textContent=cfg.enabled&&cfg.latitude!==null&&cfg.longitude!==null
+      ? `Saqlangan hudud: ${formatCoords(cfg.latitude,cfg.longitude)} | radius ${cfg.radius_m}m`
+      : 'GPS cheklov o\'chirilgan';
+  }
+}
+async function fillCurrentGPS(){
+  try{
+    userGeoPosition=null;
+    const pos=await getCurrentPosition();
+    const lat=document.getElementById('gps_lat');
+    const lng=document.getElementById('gps_lng');
+    if(lat)lat.value=pos.lat.toFixed(6);
+    if(lng)lng.value=pos.lng.toFixed(6);
+    toast('success','GPS','Joriy joylashuv olindi');
+  }catch(e){
+    toast('error','GPS',e.message||'Joylashuv olinmadi');
+  }
+}
+async function saveGPSRegion(){
+  const latitude=Number(document.getElementById('gps_lat').value);
+  const longitude=Number(document.getElementById('gps_lng').value);
+  const radius_m=Number(document.getElementById('gps_radius').value||200);
+  const enabled=document.getElementById('gps_enabled').checked;
+  if(enabled&&(Number.isNaN(latitude)||Number.isNaN(longitude)||Number.isNaN(radius_m))){
+    toast('warn','GPS','Latitude, longitude va radiusni to\'g\'ri kiriting');
+    return;
+  }
+  await saveGPSRegionSettings({
+    enabled,
+    latitude:enabled?latitude:null,
+    longitude:enabled?longitude:null,
+    radius_m:enabled?radius_m:200
+  });
+  toast('success','GPS','Hudud saqlandi');
+}
+function showIPBlock(value,title,msg){
+  ['loginPage','adminPage','employeePage'].forEach(id=>{const e=document.getElementById(id);if(e)e.style.display='none';});
+  document.getElementById('ipBlockPage').style.display='flex';
+  if(title)st('ipb_t',title);
+  if(msg)st('ipb_p',msg);
+  st('ipb_val',value||'—');
+}
 
 // ============================================================
 //  TRANSLATIONS
@@ -1621,14 +1768,12 @@ async function doLogin(){
       .maybeSingle();
 
     if (emp) {
-      const allowed = await checkIPAccess('employee');
+      const access = await checkRegionAccess('employee');
 
-      if (!allowed) {
+      if (!access.ok) {
         lbtn.textContent = t('loginBtn');
         lbtn.disabled = false;
-
-        if (!userPublicIP) userPublicIP = await getUserIP();
-        showIPBlock(userPublicIP);
+        showIPBlock(access.value, access.title, access.message);
 
         await sb.auth.signOut();
         return;
@@ -1698,7 +1843,7 @@ function empNavTab(tab){
 let mVisible = false;
 let monthlyData = [];
 
-function initAdmin(){adminTab('main');setToday();setCurMonth();updateDates();updateHolList();updateIPList();loadMyIPDisplay();loadNotifEmpSelect();checkFeedbackBadge();subscribeAdminRealtime();}
+function initAdmin(){adminTab('main');setToday();setCurMonth();updateDates();updateHolList();updateIPList();loadGPSSettingsUI();loadMyIPDisplay();loadNotifEmpSelect();checkFeedbackBadge();subscribeAdminRealtime();}
 async function loadMyIPDisplay(){if(!userPublicIP)userPublicIP=await getUserIP();const el=document.getElementById('my_ip_show');if(el)el.textContent=userPublicIP||'—';}
 async function loadNotifEmpSelect(){
   const{data:emps}=await sb.from('employees').select('id,name');
@@ -1716,7 +1861,7 @@ function adminTab(tab){
   ['nav_main','nav_notif','nav_feedback','nav_settings','nav_kpi'].forEach((id,i)=>{const el=document.getElementById(id);if(el)el.classList.toggle('active',['main','notif','feedback','settings','kpi'][i]===tab);});
   const titles={main:t('adm_m'),settings:t('adm_s'),kpi:t('adm_k'),notif:t('nav_notif'),feedback:t('nav_fb')};
   st('admTitle',titles[tab]||'');
-  if(tab==='settings'){loadEmpList();updateIPList();}
+  if(tab==='settings'){loadEmpList();updateIPList();loadGPSSettingsUI();}
   if(tab==='feedback')loadFeedbackAdmin();
   if(tab==='notif'){loadNotificationsAdmin();loadNotifEmpSelect();}
 }
@@ -2329,6 +2474,12 @@ function closeWelcome(){document.getElementById('m_welcome').classList.add('hidd
 // ============================================================
 async function empStart(){
   if(empState!=='not_started')return;
+  const access=await checkRegionAccess('employee');
+  if(!access.ok){
+    showIPBlock(access.value, access.title, access.message);
+    await sb.auth.signOut();
+    return;
+  }
   wStart=tzNow();empState='working';
   st('i_s',fmtHM(wStart));
   const lm=computeLateMinutesFromDate(wStart);
@@ -3168,8 +3319,8 @@ async function loadHist(){
       }else{
         const { data: emp } = await sb.from('employees').select('*').eq('user_id', uid).maybeSingle();
         if(emp){
-          const allowed=await checkIPAccess('employee');
-          if(!allowed){showIPBlock(userPublicIP);return;}
+          const access=await checkRegionAccess('employee');
+          if(!access.ok){showIPBlock(access.value, access.title, access.message);return;}
           CU = {...emp, role:'employee'};
         }
       }
