@@ -244,15 +244,29 @@ html, body { font-family:var(--font); background:var(--bg); color:var(--text); m
 .dash-card h4 { font-size:16px; color:var(--text); letter-spacing:0; margin-bottom:18px; font-weight:800; text-transform:none; }
 .dash-head { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:16px; }
 .dash-pill { background:#f1f5ff; color:var(--accent); border:1px solid rgba(132,72,255,.08); border-radius:8px; padding:6px 10px; font-size:11px; font-weight:700; }
-.dash-donut-wrap { display:flex; align-items:center; gap:28px; min-height:180px; }
-.dash-donut { width:150px; height:150px; border-radius:50%; background:conic-gradient(var(--accent) 0 70%, #d83cff 70% 88%, #4f8df7 88% 100%); position:relative; flex-shrink:0; }
-.dash-donut::after { content:''; position:absolute; inset:38px; background:var(--card); border-radius:50%; box-shadow:inset 0 0 0 1px var(--border); }
-.dash-donut-center { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; flex-direction:column; z-index:1; font-weight:800; color:var(--text); line-height:1.1; }
-.dash-donut-center span { font-size:11px; color:var(--text2); font-weight:700; margin-bottom:4px; }
-.dash-legend { display:flex; flex-direction:column; gap:14px; flex:1; min-width:120px; }
-.dash-legend-item { display:flex; align-items:flex-start; gap:10px; color:var(--text2); font-size:13px; }
-.dash-legend-dot { width:11px; height:11px; border-radius:50%; margin-top:4px; flex-shrink:0; background:var(--accent); }
-.dash-legend-value { display:block; color:var(--text); font-size:15px; font-weight:800; margin-top:3px; font-family:var(--mono); }
+.dash-line-wrap { display:flex; flex-direction:column; gap:16px; min-height:220px; }
+.dash-line-meta { display:flex; align-items:flex-start; justify-content:space-between; gap:14px; flex-wrap:wrap; }
+.dash-line-summary { display:flex; flex-direction:column; gap:4px; }
+.dash-line-label { font-size:11px; color:var(--text3); text-transform:uppercase; letter-spacing:.4px; }
+.dash-line-value { font-size:28px; line-height:1; font-weight:800; color:var(--text); font-family:var(--mono); }
+.dash-line-sub { font-size:12px; color:var(--text2); }
+.dash-line-stats { display:flex; gap:10px; flex-wrap:wrap; }
+.dash-mini-stat { min-width:110px; background:var(--bg3); border:1px solid var(--border); border-radius:10px; padding:10px 12px; }
+.dash-mini-stat strong { display:block; font-size:16px; color:var(--text); font-family:var(--mono); }
+.dash-mini-stat span { display:block; margin-top:4px; font-size:11px; color:var(--text2); }
+.dash-line-chart { position:relative; width:100%; height:190px; border-radius:12px; background:
+  linear-gradient(to bottom, rgba(132,72,255,.08), rgba(132,72,255,.02)),
+  repeating-linear-gradient(to top, transparent 0, transparent 36px, rgba(31,36,51,.05) 37px);
+  border:1px solid var(--border);
+  overflow:hidden;
+}
+.dash-line-chart svg { width:100%; height:100%; display:block; }
+.dash-line-area { fill:url(#dashLineGradient); }
+.dash-line-path { fill:none; stroke:var(--accent); stroke-width:4; stroke-linecap:round; stroke-linejoin:round; }
+.dash-line-dot { fill:#fff; stroke:var(--accent); stroke-width:3; }
+.dash-line-dot.active { r:5; }
+.dash-line-labels { display:grid; grid-template-columns:repeat(7,1fr); gap:6px; margin-top:4px; }
+.dash-line-labels span { font-size:11px; color:var(--text3); text-align:center; }
 .dash-bar-card { min-height:244px; }
 .dash-bars { height:178px; display:grid; grid-template-columns:38px 1fr; gap:12px; }
 .dash-yaxis { display:flex; flex-direction:column; justify-content:space-between; color:#b1b7c3; font-size:11px; padding:3px 0 28px; text-align:right; font-family:var(--mono); }
@@ -267,6 +281,22 @@ html, body { font-family:var(--font); background:var(--bg); color:var(--text); m
 .dash-name { font-size:12.5px; font-weight:700; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .dash-val { font-size:12px; font-weight:800; font-family:var(--mono); white-space:nowrap; color:var(--accent2); }
 .dash-empty { color:var(--text3); font-size:12px; padding:8px 0; }
+.dash-eff-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; max-height:360px; overflow:auto; padding-right:4px; }
+.dash-eff-card { background:linear-gradient(180deg,var(--card),var(--bg3)); border:1px solid var(--border); border-radius:12px; padding:12px; min-width:0; }
+.dash-eff-head { display:flex; align-items:flex-start; justify-content:space-between; gap:10px; margin-bottom:8px; }
+.dash-eff-name { font-size:12.5px; font-weight:800; color:var(--text); min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.dash-eff-score-wrap { text-align:right; flex-shrink:0; }
+.dash-eff-score-label { display:block; font-size:10px; color:var(--text3); text-transform:uppercase; letter-spacing:.4px; }
+.dash-eff-score { display:block; font-size:24px; line-height:1; font-weight:900; color:var(--text); font-family:var(--mono); }
+.dash-eff-breakdown { display:flex; flex-direction:column; gap:6px; }
+.dash-eff-row { display:flex; align-items:center; justify-content:space-between; gap:10px; background:rgba(255,255,255,.45); border:1px solid var(--border); border-radius:9px; padding:7px 9px; }
+.dash-eff-label { display:flex; align-items:center; gap:7px; min-width:0; font-size:11.5px; color:var(--text2); }
+.dash-eff-label span:last-child { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.dash-eff-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+.dash-eff-dot.green { background:#2fbf71; }
+.dash-eff-dot.yellow { background:#f4b740; }
+.dash-eff-dot.red { background:#f25f5c; }
+.dash-eff-value { font-size:12px; font-weight:800; font-family:var(--mono); white-space:nowrap; color:var(--text); }
 
 .sf { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:14px; }
 
@@ -417,7 +447,7 @@ html, body { font-family:var(--font); background:var(--bg); color:var(--text); m
 .notif-send-row input:focus, .notif-send-row textarea:focus { border-color:var(--accent); }
 .sb-bottom { display:none; padding:12px 16px; border-top:1px solid var(--border); gap:10px; align-items:center; justify-content:space-between; }
 
-@media(max-width:900px){.scards{grid-template-columns:repeat(2,1fr)}.mst{grid-template-columns:repeat(3,1fr)}.dash-grid{grid-template-columns:1fr}}
+@media(max-width:900px){.scards{grid-template-columns:repeat(2,1fr)}.mst{grid-template-columns:repeat(3,1fr)}.dash-grid{grid-template-columns:1fr}.dash-eff-grid{grid-template-columns:1fr}}
 @media(max-width:680px){
   .logo-blk{max-width:340px;min-height:200px;margin-bottom:-4px;}
   .logo-img-main{width:340px;height:190px;}
@@ -560,15 +590,17 @@ html, body { font-family:var(--font); background:var(--bg); color:var(--text); m
   <div class="login-card">
     <h2 id="lc_t">Nazorat tizimiga xush kelibsiz!</h2>
     <p id="lc_s">Login va parolni kiriting!</p>
-    <div class="iw"><input type="email" id="inp_l" placeholder="Email" autocomplete="off"></div>
-    <div class="iw">
-      <input type="password" id="inp_p" placeholder="Parol">
-      <button class="eye" onclick="toggleEye()" type="button">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10 10 0 0 1 12 20C5 20 1 12 1 12a18 18 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9 9 0 0 1 12 4c7 0 11 8 11 8a18 18 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
-      </button>
-    </div>
-    <button class="lbtn" id="lbtn" onclick="doLogin()"><span id="lbtnLabel">Kirish</span></button>
-    <div class="lerr" id="lerr"></div>
+    <form id="loginForm" onsubmit="event.preventDefault(); doLogin();">
+      <div class="iw"><input type="email" id="inp_l" placeholder="Email" autocomplete="username"></div>
+      <div class="iw">
+        <input type="password" id="inp_p" placeholder="Parol" autocomplete="current-password">
+        <button class="eye" onclick="toggleEye()" type="button">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10 10 0 0 1 12 20C5 20 1 12 1 12a18 18 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9 9 0 0 1 12 4c7 0 11 8 11 8a18 18 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+        </button>
+      </div>
+      <button class="lbtn" id="lbtn" type="submit"><span id="lbtnLabel">Kirish</span></button>
+      <div class="lerr" id="lerr"></div>
+    </form>
   </div>
 </div>
 
@@ -631,22 +663,36 @@ html, body { font-family:var(--font); background:var(--bg); color:var(--text); m
                   <h4 id="dash_work_t" style="margin:0">Davomat holati</h4>
                   <span class="dash-pill" id="dash_monthly_pill">Monthly</span>
                 </div>
-                <div class="dash-donut-wrap">
-                  <div class="dash-donut" id="dashDonut">
-                    <div class="dash-donut-center"><span>Overall</span><strong id="dashOverall">0%</strong></div>
+                <div class="dash-line-wrap">
+                  <div class="dash-line-meta">
+                    <div class="dash-line-summary">
+                      <span class="dash-line-label" id="dash_attendance_label">Davomat</span>
+                      <strong class="dash-line-value" id="dashOverall">0%</strong>
+                      <span class="dash-line-sub" id="dash_work_sub">Oxirgi 7 kun ko'rsatkichi</span>
+                    </div>
+                    <div class="dash-line-stats" id="dash_work_stats">
+                      <div class="dash-mini-stat"><strong>0%</strong><span>O'rtacha</span></div>
+                    </div>
                   </div>
-                  <div class="dash-legend" id="dash_work">Yuklanmoqda...</div>
+                  <div class="dash-line-chart">
+                    <svg id="dash_work_chart" viewBox="0 0 640 190" preserveAspectRatio="none" aria-label="Attendance trend">
+                      <defs>
+                        <linearGradient id="dashLineGradient" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stop-color="rgba(132,72,255,.26)"></stop>
+                          <stop offset="100%" stop-color="rgba(132,72,255,0)"></stop>
+                        </linearGradient>
+                      </defs>
+                    </svg>
+                  </div>
+                  <div class="dash-line-labels" id="dash_work_labels"></div>
                 </div>
               </div>
               <div class="dash-card dash-bar-card">
                 <div class="dash-head">
-                  <h4 id="dash_late_t" style="margin:0">Hodimlar ish soati</h4>
+                  <h4 id="dash_late_t" style="margin:0">Hodimlar samaradorligi</h4>
                   <span style="font-size:11px;color:var(--text3)" id="dash_kpi_t">Oy bo'yicha</span>
                 </div>
-                <div class="dash-bars">
-                  <div class="dash-yaxis"><span>100%</span><span>75%</span><span>50%</span><span>25%</span><span>0</span></div>
-                  <div class="dash-plot" id="dash_late">Yuklanmoqda...</div>
-                </div>
+                <div id="dash_late" class="dash-eff-grid">Yuklanmoqda...</div>
                 <div id="dash_kpi" class="dash-empty" style="padding-top:12px"></div>
               </div>
             </div>
@@ -1080,7 +1126,7 @@ const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
 
 const FACE_CHECK_INTERVAL = 120000;
 const FACE_RETRY_INTERVAL = 1000;
-const STABLE_HIT_REQUIRED = 3;
+const STABLE_HIT_REQUIRED = 2;
 const AFK_GRACE_SEC       = 600;
 const BREAK_LIMIT_SEC     = 1800;
 const AUTO_END_HOUR       = 18;
@@ -1088,6 +1134,7 @@ const AUTO_END_MIN        = 15;
 const LATE_AFTER_MINUTES  = 9 * 60 + 5;
 const HALF_DAY_START_MINUTES = 11 * 60;
 const HALF_DAY_END_MINUTES   = 15 * 60;
+const TARGET_WORK_SEC_PER_DAY = 8 * 60 * 60;
 const NOTIF_POLL_INTERVAL = 30000;
 const REALTIME_SCHEMA = 'public';
 const ABSENCE_START_KEY = 'aloqa_absence_start_date';
@@ -1348,8 +1395,11 @@ ru:{loginTitle:'Добро пожаловать!',loginSub:'Введите ло�
 };
 TR.uz.mt_half='Yarim kun';
 TR.ru.mt_half='Полдня';
-Object.assign(TR.uz,{dash_t:'Dashboard',dash_work_t:'Davomat holati',dash_late_t:'Hodimlar ish soati',dash_kpi_t:'Oy bo\'yicha'});
-Object.assign(TR.ru,{dash_t:'Dashboard',dash_work_t:'Статус посещаемости',dash_late_t:'Рабочие часы сотрудников',dash_kpi_t:'За месяц'});
+Object.assign(TR.uz,{dash_t:'Dashboard',dash_work_t:'Davomat holati',dash_late_t:'Hodimlar samaradorligi',dash_kpi_t:'Oy bo\'yicha',dash_work_sub:'Oxirgi 7 kun ko\'rsatkichi'});
+Object.assign(TR.ru,{dash_t:'Dashboard',dash_work_t:'Статус посещаемости',dash_late_t:'Эффективность сотрудников',dash_kpi_t:'За месяц',dash_work_sub:'Показатель за последние 7 дней'});
+Object.assign(TR.uz,{eff_title:'Ish samaradorligi',eff_work_hours:'Ish soati',eff_kpi:'KPI',eff_late:'Kechikish',eff_afk:'AFK'});
+Object.assign(TR.ru,{eff_title:'Эффективность работы',eff_work_hours:'Рабочие часы',eff_kpi:'KPI',eff_late:'Опоздания',eff_afk:'AFK'});
+Object.assign(TR.ru,{dash_efficiency_hint:'По рабочим часам, KPI, опозданиям и AFK'});
 
 Object.assign(TR.uz,{
   prayer_next_lbl:'🕌 Keyingi namoz vaqti',
@@ -1492,7 +1542,20 @@ Object.assign(TR.uz,{
   prayer_ended_success:'Namoz tugadi, ish davom etmoqda',
   day_finished_success:'Ish kuni yakunlandi',
   monthly_summary_days:'kun',
-  monthly_summary_range:'→'
+  monthly_summary_range:'→',
+  dash_work_sub:'Oxirgi 7 kun ko\'rsatkichi',
+  dash_last7:'So\'nggi 7 kun',
+  dash_attendance_label:'Davomat',
+  dash_last7_sub:'Oxirgi 7 kun ko\'rsatkichi',
+  dash_avg7:'7 kun o\'rtacha',
+  dash_best_day:'Eng yaxshi kun',
+  dash_efficiency_best:'Eng samarali xodim',
+  dash_efficiency_hint:'Ish soati, KPI, kechikish va AFK bo\'yicha',
+  eff_title:'Ish samaradorligi',
+  eff_work_hours:'Ish soati',
+  eff_kpi:'KPI',
+  eff_late:'Kechikish',
+  eff_afk:'AFK'
 });
 Object.assign(TR.ru,{
   emp_work_tab_lbl:'Работа',
@@ -1558,7 +1621,14 @@ Object.assign(TR.ru,{
   prayer_ended_success:'Намаз завершён, работа продолжается',
   day_finished_success:'Рабочий день завершён',
   monthly_summary_days:'дн.',
-  monthly_summary_range:'→'
+  monthly_summary_range:'→',
+  dash_last7:'Последние 7 дней',
+  dash_attendance_label:'Посещаемость',
+  dash_last7_sub:'Показатель за последние 7 дней',
+  dash_avg7:'Среднее за 7 дней',
+  dash_best_day:'Лучший день',
+  dash_efficiency_best:'Самый эффективный сотрудник',
+  dash_efficiency_hint:'По рабочему времени, посещаемости и дисциплине'
 });
 let lang = localStorage.getItem('aloqa_lang') || 'uz';
 const t = k => (TR[lang]||TR.uz)[k] || k;
@@ -1662,7 +1732,9 @@ function refreshStaticLabels(){
   st('face_widget_title', t('face_widget_title'));
   const widgetTitle = document.querySelector('#faceWidget .fw-title span');
   if(widgetTitle)widgetTitle.textContent = t('face_widget_title');
-  st('dash_monthly_pill', t('dash_monthly_pill'));
+  st('dash_monthly_pill', t('dash_last7'));
+  st('dash_attendance_label', t('dash_attendance_label'));
+  st('dash_work_sub', t('dash_last7_sub'));
   st('notif_box_title', t('notif_box_title'));
   st('ns_title', t('notif_send_form_title'));
   st('ns_all', t('notif_send_all'));
@@ -1802,8 +1874,9 @@ function applyLang(){
    'ew_t','et_t','eh_t','ewl','ell','eprl','ewd','eld','e_note','prayer_next_lbl',
    'ei1','ei2','ei3','ei4','ei5','ei6','ht1','ht2','ht3','ht4','ht5','ht6','ht7','ht8','ht_afk','ht9',
    'eh_note','el_lbl','afk_month_lbl','e_cm','mw_txt','mw_ok','mep_t','mep_s','mep_c',
-   'afk_lbl','afk_warn_title','afk_warn_txt','afk_warn_sub','afk_im_here','auto_end_txt'
+   'afk_lbl','afk_warn_title','afk_warn_txt','afk_warn_sub','afk_im_here','auto_end_txt','dash_attendance_label'
   ].forEach(k=>st(k,t(k)));
+  st('dash_work_sub', t('dash_last7_sub'));
   st('afkBannerTxt', t('afk_banner'));
   sp('ep_np',t('ep_ph'));sp('fsearch',t('fsearch'));
   const bsE=document.getElementById('bs');if(bsE)bsE.textContent=t('bs');
@@ -1814,7 +1887,12 @@ function applyLang(){
   const ks=document.getElementById('ne_k');if(ks){ks.options[0].text=t('kpi_sr');ks.options[1].text=t('kpi_jr');}
   refreshStaticLabels();
   normalizeDynamicTranslations(document);
-  updatePrayerInfo().catch(()=>{});
+  try{
+    const prayerUpdate = updatePrayerInfo();
+    if(prayerUpdate && typeof prayerUpdate.catch === 'function'){
+      prayerUpdate.catch(()=>{});
+    }
+  }catch(_){}
   updateHolList();updateEmpStatusTag();
 }
 
@@ -1866,6 +1944,16 @@ function computeStatusByTimes(startHM,endHM,lateMin,workSec){
   if(isHalfDayByTimes(startHM,endHM)) return 'yarim_kun';
   if((lateMin||0)>0) return 'kechikkan';
   return 'keldi';
+}
+function computeEfficiencyScore({workSec=0, workDays=0, cameDays=0, halfDays=0, lateCount=0, afkSec=0}={}){
+  if(workDays<=0)return 0;
+  const expectedSec=workDays*TARGET_WORK_SEC_PER_DAY;
+  const workRate=Math.min(100,Math.round((workSec/expectedSec)*100));
+  const effectiveAttendance=Math.max(0,cameDays-(halfDays*0.5));
+  const attendanceRate=Math.min(100,Math.round((effectiveAttendance/workDays)*100));
+  const afkPenalty=Math.min(25,Math.floor(Math.max(0,afkSec-BREAK_LIMIT_SEC)/60));
+  const disciplineRate=Math.max(0,100-(lateCount*4)-afkPenalty);
+  return Math.max(0,Math.min(100,Math.round((workRate*0.55)+(attendanceRate*0.30)+(disciplineRate*0.15))));
 }
 function isWorkDay(ds){const d=new Date(ds+'T12:00:00');if(d.getDay()===0)return false;return!JSON.parse(localStorage.getItem('aloqa_hols')||'[]').includes(ds);}
 function getAbsenceStartDate(){
@@ -2264,7 +2352,29 @@ async function replyFeedback(id) {
 //  LOGIN
 // ============================================================
 let CU = null;
-const FACE_MATCH_THRESHOLD = 0.38;
+const FACE_MATCH_THRESHOLD = 0.42;
+let loginInFlight = false;
+
+function normalizeFaceDescriptor(raw){
+  if(!raw)return null;
+  const arr=Array.from(raw);
+  if(arr.length!==128)return null;
+  let sumSquares=0;
+  for(const value of arr){
+    const num=Number(value)||0;
+    sumSquares+=num*num;
+  }
+  const norm=Math.sqrt(sumSquares);
+  if(!norm)return new Float32Array(arr);
+  return new Float32Array(arr.map(v=>(Number(v)||0)/norm));
+}
+
+function getFaceDistance(candidate,saved){
+  const candidateNorm=normalizeFaceDescriptor(candidate);
+  const savedNorm=normalizeFaceDescriptor(saved);
+  if(!candidateNorm||!savedNorm)return Number.POSITIVE_INFINITY;
+  return faceapi.euclideanDistance(Array.from(candidateNorm),Array.from(savedNorm));
+}
 
 function setLoginButtonLoading(isLoading){
   const lbtn = document.getElementById('lbtn');
@@ -2277,6 +2387,7 @@ function setLoginButtonLoading(isLoading){
 }
 
 async function doLogin(){
+  if(loginInFlight)return;
   const email = document.getElementById('inp_l').value.trim().toLowerCase();
   const ps = document.getElementById('inp_p').value.trim();
   const err = document.getElementById('lerr');
@@ -2288,6 +2399,7 @@ async function doLogin(){
   }
 
   setLoginButtonLoading(true);
+  loginInFlight = true;
 
   try {
     // 🔐 AUTH LOGIN
@@ -2298,6 +2410,7 @@ async function doLogin(){
 
     if (error || !data?.user) {
       err.textContent = t('loginErr');
+      loginInFlight = false;
       setLoginButtonLoading(false);
       return;
     }
@@ -2315,6 +2428,7 @@ async function doLogin(){
       CU = {...adm, role:'admin'};
       localStorage.setItem('aloqa_u', JSON.stringify(CU));
 
+      loginInFlight = false;
       setLoginButtonLoading(false);
 
       showPage('admin');
@@ -2332,6 +2446,7 @@ async function doLogin(){
       const access = await checkRegionAccess('employee');
 
       if (!access.ok) {
+        loginInFlight = false;
         setLoginButtonLoading(false);
         showIPBlock(access.value, access.title, access.message);
 
@@ -2342,6 +2457,7 @@ async function doLogin(){
       CU = {...emp, role:'employee'};
       localStorage.setItem('aloqa_u', JSON.stringify(CU));
 
+      loginInFlight = false;
       setLoginButtonLoading(false);
 
       showPage('employee');
@@ -2356,6 +2472,7 @@ async function doLogin(){
     err.textContent = "Tizim xatoligi";
   }
 
+  loginInFlight = false;
   setLoginButtonLoading(false);
 }
 async function doLogout(){
@@ -2443,64 +2560,133 @@ function renderDashList(id,items,valueFn){
     </div>
   `).join('');
 }
-function renderDashboardCharts(rows,workDays,empCount){
-  const donut=document.getElementById('dashDonut');
+function renderDashboardCharts(rows,workDays,empCount,recs=[]){
   const overall=document.getElementById('dashOverall');
-  const legend=document.getElementById('dash_work');
+  const stats=document.getElementById('dash_work_stats');
+  const chart=document.getElementById('dash_work_chart');
+  const labels=document.getElementById('dash_work_labels');
   const bars=document.getElementById('dash_late');
   const foot=document.getElementById('dash_kpi');
   const totalSlots=Math.max(0,workDays*empCount);
-  const late=rows.reduce((s,x)=>s+(x.late||0),0);
   const present=rows.reduce((s,x)=>s+(x.came||0),0);
-  const absent=rows.reduce((s,x)=>s+(x.abs||0),0);
-  const onTime=Math.max(0,present-late);
   const overallPct=totalSlots?Math.round((present/totalSlots)*100):0;
-  const p1=totalSlots?(onTime/totalSlots)*100:0;
-  const p2=totalSlots?((onTime+late)/totalSlots)*100:p1;
-  if(donut)donut.style.background=`conic-gradient(#4f8df7 0 ${p1}%, #d83cff ${p1}% ${p2}%, #7644f8 ${p2}% 100%)`;
   if(overall)overall.textContent=overallPct+'%';
-  if(legend){
-    const items=[
-      {name:t('b_came'),value:onTime,color:'#4f8df7'},
-      {name:t('b_late'),value:late,color:'#d83cff'},
-      {name:t('b_abs'),value:absent,color:'#7644f8'}
-    ];
-    legend.innerHTML=items.map(x=>`
-      <div class="dash-legend-item">
-        <span class="dash-legend-dot" style="background:${x.color}"></span>
-        <div>${x.name}<span class="dash-legend-value">${totalSlots?Math.round((x.value/totalSlots)*100):0}%</span></div>
-      </div>
-    `).join('');
+
+  const today=new Date(todayISO()+'T12:00:00');
+  const last7=[];
+  for(let i=6;i>=0;i--){
+    const d=new Date(today);
+    d.setDate(d.getDate()-i);
+    const ds=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    const dayRecs=(recs||[]).filter(r=>r.work_date===ds);
+    const presentCount=dayRecs.filter(r=>!!r.start_time).length;
+    const lateCount=dayRecs.filter(r=>(r.late_minutes||0)>0).length;
+    const absentCount=Math.max(0, empCount-presentCount);
+    const pct=empCount?Math.round((presentCount/empCount)*100):0;
+    last7.push({
+      key:ds,
+      label:`${String(d.getDate()).padStart(2,'0')}.${String(d.getMonth()+1).padStart(2,'0')}`,
+      short:['Yak','Dush','Sesh','Chor','Pay','Jum','Shan'][d.getDay()],
+      pct,
+      present:presentCount,
+      late:lateCount,
+      absent:absentCount
+    });
   }
-  const top=rows.filter(x=>x.sec>0).sort((a,b)=>b.sec-a.sec).slice(0,6);
-  const maxSec=Math.max(...top.map(x=>x.sec),1);
-  const colors=['#4f8df7','#d83cff','#7644f8','#ff3478','#4caf50','#ff765e'];
+
+  const avg7=last7.length?Math.round(last7.reduce((s,x)=>s+x.pct,0)/last7.length):0;
+  const bestDay=last7.reduce((best,item)=>item.pct>best.pct?item:best,last7[0]||{pct:0,label:'-'});
+  if(stats){
+    stats.innerHTML = [
+      { value:`${avg7}%`, label:t('dash_avg7') },
+      { value:`${bestDay?.pct||0}%`, label:`${t('dash_best_day')}: ${bestDay?.label||'-'}` }
+    ].map(item=>`<div class="dash-mini-stat"><strong>${item.value}</strong><span>${item.label}</span></div>`).join('');
+  }
+  if(labels){
+    labels.innerHTML = last7.map(item=>`<span title="${item.label}">${item.short}</span>`).join('');
+  }
+  if(chart){
+    if(!last7.length){
+      chart.innerHTML='';
+    }else{
+      const width=640, height=190, padX=24, padTop=18, padBottom=34;
+      const usableW=width-padX*2;
+      const usableH=height-padTop-padBottom;
+      const step=last7.length>1?usableW/(last7.length-1):usableW;
+      const points=last7.map((item,idx)=>{
+        const x=padX + step*idx;
+        const y=padTop + (usableH - (item.pct/100)*usableH);
+        return {x,y,...item};
+      });
+      const line=points.map(p=>`${p.x},${p.y}`).join(' ');
+      const area=`${padX},${height-padBottom} ${line} ${padX+usableW},${height-padBottom}`;
+      const dots=points.map((p,idx)=>`<circle class="dash-line-dot${idx===points.length-1?' active':''}" cx="${p.x}" cy="${p.y}" r="${idx===points.length-1?5:4}"><title>${p.label}: ${p.pct}%</title></circle>`).join('');
+      chart.innerHTML = `
+        <defs>
+          <linearGradient id="dashLineGradient" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="rgba(132,72,255,.26)"></stop>
+            <stop offset="100%" stop-color="rgba(132,72,255,0)"></stop>
+          </linearGradient>
+        </defs>
+        <polyline class="dash-line-area" points="${area}"></polyline>
+        <polyline class="dash-line-path" points="${line}"></polyline>
+        ${dots}
+      `;
+    }
+  }
+
+  const sortedRows=rows.slice().sort((a,b)=>b.efficiency-a.efficiency);
   if(bars){
-    if(top.length===0){
+    if(sortedRows.length===0){
       bars.innerHTML=`<div class="dash-empty">${t('no_data')}</div>`;
     }else{
-      bars.innerHTML=top.map((x,i)=>{
-        const pct=Math.max(4,Math.round((x.sec/maxSec)*100));
-        const name=(x.name||'-').split(' ')[0];
-        return `
-          <div class="dash-bar-item" title="${x.name}: ${fmtDashHours(x.sec)}">
-            <div class="dash-bar-value">${Math.round((x.sec/maxSec)*100)}%</div>
-            <div class="dash-bar-track"><div class="dash-bar-fill" style="height:${pct}%;background:${colors[i%colors.length]}"></div></div>
-            <div class="dash-bar-name">${name}</div>
+      bars.innerHTML=sortedRows.map(x=>`
+        <div class="dash-eff-card" title="${x.name}: ${x.efficiency}%">
+          <div class="dash-eff-head">
+            <div class="dash-eff-name">${x.name}</div>
+            <div class="dash-eff-score-wrap">
+              <span class="dash-eff-score-label">${t('eff_title')}</span>
+              <span class="dash-eff-score">${x.efficiency}%</span>
+            </div>
           </div>
-        `;
-      }).join('');
+          <div class="dash-eff-breakdown">
+            <div class="dash-eff-row">
+              <div class="dash-eff-label"><span class="dash-eff-dot green"></span><span>${t('eff_work_hours')}</span></div>
+              <div class="dash-eff-value">${x.workPct}%</div>
+            </div>
+            <div class="dash-eff-row">
+              <div class="dash-eff-label"><span class="dash-eff-dot yellow"></span><span>${t('eff_kpi')}</span></div>
+              <div class="dash-eff-value">${x.kpiPct}%</div>
+            </div>
+            <div class="dash-eff-row">
+              <div class="dash-eff-label"><span class="dash-eff-dot red"></span><span>${t('eff_late')}</span></div>
+              <div class="dash-eff-value">-${x.latePenalty}%</div>
+            </div>
+            <div class="dash-eff-row">
+              <div class="dash-eff-label"><span class="dash-eff-dot red"></span><span>${t('eff_afk')}</span></div>
+              <div class="dash-eff-value">-${x.afkPenalty}%</div>
+            </div>
+          </div>
+        </div>
+      `).join('');
     }
   }
   if(foot){
-    const best=rows.filter(x=>x.kpi>0).sort((a,b)=>b.kpi-a.kpi)[0];
-    foot.textContent=best?`${best.name}: ${best.kpi.toLocaleString()} UZS KPI`:'';
+    const best=sortedRows[0];
+    foot.textContent=best?`${t('dash_efficiency_best')}: ${best.name} (${best.efficiency}%)`:'';
+    foot.title=t('dash_efficiency_hint');
   }
 }
 async function loadDashboard(){
   const month=document.getElementById('fmonth')?.value||curM();
   st('dash_month',month);
-  ['dash_work','dash_late','dash_kpi'].forEach(id=>{const el=document.getElementById(id);if(el)el.innerHTML=`<div class="dash-empty">${t('loading')}</div>`;});
+  const chart=document.getElementById('dash_work_chart');
+  const stats=document.getElementById('dash_work_stats');
+  const labels=document.getElementById('dash_work_labels');
+  if(chart)chart.innerHTML='';
+  if(stats)stats.innerHTML=`<div class="dash-mini-stat"><strong>...</strong><span>${t('loading')}</span></div>`;
+  if(labels)labels.innerHTML='';
+  ['dash_late','dash_kpi'].forEach(id=>{const el=document.getElementById(id);if(el)el.innerHTML=`<div class="dash-empty">${t('loading')}</div>`;});
   const[y,mo]=month.split('-').map(Number);const dim=new Date(y,mo,0).getDate();
   let wd=0;for(let d=1;d<=dim;d++){const ds=`${y}-${String(mo).padStart(2,'0')}-${String(d).padStart(2,'0')}`;if(isWorkDay(ds))wd++;}
   const{data:emps,error:empErr}=await sb.from('employees').select('*');
@@ -2509,7 +2695,7 @@ async function loadDashboard(){
   if(empErr||recErr||bonErr){toast('error','Dashboard',(empErr||recErr||bonErr).message||t('dashboard_error'));return;}
   const rows=(emps||[]).map(emp=>{
     const er=(recs||[]).filter(r=>r.employee_id===emp.id);
-    let sec=0,afkSec=0,late=0,lateMin=0,came=0;
+    let sec=0,afkSec=0,late=0,lateMin=0,came=0,half=0;
     const cameDates=new Set();
     er.forEach(r=>{
       if(r.start_time){
@@ -2517,19 +2703,31 @@ async function loadDashboard(){
         if(r.work_date)cameDates.add(r.work_date);
         const[h,m]=r.start_time.split(':').map(Number);if(h*60+m>540)late++;
       }
+      if(computeStatusByTimes(
+        r.start_time?r.start_time.substring(0,5):null,
+        r.end_time?r.end_time.substring(0,5):null,
+        r.late_minutes||0,
+        r.work_seconds||0
+      )==='yarim_kun')half++;
       sec+=r.work_seconds||0;
       afkSec+=r.afk_seconds||0;
       lateMin+=r.late_minutes||0;
     });
     const abs=countAbsencesForMonth(month,cameDates);
     const bon=(bons||[]).find(b=>b.employee_id===emp.id)?.bonus||0;
-    const afkPenalty=Math.floor(Math.max(0,afkSec-1800)/60);
-    const pen=late*10+abs*20+Math.min(afkPenalty,20);
+    const rawAfkPenalty=Math.floor(Math.max(0,afkSec-1800)/60);
+    const pen=late*10+abs*20+Math.min(rawAfkPenalty,20);
     const ball=Math.min(100,Math.max(0,100-pen+bon));
     const kpi=calcKpi(ball,emp.kpi_type||'senior');
-    return {name:emp.name||'-',sec,late,lateMin,kpi,ball,came,abs};
+    const expectedSec=Math.max(1,wd*TARGET_WORK_SEC_PER_DAY);
+    const workPct=Math.min(100,Math.round((sec/expectedSec)*100));
+    const kpiPct=Math.max(0,Math.min(100,ball));
+    const latePenalty=Math.min(20,(late*5)+Math.floor((lateMin||0)/60));
+    const afkPenalty=Math.min(15,Math.round(Math.max(0,afkSec-BREAK_LIMIT_SEC)/(5*60)));
+    const efficiency=Math.max(0,Math.min(100,Math.round((workPct*0.55)+(kpiPct*0.45)-latePenalty-afkPenalty)));
+    return {name:emp.name||'-',sec,late,lateMin,kpi,ball,came,abs,efficiency,workPct,kpiPct,latePenalty,afkPenalty};
   });
-  renderDashboardCharts(rows,wd,(emps||[]).length);
+  renderDashboardCharts(rows,wd,(emps||[]).length,recs||[]);
 }
 
 async function loadAtt() {
@@ -3886,7 +4084,7 @@ async function loadMyFaceProfile(){
   try{
     const{data}=await sb.from('face_profiles').select('descriptor').eq('employee_id',CU.id).maybeSingle();
     if(data&&data.descriptor){
-      myFaceDescriptor=new Float32Array(data.descriptor);
+      myFaceDescriptor=normalizeFaceDescriptor(data.descriptor);
       const frb=document.getElementById('faceRegBox');if(frb)frb.style.display='none';
     }else{
       myFaceDescriptor=null;
@@ -4111,7 +4309,7 @@ async function runFaceCheck(){
       }
 
       try{
-        const dist=faceapi.euclideanDistance(Array.from(det.descriptor||[]), Array.from(myFaceDescriptor));
+        const dist=getFaceDistance(det.descriptor, myFaceDescriptor);
         reason=dist <= FACE_MATCH_THRESHOLD ? 'match' : 'unknown_face';
       }catch(e){}
 
@@ -4302,12 +4500,13 @@ async function saveFaceProfile(){
   const avg=new Float32Array(128);
   regSamples.forEach(d=>d.forEach((v,i)=>avg[i]+=v));
   avg.forEach((v,i)=>avg[i]=v/regSamples.length);
-  const descriptor=Array.from(avg);
+  const normalized=normalizeFaceDescriptor(avg);
+  const descriptor=Array.from(normalized||avg);
 
   try{
     await sb.from('face_profiles').upsert({employee_id:CU.id, descriptor},{onConflict:'employee_id'});
     await sb.from('employees').update({face_registered:true}).eq('id',CU.id);
-    myFaceDescriptor=avg;
+    myFaceDescriptor=normalized||avg;
     const frb=document.getElementById('faceRegBox');
     if(frb)frb.style.display='none';
     toast('success','Face',t('face_reg_done'));
@@ -4418,8 +4617,13 @@ async function loadHist(){
     }
   });
 
-  document.getElementById('inp_p').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
-  document.getElementById('inp_l').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
+  const loginForm = document.getElementById('loginForm');
+  if(loginForm){
+    loginForm.addEventListener('submit', async e => {
+      e.preventDefault();
+      await doLogin();
+    });
+  }
 
   // ✅ FIX 3: Tab qaytganda — faceHitCount reset, video qayta yoqiladi
   document.addEventListener('visibilitychange',()=>{
