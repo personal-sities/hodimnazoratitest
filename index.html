@@ -328,6 +328,27 @@ html, body { font-family:var(--font); background:var(--bg); color:var(--text); m
 #breakBanner { display:none; position:fixed; bottom:0; left:0; right:0; z-index:1000; background:linear-gradient(135deg,var(--warn),#e67e22); color:#fff; text-align:center; padding:8px 16px; font-size:12px; font-weight:700; }
 @keyframes slideDown { from{transform:translateY(-100%)} to{transform:translateY(0)} }
 
+#employeePage.afk-alert-active::before,
+#employeePage.afk-alert-active::after{
+  content:'';
+  position:fixed;
+  top:0;
+  bottom:0;
+  width:12px;
+  z-index:998;
+  pointer-events:none;
+  background:linear-gradient(180deg,rgba(255,71,87,.2),rgba(255,71,87,.95),rgba(255,71,87,.2));
+  box-shadow:0 0 22px rgba(255,71,87,.8);
+  animation:afkSideBeat 1.05s ease-in-out infinite;
+}
+#employeePage.afk-alert-active::before{left:0;}
+#employeePage.afk-alert-active::after{right:0;}
+@keyframes afkSideBeat{
+  0%,100%{opacity:.5;transform:scaleX(1);}
+  35%{opacity:1;transform:scaleX(1.7);}
+  55%{opacity:.82;transform:scaleX(1.2);}
+}
+
 #installBanner { display:none; position:fixed; bottom:80px; right:16px; z-index:600; background:var(--card); border:1px solid var(--border2); border-radius:var(--radius); padding:12px 16px; box-shadow:var(--shadow-lg); max-width:280px; }
 #installBanner p { font-size:12px; color:var(--text); margin-bottom:8px; font-weight:600; }
 .install-btns { display:flex; gap:7px; }
@@ -1124,9 +1145,12 @@ const SUPABASE_ANON = 'sb_publishable_CZUB0mOSzmmCvviNzWykzw_B3_0-5bE';
 const FUNCTIONS_BASE = `${SUPABASE_URL}/functions/v1`;
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
 
-const FACE_CHECK_INTERVAL = 120000;
+// Stable holatda ham yuz nazorati tez-tez tekshirilsin, aks holda
+// foydalanuvchi kameradan ketganda AFK ogohlantirishi juda kech chiqadi.
+const FACE_CHECK_INTERVAL = 10000;
 const FACE_RETRY_INTERVAL = 1000;
 const STABLE_HIT_REQUIRED = 2;
+const FACE_LOSS_WARNING_DELAY_SEC = 60;
 const AFK_GRACE_SEC       = 600;
 const BREAK_LIMIT_SEC     = 1800;
 const AUTO_END_HOUR       = 18;
@@ -1435,6 +1459,7 @@ Object.assign(TR.uz,{
   face_model_wait:'Model hali yuklanmadi, kuting...',
   face_move_closer:'Kameraga yaqinroq turing...',
   face_look_straight:'Yuz aniqlanmadi, to\'g\'ri qarang',
+  face_voice_warning:'Iltimos kameraga yaqinroq o\'tiring, yuzingiz topilmayapti!',
   face_samples_count:'{current}/5 namuna olindi',
   lunch_shift_title:'🍽️ Abed smenasini tanlang',
   lunch_shift_text:'Bugun abedni qaysi smenada qilasiz?',
@@ -1476,6 +1501,7 @@ Object.assign(TR.ru,{
   face_model_wait:'Модель ещё загружается, подождите...',
   face_move_closer:'Подойдите ближе к камере...',
   face_look_straight:'Лицо не найдено, смотрите прямо',
+  face_voice_warning:'Пожалуйста, сядьте ближе к камере, лицо не обнаружено!',
   face_samples_count:'Собрано образцов: {current}/5',
   lunch_shift_title:'🍽️ Выберите обеденную смену',
   lunch_shift_text:'На какую смену обеда вы идёте сегодня?',
@@ -2352,7 +2378,7 @@ async function replyFeedback(id) {
 //  LOGIN
 // ============================================================
 let CU = null;
-const FACE_MATCH_THRESHOLD = 0.42;
+const FACE_MATCH_THRESHOLD = 0.36;
 let loginInFlight = false;
 
 function normalizeFaceDescriptor(raw){
@@ -3557,12 +3583,99 @@ let afkCurIv        = null;
 let afkCountdownIv  = null;
 let afkCountdownSec = AFK_GRACE_SEC;
 let afkPending      = false;
+let afkVoiceCount   = 0;
+let afkVoiceTimer   = null;
+let afkVoiceAudio   = null;
+let afkWarnDismissed= false;
+let faceLossStartedAt = 0;
 let lastFaceBox     = null;
 let livenessScore   = 0;
 let myFaceDescriptor= null;
 let isDetecting     = false;
 // ✅ FIX 1: isDetecting stuck bo'lsa aniqlash uchun timestamp
 let isDetectingStartTime = 0;
+
+function getAfkVoiceAsset(){
+  return lang==='ru'
+    ? { src:'./audio/face-warning-ru.mp3', fallbackLang:'ru-RU' }
+    : { src:'./audio/face-warning-uz.mp3', fallbackLang:'uz-UZ' };
+}
+
+function setAfkAlertVisualState(active){
+  const employeePage=document.getElementById('employeePage');
+  if(employeePage)employeePage.classList.toggle('afk-alert-active', !!active);
+  const banner=document.getElementById('afkBanner');
+  if(banner)banner.style.display=active?'block':'none';
+}
+
+function resetFaceLossState(){
+  faceLossStartedAt = 0;
+}
+
+function shouldDelayFaceWarning(reason='missing'){
+  if(!faceLossStartedAt)faceLossStartedAt=Date.now();
+  const elapsedSec=Math.floor((Date.now()-faceLossStartedAt)/1000);
+  const statusEl=document.getElementById('face_status_inline');
+  const waitText=reason==='wrong_person' ? t('face_wrong_person') : t('face_searching');
+  const countdownText=`${waitText} (${Math.max(0, FACE_LOSS_WARNING_DELAY_SEC-elapsedSec)}s)`;
+  if(statusEl)statusEl.textContent=countdownText;
+  setFaceDot(reason==='wrong_person'?'red':'yellow', countdownText);
+  return elapsedSec < FACE_LOSS_WARNING_DELAY_SEC;
+}
+
+function clearAfkVoicePrompt(){
+  if(afkVoiceTimer){clearTimeout(afkVoiceTimer);afkVoiceTimer=null;}
+  if(afkVoiceAudio){
+    afkVoiceAudio.pause();
+    afkVoiceAudio.currentTime=0;
+    afkVoiceAudio=null;
+  }
+  if(window.speechSynthesis)window.speechSynthesis.cancel();
+}
+
+function speakAfkVoiceFallback(langCode){
+  if(!window.speechSynthesis)return;
+  const utter=new SpeechSynthesisUtterance(t('face_voice_warning'));
+  utter.lang=langCode;
+  utter.rate=1;
+  utter.pitch=1;
+
+  const voices=window.speechSynthesis.getVoices?window.speechSynthesis.getVoices():[];
+  const preferredVoice=
+    voices.find(v=>(v.lang||'').toLowerCase().startsWith(lang==='ru'?'ru':'uz')) ||
+    voices.find(v=>(v.lang||'').toLowerCase().startsWith(lang==='ru'?'ru':'tr')) ||
+    voices.find(v=>(v.lang||'').toLowerCase().startsWith('en'));
+  if(preferredVoice)utter.voice=preferredVoice;
+
+  window.speechSynthesis.cancel();
+  window.speechSynthesis.speak(utter);
+}
+
+function speakAfkVoiceWarning(){
+  if(afkVoiceCount>=2)return;
+  afkVoiceCount++;
+  const asset=getAfkVoiceAsset();
+
+  if(afkVoiceAudio){
+    afkVoiceAudio.pause();
+    afkVoiceAudio.currentTime=0;
+  }
+
+  afkVoiceAudio=new Audio(asset.src);
+  afkVoiceAudio.preload='auto';
+  afkVoiceAudio.play().catch(()=>{
+    afkVoiceAudio=null;
+    speakAfkVoiceFallback(asset.fallbackLang);
+  });
+
+  if(afkVoiceCount<2){
+    if(afkVoiceTimer)clearTimeout(afkVoiceTimer);
+    afkVoiceTimer=setTimeout(()=>{
+      afkVoiceTimer=null;
+      if(empState==='working'&&afkPending&&!isAfk)speakAfkVoiceWarning();
+    },5000);
+  }
+}
 
 function scheduleFaceCheck(ms){
   if(faceCheckTimer){clearTimeout(faceCheckTimer);faceCheckTimer=null;}
@@ -3847,6 +3960,7 @@ function updateLiveness(box){
 
 // ✅ FIX 5: Faqat STABIL detection dan keyin AFK/banner tozalanadi
 function onFaceStablyDetected(reason){
+  resetFaceLossState();
   const statusEl=document.getElementById('face_status_inline');
   const name=CU?.name||'';
   let txt='✅ Tanildi: '+name;
@@ -3867,37 +3981,52 @@ function onFaceStablyDetected(reason){
 }
 
 // ── onFaceMissed ───────────────────────────────────────────
-function onFaceMissed(){
+function onFaceMissed(reason='missing'){
   if(empState!=='working'){
+    resetFaceLossState();
     afkPending=false;
+    afkWarnDismissed=false;
+    afkVoiceCount=0;
+    clearAfkVoicePrompt();
     if(afkCountdownIv){clearInterval(afkCountdownIv);afkCountdownIv=null;}
     const warn=document.getElementById('m_afk_warn'); if(warn)warn.classList.add('hidden');
-    const banner=document.getElementById('afkBanner'); if(banner)banner.style.display='none';
+    setAfkAlertVisualState(false);
     afkWarnShown=false;
     return;
   }
   const statusEl=document.getElementById('face_status_inline');
-  if(statusEl)statusEl.textContent=t('face_not_detected');
-  setFaceDot('red',t('face_not_detected'));
+  const isWrongPerson=reason==='wrong_person';
+  const warningText=isWrongPerson ? t('face_wrong_person_afk') : t('face_not_detected');
+  if(statusEl)statusEl.textContent=warningText;
+  setFaceDot('red',warningText);
 
-  // Birinchi miss da bannerni ko'rsat
-  document.getElementById('afkBanner').style.display='block';
+  setAfkAlertVisualState(true);
 
   if(!isAfk && !afkPending){
     afkPending=true;
+    afkWarnDismissed=false;
+    afkVoiceCount=0;
     const modal=document.getElementById('m_afk_warn');
-    if(modal)modal.classList.remove('hidden');
-    afkWarnShown=true;
+    if(modal && !afkWarnDismissed){
+      modal.classList.remove('hidden');
+      afkWarnShown=true;
+    }
     startAfkCountdown();
+    speakAfkVoiceWarning();
   }
-  scheduleFaceCheck(FACE_RETRY_INTERVAL);
+  scheduleFaceCheck(FACE_CHECK_INTERVAL);
 }
 
 // ── AFK SESSION ────────────────────────────────────────────
 function startAfkSession(){
   if(isAfk||empState!=='working')return;
+  resetFaceLossState();
   afkPending=false;
+  afkWarnDismissed=false;
+  afkVoiceCount=0;
+  clearAfkVoicePrompt();
   isAfk=true;
+  setAfkAlertVisualState(true);
   currentAfkStart=tzNow();
   afkCount++;
   afkCurSec=0;
@@ -3918,12 +4047,17 @@ function startAfkSession(){
 
 function endAfkSession(){
   if(!isAfk)return;
+  resetFaceLossState();
   isAfk=false;
+  afkWarnDismissed=false;
+  afkVoiceCount=0;
+  clearAfkVoicePrompt();
   currentAfkStart=null;
   if(afkCurIv){clearInterval(afkCurIv);afkCurIv=null;}
   if(afkCountdownIv){clearInterval(afkCountdownIv);afkCountdownIv=null;}
   document.getElementById('afkTimer').classList.add('hidden');
   setFaceDot('green',t('face_detected'));
+  setAfkAlertVisualState(false);
   afkCurSec=0;
 }
 
@@ -3946,36 +4080,40 @@ function startAfkCountdown(){
 }
 
 function dismissAfkWarn(){
+  resetFaceLossState();
   document.getElementById('m_afk_warn').classList.add('hidden');
   afkWarnShown=false;
-  afkPending=false;
-  const banner=document.getElementById('afkBanner');
-  if(banner)banner.style.display='none';
-  // ✅ MUHIM: faceMissCount reset qilinmaydi!
-  // Yuz haqiqatan aniqlanganida (STABLE_HIT_REQUIRED marta ketma-ket)
-  // onFaceStablyDetected() AFK ni tozalaydi
+  afkWarnDismissed=true;
+  afkVoiceCount=0;
+  clearAfkVoicePrompt();
 }
 
 function pauseFaceMonitoringForBreak(){
+  resetFaceLossState();
   afkPending=false;
+  afkWarnDismissed=false;
+  afkVoiceCount=0;
+  clearAfkVoicePrompt();
   if(isAfk)endAfkSession();
   if(afkCountdownIv){clearInterval(afkCountdownIv);afkCountdownIv=null;}
   const warn=document.getElementById('m_afk_warn');
   if(warn)warn.classList.add('hidden');
   afkWarnShown=false;
-  const banner=document.getElementById('afkBanner');
-  if(banner)banner.style.display='none';
+  setAfkAlertVisualState(false);
   stopFaceDetection();
 }
 
 function resumeFaceMonitoringAfterBreak(){
+  resetFaceLossState();
   afkPending=false;
+  afkWarnDismissed=false;
+  afkVoiceCount=0;
+  clearAfkVoicePrompt();
   if(afkCountdownIv){clearInterval(afkCountdownIv);afkCountdownIv=null;}
   const warn=document.getElementById('m_afk_warn');
   if(warn)warn.classList.add('hidden');
   afkWarnShown=false;
-  const banner=document.getElementById('afkBanner');
-  if(banner)banner.style.display='none';
+  setAfkAlertVisualState(false);
   startFaceDetection();
 }
 
@@ -4113,12 +4251,16 @@ function stopFaceDetection(){
   isDetecting=false;
   isDetectingStartTime=0;
   isAfk=false;
+  resetFaceLossState();
   afkPending=false;
+  afkWarnDismissed=false;
+  afkVoiceCount=0;
+  clearAfkVoicePrompt();
   currentAfkStart=null;
   faceHitCount=0;
   faceMissCount=0;
   faceUnknownCount=0;
-  document.getElementById('afkBanner').style.display='none';
+  setAfkAlertVisualState(false);
 }
 
 // ============================================================
@@ -4243,6 +4385,7 @@ async function startFaceDetection(){
   faceMissCount=0;
   faceHitCount=0;
   faceUnknownCount=0;
+  resetFaceLossState();
   isDetecting=false;
   isDetectingStartTime=0;
   runFaceCheck();
@@ -4315,25 +4458,21 @@ async function runFaceCheck(){
 
       if(reason==='unknown_face'){
         faceHitCount=0;
-        faceUnknownCount++;
+        faceUnknownCount=1;
         drawFaceBox(box,false);
-        setFaceDot('yellow', t('face_rechecking'));
-        const statusEl=document.getElementById('face_status_inline');
-        if(statusEl)statusEl.textContent=t('face_rechecking');
-        if(faceUnknownCount>=3){
-          faceMissCount++;
-          setFaceDot('red', t('face_wrong_person'));
-          if(statusEl)statusEl.textContent=t('face_wrong_person_afk');
-          onFaceMissed();
-        }else{
-          scheduleFaceCheck(FACE_RETRY_INTERVAL);
+        faceMissCount=1;
+        if(shouldDelayFaceWarning('wrong_person')){
+          scheduleFaceCheck(FACE_CHECK_INTERVAL);
+          return;
         }
+        onFaceMissed('wrong_person');
         return;
       }
 
       faceHitCount++;
       faceMissCount=0;
       faceUnknownCount=0;
+      resetFaceLossState();
       drawFaceBox(box,true);
       updateLiveness(box);
 
@@ -4348,21 +4487,16 @@ async function runFaceCheck(){
       }
     }else{
       faceHitCount=Math.max(0, faceHitCount-1);
-      faceMissCount++;
       faceUnknownCount=0;
-
-      if(faceMissCount>=3){
-        clearFaceBox();
-        lastFaceBox=null;
-        livenessScore=Math.max(0,livenessScore-0.05);
-        onFaceMissed();
-      }else{
-        const searching=t('face_searching');
-        setFaceDot('yellow', searching);
-        const statusEl=document.getElementById('face_status_inline');
-        if(statusEl)statusEl.textContent=searching;
-        scheduleFaceCheck(FACE_RETRY_INTERVAL);
+      faceMissCount=1;
+      clearFaceBox();
+      lastFaceBox=null;
+      livenessScore=Math.max(0,livenessScore-0.05);
+      if(shouldDelayFaceWarning('missing')){
+        scheduleFaceCheck(FACE_CHECK_INTERVAL);
+        return;
       }
+      onFaceMissed('missing');
     }
   }catch(e){
     console.warn('runFaceCheck error:', e.message);
@@ -4394,13 +4528,15 @@ function onFaceStablyDetected(reason){
   setFaceDot('green', label);
   if(isAfk)endAfkSession();
   afkPending=false;
+  afkWarnDismissed=false;
+  afkVoiceCount=0;
+  clearAfkVoicePrompt();
   if(afkWarnShown){
     document.getElementById('m_afk_warn').classList.add('hidden');
     afkWarnShown=false;
   }
   if(afkCountdownIv){clearInterval(afkCountdownIv);afkCountdownIv=null;}
-  const banner=document.getElementById('afkBanner');
-  if(banner)banner.style.display='none';
+  setAfkAlertVisualState(false);
   scheduleFaceCheck(FACE_CHECK_INTERVAL);
 }
 
