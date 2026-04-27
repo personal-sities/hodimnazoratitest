@@ -160,9 +160,9 @@ html, body { font-family:var(--font); background:var(--bg); color:var(--text); m
 .ip-val { display:inline-block; background:var(--bg3); border-radius:8px; padding:6px 14px; font-size:13px; color:var(--text2); font-family:var(--mono); margin-top:8px; }
 
 #adminPage, #employeePage { display:none; }
-.layout { display:flex; min-height:100vh; }
+.layout { display:flex; min-height:100vh; height:100vh; overflow:hidden; }
 
-.sidebar { width:215px; background:var(--sidebar-bg); display:flex; flex-direction:column; flex-shrink:0; transition:transform .25s ease; border-right:1px solid var(--border); box-shadow:8px 0 24px rgba(31,36,51,.03); }
+.sidebar { width:215px; background:var(--sidebar-bg); display:flex; flex-direction:column; flex-shrink:0; transition:transform .25s ease; border-right:1px solid var(--border); box-shadow:8px 0 24px rgba(31,36,51,.03); position:sticky; top:0; height:100vh; overflow-y:auto; }
 .sb-head { display:flex; align-items:center; gap:10px; padding:22px 18px 24px; border-bottom:1px solid var(--border); background:var(--sidebar-bg); }
 .sb-logo-img { width:32px; height:32px; object-fit:contain; }
 .sb-logo-txt { color:var(--text); font-size:16px; font-weight:800; letter-spacing:-.3px; }
@@ -178,15 +178,15 @@ html, body { font-family:var(--font); background:var(--bg); color:var(--text); m
 .hamburger { display:none; flex-direction:column; gap:5px; background:none; border:none; cursor:pointer; padding:5px; flex-shrink:0; }
 .hamburger span { display:block; width:22px; height:2px; background:var(--text); border-radius:2px; transition:var(--transition); }
 
-.mcol { flex:1; display:flex; flex-direction:column; min-width:0; }
+.mcol { flex:1; display:flex; flex-direction:column; min-width:0; height:100vh; min-height:0; overflow:hidden; }
 
-.tophdr { background:var(--header); padding:18px 24px; display:flex; align-items:center; justify-content:space-between; flex-shrink:0; gap:14px; border-bottom:1px solid var(--border); box-shadow:none; }
+.tophdr { background:var(--header); padding:18px 24px; display:flex; align-items:center; justify-content:space-between; flex-shrink:0; gap:14px; border-bottom:1px solid var(--border); box-shadow:none; position:sticky; top:0; z-index:120; }
 .tophdr h1 { color:var(--text); font-size:17px; font-weight:800; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .hdr-r { display:flex; align-items:center; gap:8px; flex-shrink:0; flex-wrap:wrap; }
 .hdr-date { color:var(--text3); font-size:11px; white-space:nowrap; font-family:var(--mono); background:var(--bg3); padding:6px 10px; border-radius:7px; border:1px solid var(--border); }
 .xbtn { padding:7px 14px; background:var(--bg3); color:var(--text2); border:1px solid var(--border); border-radius:var(--radius-sm); font-size:12px; font-weight:700; cursor:pointer; white-space:nowrap; transition:var(--transition); font-family:var(--font); }
 .xbtn:hover { background:var(--sidebar-hover); color:var(--accent); border-color:rgba(132,72,255,.16); }
-.pbody { flex:1; padding:26px 24px; overflow-y:auto; background:var(--bg); }
+.pbody { flex:1; min-height:0; padding:26px 24px; overflow-y:auto; background:var(--bg); }
 
 .scards { display:grid; grid-template-columns:repeat(4,1fr); gap:18px; margin-bottom:24px; }
 .scard { background:var(--card); border-radius:12px; padding:18px 20px; box-shadow:var(--shadow); border:1px solid var(--border); position:relative; overflow:hidden; animation:fadeUp .4s ease both; }
@@ -355,12 +355,12 @@ html, body { font-family:var(--font); background:var(--bg); color:var(--text); m
 .btn-install { padding:7px 14px; background:var(--accent); color:#fff; border:none; border-radius:var(--radius-sm); font-size:12px; font-weight:700; cursor:pointer; font-family:var(--font); }
 .btn-install-no { padding:7px 10px; background:var(--bg3); color:var(--text2); border:none; border-radius:var(--radius-sm); font-size:12px; cursor:pointer; font-family:var(--font); }
 
-.ehdr { background:var(--header); padding:18px 24px; display:flex; align-items:center; justify-content:space-between; gap:10px; border-bottom:1px solid var(--border); box-shadow:none; }
+.ehdr { background:var(--header); padding:18px 24px; display:flex; align-items:center; justify-content:space-between; gap:10px; border-bottom:1px solid var(--border); box-shadow:none; position:sticky; top:0; z-index:120; }
 .ehdr-brand { display:flex; align-items:center; gap:10px; }
 .ehdr-brand-name { color:var(--text); font-size:15px; font-weight:800; letter-spacing:-.2px; }
 .ehdr-brand-name span { color:var(--accent); }
 #empDate { color:var(--text3) !important; background:var(--bg3) !important; border:1px solid var(--border); }
-.ebody { display:grid; grid-template-columns:1fr 1fr; gap:18px; padding:26px 24px; background:var(--bg); }
+.ebody { display:grid; grid-template-columns:1fr 1fr; gap:18px; padding:26px 24px; background:var(--bg); min-height:calc(100vh - 73px); overflow-y:auto; }
 .ec { background:var(--card); border-radius:12px; padding:22px; box-shadow:var(--shadow); border:1px solid var(--border); animation:fadeUp .4s ease both; }
 .ec h2 { font-size:14px; font-weight:700; margin-bottom:12px; }
 .efw { grid-column:1/-1; }
