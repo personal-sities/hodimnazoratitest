@@ -1273,7 +1273,7 @@ async function saveGPSRegionSettings(cfg){
     await loadGPSSettingsUI();
   }catch(e){
     console.error('saveGPSRegionSettings error:',e);
-    toast('error','GPS','Sozlamani saqlab bo\'lmadi');
+    toast('error','GPS',t('gps_save_error'));
   }
 }
 function formatCoords(lat,lng){
@@ -1318,31 +1318,31 @@ async function checkGPSAccess(role){
 async function checkRegionAccess(role){
   const ipOk=await checkIPAccess(role);
   if(!ipOk){
-    return {ok:false,mode:'ip',title:'Kirish taqiqlandi',message:'Bu tizimga faqat ruxsat berilgan tarmoq orqali kirishingiz mumkin.',value:userPublicIP||'—'};
+    return {ok:false,mode:'ip',title:t('access_denied_title'),message:t('access_denied_msg'),value:userPublicIP||'—'};
   }
   const gps=await checkGPSAccess(role);
   if(!gps.ok){
-    const detail=gps.distance_m?`Masofa: ${gps.distance_m}m / radius: ${gps.radius_m}m`:(gps.error||'GPS aniqlanmadi');
-    return {ok:false,mode:'gps',title:'Hududdan tashqarida',message:`Tizim faqat belgilangan hudud ichida ishlaydi. ${detail}`,value:userGeoPosition?formatCoords(userGeoPosition.lat,userGeoPosition.lng):'aniqlanmagan'};
+    const detail=gps.distance_m?`${t('access_distance')}: ${gps.distance_m}m / ${t('access_radius')}: ${gps.radius_m}m`:(gps.error||t('gps_unknown'));
+    return {ok:false,mode:'gps',title:t('access_gps_title'),message:`${t('access_gps_msg')} ${detail}`,value:userGeoPosition?formatCoords(userGeoPosition.lat,userGeoPosition.lng):t('gps_unknown')};
   }
   return {ok:true};
 }
 async function addAllowedIP(){
   const val=document.getElementById('ip_inp').value.trim();
-  if(!val){toast('warn','IP','IP kiriting!');return;}
+  if(!val){toast('warn','IP',t('ip_enter'));return;}
   const arr=await getAllowedIPs();
   if(!arr.includes(val))arr.push(val);
   await saveAllowedIPs(arr);
   document.getElementById('ip_inp').value='';
-  toast('success','IP','Qo\'shildi');
+  toast('success','IP',t('ip_added'));
 }
 async function addMyIP(){
   if(!userPublicIP)userPublicIP=await getUserIP();
-  if(!userPublicIP){toast('error','Xato','IP aniqlanmadi');return;}
+  if(!userPublicIP){toast('error',t('error_title'),t('ip_detect_failed'));return;}
   const arr=await getAllowedIPs();
   if(!arr.includes(userPublicIP))arr.push(userPublicIP);
   await saveAllowedIPs(arr);
-  toast('success','IP','Mening IP qo\'shildi');
+  toast('success','IP',t('ip_self_added'));
 }
 async function removeIP(ip){
   const arr=await getAllowedIPs();
@@ -1350,9 +1350,9 @@ async function removeIP(ip){
 }
 async function updateIPList(){
   const el=document.getElementById('ip_list');if(!el)return;
-  el.innerHTML='<span style="color:var(--text3);font-size:12px">Yuklanmoqda...</span>';
+  el.innerHTML=`<span style="color:var(--text3);font-size:12px">${t('ip_loading')}</span>`;
   const arr=await getAllowedIPs();
-  if(arr.length===0){el.innerHTML='<span style="color:var(--text3);font-size:12px">Hozircha ruxsat etilgan IP yo\'q (cheklov yo\'q)</span>';return;}
+  if(arr.length===0){el.innerHTML=`<span style="color:var(--text3);font-size:12px">${t('ip_empty')}</span>`;return;}
   el.innerHTML=arr.map(ip=>`<span style="display:inline-flex;align-items:center;gap:4px;background:var(--bg3);border-radius:6px;padding:3px 9px;font-size:12px;margin:2px;font-family:var(--mono)"><strong>${ip}</strong><button onclick="removeIP('${ip}')" style="background:none;border:none;color:var(--danger);cursor:pointer;font-size:14px;line-height:1">×</button></span>`).join(' ');
 }
 async function loadGPSSettingsUI(){
@@ -1368,9 +1368,10 @@ async function loadGPSSettingsUI(){
   if(enabled)enabled.checked=cfg.enabled;
   if(info){
     info.textContent=cfg.enabled&&cfg.latitude!==null&&cfg.longitude!==null
-      ? `Saqlangan hudud: ${formatCoords(cfg.latitude,cfg.longitude)} | radius ${cfg.radius_m}m`
-      : 'GPS cheklov o\'chirilgan';
+      ? `${t('gps_saved_region')}: ${formatCoords(cfg.latitude,cfg.longitude)} | ${t('access_radius')} ${cfg.radius_m}m`
+      : t('gps_disabled');
   }
+  refreshStaticLabels();
 }
 async function fillCurrentGPS(){
   try{
@@ -1380,9 +1381,9 @@ async function fillCurrentGPS(){
     const lng=document.getElementById('gps_lng');
     if(lat)lat.value=pos.lat.toFixed(6);
     if(lng)lng.value=pos.lng.toFixed(6);
-    toast('success','GPS','Joriy joylashuv olindi');
+    toast('success','GPS',t('gps_current_success'));
   }catch(e){
-    toast('error','GPS',e.message||'Joylashuv olinmadi');
+    toast('error','GPS',e.message||t('gps_current_error'));
   }
 }
 async function saveGPSRegion(){
@@ -1391,7 +1392,7 @@ async function saveGPSRegion(){
   const radius_m=Number(document.getElementById('gps_radius').value||200);
   const enabled=document.getElementById('gps_enabled').checked;
   if(enabled&&(Number.isNaN(latitude)||Number.isNaN(longitude)||Number.isNaN(radius_m))){
-    toast('warn','GPS','Latitude, longitude va radiusni to\'g\'ri kiriting');
+    toast('warn','GPS',t('gps_fill_error'));
     return;
   }
   await saveGPSRegionSettings({
@@ -1400,7 +1401,7 @@ async function saveGPSRegion(){
     longitude:enabled?longitude:null,
     radius_m:enabled?radius_m:200
   });
-  toast('success','GPS','Hudud saqlandi');
+  toast('success','GPS',t('gps_saved_success'));
 }
 function showIPBlock(value,title,msg){
   ['loginPage','adminPage','employeePage'].forEach(id=>{const e=document.getElementById(id);if(e)e.style.display='none';});
@@ -1656,6 +1657,132 @@ Object.assign(TR.ru,{
   dash_efficiency_best:'Самый эффективный сотрудник',
   dash_efficiency_hint:'По рабочему времени, посещаемости и дисциплине'
 });
+
+Object.assign(TR.uz,{
+  ip_t:'Ruxsat etilgan IP manzillar',
+  ip_add_btn:'IP qo\'shish',
+  ip_my_btn:'Mening IP',
+  gps_region_title:'GPS hudud',
+  gps_save:'Saqlash',
+  gps_my_location:'Mening joylashuvim',
+  gps_enable_limit:'GPS cheklovni yoqish',
+  gps_current:'Joriy GPS:',
+  gps_unknown:'aniqlanmagan',
+  gps_disabled:'GPS cheklov o\'chirilgan',
+  gps_saved_region:'Saqlangan hudud',
+  gps_save_error:'Sozlamani saqlab bo\'lmadi',
+  gps_fill_error:'Latitude, longitude va radiusni to\'g\'ri kiriting',
+  gps_saved_success:'Hudud saqlandi',
+  gps_current_success:'Joriy joylashuv olindi',
+  gps_current_error:'Joylashuv olinmadi',
+  access_denied_title:'Kirish taqiqlandi',
+  access_denied_msg:'Bu tizimga faqat ruxsat berilgan tarmoq orqali kirishingiz mumkin.',
+  access_gps_title:'Hududdan tashqarida',
+  access_gps_msg:'Tizim faqat belgilangan hudud ichida ishlaydi.',
+  access_distance:'Masofa',
+  access_radius:'radius',
+  ip_enter:'IP kiriting!',
+  ip_added:'Qo\'shildi',
+  ip_detect_failed:'IP aniqlanmadi',
+  ip_self_added:'Mening IP qo\'shildi',
+  ip_loading:'Yuklanmoqda...',
+  ip_empty:'Hozircha ruxsat etilgan IP yo\'q (cheklov yo\'q)',
+  lunch_title:'Abed',
+  lunch_shift_saved_1:'1-smena tanlandi',
+  lunch_shift_saved_2:'2-smena tanlandi',
+  lunch_shift_save_error:'Tanlov saqlanmadi',
+  push_title:'Push',
+  push_unsupported:'Bu brauzer bildirishnomalarni qo\'llab-quvvatlamaydi',
+  push_enabled:'Bildirishnomalar yoqildi!',
+  push_denied:'Ruxsat berilmadi',
+  employee_title:'Hodim',
+  employee_removed:'Ro\'yxatdan olib tashlandi',
+  employee_remove_error:'Hodimni o\'chirib bo\'lmadi',
+  employee_add_error:'Hodim qo\'shilmadi',
+  employee_added:'Qo\'shildi!',
+  fill_required_short:'Hammasini to\'ldiring',
+  auth_session_invalid:'Auth sessiya yaroqsiz. Qayta login qiling.',
+  user_not_linked:'User bazaga bog\'lanmagan',
+  system_error:'Tizim xatoligi',
+  face_title:'Yuz',
+  face_reg_success:'Ro\'yxatdan o\'tdi!',
+  current_ip:'Joriy IP:',
+  work_continues:'Ish davom etadi',
+  lunch_rest_msg:'Yaxshi dam oling!',
+  send_feedback_title:'Fikr/Shikoyat yuborish',
+  my_feedback_title:'Mening fikrlarim',
+  notifications_title:'Bildirishnomalar',
+  break_limit_day:'☕ Tanaffus limiti (kun)',
+  face_liveness_checking:'Liveness tekshirilmoqda...',
+  face_liveness_idle:'Liveness...',
+  face_real:'✅ Real yuz',
+  face_no_motion:'⚠️ Harakat yo\'q',
+  afk_total_widget:'Jami AFK: {minutes} daq',
+  report_headers:'#|Ism familiya|Ish soat|AFK|Kechikish|Yarim kun|Kelmagan|Jarima|Bonus|Ball|KPI (UZS)'
+});
+
+Object.assign(TR.ru,{
+  ip_t:'Разрешённые IP-адреса',
+  ip_add_btn:'Добавить IP',
+  ip_my_btn:'Мой IP',
+  gps_region_title:'GPS зона',
+  gps_save:'Сохранить',
+  gps_my_location:'Моё местоположение',
+  gps_enable_limit:'Включить GPS-ограничение',
+  gps_current:'Текущий GPS:',
+  gps_unknown:'не определено',
+  gps_disabled:'GPS-ограничение выключено',
+  gps_saved_region:'Сохранённая зона',
+  gps_save_error:'Не удалось сохранить настройки',
+  gps_fill_error:'Введите корректные latitude, longitude и radius',
+  gps_saved_success:'Зона сохранена',
+  gps_current_success:'Текущее местоположение получено',
+  gps_current_error:'Не удалось получить местоположение',
+  access_denied_title:'Доступ запрещён',
+  access_denied_msg:'В систему можно войти только из разрешённой сети.',
+  access_gps_title:'Вне разрешённой зоны',
+  access_gps_msg:'Система работает только внутри заданной зоны.',
+  access_distance:'Расстояние',
+  access_radius:'радиус',
+  ip_enter:'Введите IP!',
+  ip_added:'Добавлено',
+  ip_detect_failed:'IP не определён',
+  ip_self_added:'Мой IP добавлен',
+  ip_loading:'Загрузка...',
+  ip_empty:'Пока нет разрешённых IP (ограничение выключено)',
+  lunch_title:'Обед',
+  lunch_shift_saved_1:'Выбрана 1-я смена',
+  lunch_shift_saved_2:'Выбрана 2-я смена',
+  lunch_shift_save_error:'Не удалось сохранить выбор',
+  push_title:'Push',
+  push_unsupported:'Этот браузер не поддерживает уведомления',
+  push_enabled:'Уведомления включены!',
+  push_denied:'Разрешение не выдано',
+  employee_title:'Сотрудник',
+  employee_removed:'Удалён из списка',
+  employee_remove_error:'Не удалось удалить сотрудника',
+  employee_add_error:'Не удалось добавить сотрудника',
+  employee_added:'Добавлено!',
+  fill_required_short:'Заполните все поля',
+  auth_session_invalid:'Сессия Auth недействительна. Войдите заново.',
+  user_not_linked:'Пользователь не связан с базой',
+  system_error:'Системная ошибка',
+  face_title:'Лицо',
+  face_reg_success:'Лицо зарегистрировано!',
+  current_ip:'Текущий IP:',
+  work_continues:'Работа продолжается',
+  lunch_rest_msg:'Хорошего отдыха!',
+  send_feedback_title:'Отправить отзыв/жалобу',
+  my_feedback_title:'Мои отзывы',
+  notifications_title:'Уведомления',
+  break_limit_day:'☕ Лимит перерыва (день)',
+  face_liveness_checking:'Проверка liveness...',
+  face_liveness_idle:'Liveness...',
+  face_real:'✅ Реальное лицо',
+  face_no_motion:'⚠️ Нет движения',
+  afk_total_widget:'AFK всего: {minutes} мин',
+  report_headers:'#|ФИО|Раб. часы|AFK|Опоздание|Полдня|Пропуск|Штраф|Бонус|Баллы|KPI (UZS)'
+});
 let lang = localStorage.getItem('aloqa_lang') || 'uz';
 const t = k => (TR[lang]||TR.uz)[k] || k;
 const tf = (key, params={}) => Object.entries(params).reduce((acc,[name,value]) => acc.replaceAll(`{${name}}`, value), t(key));
@@ -1823,6 +1950,7 @@ function refreshStaticLabels(){
   const widgetTitle = document.querySelector('#faceWidget .fw-title span');
   if(widgetTitle)widgetTitle.innerHTML = iconLabel('camera', t('face_widget_title').replace(/^[^\s]+\s*/, ''));
   st('dash_monthly_pill', t('dash_monthly_pill'));
+  st('ip_t', t('ip_t'));
   setIconHTML('notif_box_title', 'bell', t('notif_box_title').replace(/^[^\s]+\s*/, ''));
   st('ns_title', t('notif_send_form_title'));
   st('ns_all', t('notif_send_all'));
@@ -1840,14 +1968,14 @@ function refreshStaticLabels(){
   const titleMap = [
     ['#feedback_admin_title','message',t('feedback_admin_title')],
     ['#tab_settings .box:nth-of-type(1) .btitle','settings',document.getElementById('set_t')?.textContent||t('set_t')],
-    ['#tab_settings .box:nth-of-type(2) .btitle','globe',document.getElementById('ip_t')?.textContent||'Ruxsat etilgan IP manzillar'],
-    ['#tab_settings .box:nth-of-type(3) .btitle','pin','GPS hudud'],
+    ['#tab_settings .box:nth-of-type(2) .btitle','globe',document.getElementById('ip_t')?.textContent||t('ip_t')],
+    ['#tab_settings .box:nth-of-type(3) .btitle','pin',t('gps_region_title')],
     ['#tab_settings .box:nth-of-type(4) .btitle','calendar',document.getElementById('hol_t')?.textContent||t('hol_t')],
     ['#tab_kpi .btitle','trophy',document.getElementById('kpi_t')?.textContent||t('kpi_t')],
-    ['#emp_tab_notif .btitle','bell',lang==='uz'?'Bildirishnomalar':'Уведомления'],
+    ['#emp_tab_notif .btitle','bell',t('notifications_title')],
     ['#enablePushBtn','bell',lang==='uz'?'Push bildirishnomalarni yoqish':'Включить push-уведомления'],
-    ['#emp_tab_feedback > .box > .btitle','message',lang==='uz'?'Fikr/Shikoyat yuborish':'Отправка отзыва/жалобы'],
-    ['#emp_tab_feedback .box div[style*="margin-top:16px"] .btitle','clipboard',lang==='uz'?'Mening fikrlarim':'Мои отзывы']
+    ['#emp_tab_feedback > .box > .btitle','message',t('send_feedback_title')],
+    ['#emp_tab_feedback .box div[style*="margin-top:16px"] .btitle','clipboard',t('my_feedback_title')]
   ];
   titleMap.forEach(([selector, icon, text])=>{
     const el = document.querySelector(selector);
@@ -1877,6 +2005,27 @@ function refreshStaticLabels(){
   if(quality && (!quality.textContent || /^0\/5|РѕР±СЂР°Р·С†РѕРІ: 0\/5/i.test(quality.textContent))){
     updateQuality(tf('face_samples_count', { current: 0 }));
   }
+  const liveText=document.getElementById('livenessText');
+  if(liveText)liveText.textContent=t('face_liveness_checking');
+  const liveWidget=document.getElementById('livenessWidgetTxt');
+  if(liveWidget && (!liveWidget.textContent || /liveness/i.test(liveWidget.textContent)))liveWidget.textContent=t('face_liveness_idle');
+  const breakTitle=document.querySelector('#breakTracker h4');
+  if(breakTitle)breakTitle.textContent=t('break_limit_day');
+  const addIpBtn=document.getElementById('b_addip');
+  if(addIpBtn)addIpBtn.textContent=t('ip_add_btn');
+  const myIpBtn=document.getElementById('b_myip');
+  if(myIpBtn)myIpBtn.textContent=t('ip_my_btn');
+  const gpsSaveBtn=document.querySelector('#tab_settings .box:nth-of-type(3) .bb');
+  if(gpsSaveBtn)gpsSaveBtn.textContent=t('gps_save');
+  const gpsMyBtn=document.querySelector('#tab_settings .box:nth-of-type(3) .bg2');
+  if(gpsMyBtn)gpsMyBtn.textContent=t('gps_my_location');
+  const gpsSaved=document.getElementById('gps_saved_info');
+  if(gpsSaved && gpsSaved.textContent===t('gps_disabled'))gpsSaved.textContent=t('gps_disabled');
+  const gpsNowLabel=document.querySelector('p #gps_now_show')?.parentElement;
+  if(gpsNowLabel)gpsNowLabel.childNodes[0].textContent=`${t('gps_current')} `;
+  const myIpLabel=document.querySelector('p #my_ip_show')?.parentElement;
+  if(myIpLabel)myIpLabel.childNodes[0].textContent=`${t('current_ip')} `;
+  updateAfkDisplay();
 }
 
 function applyLang(){
@@ -2078,10 +2227,10 @@ async function saveLunchShiftChoice(shift) {
     todayLunchShift = shift;
     saveLunchPlanLocal(shift);
     document.getElementById('m_lunch_shift').classList.add('hidden');
-    toast('success', 'Abed', shift === 'shift_1' ? '1-smena tanlandi' : '2-smena tanlandi');
+    toast('success', t('lunch_title'), shift === 'shift_1' ? t('lunch_shift_saved_1') : t('lunch_shift_saved_2'));
   }catch(e){
     console.error('saveLunchShiftChoice:', e);
-    toast('error', 'Abed', e.message || 'Tanlov saqlanmadi');
+    toast('error', t('lunch_title'), e.message || t('lunch_shift_save_error'));
   }
 }
 
@@ -2169,15 +2318,15 @@ async function showAppNotification(title, body, extra = {}) {
   }
 }
 async function requestPushPermission() {
-  if (!('Notification' in window)) { toast('warn','Push','Bu brauzer bildirishnomalarni qo\'llab-quvvatlamaydi'); return; }
+  if (!('Notification' in window)) { toast('warn',t('push_title'),t('push_unsupported')); return; }
   const perm = await Notification.requestPermission();
   if (perm === 'granted') {
-    toast('success','Push','Bildirishnomalar yoqildi!');
+    toast('success',t('push_title'),t('push_enabled'));
     scheduleReminders();
     const btn = document.getElementById('enablePushBtn');
     if (btn) btn.style.display = 'none';
   } else {
-    toast('warn','Push','Ruxsat berilmadi');
+    toast('warn',t('push_title'),t('push_denied'));
   }
 }
 function scheduleReminders() {
@@ -2490,12 +2639,12 @@ async function doLogin(){
       return;
     }
 
-    err.textContent = "User bazaga bog‘lanmagan";
+    err.textContent = t('user_not_linked');
     await sb.auth.signOut();
 
   } catch (e) {
     console.error(e);
-    err.textContent = "Tizim xatoligi";
+    err.textContent = t('system_error');
   }
 
   loginInFlight = false;
@@ -2545,7 +2694,7 @@ let mVisible = false;
 let monthlyData = [];
 
 function initAdmin(){adminTab('main');setToday();setCurMonth();updateDates();updateHolList();updateIPList();loadGPSSettingsUI();loadMyIPDisplay();loadNotifEmpSelect();checkFeedbackBadge();subscribeAdminRealtime();}
-async function loadMyIPDisplay(){if(!userPublicIP)userPublicIP=await getUserIP();const el=document.getElementById('my_ip_show');if(el)el.textContent=userPublicIP||'—';}
+async function loadMyIPDisplay(){if(!userPublicIP)userPublicIP=await getUserIP();const el=document.getElementById('my_ip_show');if(el)el.textContent=userPublicIP||'—';refreshStaticLabels();}
 async function loadNotifEmpSelect(){
   const{data:emps}=await sb.from('employees').select('id,name');
   const sel=document.getElementById('ns_emp');if(!sel)return;
@@ -3008,16 +3157,16 @@ async function delEmp(id) {
     }
 
     if (!res.ok) {
-      throw new Error(result.error || 'Hodim o‘chirilmadi');
+      throw new Error(result.error || t('employee_remove_error'));
     }
 
-    toast('success', 'Hodim', 'Ro\'yxatdan olib tashlandi');
+    toast('success', t('employee_title'), t('employee_removed'));
     await loadEmpList();
     loadDashboard();
     if (mVisible) loadMonthly();
   } catch (e) {
     console.error('delEmp error:', e);
-    toast('error', 'Xato', e.message || 'Hodimni o\'chirib bo\'lmadi');
+    toast('error', t('error_title'), e.message || t('employee_remove_error'));
   }
 }
 async function addEmp() {
@@ -3030,7 +3179,7 @@ async function addEmp() {
   console.log('FORM VALUES:', { nm, email, psLength: ps.length, kp });
 
   if (!nm || !email || !ps) {
-    toast('warn', 'Xato', 'Hammasini to‘ldiring');
+    toast('warn', t('error_title'), t('fill_required_short'));
     return;
   }
 
@@ -3040,7 +3189,7 @@ async function addEmp() {
     console.log('GET USER ERROR:', userErr);
 
     if (userErr || !userData?.user) {
-      toast('error', 'Xato', 'Auth sessiya yaroqsiz. Qayta login qiling.');
+      toast('error', t('error_title'), t('auth_session_invalid'));
       return;
     }
 
@@ -3053,7 +3202,7 @@ async function addEmp() {
     console.log('ACCESS TOKEN EXISTS:', !!token);
 
     if (!token) {
-      toast('error', 'Xato', 'Admin sessiyasi topilmadi');
+      toast('error', t('error_title'), t('admin_session_missing'));
       return;
     }
 
@@ -3091,7 +3240,7 @@ async function addEmp() {
     console.log('PARSED RESPONSE:', result);
 
     if (!res.ok) {
-      toast('error', 'Xato', result.error || result.message || 'Hodim qo‘shilmadi');
+      toast('error', t('error_title'), result.error || result.message || t('employee_add_error'));
       return;
     }
 
@@ -3100,10 +3249,10 @@ async function addEmp() {
     document.getElementById('ne_p').value = '';
 
     await loadEmpList();
-    toast('success', 'Hodim', 'Qo‘shildi!');
+    toast('success', t('employee_title'), t('employee_added'));
   } catch (e) {
     console.error('addEmp CATCH ERROR:', e);
-    toast('error', 'Xato', e.message || 'Tizim xatoligi');
+    toast('error', t('error_title'), e.message || t('system_error'));
   } finally {
     console.log('--- addEmp END ---');
   }
@@ -3158,7 +3307,7 @@ async function savePass() {
     toast('success', t('password_title'), t('password_updated'));
   } catch (err) {
     console.error('savePass error:', err);
-    toast('error', 'Xato', err.message || 'Parolni yangilab bo‘lmadi');
+    toast('error', t('error_title'), err.message || t('password_update_error'));
   }
 }
 // ============================================================
@@ -3175,7 +3324,7 @@ function exportExcel(){
   const wb=XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb,ws,month+' '+t('report_sheet'));
   XLSX.writeFile(wb,'AloqaPro_'+month+'_KPI.xlsx');
-  toast('success','Excel',t('export_downloaded'));
+  toast('success',t('export_title'),'Excel: '+t('export_downloaded'));
 }
 function exportPDF(){
   if(!monthlyData||monthlyData.length===0){toast('warn',t('export_title'),t('export_load_monthly_first'));return;}
@@ -3184,14 +3333,14 @@ function exportPDF(){
   const{jsPDF}=window.jspdf;
   const doc=new jsPDF({orientation:'landscape',unit:'mm',format:'a4'});
   doc.setFontSize(14);
-  doc.text('AloqaPro — KPI Hisobot: '+month,14,14);
+  doc.text(`AloqaPro — ${t('report_title')}: `+month,14,14);
   doc.setFontSize(10);
   doc.text('Sana: '+new Date().toLocaleDateString(),14,22);
-  const headers=[['#','Ism familiya','Ish soat','AFK','Kechikish','Yarim kun','Kelmagan','Jarima','Bonus','Ball','KPI (UZS)']];
+  const headers=[t('report_headers').split('|')];
   const rows=monthlyData.map((d,i)=>[i+1,d.name,d.hours,d.afk,d.late,d.half,d.abs,d.penalty,'+'+d.bonus,d.ball,d.kpi.toLocaleString()]);
   doc.autoTable({head:headers,body:rows,startY:28,styles:{fontSize:9,cellPadding:2},headStyles:{fillColor:[74,140,245],textColor:[255,255,255],fontStyle:'bold'},alternateRowStyles:{fillColor:[245,248,252]},margin:{left:14,right:14}});
   doc.save('AloqaPro_'+month+'_KPI.pdf');
-  toast('success','PDF',t('export_downloaded'));
+  toast('success',t('export_title'),'PDF: '+t('export_downloaded'));
 }
 
 // ============================================================
@@ -3282,14 +3431,14 @@ async function empLunch(){
   lStart=tzNow();if(wStart)wAccum+=Math.floor((lStart-wStart)/1000);wStart=null;
   empState='lunch';st('i_ls',fmtHM(lStart));stopWT();pauseFaceMonitoringForBreak();updateEmpBtns();updateEmpStatusTag();startLT();saveLS();
   await savePartial();
-  toast('info','Tushlik','Yaxshi dam oling! 🍽️');
+  toast('info',t('lunch_title'),`${t('lunch_rest_msg')} 🍽️`);
 }
 async function empBackLunch(){
   if(empState!=='lunch')return;
   const now=tzNow();if(lStart)lAccum+=Math.floor((now-lStart)/1000);lStart=null;
   st('i_le',fmtHM(now));empState='working';wStart=now;stopLT();resumeFaceMonitoringAfterBreak();updateEmpBtns();updateEmpStatusTag();startWT();saveLS();
   await savePartial();
-  toast('success','Tushlik','Ish davom etadi 💼');
+  toast('success',t('lunch_title'),`${t('work_continues')} 💼`);
 }
 async function empPrayer(){
   if(empState==='prayer'){await empBackPrayer();return;}
@@ -3317,7 +3466,7 @@ async function empBackPrayer(){
   resumeFaceMonitoringAfterBreak();
   updateEmpBtns();updateEmpStatusTag();startWT();saveLS();
   await savePartial();
-  toast('success',t('prayer_btn'),'Ish davom etadi 💼');
+  toast('success',t('prayer_btn'),`${t('work_continues')} 💼`);
 }
 async function empContinue(){if(empState!=='paused')return;empState='working';wStart=tzNow();document.getElementById('bc').classList.add('hidden');updateEmpBtns();updateEmpStatusTag();startWT();saveLS();await savePartial();}
 async function empEnd(auto=false){
@@ -3776,7 +3925,7 @@ async function startFaceDetection(){
   setStatus('⏳ Yuklanmoqda...');
   setFaceDot('yellow','Yuklanmoqda...');
   const modelsOk=await loadFaceModels();
-  if(!modelsOk){setStatus('⚠️ Model yuklanmadi');setFaceDot('gray','Model xatosi');toast('error','Face','Model yuklanmadi');return;}
+  if(!modelsOk){setStatus(t('face_model_error'));setFaceDot('gray',t('face_model_error'));toast('error',t('face_title'),t('face_model_error'));return;}
   const camOk=await startCamera();
   if(!camOk){setStatus('⚠️ Kamera ruxsati yoq');setFaceDot('gray','Kamera yoq');const frb=document.getElementById('faceRegBox');if(frb)frb.style.display='none';return;}
   await loadMyFaceProfile();
@@ -3955,7 +4104,7 @@ function updateLiveness(box){
   const ld=document.getElementById('livenessWidgetDot');
   const lt=document.getElementById('livenessWidgetTxt');
   if(ld)ld.className='liveness-dot'+(livenessScore>0.05?' ok':'');
-  if(lt)lt.textContent=livenessScore>0.05?'✅ Real yuz':'⚠️ Harakat yoq';
+  if(lt)lt.textContent=livenessScore>0.05?t('face_real'):t('face_no_motion');
 }
 
 // ✅ FIX 5: Faqat STABIL detection dan keyin AFK/banner tozalanadi
@@ -4040,7 +4189,7 @@ function startAfkSession(){
     updateBreakBar();
     saveLS();
     const tv=document.getElementById('afkTimerVal');if(tv)tv.textContent=fmtSecMM(afkCurSec);
-    const atw=document.getElementById('afkTotalWidget');if(atw)atw.textContent='Jami AFK: '+Math.floor(afkSeconds/60)+' daq';
+    const atw=document.getElementById('afkTotalWidget');if(atw)atw.textContent=tf('afk_total_widget',{minutes:Math.floor(afkSeconds/60)});
     document.getElementById('afkTimer').classList.remove('hidden');
   },1000);
 }
@@ -4123,7 +4272,7 @@ let regCapturing=false;
 
 function startFaceRegistration(){
   if(regCapturing)return;
-  if(!faceApiLoaded){toast('warn','Face','Model hali yuklanmadi, kuting...');return;}
+  if(!faceApiLoaded){toast('warn',t('face_title'),t('face_model_wait'));return;}
   regCapturing=true;regSamples=[];updateSampleDots();
   const btn=document.getElementById('faceRegBtn');if(btn)btn.textContent='📸 0/5 tushirilmoqda...';
   captureNextSample();
@@ -4134,7 +4283,7 @@ async function captureNextSample(){
 
   const video=document.getElementById('faceVideo');
   if(!video||video.readyState<2){
-    toast('warn','Face','Kamera tayyor emas');
+    toast('warn',t('face_title'),t('face_camera_unavailable'));
     regCapturing=false;
     return;
   }
@@ -4202,9 +4351,9 @@ async function saveFaceProfile(){
     await sb.from('employees').update({face_registered:true}).eq('id',CU.id);
     myFaceDescriptor=avg;
     const frb=document.getElementById('faceRegBox');if(frb)frb.style.display='none';
-    toast('success','Yuz','Royxatdan otdi! ✅');
-    setFaceDot('green','✅ Royxatdan otdi');
-    const btn=document.getElementById('faceRegBtn');if(btn)btn.textContent='✅ Royxatdan otdi';
+    toast('success',t('face_title'),t('face_reg_success'));
+    setFaceDot('green',t('face_reg_done'));
+    const btn=document.getElementById('faceRegBtn');if(btn)btn.textContent=t('face_reg_done');
     // ✅ Hit counterni reset — qayta tasdiqlash kerak
     faceHitCount=0;
     // ✅ FIX: Face profile ni qayta yukla va detection ni qayta boshlash
@@ -4213,7 +4362,7 @@ async function saveFaceProfile(){
   }catch(e){
   console.error('saveFaceReg xato:', e);
   console.error('xato message:', e.message);
-  toast('error','Yuz',e.message);
+    toast('error',t('face_title'),e.message);
   regCapturing=false;
 }
 }
@@ -4235,6 +4384,7 @@ function updateAfkDisplay(){
   const d=document.getElementById('afk_display');if(d)d.textContent=fmtSec(afkSeconds);
   const c=document.getElementById('afk_cnt_lbl');if(c)c.textContent=afkCount+' '+t('afk_cnt_lbl');
   const ok=document.getElementById('afk_break_ok');if(ok)ok.classList.toggle('hidden',breakSeconds>0);
+  const atw=document.getElementById('afkTotalWidget');if(atw)atw.textContent=tf('afk_total_widget',{minutes:Math.floor(afkSeconds/60)});
 }
 
 function setFaceDot(color,txt){
@@ -4358,7 +4508,7 @@ async function startFaceDetection(){
   if(!modelsOk){
     setStatus(t('face_model_error'));
     setFaceDot('gray', t('face_model_error'));
-    toast('error', 'Face', t('face_model_error'));
+    toast('error', t('face_title'), t('face_model_error'));
     return;
   }
 
@@ -4517,7 +4667,7 @@ function updateLiveness(box){
   const ld=document.getElementById('livenessWidgetDot');
   const lt=document.getElementById('livenessWidgetTxt');
   if(ld)ld.className='liveness-dot'+(livenessScore>0.05?' ok':'');
-  if(lt)lt.textContent=livenessScore>0.05 ? (lang==='uz' ? '✅ Real yuz' : '✅ Реальное лицо') : (lang==='uz' ? '⚠️ Harakat yo\'q' : '⚠️ Нет движения');
+  if(lt)lt.textContent=livenessScore>0.05 ? t('face_real') : t('face_no_motion');
 }
 
 function onFaceStablyDetected(reason){
@@ -4543,7 +4693,7 @@ function onFaceStablyDetected(reason){
 function startFaceRegistration(){
   if(regCapturing)return;
   if(!faceApiLoaded){
-    toast('warn', 'Face', t('face_model_wait'));
+    toast('warn', t('face_title'), t('face_model_wait'));
     return;
   }
   regCapturing=true;
@@ -4560,7 +4710,7 @@ async function captureNextSample(){
 
   const video=document.getElementById('faceVideo');
   if(!video || video.readyState<2){
-    toast('warn', 'Face', t('face_camera_unavailable'));
+    toast('warn', t('face_title'), t('face_camera_unavailable'));
     regCapturing=false;
     refreshStaticLabels();
     return;
@@ -4645,7 +4795,7 @@ async function saveFaceProfile(){
     myFaceDescriptor=normalized||avg;
     const frb=document.getElementById('faceRegBox');
     if(frb)frb.style.display='none';
-    toast('success','Face',t('face_reg_done'));
+    toast('success',t('face_title'),t('face_reg_done'));
     setFaceDot('green',t('face_reg_done'));
     const btn=document.getElementById('faceRegBtn');
     if(btn)btn.textContent=t('face_reg_done');
@@ -4654,7 +4804,7 @@ async function saveFaceProfile(){
     setTimeout(()=>startFaceDetection(),500);
   }catch(e){
     console.error('saveFaceReg xato:', e);
-    toast('error','Face',e.message);
+    toast('error',t('face_title'),e.message);
     regCapturing=false;
     refreshStaticLabels();
   }
