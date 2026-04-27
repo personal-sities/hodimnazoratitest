@@ -1121,7 +1121,7 @@ html, body { font-family:var(--font); background:var(--bg); color:var(--text); m
 <div class="ov hidden" id="m_auto_end">
   <div class="modal">
     <h3 style="color:var(--success)">✅ Ish yakunlandi</h3>
-    <p id="auto_end_txt" style="color:var(--text2)">Soat 18:15 bo'ldi. Tizim tomonidan ish yakunlandi.</p>
+    <p id="auto_end_txt" style="color:var(--text2)">Soat 18:00 bo'ldi. Tizim tomonidan ish yakunlandi.</p>
     <button class="msingle" onclick="document.getElementById('m_auto_end').classList.add('hidden')">OK</button>
   </div>
 </div>
@@ -1154,11 +1154,11 @@ const FACE_LOSS_WARNING_DELAY_SEC = 60;
 const AFK_GRACE_SEC       = 600;
 const BREAK_LIMIT_SEC     = 1800;
 const AUTO_END_HOUR       = 18;
-const AUTO_END_MIN        = 15;
+const AUTO_END_MIN        = 0;
 const LATE_AFTER_MINUTES  = 9 * 60 + 5;
 const HALF_DAY_START_MINUTES = 11 * 60;
 const HALF_DAY_END_MINUTES   = 15 * 60;
-const TARGET_WORK_SEC_PER_DAY = 8 * 60 * 60;
+const TARGET_WORK_SEC_PER_DAY = 9 * 60 * 60;
 const NOTIF_POLL_INTERVAL = 30000;
 const REALTIME_SCHEMA = 'public';
 const ABSENCE_START_KEY = 'aloqa_absence_start_date';
@@ -1420,6 +1420,8 @@ ru:{loginTitle:'Добро пожаловать!',loginSub:'Введите ло�
 };
 TR.uz.mt_half='Yarim kun';
 TR.ru.mt_half='Полдня';
+TR.uz.auto_end_txt='Soat 18:00 bo\'ldi. Tizim tomonidan ish yakunlandi.';
+TR.ru.auto_end_txt='18:00. Рабочий день завершён системой.';
 Object.assign(TR.uz,{dash_t:'Dashboard',dash_work_t:'Davomat holati',dash_late_t:'Hodimlar samaradorligi',dash_kpi_t:'Oy bo\'yicha',dash_work_sub:'Oxirgi 7 kun ko\'rsatkichi'});
 Object.assign(TR.ru,{dash_t:'Dashboard',dash_work_t:'Статус посещаемости',dash_late_t:'Эффективность сотрудников',dash_kpi_t:'За месяц',dash_work_sub:'Показатель за последние 7 дней'});
 Object.assign(TR.uz,{eff_title:'Ish samaradorligi',eff_work_hours:'Ish soati',eff_kpi:'KPI',eff_late:'Kechikish',eff_afk:'AFK'});
