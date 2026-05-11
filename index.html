@@ -441,6 +441,7 @@ html, body { font-family:var(--font); background:var(--bg); color:var(--text); m
 .ov { position:fixed; inset:0; background:rgba(0,0,0,.6); display:flex; align-items:center; justify-content:center; z-index:9999; padding:16px; backdrop-filter:blur(4px); animation:fadein .2s ease; }
 @keyframes fadein { from{opacity:0} to{opacity:1} }
 .modal { background:var(--card); border-radius:16px; padding:28px 24px; max-width:480px; width:100%; text-align:center; box-shadow:var(--shadow-lg); border:1px solid var(--border2); animation:modalIn .3s ease; }
+.modal.modal-wide { max-width:920px; text-align:left; }
 @keyframes modalIn { from{transform:scale(.9) translateY(20px);opacity:0} to{transform:scale(1) translateY(0);opacity:1} }
 .modal p { font-size:13px; color:var(--text2); line-height:1.7; margin-bottom:16px; }
 .modal h3 { font-size:16px; font-weight:800; margin-bottom:12px; }
@@ -671,6 +672,11 @@ html, body { font-family:var(--font); background:var(--bg); color:var(--text); m
             <div class="scard"><h4 id="sc1">Bugun ishda</h4><div class="snum" id="sw">0</div></div>
             <div class="scard"><h4 id="sc2">Kechikkan</h4><div class="snum" id="sl">0</div></div>
             <div class="scard"><h4 id="sc3">Kelmagan</h4><div class="snum" id="sa">0</div></div>
+            <div class="scard">
+              <h4 id="sc_leave">Ish ta'tili</h4>
+              <div class="snum" id="sleave">0</div>
+              <button class="bg2" id="sc_leave_btn" style="margin-top:10px" onclick="openWorkLeaveModal()">Ish ta'tilidagi xodimlar</button>
+            </div>
             <div class="scard"><h4 id="sc4">Sana</h4><div class="snum" id="sd" style="font-size:13px">-</div></div>
           </div>
           <div class="box">
@@ -753,6 +759,24 @@ html, body { font-family:var(--font); background:var(--bg); color:var(--text); m
                   <th id="th_afk">AFK vaqti</th><th id="th8">Status</th>
                 </tr></thead>
                 <tbody id="att_body"></tbody>
+              </table>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin:18px 0 12px;flex-wrap:wrap;gap:8px;">
+              <span class="btitle" id="monthly_att_summary_title" style="margin:0">Oylik davomat tafsilotlari</span>
+            </div>
+            <div class="tbl-wrap">
+              <table class="tbl" style="min-width:860px;">
+                <thead><tr>
+                  <th>#</th>
+                  <th id="mas_emp">Xodim</th>
+                  <th id="mas_month">Oy</th>
+                  <th id="mas_worked_days">Ishlagan kunlar</th>
+                  <th id="mas_late_count">Kechikishlar soni</th>
+                  <th id="mas_absent_days">Kelmagan kunlar</th>
+                  <th id="mas_late_time">Kechikish vaqti</th>
+                  <th id="mas_actions">Tafsilotlar</th>
+                </tr></thead>
+                <tbody id="monthly_att_summary_body"></tbody>
               </table>
             </div>
           </div>
@@ -1109,6 +1133,43 @@ html, body { font-family:var(--font); background:var(--bg); color:var(--text); m
     </div>
   </div>
 </div>
+<div class="ov hidden" id="m_month_att_detail">
+  <div class="modal modal-wide">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px;">
+      <div>
+        <h3 id="month_att_detail_title" style="color:var(--accent);margin-bottom:6px;">Davomat tafsiloti</h3>
+        <p id="month_att_detail_subtitle" style="margin:0;color:var(--text3);"></p>
+      </div>
+      <button class="mno" onclick="closeMonthlyAttendanceDetails()" id="month_att_detail_close">Yopish</button>
+    </div>
+    <div id="month_att_detail_body"></div>
+  </div>
+</div>
+<div class="ov hidden" id="m_work_leave">
+  <div class="modal modal-wide">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px;">
+      <div>
+        <h3 id="work_leave_title" style="color:var(--accent);margin-bottom:6px;">Ish ta'tilidagi xodimlar</h3>
+        <p id="work_leave_subtitle" style="margin:0;color:var(--text3);"></p>
+      </div>
+      <button class="mno" onclick="closeWorkLeaveModal()" id="work_leave_close">Yopish</button>
+    </div>
+    <div class="tbl-wrap">
+      <table class="tbl" style="min-width:760px;">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th id="work_leave_th_employee">Xodim</th>
+            <th id="work_leave_th_start">Ish ta'tili boshlangan sana</th>
+            <th id="work_leave_th_return">Qaytish sanasi</th>
+            <th id="work_leave_th_status">Holat</th>
+          </tr>
+        </thead>
+        <tbody id="work_leave_body"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
 <div class="ov hidden afk-modal-border" id="m_afk_warn">
   <div class="modal">
     <h3 style="color:var(--danger)" id="afk_warn_title">⚠️ Yuzingiz aniqlanmadi!</h3>
@@ -1145,20 +1206,22 @@ const SUPABASE_ANON = 'sb_publishable_CZUB0mOSzmmCvviNzWykzw_B3_0-5bE';
 const FUNCTIONS_BASE = `${SUPABASE_URL}/functions/v1`;
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
 
-// Stable holatda ham yuz nazorati tez-tez tekshirilsin, aks holda
-// foydalanuvchi kameradan ketganda AFK ogohlantirishi juda kech chiqadi.
-const FACE_CHECK_INTERVAL = 10000;
-const FACE_RETRY_INTERVAL = 1000;
-const STABLE_HIT_REQUIRED = 2;
-const FACE_LOSS_WARNING_DELAY_SEC = 60;
+const TASHKENT_TIMEZONE = 'Asia/Tashkent';
+const WORKDAY_START_MINUTES = 9 * 60;
+const WORKDAY_END_MINUTES = 18 * 60;
+const FACE_CHECK_INTERVAL = 25000;
+const FACE_MONITOR_INTERVAL = 4000;
+const FACE_RETRY_INTERVAL = 1200;
+const STABLE_HIT_REQUIRED = 3;
+const FACE_LOSS_WARNING_DELAY_SEC = 120;
 const AFK_GRACE_SEC       = 600;
 const BREAK_LIMIT_SEC     = 1800;
 const AUTO_END_HOUR       = 18;
 const AUTO_END_MIN        = 0;
-const LATE_AFTER_MINUTES  = 9 * 60 + 5;
+const LATE_AFTER_MINUTES  = WORKDAY_START_MINUTES;
 const HALF_DAY_START_MINUTES = 11 * 60;
 const HALF_DAY_END_MINUTES   = 15 * 60;
-const TARGET_WORK_SEC_PER_DAY = 9 * 60 * 60;
+const TARGET_WORK_SEC_PER_DAY = (WORKDAY_END_MINUTES - WORKDAY_START_MINUTES) * 60;
 const NOTIF_POLL_INTERVAL = 30000;
 const REALTIME_SCHEMA = 'public';
 const ABSENCE_START_KEY = 'aloqa_absence_start_date';
@@ -1415,8 +1478,8 @@ function showIPBlock(value,title,msg){
 //  TRANSLATIONS
 // ============================================================
 const TR = {
-uz:{loginTitle:'Nazorat tizimiga xush kelibsiz!',loginSub:'Login va parolni kiriting!',loginBtn:'Kirish',loginPH:'Login',passPH:'Parol',loginErr:'Login yoki parol noto\'g\'ri!',loginFill:'Login va parolni kiriting!',exit:'Chiqish',today:'Bugun',nav_m:'Asosiy',nav_notif:'Bildirishnomalar',nav_fb:'Fikrlar',nav_s:'Sozlamalar',nav_k:'KPI Qoidalar',adm_m:'Boshqaruv | Asosiy',adm_s:'Boshqaruv | Sozlamalar',adm_k:'Boshqaruv | KPI',sc1:'Bugun ishda',sc2:'Kechikkan',sc3:'Kelmagan',sc4:'Sana',att_t:'Hodimlar nazorati',from_l:'Dan:',to_l:'Gacha:',b_today:'Bugun',b_monthly:'Oylik',b_cm:'Joriy oy',b_ref:'Yangilash',fsearch:'Qidirish...',o_all:'Barcha',o_came:'Keldi',o_late:'Kechikkan',o_abs:'Kelmadi',th1:'Ism familiya',th2:'Login',th4:'O\'zgartirish',th5:'Kelgan vaqti',th6:'Kechikish',th7:'Ishlagan soat',th_afk:'AFK vaqti',th8:'Status',mth_t:'Oylik hisobot',ms1:'Hodimlar',ms2:'Kechikishlar',ms3:'Kelmagan',ms4:'Ish soati',ms5:'Jami KPI',mt1:'Ism familiya',mt2:'Ishlagan soat',mt_afk:'AFK vaqti',mt3:'Kechikish',mt4:'Kelmagan',mt5:'Jarima',mt6:'Qo\'shimcha',mt7:'KPI ball',mt8:'KPI sum',mt9:'Boshqaruv',set_t:'Hodimlar boshqaruvi',b_addemp:'Qo\'shish',et1:'Ism familiya',et2:'Login',et3:'Parol',et4:'KPI summasi',et5:'O\'chirish',hol_t:'Dam olish kunlari',b_addh:'Qo\'shish',hol_info:'Standart: Du–Sha. Yakshanba avtomatik dam olish.',hol_none:'Qo\'shimcha dam olish kuni yo\'q',kpi_t:'KPI Qoidalari',k1:'Asosiy KPI',k2:'Davomat bo\'yicha KPI 100 ballik sistemada!',k3:'Jarimalar',k4:'Kech qolish',k5:'Kelmaslik',k_afk:'AFK (30 daqiqadan ortiq)',k6:'KPI to\'lovlari',k7:'Eski hodimlar',k8:'Yangi hodimlar',ew_t:'Bugungi ish jarayoni',et_t:'Bugungi ma\'lumot',eh_t:'Oy bo\'yicha tarix',st_pre:'Holat:',lt_pre:'Kechikish:',lt_u:'daqiqa',st0:'Boshlanmagan',st1:'Ishda',st2:'Tushlikda',st4:'Yakunlandi',bs:'Boshlash',bl:'Tushlik',be:'Yakunlash',bc:'Davom ettirish',bb:'Qaytish',ewl:'Ish vaqti',ell:'Tushlik',ewd:'Ish vaqti',eld:'Tushlik vaqti',e_note:'Yangi kun boshlanganida vaqtlar 0 ga tushadi.',eprl:'Namoz',prayer_next_lbl:'🕌 Keyingi namoz vaqti',prayer_btn:'Namoz',prayer_back:'Namozdan qaytish',ei1:'Ish boshlagan',ei2:'Ish tugagan',ei3:'Tushlik boshlangan',ei4:'Tushlik tugagan',ei5:'Namoz boshlangan',ei6:'Namoz tugagan',ht1:'Sana',ht2:'Boshlagan',ht3:'Tushlik bosh.',ht4:'Tushlik tug.',ht5:'Tugagan',ht6:'Kechikish',ht7:'Ish vaqti',ht8:'Tushlik',ht_afk:'AFK',ht9:'Status',eh_note:'Faqat tanlangan oy ma\'lumotlari.',el_lbl:'Kechikishlar (oy):',afk_month_lbl:'AFK (oy jami):',e_cm:'Joriy oy',mw_txt:'Eslatma: "Yakunlash" tugmasini faqat ish kuni to\'liq tugagandan keyin bosing!',mw_ok:'OK',mep_t:'Parolni o\'zgartirish',mep_s:'Saqlash',mep_c:'Bekor qilish',ep_ph:'Yangi parol',b_came:'Keldi',b_late:'Kechikkan',b_abs:'Kelmadi',b_half:'Yarim kun',b_off:'Dam olish',del_c:'Hodimni o\'chirishni tasdiqlaysizmi?',no_data:'Ma\'lumot yo\'q',daq:'daq',marta:'marta',kun:'kun',soat:'soat',daqiqa:'daqiqa',ball:'ball',hisobot:'hisobot',change:'O\'zgartirish',delete:'O\'chirish',reset:'Reset',fill_all:'Barcha maydonlarni to\'ldiring!',face_detected:'✅ Yuz aniqlandi',face_not_detected:'❌ Yuz aniqlanmadi',face_loading:'⏳ Yuklanmoqda...',face_unknown:'⚠️ Noma\'lum yuz',afk_lbl:'⚠️ Joyida bo\'lmagan vaqt',afk_cnt_lbl:'marta AFK',afk_warn_title:'⚠️ Yuzingiz aniqlanmadi!',afk_warn_txt:'Kamera oldida o\'tiring. 10 daqiqadan keyin AFK vaqt hisoblanadi.',afk_warn_sub:'10 daqiqa ichida yuz aniqlanmasa, AFK hisoblanadi',afk_im_here:'Men shu yerdaman ✋',auto_end_txt:'Soat 18:15 bo\'ldi. Tizim tomonidan ish yakunlandi.',auto_ended:'Tizim yakunladi',afk_banner:'Yuz aniqlanmadi! 10 daqiqadan keyin AFK vaqt hisoblanadi...',afk_over:'oshiqcha',kpi_sr:'Eski hodim (560K)',kpi_jr:'Yangi hodim (400K)'},
-ru:{loginTitle:'Добро пожаловать!',loginSub:'Введите логин и пароль!',loginBtn:'Войти',loginPH:'Логин',passPH:'Пароль',loginErr:'Неверный логин или пароль!',loginFill:'Введите логин и пароль!',exit:'Выйти',today:'Сегодня',nav_m:'Главная',nav_notif:'Уведомления',nav_fb:'Отзывы',nav_s:'Настройки',nav_k:'Правила KPI',adm_m:'Управление | Главная',adm_s:'Управление | Настройки',adm_k:'Управление | KPI',sc1:'На работе',sc2:'Опоздали',sc3:'Не пришли',sc4:'Дата',att_t:'Контроль сотрудников',from_l:'От:',to_l:'До:',b_today:'Сегодня',b_monthly:'Месяц',b_cm:'Тек. месяц',b_ref:'Обновить',fsearch:'Поиск...',o_all:'Все',o_came:'Пришёл',o_late:'Опоздал',o_abs:'Не пришёл',th1:'ФИО',th2:'Логин',th4:'Изменить',th5:'Приход',th6:'Опоздание',th7:'Отработано',th_afk:'AFK время',th8:'Статус',mth_t:'Месячный отчёт',ms1:'Сотрудников',ms2:'Опозданий',ms3:'Пропусков',ms4:'Раб.часов',ms5:'Итого KPI',mt1:'ФИО',mt2:'Отработано',mt_afk:'AFK время',mt3:'Опоздания',mt4:'Пропуски',mt5:'Штраф',mt6:'Доп.баллы',mt7:'KPI балл',mt8:'KPI сумма',mt9:'Управление',set_t:'Управление сотрудниками',b_addemp:'Добавить',et1:'ФИО',et2:'Логин',et3:'Пароль',et4:'Сумма KPI',et5:'Удалить',hol_t:'Выходные дни',b_addh:'Добавить',hol_info:'Стандарт: Пн–Сб. Воскресенье — выходной.',hol_none:'Доп. выходных нет',kpi_t:'Правила KPI',k1:'Основной KPI',k2:'KPI в 100-балльной системе!',k3:'Штрафы',k4:'Опоздание',k5:'Прогул',k_afk:'AFK (более 30 минут)',k6:'Выплаты KPI',k7:'Старые сотрудники',k8:'Новые сотрудники',ew_t:'Рабочий процесс',et_t:'Сегодня',eh_t:'История за месяц',st_pre:'Статус:',lt_pre:'Опоздание:',lt_u:'мин',st0:'Не начат',st1:'На работе',st2:'В обеде',st4:'Завершён',bs:'Начать',bl:'Обед',be:'Завершить',bc:'Продолжить',bb:'Вернуться',ewl:'Рабочее время',ell:'Время обеда',ewd:'Рабочее время',eld:'Время обеда',e_note:'При новом дне таймеры сбрасываются.',ei1:'Начало',ei2:'Конец',ei3:'Обед нач.',ei4:'Обед кон.',ht1:'Дата',ht2:'Начало',ht3:'Обед нач.',ht4:'Обед кон.',ht5:'Конец',ht6:'Опоздание',ht7:'Раб.время',ht8:'Обед',ht_afk:'AFK',ht9:'Статус',eh_note:'Данные выбранного месяца.',el_lbl:'Опозданий (месяц):',afk_month_lbl:'AFK (итого за месяц):',e_cm:'Тек. месяц',mw_txt:'Нажимайте "Завершить" только после полного окончания рабочего дня!',mw_ok:'ОК',mep_t:'Изменить пароль',mep_s:'Сохранить',mep_c:'Отмена',ep_ph:'Новый пароль',b_came:'Пришёл',b_late:'Опоздал',b_abs:'Не пришёл',b_off:'Выходной',del_c:'Удалить сотрудника?',no_data:'Нет данных',daq:'мин',marta:'раз',kun:'дн.',soat:'ч',daqiqa:'мин',ball:'балл',hisobot:'отчёт',change:'Изменить',delete:'Удалить',reset:'Сброс',fill_all:'Заполните все поля!',face_detected:'✅ Лицо обнаружено',face_not_detected:'❌ Лицо не обнаружено',face_loading:'⏳ Загрузка...',face_unknown:'⚠️ Неизвестное лицо',afk_lbl:'⚠️ Отсутствие',afk_cnt_lbl:'раз AFK',afk_warn_title:'⚠️ Лицо не распознано!',afk_warn_txt:'Сядьте перед камерой. AFK начнёт считаться через 10 минут.',afk_warn_sub:'Если лицо не обнаружено в течение 10 минут — AFK',afk_im_here:'Я здесь ✋',auto_end_txt:'18:15. Рабочий день завершён системой.',auto_ended:'Завершено системой',afk_banner:'Лицо не обнаружено! AFK начнёт считаться через 10 минут...',afk_over:'сверх лимита',kpi_sr:'Старый сотр. (560K)',kpi_jr:'Новый сотр. (400K)'}
+uz:{loginTitle:'Nazorat tizimiga xush kelibsiz!',loginSub:'Login va parolni kiriting!',loginBtn:'Kirish',loginPH:'Login',passPH:'Parol',loginErr:'Login yoki parol noto\'g\'ri!',loginFill:'Login va parolni kiriting!',exit:'Chiqish',today:'Bugun',nav_m:'Asosiy',nav_notif:'Bildirishnomalar',nav_fb:'Fikrlar',nav_s:'Sozlamalar',nav_k:'KPI Qoidalar',adm_m:'Boshqaruv | Asosiy',adm_s:'Boshqaruv | Sozlamalar',adm_k:'Boshqaruv | KPI',sc1:'Bugun ishda',sc2:'Kechikkan',sc3:'Kelmagan',sc4:'Sana',att_t:'Hodimlar nazorati',from_l:'Dan:',to_l:'Gacha:',b_today:'Bugun',b_monthly:'Oylik',b_cm:'Joriy oy',b_ref:'Yangilash',fsearch:'Qidirish...',o_all:'Barcha',o_came:'Keldi',o_late:'Kechikkan',o_abs:'Kelmadi',th1:'Ism familiya',th2:'Login',th4:'O\'zgartirish',th5:'Kelgan vaqti',th6:'Kechikish',th7:'Ishlagan soat',th_afk:'AFK vaqti',th8:'Status',mth_t:'Oylik hisobot',ms1:'Hodimlar',ms2:'Kechikishlar',ms3:'Kelmagan',ms4:'Ish soati',ms5:'Jami KPI',mt1:'Ism familiya',mt2:'Ishlagan soat',mt_afk:'AFK vaqti',mt3:'Kechikish',mt4:'Kelmagan',mt5:'Jarima',mt6:'Qo\'shimcha',mt7:'KPI ball',mt8:'KPI sum',mt9:'Boshqaruv',set_t:'Hodimlar boshqaruvi',b_addemp:'Qo\'shish',et1:'Ism familiya',et2:'Login',et3:'Parol',et4:'KPI summasi',et5:'O\'chirish',hol_t:'Dam olish kunlari',b_addh:'Qo\'shish',hol_info:'Standart: Du–Sha. Yakshanba avtomatik dam olish.',hol_none:'Qo\'shimcha dam olish kuni yo\'q',kpi_t:'KPI Qoidalari',k1:'Asosiy KPI',k2:'Davomat bo\'yicha KPI 100 ballik sistemada!',k3:'Jarimalar',k4:'Kech qolish',k5:'Kelmaslik',k_afk:'AFK (30 daqiqadan ortiq)',k6:'KPI to\'lovlari',k7:'Eski hodimlar',k8:'Yangi hodimlar',ew_t:'Bugungi ish jarayoni',et_t:'Bugungi ma\'lumot',eh_t:'Oy bo\'yicha tarix',st_pre:'Holat:',lt_pre:'Kechikish:',lt_u:'daqiqa',st0:'Boshlanmagan',st1:'Ishda',st2:'Tushlikda',st4:'Yakunlandi',bs:'Boshlash',bl:'Tushlik',be:'Yakunlash',bc:'Davom ettirish',bb:'Qaytish',ewl:'Ish vaqti',ell:'Tushlik',ewd:'Ish vaqti',eld:'Tushlik vaqti',e_note:'Yangi kun boshlanganida vaqtlar 0 ga tushadi.',eprl:'Namoz',prayer_next_lbl:'🕌 Keyingi namoz vaqti',prayer_btn:'Namoz',prayer_back:'Namozdan qaytish',ei1:'Ish boshlagan',ei2:'Ish tugagan',ei3:'Tushlik boshlangan',ei4:'Tushlik tugagan',ei5:'Namoz boshlangan',ei6:'Namoz tugagan',ht1:'Sana',ht2:'Boshlagan',ht3:'Tushlik bosh.',ht4:'Tushlik tug.',ht5:'Tugagan',ht6:'Kechikish',ht7:'Ish vaqti',ht8:'Tushlik',ht_afk:'AFK',ht9:'Status',eh_note:'Faqat tanlangan oy ma\'lumotlari.',el_lbl:'Kechikishlar (oy):',afk_month_lbl:'AFK (oy jami):',e_cm:'Joriy oy',mw_txt:'Eslatma: "Yakunlash" tugmasini faqat ish kuni to\'liq tugagandan keyin bosing!',mw_ok:'OK',mep_t:'Parolni o\'zgartirish',mep_s:'Saqlash',mep_c:'Bekor qilish',ep_ph:'Yangi parol',b_came:'Keldi',b_late:'Kechikkan',b_abs:'Kelmadi',b_half:'Yarim kun',b_off:'Dam olish',del_c:'Hodimni o\'chirishni tasdiqlaysizmi?',no_data:'Ma\'lumot yo\'q',daq:'daq',marta:'marta',kun:'kun',soat:'soat',daqiqa:'daqiqa',ball:'ball',hisobot:'hisobot',change:'O\'zgartirish',delete:'O\'chirish',reset:'Reset',fill_all:'Barcha maydonlarni to\'ldiring!',face_detected:'✅ Yuz aniqlandi',face_not_detected:'❌ Yuz aniqlanmadi',face_loading:'⏳ Yuklanmoqda...',face_unknown:'⚠️ Noma\'lum yuz',afk_lbl:'⚠️ Joyida bo\'lmagan vaqt',afk_cnt_lbl:'marta AFK',afk_warn_title:'⚠️ Yuzingiz aniqlanmadi!',afk_warn_txt:'Kamera oldida o\'tiring. 10 daqiqadan keyin AFK vaqt hisoblanadi.',afk_warn_sub:'10 daqiqa ichida yuz aniqlanmasa, AFK hisoblanadi',afk_im_here:'Men shu yerdaman ✋',auto_end_txt:'Soat 18:00 bo\'ldi. Tizim tomonidan ish yakunlandi.',auto_ended:'Tizim yakunladi',afk_banner:'Yuz aniqlanmadi! 10 daqiqadan keyin AFK vaqt hisoblanadi...',afk_over:'oshiqcha',kpi_sr:'Eski hodim (560K)',kpi_jr:'Yangi hodim (400K)'},
+ru:{loginTitle:'Добро пожаловать!',loginSub:'Введите логин и пароль!',loginBtn:'Войти',loginPH:'Логин',passPH:'Пароль',loginErr:'Неверный логин или пароль!',loginFill:'Введите логин и пароль!',exit:'Выйти',today:'Сегодня',nav_m:'Главная',nav_notif:'Уведомления',nav_fb:'Отзывы',nav_s:'Настройки',nav_k:'Правила KPI',adm_m:'Управление | Главная',adm_s:'Управление | Настройки',adm_k:'Управление | KPI',sc1:'На работе',sc2:'Опоздали',sc3:'Не пришли',sc4:'Дата',att_t:'Контроль сотрудников',from_l:'От:',to_l:'До:',b_today:'Сегодня',b_monthly:'Месяц',b_cm:'Тек. месяц',b_ref:'Обновить',fsearch:'Поиск...',o_all:'Все',o_came:'Пришёл',o_late:'Опоздал',o_abs:'Не пришёл',th1:'ФИО',th2:'Логин',th4:'Изменить',th5:'Приход',th6:'Опоздание',th7:'Отработано',th_afk:'AFK время',th8:'Статус',mth_t:'Месячный отчёт',ms1:'Сотрудников',ms2:'Опозданий',ms3:'Пропусков',ms4:'Раб.часов',ms5:'Итого KPI',mt1:'ФИО',mt2:'Отработано',mt_afk:'AFK время',mt3:'Опоздания',mt4:'Пропуски',mt5:'Штраф',mt6:'Доп.баллы',mt7:'KPI балл',mt8:'KPI сумма',mt9:'Управление',set_t:'Управление сотрудниками',b_addemp:'Добавить',et1:'ФИО',et2:'Логин',et3:'Пароль',et4:'Сумма KPI',et5:'Удалить',hol_t:'Выходные дни',b_addh:'Добавить',hol_info:'Стандарт: Пн–Сб. Воскресенье — выходной.',hol_none:'Доп. выходных нет',kpi_t:'Правила KPI',k1:'Основной KPI',k2:'KPI в 100-балльной системе!',k3:'Штрафы',k4:'Опоздание',k5:'Прогул',k_afk:'AFK (более 30 минут)',k6:'Выплаты KPI',k7:'Старые сотрудники',k8:'Новые сотрудники',ew_t:'Рабочий процесс',et_t:'Сегодня',eh_t:'История за месяц',st_pre:'Статус:',lt_pre:'Опоздание:',lt_u:'мин',st0:'Не начат',st1:'На работе',st2:'В обеде',st4:'Завершён',bs:'Начать',bl:'Обед',be:'Завершить',bc:'Продолжить',bb:'Вернуться',ewl:'Рабочее время',ell:'Время обеда',ewd:'Рабочее время',eld:'Время обеда',e_note:'При новом дне таймеры сбрасываются.',ei1:'Начало',ei2:'Конец',ei3:'Обед нач.',ei4:'Обед кон.',ht1:'Дата',ht2:'Начало',ht3:'Обед нач.',ht4:'Обед кон.',ht5:'Конец',ht6:'Опоздание',ht7:'Раб.время',ht8:'Обед',ht_afk:'AFK',ht9:'Статус',eh_note:'Данные выбранного месяца.',el_lbl:'Опозданий (месяц):',afk_month_lbl:'AFK (итого за месяц):',e_cm:'Тек. месяц',mw_txt:'Нажимайте "Завершить" только после полного окончания рабочего дня!',mw_ok:'ОК',mep_t:'Изменить пароль',mep_s:'Сохранить',mep_c:'Отмена',ep_ph:'Новый пароль',b_came:'Пришёл',b_late:'Опоздал',b_abs:'Не пришёл',b_off:'Выходной',del_c:'Удалить сотрудника?',no_data:'Нет данных',daq:'мин',marta:'раз',kun:'дн.',soat:'ч',daqiqa:'мин',ball:'балл',hisobot:'отчёт',change:'Изменить',delete:'Удалить',reset:'Сброс',fill_all:'Заполните все поля!',face_detected:'✅ Лицо обнаружено',face_not_detected:'❌ Лицо не обнаружено',face_loading:'⏳ Загрузка...',face_unknown:'⚠️ Неизвестное лицо',afk_lbl:'⚠️ Отсутствие',afk_cnt_lbl:'раз AFK',afk_warn_title:'⚠️ Лицо не распознано!',afk_warn_txt:'Сядьте перед камерой. AFK начнёт считаться через 10 минут.',afk_warn_sub:'Если лицо не обнаружено в течение 10 минут — AFK',afk_im_here:'Я здесь ✋',auto_end_txt:'18:00. Рабочий день завершён системой.',auto_ended:'Завершено системой',afk_banner:'Лицо не обнаружено! AFK начнёт считаться через 10 минут...',afk_over:'сверх лимита',kpi_sr:'Старый сотр. (560K)',kpi_jr:'Новый сотр. (400K)'}
 };
 TR.uz.mt_half='Yarim kun';
 TR.ru.mt_half='Полдня';
@@ -1511,6 +1574,102 @@ Object.assign(TR.ru,{
   lunch_shift_btn_1:'1-я смена',
   lunch_shift_btn_2:'2-я смена'
 });
+Object.assign(TR.uz,{
+  sc_leave:'Ish ta\'tili',
+  sc_leave_btn:'Ish ta\'tilidagi xodimlar',
+  monthly_att_summary_title:'Oylik davomat tafsilotlari',
+  mas_emp:'Xodim',
+  mas_month:'Oy',
+  mas_worked_days:'Ishlagan kunlar',
+  mas_late_count:'Kechikishlar soni',
+  mas_absent_days:'Kelmagan kunlar',
+  mas_late_time:'Kechikish vaqti',
+  mas_actions:'Tafsilotlar',
+  details:'Tafsilotlar',
+  monthly_detail_title:'Oylik davomat tafsilotlari',
+  month_att_detail_close:'Yopish',
+  monthly_detail_absent_dates:'Kelmagan sanalar',
+  monthly_detail_late_days:'Kechikkan kunlar',
+  monthly_detail_no_absences:'Kelmagan sana yo\'q',
+  monthly_detail_no_lates:'Kechikkan kun yo\'q',
+  monthly_detail_full_day:'To\'liq kun',
+  detail_date:'Sana',
+  detail_late_minutes:'Kechikish vaqti',
+  detail_status:'Holat',
+  employee:'Xodim',
+  work_leave:'Ish ta\'tili',
+  employees_on_work_leave:'Ish ta\'tilidagi xodimlar',
+  work_leave_start_date:'Ish ta\'tili boshlangan sana',
+  return_date:'Qaytish sanasi',
+  status_label:'Holat',
+  on_work_leave:'Ish ta\'tilida',
+  returned:'Qaytgan',
+  no_employees_on_work_leave:'Ish ta\'tilidagi xodimlar yo\'q'
+});
+Object.assign(TR.ru,{
+  sc_leave:'Отпуск',
+  sc_leave_btn:'Сотрудники в отпуске',
+  monthly_att_summary_title:'Детали месячной посещаемости',
+  mas_emp:'Сотрудник',
+  mas_month:'Месяц',
+  mas_worked_days:'Рабочие дни',
+  mas_late_count:'Количество опозданий',
+  mas_absent_days:'Дни отсутствия',
+  mas_late_time:'Время опоздания',
+  mas_actions:'Детали',
+  details:'Детали',
+  monthly_detail_title:'Детали месячной посещаемости',
+  month_att_detail_close:'Закрыть',
+  monthly_detail_absent_dates:'Даты отсутствия',
+  monthly_detail_late_days:'Дни с опозданием',
+  monthly_detail_no_absences:'Нет дат отсутствия',
+  monthly_detail_no_lates:'Нет опозданий',
+  monthly_detail_full_day:'Полный день',
+  detail_date:'Дата',
+  detail_late_minutes:'Время опоздания',
+  detail_status:'Статус',
+  employee:'Сотрудник',
+  work_leave:'Отпуск',
+  employees_on_work_leave:'Сотрудники в отпуске',
+  work_leave_start_date:'Дата начала отпуска',
+  return_date:'Дата возвращения',
+  status_label:'Статус',
+  on_work_leave:'В отпуске',
+  returned:'Вернулся',
+  no_employees_on_work_leave:'Нет сотрудников в отпуске'
+});
+TR.en = {
+  sc_leave:'Work leave',
+  sc_leave_btn:'Employees on work leave',
+  monthly_att_summary_title:'Monthly attendance details',
+  mas_emp:'Employee',
+  mas_month:'Month',
+  mas_worked_days:'Worked days',
+  mas_late_count:'Late count',
+  mas_absent_days:'Absent days',
+  mas_late_time:'Late time',
+  mas_actions:'Details',
+  details:'Details',
+  monthly_detail_title:'Monthly attendance details',
+  month_att_detail_close:'Close',
+  monthly_detail_absent_dates:'Absent dates',
+  monthly_detail_late_days:'Late dates',
+  monthly_detail_no_absences:'No absent dates',
+  monthly_detail_no_lates:'No late dates',
+  monthly_detail_full_day:'Full day',
+  detail_date:'Date',
+  detail_late_minutes:'Late time',
+  detail_status:'Status',
+  employee:'Employee',
+  work_leave:'Work leave',
+  employees_on_work_leave:'Employees on work leave',
+  work_leave_start_date:'Work leave start date',
+  return_date:'Return date',
+  status_label:'Status',
+  on_work_leave:'On work leave',
+  returned:'Returned',
+  no_employees_on_work_leave:'No employees on work leave'
+};
 
 Object.assign(TR.uz,{
   emp_work_tab_lbl:'Ish',
@@ -1786,7 +1945,7 @@ Object.assign(TR.ru,{
   report_headers:'#|ФИО|Раб. часы|AFK|Опоздание|Полдня|Пропуск|Штраф|Бонус|Баллы|KPI (UZS)'
 });
 let lang = localStorage.getItem('aloqa_lang') || 'uz';
-const t = k => (TR[lang]||TR.uz)[k] || k;
+const t = k => ((TR[lang] && TR[lang][k]) ?? TR.uz[k] ?? k);
 const tf = (key, params={}) => Object.entries(params).reduce((acc,[name,value]) => acc.replaceAll(`{${name}}`, value), t(key));
 function setLang(l){lang=l;localStorage.setItem('aloqa_lang',l);applyLang();rerenderLocalizedViews();}
 function st(id,v){const e=document.getElementById(id);if(e&&v!==undefined)e.textContent=v;}
@@ -2043,9 +2202,10 @@ function applyLang(){
   st('emp_feedback_tab_lbl',t('emp_feedback_tab_lbl'));
   st('emp_logout_tab_lbl',t('emp_logout_tab_lbl'));
   updateDates();
-  ['sc1','sc2','sc3','sc4','att_t','from_l','to_l','b_today','b_monthly','b_cm','b_ref','o_all','o_came','o_late','o_abs',
+  ['sc1','sc2','sc3','sc_leave','sc_leave_btn','sc4','att_t','from_l','to_l','b_today','b_monthly','b_cm','b_ref','o_all','o_came','o_late','o_abs',
    'th1','th2','th4','th5','th6','th7','th_afk','th8','dash_t','dash_work_t','dash_late_t','dash_kpi_t','mth_t','ms1','ms2','ms3','ms4','ms5',
    'mt1','mt2','mt_afk','mt3','mt_half','mt4','mt5','mt6','mt7','mt8','mt9',
+   'monthly_att_summary_title','mas_emp','mas_month','mas_worked_days','mas_late_count','mas_absent_days','mas_late_time','mas_actions','month_att_detail_title','month_att_detail_close',
    'set_t','b_addemp','et1','et2','et3','et4','et5','hol_t','b_addh','hol_info',
    'kpi_t','k1','k2','k3','k4','k5','k_afk','k6','k7','k8',
    'ew_t','et_t','eh_t','ewl','ell','eprl','ewd','eld','e_note','prayer_next_lbl',
@@ -2055,6 +2215,12 @@ function applyLang(){
   ].forEach(k=>st(k,t(k)));
   st('dash_work_sub', t('dash_last7_sub'));
   st('afkBannerTxt', t('afk_banner'));
+  st('work_leave_title', t('employees_on_work_leave'));
+  st('work_leave_close', t('mep_c'));
+  st('work_leave_th_employee', t('employee'));
+  st('work_leave_th_start', t('work_leave_start_date'));
+  st('work_leave_th_return', t('return_date'));
+  st('work_leave_th_status', t('status_label'));
   sp('ep_np',t('ep_ph'));sp('fsearch',t('fsearch'));
   const bsE=document.getElementById('bs');if(bsE)bsE.textContent=t('bs');
   const blE=document.getElementById('bl');if(blE)blE.textContent=(empState==='lunch'?t('bb'):t('bl'));
@@ -2082,7 +2248,8 @@ function rerenderLocalizedViews(){
   if(adminVisible){
     loadAtt();
     loadDashboard();
-    if(mVisible)loadMonthly();
+    loadMonthly();
+    loadTodayWorkLeaveCard();
     const feedbackTab=document.getElementById('tab_feedback');
     const notifTab=document.getElementById('tab_notif');
     const settingsTab=document.getElementById('tab_settings');
@@ -2103,19 +2270,54 @@ function rerenderLocalizedViews(){
 // ============================================================
 //  TIME UTILS
 // ============================================================
-function tzNow(){const n=new Date();return new Date(n.getTime()+(n.getTimezoneOffset()+300)*60000);}
-function fmtD(d){return String(d.getDate()).padStart(2,'0')+'.'+String(d.getMonth()+1).padStart(2,'0')+'.'+d.getFullYear();}
-function todayISO(){const d=tzNow();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
-function curM(){const d=tzNow();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');}
-function fmtHM(d){return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');}
+const tzPartFormatter = new Intl.DateTimeFormat('en-CA', {
+  timeZone: TASHKENT_TIMEZONE,
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+  second: '2-digit',
+  hour12: false
+});
+function getTzParts(date=new Date()){
+  const map = {};
+  tzPartFormatter.formatToParts(date).forEach(part => {
+    if(part.type !== 'literal') map[part.type] = part.value;
+  });
+  return {
+    year: Number(map.year),
+    month: Number(map.month),
+    day: Number(map.day),
+    hour: Number(map.hour),
+    minute: Number(map.minute),
+    second: Number(map.second)
+  };
+}
+function getTzTotalMinutes(date=new Date()){
+  const parts = getTzParts(date);
+  return parts.hour * 60 + parts.minute;
+}
+function tzNow(){return new Date();}
+function fmtD(d){const p=getTzParts(d);return String(p.day).padStart(2,'0')+'.'+String(p.month).padStart(2,'0')+'.'+p.year;}
+function todayISO(){const p=getTzParts();return p.year+'-'+String(p.month).padStart(2,'0')+'-'+String(p.day).padStart(2,'0');}
+function curM(){const p=getTzParts();return p.year+'-'+String(p.month).padStart(2,'0');}
+function fmtHM(d){const p=getTzParts(d);return String(p.hour).padStart(2,'0')+':'+String(p.minute).padStart(2,'0');}
 function fmtSec(s){s=Math.max(0,Math.floor(s));return String(Math.floor(s/3600)).padStart(2,'0')+':'+String(Math.floor((s%3600)/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0');}
 function secToHMS(sec){return fmtSec(sec);}
 function fmtSecMM(s){s=Math.max(0,Math.floor(s));return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0');}
 function hmToMinutes(v){if(!v||typeof v!=='string'||!v.includes(':'))return null;const[a,b]=v.split(':').map(Number);return a*60+b;}
-function computeLateMinutesFromDate(d){if(!d)return 0;const mins=d.getHours()*60+d.getMinutes();return Math.max(0, mins - LATE_AFTER_MINUTES);}
+function computeLateMinutesFromDate(d){if(!d)return 0;return Math.max(0, getTzTotalMinutes(d) - LATE_AFTER_MINUTES);}
 function isHalfDayByTimes(startHM,endHM){
   const s=hmToMinutes(startHM), e=hmToMinutes(endHM);
   return (s!==null && s>=HALF_DAY_START_MINUTES) || (e!==null && e<HALF_DAY_END_MINUTES);
+}
+function getPenaltyAfkSeconds(totalAfkSec=0){
+  return Math.max(0, Math.floor(totalAfkSec||0) - BREAK_LIMIT_SEC);
+}
+function formatPenaltyAfk(sec=0){
+  const mins=Math.floor((sec||0)/60);
+  return mins>0 ? `${mins} ${t('daq')}` : '—';
 }
 function computeStatusByTimes(startHM,endHM,lateMin,workSec){
   if(isHalfDayByTimes(startHM,endHM)) return 'yarim_kun';
@@ -2133,6 +2335,47 @@ function computeEfficiencyScore({workSec=0, workDays=0, cameDays=0, halfDays=0, 
   return Math.max(0,Math.min(100,Math.round((workRate*0.55)+(attendanceRate*0.30)+(disciplineRate*0.15))));
 }
 function isWorkDay(ds){const d=new Date(ds+'T12:00:00');if(d.getDay()===0)return false;return!JSON.parse(localStorage.getItem('aloqa_hols')||'[]').includes(ds);}
+let employeeLeavesTableAvailable = true;
+let latestTodayLeaveRows = [];
+function normalizeIsoDate(ds=''){return /^\d{4}-\d{2}-\d{2}$/.test(ds||'') ? ds : '';}
+function dateRangesOverlap(startA,endA,startB,endB){return startA<=endB && endA>=startB;}
+async function fetchEmployeeLeavesInRange(startDate,endDate){
+  if(!employeeLeavesTableAvailable)return [];
+  try{
+    const {data,error} = await sb
+      .from('employee_leaves')
+      .select('id,employee_id,leave_start_date,return_date,created_at')
+      .lte('leave_start_date', endDate)
+      .gte('return_date', startDate)
+      .order('leave_start_date', {ascending:false});
+    if(error){
+      if(/employee_leaves|relation/i.test(error.message||''))employeeLeavesTableAvailable=false;
+      console.warn('fetchEmployeeLeavesInRange:', error.message || error);
+      return [];
+    }
+    return (data||[]).filter(row=>normalizeIsoDate(row.leave_start_date)&&normalizeIsoDate(row.return_date));
+  }catch(e){
+    console.warn('fetchEmployeeLeavesInRange:', e.message || e);
+    return [];
+  }
+}
+function buildEmployeeLeaveDateMap(leaves,startDate,endDate){
+  const map=new Map();
+  (leaves||[]).forEach(leave=>{
+    const leaveStart=normalizeIsoDate(leave.leave_start_date);
+    const leaveEnd=normalizeIsoDate(leave.return_date);
+    if(!leaveStart||!leaveEnd||!dateRangesOverlap(leaveStart,leaveEnd,startDate,endDate))return;
+    const effectiveStart = leaveStart>startDate ? leaveStart : startDate;
+    const effectiveEnd = leaveEnd<endDate ? leaveEnd : endDate;
+    if(!map.has(leave.employee_id))map.set(leave.employee_id,new Set());
+    const set=map.get(leave.employee_id);
+    for(let ds=effectiveStart; ds<=effectiveEnd; ds=addDaysISO(ds,1))set.add(ds);
+  });
+  return map;
+}
+function isEmployeeOnLeaveDate(employeeId, ds, leaveDateMap){
+  return !!(employeeId && ds && leaveDateMap?.get(employeeId)?.has(ds));
+}
 function getAbsenceStartDate(){
   let ds=localStorage.getItem(ABSENCE_START_KEY);
   if(!/^\d{4}-\d{2}-\d{2}$/.test(ds||'')){
@@ -2154,21 +2397,48 @@ function isAbsenceReadyDate(ds){
   const today=todayISO();
   if(ds<today)return true;
   if(ds>today)return false;
-  const now=tzNow();
-  return now.getHours()*60+now.getMinutes()>=AUTO_END_HOUR*60+AUTO_END_MIN;
+  return getTzTotalMinutes()>=AUTO_END_HOUR*60+AUTO_END_MIN;
 }
-function countAbsencesForMonth(month,cameDates){
+function countAbsencesForMonth(month,cameDates,leaveDates=new Set()){
   const start=[`${month}-01`,getAbsenceStartDate()].sort().pop();
   const end=[monthEndISO(month),todayISO()].sort()[0];
   if(start>end)return 0;
   let cnt=0;
   for(let ds=start;ds<=end;ds=addDaysISO(ds,1)){
-    if(isWorkDay(ds)&&isAbsenceReadyDate(ds)&&!cameDates.has(ds))cnt++;
+    if(isWorkDay(ds)&&isAbsenceReadyDate(ds)&&!cameDates.has(ds)&&!leaveDates.has(ds))cnt++;
   }
   return cnt;
 }
+function getAbsenceDatesForMonth(month,cameDates,leaveDates=new Set()){
+  const start=[`${month}-01`,getAbsenceStartDate()].sort().pop();
+  const end=[monthEndISO(month),todayISO()].sort()[0];
+  const dates=[];
+  if(start>end)return dates;
+  for(let ds=start;ds<=end;ds=addDaysISO(ds,1)){
+    if(isWorkDay(ds)&&isAbsenceReadyDate(ds)&&!cameDates.has(ds)&&!leaveDates.has(ds))dates.push(ds);
+  }
+  return dates;
+}
 function updateDates(){const s=t('today')+': '+fmtD(tzNow());st('admDate',s);st('empDate',s);}
 setInterval(updateDates,30000);
+
+function disableClipboardFeatures(){
+  try{
+    if(navigator.clipboard){
+      navigator.clipboard.writeText = async () => false;
+      navigator.clipboard.readText = async () => '';
+      navigator.clipboard.write = async () => false;
+      navigator.clipboard.read = async () => [];
+    }
+  }catch(e){
+    console.warn('Clipboard override failed:', e.message);
+  }
+  document.querySelectorAll('[data-copy],[data-action="copy"],.copy-btn,.copy-button,button[onclick*="copy"],button[onclick*="clipboard"]').forEach(btn=>{
+    btn.disabled = true;
+    btn.style.display = 'none';
+  });
+}
+disableClipboardFeatures();
 
 // ============================================================
 //  PUSH NOTIFICATIONS
@@ -2215,8 +2485,7 @@ async function loadTodayLunchPlan(){
 }
 async function ensureLunchShiftPrompt() {
   if (!CU || CU.role !== 'employee' || todayLunchShift) return;
-  const now = tzNow();
-  const mins = now.getHours() * 60 + now.getMinutes();
+  const mins = getTzTotalMinutes();
   if (mins < (11 * 60 + 40)) return;
   document.getElementById('m_lunch_shift').classList.remove('hidden');
 }
@@ -2343,8 +2612,8 @@ function startNotificationPolling() {
 let sentToday = {};
 function checkScheduledNotifs() {
   if (!CU || CU.role !== 'employee') return;
-  const now = tzNow();
-  const h = now.getHours(), m = now.getMinutes();
+  const nowParts = getTzParts();
+  const h = nowParts.hour, m = nowParts.minute;
   const key = todayISO();
   if (!sentToday[key]) sentToday[key] = {};
   const S = sentToday[key];
@@ -2694,8 +2963,9 @@ function empNavTab(tab){
 // ============================================================
 let mVisible = false;
 let monthlyData = [];
+let monthlyAttendanceSummary = [];
 
-function initAdmin(){adminTab('main');setToday();setCurMonth();updateDates();updateHolList();updateIPList();loadGPSSettingsUI();loadMyIPDisplay();loadNotifEmpSelect();checkFeedbackBadge();subscribeAdminRealtime();}
+function initAdmin(){adminTab('main');setToday();setCurMonth();updateDates();updateHolList();updateIPList();loadGPSSettingsUI();loadMyIPDisplay();loadNotifEmpSelect();checkFeedbackBadge();subscribeAdminRealtime();loadTodayWorkLeaveCard();}
 async function loadMyIPDisplay(){if(!userPublicIP)userPublicIP=await getUserIP();const el=document.getElementById('my_ip_show');if(el)el.textContent=userPublicIP||'—';refreshStaticLabels();}
 async function loadNotifEmpSelect(){
   const{data:emps}=await sb.from('employees').select('id,name');
@@ -2719,9 +2989,61 @@ function adminTab(tab){
 }
 function setToday(){const today=todayISO();document.getElementById('fd_from').value=today;document.getElementById('fd_to').value=today;loadAtt();}
 function setCurMonth(){document.getElementById('fmonth').value=curM();onAdminMonthChange();}
-function onAdminMonthChange(){loadDashboard();if(mVisible)loadMonthly();}
-function refreshAdminMain(){loadAtt();loadDashboard();if(mVisible)loadMonthly();}
+function onAdminMonthChange(){loadDashboard();loadMonthly();}
+function refreshAdminMain(){loadAtt();loadDashboard();loadMonthly();loadTodayWorkLeaveCard();}
 function toggleMonthly(){mVisible=!mVisible;document.getElementById('mbox').classList.toggle('hidden',!mVisible);if(mVisible)loadMonthly();}
+async function loadTodayWorkLeaveCard(){
+  const today=todayISO();
+  const [leaves, emps] = await Promise.all([
+    fetchEmployeeLeavesInRange(today,today),
+    sb.from('employees').select('id,name').eq('active',true)
+  ]);
+  const empMap=new Map(((emps.data)||[]).map(emp=>[emp.id, emp.name||'-']));
+  latestTodayLeaveRows=(leaves||[]).map((leave,index)=>({
+    ...leave,
+    employee_name: empMap.get(leave.employee_id) || '-',
+    status: t('on_work_leave')
+  }));
+  st('sleave', String(latestTodayLeaveRows.length));
+}
+async function openWorkLeaveModal(){
+  const today=todayISO();
+  st('work_leave_title', t('employees_on_work_leave'));
+  st('work_leave_subtitle', fmtD(new Date(`${today}T12:00:00`)));
+  const tbody=document.getElementById('work_leave_body');
+  if(!tbody)return;
+  let rows=[];
+  if(employeeLeavesTableAvailable){
+    const [leaveRes, empRes] = await Promise.all([
+      sb.from('employee_leaves').select('id,employee_id,leave_start_date,return_date,created_at').lte('leave_start_date', today).order('leave_start_date', {ascending:false}),
+      sb.from('employees').select('id,name')
+    ]);
+    if(!leaveRes.error){
+      const empMap=new Map(((empRes.data)||[]).map(emp=>[emp.id, emp.name||'-']));
+      rows=(leaveRes.data||[]).filter(row=>normalizeIsoDate(row.leave_start_date)&&normalizeIsoDate(row.return_date)).map(row=>({
+        ...row,
+        employee_name: empMap.get(row.employee_id) || '-',
+        status: today<=row.return_date ? t('on_work_leave') : t('returned')
+      }));
+    }else if(/employee_leaves|relation/i.test(leaveRes.error.message||'')){
+      employeeLeavesTableAvailable=false;
+    }
+  }
+  if(!rows.length && latestTodayLeaveRows.length)rows=latestTodayLeaveRows;
+  tbody.innerHTML='';
+  if(!rows.length){
+    tbody.innerHTML=`<tr><td colspan="5" style="text-align:center;color:var(--text3);padding:18px">${t('no_employees_on_work_leave')}</td></tr>`;
+    document.getElementById('m_work_leave').classList.remove('hidden');
+    return;
+  }
+  rows.forEach((row,i)=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td>${i+1}</td><td>${row.employee_name||'-'}</td><td style="font-family:var(--mono)">${row.leave_start_date}</td><td style="font-family:var(--mono)">${row.return_date}</td><td><span class="badge bauto">${row.status}</span></td>`;
+    tbody.appendChild(tr);
+  });
+  document.getElementById('m_work_leave').classList.remove('hidden');
+}
+function closeWorkLeaveModal(){document.getElementById('m_work_leave').classList.add('hidden');}
 
 function fmtDashHours(sec){
   sec=Math.max(0,sec||0);
@@ -2866,10 +3188,16 @@ async function loadDashboard(){
   ['dash_late','dash_kpi'].forEach(id=>{const el=document.getElementById(id);if(el)el.innerHTML=`<div class="dash-empty">${t('loading')}</div>`;});
   const[y,mo]=month.split('-').map(Number);const dim=new Date(y,mo,0).getDate();
   let wd=0;for(let d=1;d<=dim;d++){const ds=`${y}-${String(mo).padStart(2,'0')}-${String(d).padStart(2,'0')}`;if(isWorkDay(ds))wd++;}
-  const{data:emps,error:empErr}=await sb.from('employees').select('*');
-  const{data:recs,error:recErr}=await sb.from('attendance').select('*').gte('work_date',`${month}-01`).lte('work_date',`${month}-${String(dim).padStart(2,'0')}`);
-  const{data:bons,error:bonErr}=await sb.from('kpi_bonuses').select('*').eq('month',month);
+  const monthStart=`${month}-01`;
+  const monthEnd=`${month}-${String(dim).padStart(2,'0')}`;
+  const [{data:emps,error:empErr},{data:recs,error:recErr},{data:bons,error:bonErr},leaves] = await Promise.all([
+    sb.from('employees').select('*'),
+    sb.from('attendance').select('*').gte('work_date',monthStart).lte('work_date',monthEnd),
+    sb.from('kpi_bonuses').select('*').eq('month',month),
+    fetchEmployeeLeavesInRange(monthStart, monthEnd)
+  ]);
   if(empErr||recErr||bonErr){toast('error','Dashboard',(empErr||recErr||bonErr).message||t('dashboard_error'));return;}
+  const leaveDateMap=buildEmployeeLeaveDateMap(leaves, monthStart, monthEnd);
   const rows=(emps||[]).map(emp=>{
     const er=(recs||[]).filter(r=>r.employee_id===emp.id);
     let sec=0,afkSec=0,late=0,lateMin=0,came=0,half=0;
@@ -2878,7 +3206,7 @@ async function loadDashboard(){
       if(r.start_time){
         came++;
         if(r.work_date)cameDates.add(r.work_date);
-        const[h,m]=r.start_time.split(':').map(Number);if(h*60+m>540)late++;
+        const[h,m]=r.start_time.split(':').map(Number);if(h*60+m>LATE_AFTER_MINUTES)late++;
       }
       if(computeStatusByTimes(
         r.start_time?r.start_time.substring(0,5):null,
@@ -2890,17 +3218,17 @@ async function loadDashboard(){
       afkSec+=r.afk_seconds||0;
       lateMin+=r.late_minutes||0;
     });
-    const abs=countAbsencesForMonth(month,cameDates);
+    const leaveDates=leaveDateMap.get(emp.id)||new Set();
+    const abs=countAbsencesForMonth(month,cameDates,leaveDates);
     const bon=(bons||[]).find(b=>b.employee_id===emp.id)?.bonus||0;
-    const rawAfkPenalty=Math.floor(Math.max(0,afkSec-1800)/60);
-    const pen=late*10+abs*20+Math.min(rawAfkPenalty,20);
+    const pen=late*10+abs*20;
     const ball=Math.min(100,Math.max(0,100-pen+bon));
     const kpi=calcKpi(ball,emp.kpi_type||'senior');
     const expectedSec=Math.max(1,wd*TARGET_WORK_SEC_PER_DAY);
     const workPct=Math.min(100,Math.round((sec/expectedSec)*100));
     const kpiPct=Math.max(0,Math.min(100,ball));
     const latePenalty=Math.min(20,(late*5)+Math.floor((lateMin||0)/60));
-    const afkPenalty=Math.min(15,Math.round(Math.max(0,afkSec-BREAK_LIMIT_SEC)/(5*60)));
+    const afkPenalty=Math.min(15,Math.round(Math.max(0,afkSec)/(5*60)));
     const efficiency=Math.max(0,Math.min(100,Math.round((workPct*0.55)+(kpiPct*0.45)-latePenalty-afkPenalty)));
     return {name:emp.name||'-',sec,late,lateMin,kpi,ball,came,abs,efficiency,workPct,kpiPct,latePenalty,afkPenalty};
   });
@@ -2913,12 +3241,15 @@ async function loadAtt() {
   const search = document.getElementById('fsearch').value || '';
   const statusFilter = document.getElementById('fstatus').value || '';
 
-  const { data, error } = await sb.rpc('admin_attendance_range', {
-    p_from: dateFrom,
-    p_to: dateTo,
-    p_search: search,
-    p_status: statusFilter
-  });
+  const [{ data, error }, leaves] = await Promise.all([
+    sb.rpc('admin_attendance_range', {
+      p_from: dateFrom,
+      p_to: dateTo,
+      p_search: search,
+      p_status: statusFilter
+    }),
+    fetchEmployeeLeavesInRange(dateFrom, dateTo)
+  ]);
 
   if (error) {
     console.error('loadAtt rpc error:', error);
@@ -2930,10 +3261,12 @@ async function loadAtt() {
   tbody.innerHTML = '';
 
   let w = 0, l = 0, a = 0;
+  const leaveDateMap=buildEmployeeLeaveDateMap(leaves, dateFrom, dateTo);
 
   if (dateFrom === dateTo) {
     (data || []).forEach((row, i) => {
       let status = row.status || 'kelmadi';
+      if(isEmployeeOnLeaveDate(row.employee_id, dateFrom, leaveDateMap))status='work_leave';
       let arr = row.start_time ? row.start_time.substring(0, 5) : '-';
       let lm = row.late_minutes || 0;
       let hrs = row.worked_seconds ? secToHMS(row.worked_seconds) : '-';
@@ -2959,9 +3292,12 @@ async function loadAtt() {
       } else if (status === 'auto_ended') {
         bc2 = 'bg';
         bt = `⚙️ ${t('auto_label')}`;
+      } else if (status === 'work_leave') {
+        bc2 = 'bauto';
+        bt = t('on_work_leave');
       }
 
-      const afkFmt = afkSec > 0 ? (Math.floor(afkSec / 60) + ' ' + t('daq')) : '—';
+      const afkFmt = formatPenaltyAfk(afkSec);
 
       const tr = document.createElement('tr');
       tr.dataset.name = (row.employee_name || '').toLowerCase();
@@ -2975,7 +3311,7 @@ async function loadAtt() {
         <td style="font-family:var(--mono)">${arr}</td>
         <td>${lm > 0 ? lm + ' ' + t('daq') : '-'}</td>
         <td style="font-family:var(--mono)">${hrs}</td>
-        <td style="color:${afkSec > 1800 ? 'var(--danger)' : 'var(--text2)'};">${afkFmt}</td>
+        <td style="color:${afkSec > 0 ? 'var(--danger)' : 'var(--text2)'};">${afkFmt}</td>
         <td><span class="badge ${bc2}">${bt}</span></td>
       `;
 
@@ -3010,9 +3346,7 @@ async function loadAtt() {
         ? Math.floor(emp.totalSec / 3600) + 'h ' + Math.floor((emp.totalSec % 3600) / 60) + 'm'
         : '—';
 
-      const afkFmt2 = emp.totalAfk > 0
-        ? Math.floor(emp.totalAfk / 60) + ' ' + t('daq')
-        : '—';
+      const afkFmt2 = formatPenaltyAfk(emp.totalAfk);
 
       const tr = document.createElement('tr');
       tr.dataset.name = (emp.employee_name || '').toLowerCase();
@@ -3026,7 +3360,7 @@ async function loadAtt() {
         <td>${emp.dayCount} ${t('kun')}</td>
         <td>${emp.totalLate > 0 ? emp.totalLate + ' ' + t('daq') : '-'}</td>
         <td>${hrs2}</td>
-        <td style="color:${emp.totalAfk > 1800 ? 'var(--danger)' : 'var(--text2)'}">${afkFmt2}</td>
+        <td style="color:${emp.totalAfk > 0 ? 'var(--danger)' : 'var(--text2)'}">${afkFmt2}</td>
         <td><span class="badge bg">${emp.dayCount} ${t('kun')}</span></td>
       `;
 
@@ -3039,58 +3373,132 @@ async function loadAtt() {
   st('sa', '' + a);
   st('sd', dateFrom === dateTo ? fmtD(new Date(dateFrom + 'T12:00:00')) : dateFrom + ' → ' + dateTo);
 }
-function filterAtt(){const q=document.getElementById('fsearch').value.toLowerCase();const s=document.getElementById('fstatus').value;document.querySelectorAll('#att_body tr').forEach(tr=>{tr.style.display=((tr.dataset.name||'').includes(q)&&(!s||tr.dataset.st===s))?'':'none';});}
+function filterAtt(){
+  const q=document.getElementById('fsearch').value.toLowerCase();
+  const s=document.getElementById('fstatus').value;
+  document.querySelectorAll('#att_body tr').forEach(tr=>{tr.style.display=((tr.dataset.name||'').includes(q)&&(!s||tr.dataset.st===s))?'':'none';});
+  document.querySelectorAll('#mbody tr, #monthly_att_summary_body tr').forEach(tr=>{
+    tr.style.display=((tr.dataset.name||'').includes(q))?'':'none';
+  });
+}
 
 async function loadMonthly(){
   const month=document.getElementById('fmonth').value||curM();
   st('mlbl',month+' '+t('hisobot'));
   const[y,mo]=month.split('-').map(Number);const dim=new Date(y,mo,0).getDate();
   let wd=0;for(let d=1;d<=dim;d++){const ds=`${y}-${String(mo).padStart(2,'0')}-${String(d).padStart(2,'0')}`;if(isWorkDay(ds))wd++;}
-  const{data:emps}=await sb.from('employees').select('*');
-  const{data:recs}=await sb.from('attendance').select('*').gte('work_date',`${month}-01`).lte('work_date',`${month}-${String(dim).padStart(2,'0')}`);
-  const{data:bons}=await sb.from('kpi_bonuses').select('*').eq('month',month);
-  if(!emps)return;
-  let tL=0,tA=0,tH=0,tK=0;monthlyData=[];const tbody=document.getElementById('mbody');tbody.innerHTML='';
+  const monthStart=`${month}-01`;
+  const monthEnd=`${month}-${String(dim).padStart(2,'0')}`;
+  const [{data:emps,error:empErr},{data:recs,error:recErr},{data:bons,error:bonErr},leaves] = await Promise.all([
+    sb.from('employees').select('id,name,login,kpi_type').eq('active',true).order('name'),
+    sb.from('attendance').select('employee_id,work_date,start_time,end_time,work_seconds,afk_seconds,late_minutes').gte('work_date',monthStart).lte('work_date',monthEnd),
+    sb.from('kpi_bonuses').select('employee_id,bonus').eq('month',month),
+    fetchEmployeeLeavesInRange(monthStart, monthEnd)
+  ]);
+  if(empErr||recErr||bonErr||!emps)return;
+  const leaveDateMap=buildEmployeeLeaveDateMap(leaves, monthStart, monthEnd);
+  const recMap=new Map();
+  (recs||[]).forEach(r=>{
+    if(!recMap.has(r.employee_id))recMap.set(r.employee_id,[]);
+    recMap.get(r.employee_id).push(r);
+  });
+  const bonusMap=new Map((bons||[]).map(b=>[b.employee_id,b.bonus||0]));
+  let tL=0,tA=0,tH=0,tK=0;
+  monthlyData=[];
+  monthlyAttendanceSummary=[];
+  const tbody=document.getElementById('mbody');
+  const summaryBody=document.getElementById('monthly_att_summary_body');
+  tbody.innerHTML='';
+  summaryBody.innerHTML='';
   emps.forEach((emp,i)=>{
-    const er=recs?recs.filter(r=>r.employee_id===emp.id):[];
-    let late=0,came=0,half=0,sec=0,afkSec=0;
+    const er=recMap.get(emp.id)||[];
+    let late=0,came=0,half=0,sec=0,afkSec=0,totalLateMinutes=0;
     const cameDates=new Set();
+    const lateDetails=[];
     er.forEach(r=>{
+      const startHM=r.start_time?r.start_time.substring(0,5):null;
+      const endHM=r.end_time?r.end_time.substring(0,5):null;
+      const status=computeStatusByTimes(startHM,endHM,r.late_minutes||0,r.work_seconds||0);
       if(r.start_time){
-        const[h,m]=r.start_time.split(':').map(Number);
-        if(h*60+m>540)late++;
         came++;
         if(r.work_date)cameDates.add(r.work_date);
       }
-      if(computeStatusByTimes(
-        r.start_time?r.start_time.substring(0,5):null,
-        r.end_time?r.end_time.substring(0,5):null,
-        r.late_minutes||0,
-        r.work_seconds||0
-      )==='yarim_kun')half++;
+      if(status==='yarim_kun')half++;
+      if((r.late_minutes||0)>0){
+        late++;
+        totalLateMinutes+=r.late_minutes||0;
+        lateDetails.push({
+          date:r.work_date,
+          minutes:r.late_minutes||0,
+          status:status==='yarim_kun' ? t('b_half') : t('monthly_detail_full_day')
+        });
+      }
       if(r.work_seconds)sec+=r.work_seconds;
       if(r.afk_seconds)afkSec+=r.afk_seconds;
     });
-    const abs=countAbsencesForMonth(month,cameDates);
-    const bon=bons?(bons.find(b=>b.employee_id===emp.id)||{bonus:0}).bonus:0;
-    const afkOverSec=Math.max(0,afkSec-1800);
-    const afkPenalty=Math.floor(afkOverSec/60);
-    const pen=late*10+abs*20+Math.min(afkPenalty,20);
+    const leaveDates=leaveDateMap.get(emp.id)||new Set();
+    const absentDates=getAbsenceDatesForMonth(month,cameDates,leaveDates);
+    const abs=absentDates.length;
+    const bon=bonusMap.get(emp.id)||0;
+    const pen=late*10+abs*20;
     const fin=Math.min(100,Math.max(0,100-pen+bon));
     const kpi=calcKpi(fin,emp.kpi_type||'senior');
     tL+=late;tA+=abs;tH+=sec;tK+=kpi;
     const hs=formatHm(sec);
-    const afkMin=Math.floor(afkSec/60);
-    const afkOver=Math.max(0,afkMin-30);
-    monthlyData.push({name:emp.name,hours:hs,afk:afkMin+' '+t('daq'),late,half,abs,penalty:-pen,bonus:bon,ball:fin,kpi});
+    monthlyData.push({name:emp.name,hours:hs,afk:formatPenaltyAfk(afkSec),late,half,abs,penalty:-pen,bonus:bon,ball:fin,kpi});
+    monthlyAttendanceSummary.push({
+      employeeId:emp.id,
+      employeeName:emp.name||'-',
+      month,
+      came,
+      half,
+      late,
+      totalLateMinutes,
+      absentDates,
+      lateDetails
+    });
     const tr=document.createElement('tr');
-    tr.innerHTML=`<td>${i+1}</td><td>${emp.name}</td><td style="font-family:var(--mono)">${hs}</td><td style="color:${afkOver>0?'var(--danger)':'var(--text2)'};">${afkMin} ${t('daq')}${afkOver>0?` <span style="color:var(--danger);font-size:10px">(+${afkOver})</span>`:''}</td><td>${late} ${t('marta')}</td><td>${half} ${t('kun')}</td><td>${abs} ${t('kun')}</td><td style="color:var(--danger)">-${pen} ${t('ball')}</td><td style="color:var(--success)">+${bon} ${t('ball')}</td><td><strong style="font-family:var(--mono)">${fin} ${t('ball')}</strong></td><td style="color:var(--success);font-weight:700;font-family:var(--mono)">${kpi.toLocaleString()} UZS</td><td><div style="display:flex;gap:3px"><button class="bsm bsm-g" onclick="adjKpi('${emp.id}','${month}',10)">+10</button><button class="bsm bsm-r" onclick="adjKpi('${emp.id}','${month}',-10)">-10</button><button class="bsm bsm-gr" onclick="adjKpi('${emp.id}','${month}',0,true)">${t('reset')}</button></div></td>`;
+    tr.dataset.name=(emp.name||'').toLowerCase();
+    tr.innerHTML=`<td>${i+1}</td><td>${emp.name}</td><td style="font-family:var(--mono)">${hs}</td><td style="color:${afkSec>0?'var(--danger)':'var(--text2)'};">${formatPenaltyAfk(afkSec)}</td><td>${late} ${t('marta')}</td><td>${half} ${t('kun')}</td><td>${abs} ${t('kun')}</td><td style="color:var(--danger)">-${pen} ${t('ball')}</td><td style="color:var(--success)">+${bon} ${t('ball')}</td><td><strong style="font-family:var(--mono)">${fin} ${t('ball')}</strong></td><td style="color:var(--success);font-weight:700;font-family:var(--mono)">${kpi.toLocaleString()} UZS</td><td><div style="display:flex;gap:3px"><button class="bsm bsm-g" onclick="adjKpi('${emp.id}','${month}',10)">+10</button><button class="bsm bsm-r" onclick="adjKpi('${emp.id}','${month}',-10)">-10</button><button class="bsm bsm-gr" onclick="adjKpi('${emp.id}','${month}',0,true)">${t('reset')}</button></div></td>`;
     tbody.appendChild(tr);
+
+    const summaryTr=document.createElement('tr');
+    summaryTr.dataset.name=(emp.name||'').toLowerCase();
+    summaryTr.innerHTML=`<td>${i+1}</td><td>${emp.name||'-'}</td><td style="font-family:var(--mono)">${month}</td><td>${came} ${t('kun')}</td><td>${late} ${t('marta')}</td><td>${abs} ${t('kun')}</td><td>${totalLateMinutes>0?`${totalLateMinutes} ${t('daq')}`:'-'}</td><td><button class="bsm bsm-g" onclick="openMonthlyAttendanceDetails('${emp.id}')">${t('details')}</button></td>`;
+    summaryBody.appendChild(summaryTr);
   });
   st('me',''+emps.length);st('ml',''+tL);st('ma',''+tA);st('mh',formatHm(tH));st('mk',tK.toLocaleString()+' UZS');
+  filterAtt();
 }
 
 function calcKpi(ball,type){if(type==='senior'){if(ball>=90)return 560000;if(ball>=80)return 420000;if(ball>=70)return 280000;return 0;}if(ball>=90)return 400000;if(ball>=80)return 300000;if(ball>=70)return 210000;return 0;}
+function openMonthlyAttendanceDetails(employeeId){
+  const row=monthlyAttendanceSummary.find(item=>item.employeeId===employeeId);
+  if(!row)return;
+  st('month_att_detail_title', t('monthly_detail_title'));
+  st('month_att_detail_subtitle', `${row.employeeName} - ${row.month}`);
+  const body=document.getElementById('month_att_detail_body');
+  const absentHtml=row.absentDates.length
+    ? `<ul style="margin:0;padding-left:18px;color:var(--text2);line-height:1.7;">${row.absentDates.map(ds=>`<li>${fmtD(new Date(ds+'T12:00:00'))}</li>`).join('')}</ul>`
+    : `<div style="color:var(--success);font-size:12px">${t('monthly_detail_no_absences')}</div>`;
+  const lateHtml=row.lateDetails.length
+    ? `<div class="tbl-wrap"><table class="tbl" style="min-width:480px;"><thead><tr><th>${t('detail_date')}</th><th>${t('detail_late_minutes')}</th><th>${t('detail_status')}</th></tr></thead><tbody>${row.lateDetails.map(item=>`<tr><td style="font-family:var(--mono)">${fmtD(new Date(item.date+'T12:00:00'))}</td><td>${item.minutes} ${t('daq')}</td><td>${item.status}</td></tr>`).join('')}</tbody></table></div>`
+    : `<div style="color:var(--success);font-size:12px">${t('monthly_detail_no_lates')}</div>`;
+  body.innerHTML=`
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px;">
+      <div class="box" style="margin:0;">
+        <div class="btitle" style="margin-bottom:10px;">${t('monthly_detail_absent_dates')}</div>
+        ${absentHtml}
+      </div>
+      <div class="box" style="margin:0;">
+        <div class="btitle" style="margin-bottom:10px;">${t('monthly_detail_late_days')}</div>
+        ${lateHtml}
+      </div>
+    </div>
+  `;
+  document.getElementById('m_month_att_detail').classList.remove('hidden');
+}
+function closeMonthlyAttendanceDetails(){document.getElementById('m_month_att_detail').classList.add('hidden');}
 async function adjKpi(eid,month,delta,reset=false){const{data:ex}=await sb.from('kpi_bonuses').select('bonus').eq('employee_id',eid).eq('month',month).maybeSingle();const bonus=reset?0:((ex?.bonus||0)+delta);await sb.from('kpi_bonuses').upsert({employee_id:eid,month,bonus},{onConflict:'employee_id,month'});loadMonthly();loadDashboard();}
 
 async function loadEmpList() {
@@ -3489,7 +3897,7 @@ async function saveAtt(autoEnded=false){
   const today=todayISO();const ss=getLS()||{};const lm=ss.lateMin||0;
   const startHM = ss.i_s&&ss.i_s!=='-'?ss.i_s:null;
   const endHM = ss.i_e&&ss.i_e!=='-'?ss.i_e:null;
-  const payload={employee_id:CU.id,work_date:today,start_time:startHM?startHM+':00':null,end_time:endHM?endHM+':00':null,lunch_start:ss.i_ls&&ss.i_ls!=='-'?ss.i_ls+':00':null,lunch_end:ss.i_le&&ss.i_le!=='-'?ss.i_le+':00':null,work_seconds:wAccum,lunch_seconds:lAccum,afk_seconds:afkSeconds,afk_count:afkCount,late_minutes:lm,status:computeStatusByTimes(startHM,endHM,lm,wAccum),auto_ended:autoEnded};
+  const payload={employee_id:CU.id,work_date:today,start_time:startHM?startHM+':00':null,end_time:endHM?endHM+':00':null,lunch_start:ss.i_ls&&ss.i_ls!=='-'?ss.i_ls+':00':null,lunch_end:ss.i_le&&ss.i_le!=='-'?ss.i_le+':00':null,work_seconds:wAccum,lunch_seconds:lAccum,afk_seconds:getPenaltyAfkSeconds(afkSeconds),afk_count:afkCount,late_minutes:lm,status:computeStatusByTimes(startHM,endHM,lm,wAccum),auto_ended:autoEnded};
   await sb.from('attendance').upsert(payload,{onConflict:'employee_id,work_date'});
   loadHist();
 }
@@ -3498,9 +3906,9 @@ async function savePartial(){
   const today=todayISO();const ss=getLS()||{};const lm=ss.lateMin||0;
   let cw=wAccum;if(empState==='working'&&wStart)cw+=Math.floor((tzNow()-wStart)/1000);
   let cl=lAccum;if(empState==='lunch'&&lStart)cl+=Math.floor((tzNow()-lStart)/1000);
-  let afkNow=afkSeconds;if(isAfk&&currentAfkStart)afkNow+=Math.floor((tzNow()-currentAfkStart)/1000);
+  let afkNow=afkSeconds;
   const startHM = ss.i_s&&ss.i_s!=='-'?ss.i_s:null;
-  const payload={employee_id:CU.id,work_date:today,start_time:startHM?startHM+':00':null,end_time:ss.i_e&&ss.i_e!=='-'?ss.i_e+':00':null,lunch_start:ss.i_ls&&ss.i_ls!=='-'?ss.i_ls+':00':null,lunch_end:ss.i_le&&ss.i_le!=='-'?ss.i_le+':00':null,work_seconds:cw,lunch_seconds:cl,afk_seconds:afkNow,afk_count:afkCount,late_minutes:lm,status:computeStatusByTimes(startHM,ss.i_e&&ss.i_e!=='-'?ss.i_e:null,lm,cw),auto_ended:false};
+  const payload={employee_id:CU.id,work_date:today,start_time:startHM?startHM+':00':null,end_time:ss.i_e&&ss.i_e!=='-'?ss.i_e+':00':null,lunch_start:ss.i_ls&&ss.i_ls!=='-'?ss.i_ls+':00':null,lunch_end:ss.i_le&&ss.i_le!=='-'?ss.i_le+':00':null,work_seconds:cw,lunch_seconds:cl,afk_seconds:getPenaltyAfkSeconds(afkNow),afk_count:afkCount,late_minutes:lm,status:computeStatusByTimes(startHM,ss.i_e&&ss.i_e!=='-'?ss.i_e:null,lm,cw),auto_ended:false};
   await sb.from('attendance').upsert(payload,{onConflict:'employee_id,work_date'});
 }
 
@@ -3609,7 +4017,7 @@ function buildFallbackPrayerState(){
     { key:'maghrib', time: minutesToHM(raw.maghrib) },
     { key:'isha', time: minutesToHM(raw.isha) }
   ].map(item => ({ ...item, name: getPrayerLabel(item.key) }));
-  const nowMin = tzNow().getHours()*60 + tzNow().getMinutes();
+  const nowMin = getTzTotalMinutes();
   const next = list.find(item => hmToMinutes(item.time) > nowMin) || list[0];
   return { date: todayISO(), list, next, source:'fallback' };
 }
@@ -3643,7 +4051,7 @@ async function fetchPrayerSchedule(force=false){
     ].filter(item => item.time).map(item => ({ ...item, name: getPrayerLabel(item.key) }));
     const nextKey = normalizePrayerKey(data?.today?.next?.key);
     const next = (nextKey && list.find(item => item.key===nextKey)) || (() => {
-      const nowMin = tzNow().getHours()*60 + tzNow().getMinutes();
+      const nowMin = getTzTotalMinutes();
       return list.find(item => hmToMinutes(item.time) > nowMin) || list[0];
     })();
     prayerTimesState = { date, list, next, source:'namoz-vaqti.uz' };
@@ -3684,7 +4092,7 @@ function getPrayerSchedule(){
 }
 function updatePrayerInfo(){
   const list = getPrayerSchedule();
-  const nowMin = tzNow().getHours()*60 + tzNow().getMinutes();
+  const nowMin = getTzTotalMinutes();
   let next = list.find(x => hmToMinutes(x.time) > nowMin) || list[0];
   const npn = document.getElementById('nextPrayerName');
   const npt = document.getElementById('nextPrayerTime');
@@ -3706,10 +4114,9 @@ function startAutoEndCheck(){
   autoEndIv=setInterval(()=>{
     if(autoEndDone)return;
     if(!['working','lunch','paused'].includes(empState))return;
-    const now=tzNow();if(now.getHours()===AUTO_END_HOUR&&now.getMinutes()>=AUTO_END_MIN)empEnd(true);
+    if(getTzTotalMinutes()>=((AUTO_END_HOUR*60)+AUTO_END_MIN))empEnd(true);
   },30000);
-  const now=tzNow();
-  if(!autoEndDone&&['working','lunch','paused'].includes(empState)&&now.getHours()===AUTO_END_HOUR&&now.getMinutes()>=AUTO_END_MIN)empEnd(true);
+  if(!autoEndDone&&['working','lunch','paused'].includes(empState)&&getTzTotalMinutes()>=((AUTO_END_HOUR*60)+AUTO_END_MIN))empEnd(true);
 }
 
 // ============================================================
@@ -3746,11 +4153,7 @@ let isDetecting     = false;
 // ✅ FIX 1: isDetecting stuck bo'lsa aniqlash uchun timestamp
 let isDetectingStartTime = 0;
 
-function getAfkVoiceAsset(){
-  return lang==='ru'
-    ? { src:'./audio/face-warning-ru.mp3', fallbackLang:'ru-RU' }
-    : { src:'./audio/face-warning-uz.mp3', fallbackLang:'uz-UZ' };
-}
+function getAfkVoiceAsset(){return null;}
 
 function setAfkAlertVisualState(active){
   const employeePage=document.getElementById('employeePage');
@@ -3784,49 +4187,8 @@ function clearAfkVoicePrompt(){
   if(window.speechSynthesis)window.speechSynthesis.cancel();
 }
 
-function speakAfkVoiceFallback(langCode){
-  if(!window.speechSynthesis)return;
-  const utter=new SpeechSynthesisUtterance(t('face_voice_warning'));
-  utter.lang=langCode;
-  utter.rate=1;
-  utter.pitch=1;
-
-  const voices=window.speechSynthesis.getVoices?window.speechSynthesis.getVoices():[];
-  const preferredVoice=
-    voices.find(v=>(v.lang||'').toLowerCase().startsWith(lang==='ru'?'ru':'uz')) ||
-    voices.find(v=>(v.lang||'').toLowerCase().startsWith(lang==='ru'?'ru':'tr')) ||
-    voices.find(v=>(v.lang||'').toLowerCase().startsWith('en'));
-  if(preferredVoice)utter.voice=preferredVoice;
-
-  window.speechSynthesis.cancel();
-  window.speechSynthesis.speak(utter);
-}
-
-function speakAfkVoiceWarning(){
-  if(afkVoiceCount>=2)return;
-  afkVoiceCount++;
-  const asset=getAfkVoiceAsset();
-
-  if(afkVoiceAudio){
-    afkVoiceAudio.pause();
-    afkVoiceAudio.currentTime=0;
-  }
-
-  afkVoiceAudio=new Audio(asset.src);
-  afkVoiceAudio.preload='auto';
-  afkVoiceAudio.play().catch(()=>{
-    afkVoiceAudio=null;
-    speakAfkVoiceFallback(asset.fallbackLang);
-  });
-
-  if(afkVoiceCount<2){
-    if(afkVoiceTimer)clearTimeout(afkVoiceTimer);
-    afkVoiceTimer=setTimeout(()=>{
-      afkVoiceTimer=null;
-      if(empState==='working'&&afkPending&&!isAfk)speakAfkVoiceWarning();
-    },5000);
-  }
-}
+function speakAfkVoiceFallback(langCode){return langCode;}
+function speakAfkVoiceWarning(){afkVoiceCount=0;}
 
 function scheduleFaceCheck(ms){
   if(faceCheckTimer){clearTimeout(faceCheckTimer);faceCheckTimer=null;}
@@ -4128,7 +4490,7 @@ function onFaceStablyDetected(reason){
   if(afkCountdownIv){clearInterval(afkCountdownIv);afkCountdownIv=null;}
   // ✅ FIX 5: Banner faqat stabil detectiondan keyin yashiriladi
   document.getElementById('afkBanner').style.display='none';
-  scheduleFaceCheck(FACE_CHECK_INTERVAL);
+  scheduleFaceCheck(FACE_MONITOR_INTERVAL);
 }
 
 // ── onFaceMissed ───────────────────────────────────────────
@@ -4152,6 +4514,10 @@ function onFaceMissed(reason='missing'){
   setFaceDot('red',warningText);
 
   setAfkAlertVisualState(true);
+  if(!faceLossStartedAt)faceLossStartedAt=Date.now();
+  const elapsedSec=Math.floor((Date.now()-faceLossStartedAt)/1000);
+  const remainingSec=Math.max(0,AFK_GRACE_SEC-elapsedSec);
+  const cd=document.getElementById('afk_countdown');if(cd)cd.textContent=fmtSecMM(remainingSec);
 
   if(!isAfk && !afkPending){
     afkPending=true;
@@ -4162,10 +4528,10 @@ function onFaceMissed(reason='missing'){
       modal.classList.remove('hidden');
       afkWarnShown=true;
     }
-    startAfkCountdown();
+    startAfkCountdown(remainingSec);
     speakAfkVoiceWarning();
   }
-  scheduleFaceCheck(FACE_CHECK_INTERVAL);
+  scheduleFaceCheck(FACE_MONITOR_INTERVAL);
 }
 
 // ── AFK SESSION ────────────────────────────────────────────
@@ -4212,9 +4578,9 @@ function endAfkSession(){
   afkCurSec=0;
 }
 
-function startAfkCountdown(){
+function startAfkCountdown(initialSec=AFK_GRACE_SEC){
   if(empState!=='working')return;
-  afkCountdownSec=AFK_GRACE_SEC;
+  afkCountdownSec=Math.max(0,initialSec);
   const cd=document.getElementById('afk_countdown');if(cd)cd.textContent=fmtSecMM(afkCountdownSec);
   if(afkCountdownIv)clearInterval(afkCountdownIv);
   afkCountdownIv=setInterval(()=>{
@@ -4545,7 +4911,7 @@ async function startFaceDetection(){
 
 async function runFaceCheck(){
   if(['lunch','prayer','paused','not_started','ended'].includes(empState)){
-    scheduleFaceCheck(FACE_CHECK_INTERVAL);
+    scheduleFaceCheck(FACE_MONITOR_INTERVAL);
     return;
   }
 
@@ -4599,7 +4965,7 @@ async function runFaceCheck(){
         const statusEl=document.getElementById('face_status_inline');
         if(statusEl)statusEl.textContent=t('face_need_registration');
         setFaceDot('yellow', t('face_need_registration'));
-        scheduleFaceCheck(FACE_RETRY_INTERVAL);
+        scheduleFaceCheck(FACE_MONITOR_INTERVAL);
         return;
       }
 
@@ -4613,10 +4979,6 @@ async function runFaceCheck(){
         faceUnknownCount=1;
         drawFaceBox(box,false);
         faceMissCount=1;
-        if(shouldDelayFaceWarning('wrong_person')){
-          scheduleFaceCheck(FACE_CHECK_INTERVAL);
-          return;
-        }
         onFaceMissed('wrong_person');
         return;
       }
@@ -4644,10 +5006,6 @@ async function runFaceCheck(){
       clearFaceBox();
       lastFaceBox=null;
       livenessScore=Math.max(0,livenessScore-0.05);
-      if(shouldDelayFaceWarning('missing')){
-        scheduleFaceCheck(FACE_CHECK_INTERVAL);
-        return;
-      }
       onFaceMissed('missing');
     }
   }catch(e){
@@ -4673,6 +5031,7 @@ function updateLiveness(box){
 }
 
 function onFaceStablyDetected(reason){
+  resetFaceLossState();
   const statusEl=document.getElementById('face_status_inline');
   const name=CU?.name||'';
   const label=name ? `${t('face_detected')} ${name}` : t('face_detected');
@@ -4689,7 +5048,7 @@ function onFaceStablyDetected(reason){
   }
   if(afkCountdownIv){clearInterval(afkCountdownIv);afkCountdownIv=null;}
   setAfkAlertVisualState(false);
-  scheduleFaceCheck(FACE_CHECK_INTERVAL);
+  scheduleFaceCheck(FACE_MONITOR_INTERVAL);
 }
 
 function startFaceRegistration(){
@@ -4844,7 +5203,6 @@ async function loadHist(){
     const wh=Math.floor((r.work_seconds||0)/3600),wm=Math.floor(((r.work_seconds||0)%3600)/60);
     const lh=Math.floor((r.lunch_seconds||0)/3600),lm2=Math.floor(((r.lunch_seconds||0)%3600)/60);
     const afkMin=Math.floor((r.afk_seconds||0)/60);
-    const afkOver=Math.max(0,afkMin-30);
     const status=computeStatusByTimes(
       r.start_time?r.start_time.substring(0,5):null,
       r.end_time?r.end_time.substring(0,5):null,
@@ -4858,7 +5216,7 @@ async function loadHist(){
     else bdg=`<span class="badge br">${t('b_abs')}</span>`;
     if(r.auto_ended)bdg+=` <span class="badge bauto" style="font-size:10px">⚙️ ${t('auto_label')}</span>`;
     const tr=document.createElement('tr');
-    tr.innerHTML=`<td>${i+1}</td><td style="font-family:var(--mono)">${r.work_date}</td><td style="font-family:var(--mono)">${r.start_time?r.start_time.substring(0,5):'-'}</td><td>${r.lunch_start?r.lunch_start.substring(0,5):'-'}</td><td>${r.lunch_end?r.lunch_end.substring(0,5):'-'}</td><td>${r.end_time?r.end_time.substring(0,5):'-'}</td><td>${r.late_minutes?r.late_minutes+' '+t('daq'):'-'}</td><td style="font-family:var(--mono)">${wh} ${t('soat')} ${wm} ${t('daqiqa')}</td><td>${lh} ${t('soat')} ${lm2} ${t('daqiqa')}</td><td style="color:${afkOver>0?'var(--danger)':'inherit'};font-family:var(--mono)">${afkMin>0?afkMin+' '+t('daq'):'—'}${afkOver>0?` <span style="font-size:10px;color:var(--danger)">(+${afkOver} ${t('daq')} ${t('afk_over')})</span>`:''}</td><td>${bdg}</td>`;
+    tr.innerHTML=`<td>${i+1}</td><td style="font-family:var(--mono)">${r.work_date}</td><td style="font-family:var(--mono)">${r.start_time?r.start_time.substring(0,5):'-'}</td><td>${r.lunch_start?r.lunch_start.substring(0,5):'-'}</td><td>${r.lunch_end?r.lunch_end.substring(0,5):'-'}</td><td>${r.end_time?r.end_time.substring(0,5):'-'}</td><td>${r.late_minutes?r.late_minutes+' '+t('daq'):'-'}</td><td style="font-family:var(--mono)">${wh} ${t('soat')} ${wm} ${t('daqiqa')}</td><td>${lh} ${t('soat')} ${lm2} ${t('daqiqa')}</td><td style="color:${afkMin>0?'var(--danger)':'inherit'};font-family:var(--mono)">${afkMin>0?afkMin+' '+t('daq'):'—'}</td><td>${bdg}</td>`;
     tbody.appendChild(tr);
   });
   st('e_lc',''+lc);st('e_afk_total',Math.floor(totalAfkSec/60)+' '+t('daqiqa'));
