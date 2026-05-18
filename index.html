@@ -728,7 +728,7 @@ html, body { font-family:var(--font); background:var(--bg); color:var(--text); m
             <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:12px">
               <span class="btitle" id="att_t" style="margin:0">Hodimlar nazorati</span>
               <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-                <div class="drange">
+                <div class="drange" id="att_date_range">
                   <label id="from_l">Dan:</label>
                   <input type="date" id="fd_from" onchange="loadAtt()">
                   <label id="to_l">Gacha:</label>
@@ -759,24 +759,6 @@ html, body { font-family:var(--font); background:var(--bg); color:var(--text); m
                   <th id="th_afk">AFK vaqti</th><th id="th8">Status</th>
                 </tr></thead>
                 <tbody id="att_body"></tbody>
-              </table>
-            </div>
-            <div style="display:flex;align-items:center;justify-content:space-between;margin:18px 0 12px;flex-wrap:wrap;gap:8px;">
-              <span class="btitle" id="monthly_att_summary_title" style="margin:0">Oylik davomat tafsilotlari</span>
-            </div>
-            <div class="tbl-wrap">
-              <table class="tbl" style="min-width:860px;">
-                <thead><tr>
-                  <th>#</th>
-                  <th id="mas_emp">Xodim</th>
-                  <th id="mas_month">Oy</th>
-                  <th id="mas_worked_days">Ishlagan kunlar</th>
-                  <th id="mas_late_count">Kechikishlar soni</th>
-                  <th id="mas_absent_days">Kelmagan kunlar</th>
-                  <th id="mas_late_time">Kechikish vaqti</th>
-                  <th id="mas_actions">Tafsilotlar</th>
-                </tr></thead>
-                <tbody id="monthly_att_summary_body"></tbody>
               </table>
             </div>
           </div>
@@ -908,6 +890,32 @@ html, body { font-family:var(--font); background:var(--bg); color:var(--text); m
             </div>
             <p style="font-size:11.5px;color:var(--text2);margin-bottom:4px" id="hol_info">Standart: Du–Sha. Yakshanba avtomatik dam olish.</p>
             <p style="font-size:11.5px;color:var(--text2)" id="hol_list">Qo'shimcha dam olish kuni yo'q</p>
+          </div>
+          <div class="box">
+            <div class="btitle">🧳 <span id="leave_manage_title">Ish ta'tilini belgilash</span></div>
+            <div class="sf">
+              <select id="leave_emp" style="min-width:220px;">
+                <option value="" id="leave_emp_placeholder">Hodimni tanlang</option>
+              </select>
+              <input type="date" id="leave_start">
+              <input type="date" id="leave_return">
+              <button class="bb" id="leave_add_btn" onclick="addEmployeeLeave()">Belgilash</button>
+            </div>
+            <div class="tbl-wrap" style="margin-top:12px;">
+              <table class="tbl" style="min-width:620px;">
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th id="leave_admin_th_employee">Xodim</th>
+                    <th id="leave_admin_th_start">Boshlanish</th>
+                    <th id="leave_admin_th_return">Qaytish</th>
+                    <th id="leave_admin_th_status">Holat</th>
+                    <th id="leave_admin_th_action">O'chirish</th>
+                  </tr>
+                </thead>
+                <tbody id="leave_admin_body"></tbody>
+              </table>
+            </div>
           </div>
         </div>
 
@@ -1599,6 +1607,16 @@ Object.assign(TR.uz,{
   employee:'Xodim',
   work_leave:'Ish ta\'tili',
   employees_on_work_leave:'Ish ta\'tilidagi xodimlar',
+  leave_manage_title:'Ish ta\'tilini belgilash',
+  leave_emp_placeholder:'Hodimni tanlang',
+  leave_add_btn:'Belgilash',
+  leave_admin_empty:'Hozircha ta\'til belgilari yo\'q',
+  leave_save_success:'Ish ta\'tili saqlandi',
+  leave_save_error:'Ish ta\'tilini saqlab bo\'lmadi',
+  leave_delete_success:'Ish ta\'tili o\'chirildi',
+  leave_delete_error:'Ish ta\'tilini o\'chirib bo\'lmadi',
+  leave_invalid_dates:'Boshlanish sanasi qaytish sanasidan katta bo\'lmasin',
+  leave_table_missing:'Ta\'til jadvali topilmadi, vaqtincha lokal saqlash ishlatildi',
   work_leave_start_date:'Ish ta\'tili boshlangan sana',
   return_date:'Qaytish sanasi',
   status_label:'Holat',
@@ -1631,6 +1649,16 @@ Object.assign(TR.ru,{
   employee:'Сотрудник',
   work_leave:'Отпуск',
   employees_on_work_leave:'Сотрудники в отпуске',
+  leave_manage_title:'Отметить отпуск сотрудника',
+  leave_emp_placeholder:'Выберите сотрудника',
+  leave_add_btn:'Сохранить',
+  leave_admin_empty:'Пока нет отмеченных отпусков',
+  leave_save_success:'Отпуск сохранён',
+  leave_save_error:'Не удалось сохранить отпуск',
+  leave_delete_success:'Отпуск удалён',
+  leave_delete_error:'Не удалось удалить отпуск',
+  leave_invalid_dates:'Дата начала не должна быть позже даты возврата',
+  leave_table_missing:'Таблица отпусков не найдена, временно используется локальное сохранение',
   work_leave_start_date:'Дата начала отпуска',
   return_date:'Дата возвращения',
   status_label:'Статус',
@@ -1663,6 +1691,16 @@ TR.en = {
   employee:'Employee',
   work_leave:'Work leave',
   employees_on_work_leave:'Employees on work leave',
+  leave_manage_title:'Mark work leave',
+  leave_emp_placeholder:'Select employee',
+  leave_add_btn:'Save',
+  leave_admin_empty:'No leave entries yet',
+  leave_save_success:'Work leave saved',
+  leave_save_error:'Could not save work leave',
+  leave_delete_success:'Work leave removed',
+  leave_delete_error:'Could not remove work leave',
+  leave_invalid_dates:'Start date must not be after return date',
+  leave_table_missing:'Leave table not found, local storage fallback is being used',
   work_leave_start_date:'Work leave start date',
   return_date:'Return date',
   status_label:'Status',
@@ -2205,11 +2243,11 @@ function applyLang(){
   ['sc1','sc2','sc3','sc_leave','sc_leave_btn','sc4','att_t','from_l','to_l','b_today','b_monthly','b_cm','b_ref','o_all','o_came','o_late','o_abs',
    'th1','th2','th4','th5','th6','th7','th_afk','th8','dash_t','dash_work_t','dash_late_t','dash_kpi_t','mth_t','ms1','ms2','ms3','ms4','ms5',
    'mt1','mt2','mt_afk','mt3','mt_half','mt4','mt5','mt6','mt7','mt8','mt9',
-   'monthly_att_summary_title','mas_emp','mas_month','mas_worked_days','mas_late_count','mas_absent_days','mas_late_time','mas_actions','month_att_detail_title','month_att_detail_close',
-   'set_t','b_addemp','et1','et2','et3','et4','et5','hol_t','b_addh','hol_info',
-   'kpi_t','k1','k2','k3','k4','k5','k_afk','k6','k7','k8',
-   'ew_t','et_t','eh_t','ewl','ell','eprl','ewd','eld','e_note','prayer_next_lbl',
-   'ei1','ei2','ei3','ei4','ei5','ei6','ht1','ht2','ht3','ht4','ht5','ht6','ht7','ht8','ht_afk','ht9',
+    'monthly_att_summary_title','mas_emp','mas_month','mas_worked_days','mas_late_count','mas_absent_days','mas_late_time','mas_actions','month_att_detail_title','month_att_detail_close',
+    'set_t','b_addemp','et1','et2','et3','et4','et5','hol_t','b_addh','hol_info','leave_manage_title','leave_add_btn',
+    'kpi_t','k1','k2','k3','k4','k5','k_afk','k6','k7','k8',
+    'ew_t','et_t','eh_t','ewl','ell','eprl','ewd','eld','e_note','prayer_next_lbl',
+    'ei1','ei2','ei3','ei4','ei5','ei6','ht1','ht2','ht3','ht4','ht5','ht6','ht7','ht8','ht_afk','ht9',
    'eh_note','el_lbl','afk_month_lbl','e_cm','mw_txt','mw_ok','mep_t','mep_s','mep_c',
    'afk_lbl','afk_warn_title','afk_warn_txt','afk_warn_sub','afk_im_here','auto_end_txt','dash_attendance_label'
   ].forEach(k=>st(k,t(k)));
@@ -2221,6 +2259,12 @@ function applyLang(){
   st('work_leave_th_start', t('work_leave_start_date'));
   st('work_leave_th_return', t('return_date'));
   st('work_leave_th_status', t('status_label'));
+  st('leave_admin_th_employee', t('employee'));
+  st('leave_admin_th_start', t('work_leave_start_date'));
+  st('leave_admin_th_return', t('return_date'));
+  st('leave_admin_th_status', t('status_label'));
+  st('leave_admin_th_action', t('delete'));
+  st('leave_emp_placeholder', t('leave_emp_placeholder'));
   sp('ep_np',t('ep_ph'));sp('fsearch',t('fsearch'));
   const bsE=document.getElementById('bs');if(bsE)bsE.textContent=t('bs');
   const blE=document.getElementById('bl');if(blE)blE.textContent=(empState==='lunch'?t('bb'):t('bl'));
@@ -2337,10 +2381,29 @@ function computeEfficiencyScore({workSec=0, workDays=0, cameDays=0, halfDays=0, 
 function isWorkDay(ds){const d=new Date(ds+'T12:00:00');if(d.getDay()===0)return false;return!JSON.parse(localStorage.getItem('aloqa_hols')||'[]').includes(ds);}
 let employeeLeavesTableAvailable = true;
 let latestTodayLeaveRows = [];
+const LOCAL_EMPLOYEE_LEAVES_KEY = 'aloqa_employee_leaves';
 function normalizeIsoDate(ds=''){return /^\d{4}-\d{2}-\d{2}$/.test(ds||'') ? ds : '';}
 function dateRangesOverlap(startA,endA,startB,endB){return startA<=endB && endA>=startB;}
+function getLocalEmployeeLeaves(){
+  try{
+    const rows=JSON.parse(localStorage.getItem(LOCAL_EMPLOYEE_LEAVES_KEY)||'[]');
+    return Array.isArray(rows)?rows.filter(row=>row&&row.employee_id&&normalizeIsoDate(row.leave_start_date)&&normalizeIsoDate(row.return_date)):[];
+  }catch(_){
+    return [];
+  }
+}
+function setLocalEmployeeLeaves(rows){
+  localStorage.setItem(LOCAL_EMPLOYEE_LEAVES_KEY, JSON.stringify(rows||[]));
+}
+function getLeaveRowsForRange(rows,startDate,endDate){
+  return (rows||[]).filter(row=>{
+    const leaveStart=normalizeIsoDate(row.leave_start_date);
+    const leaveEnd=normalizeIsoDate(row.return_date);
+    return leaveStart && leaveEnd && dateRangesOverlap(leaveStart,leaveEnd,startDate,endDate);
+  });
+}
 async function fetchEmployeeLeavesInRange(startDate,endDate){
-  if(!employeeLeavesTableAvailable)return [];
+  if(!employeeLeavesTableAvailable)return getLeaveRowsForRange(getLocalEmployeeLeaves(),startDate,endDate);
   try{
     const {data,error} = await sb
       .from('employee_leaves')
@@ -2349,7 +2412,10 @@ async function fetchEmployeeLeavesInRange(startDate,endDate){
       .gte('return_date', startDate)
       .order('leave_start_date', {ascending:false});
     if(error){
-      if(/employee_leaves|relation/i.test(error.message||''))employeeLeavesTableAvailable=false;
+      if(/employee_leaves|relation/i.test(error.message||'')){
+        employeeLeavesTableAvailable=false;
+        return getLeaveRowsForRange(getLocalEmployeeLeaves(),startDate,endDate);
+      }
       console.warn('fetchEmployeeLeavesInRange:', error.message || error);
       return [];
     }
@@ -2375,6 +2441,134 @@ function buildEmployeeLeaveDateMap(leaves,startDate,endDate){
 }
 function isEmployeeOnLeaveDate(employeeId, ds, leaveDateMap){
   return !!(employeeId && ds && leaveDateMap?.get(employeeId)?.has(ds));
+}
+async function loadEmployeeLeaveAdminList(){
+  const tbody=document.getElementById('leave_admin_body');
+  if(!tbody)return;
+  tbody.innerHTML=`<tr><td colspan="6" style="text-align:center;color:var(--text3);padding:18px">${t('loading')}</td></tr>`;
+  try{
+    const [{data:emps,error:empErr}, leaveRes] = await Promise.all([
+      sb.from('employees').select('id,name').eq('active',true).order('name'),
+      employeeLeavesTableAvailable
+        ? sb.from('employee_leaves').select('id,employee_id,leave_start_date,return_date,created_at').order('leave_start_date',{ascending:false})
+        : Promise.resolve({data:getLocalEmployeeLeaves(), error:null})
+    ]);
+    const empMap=new Map(((emps||[])).map(emp=>[emp.id, emp.name||'-']));
+    let rows=[];
+    if(!empErr){
+      if(leaveRes?.error){
+        if(/employee_leaves|relation/i.test(leaveRes.error.message||'')){
+          employeeLeavesTableAvailable=false;
+          toast('warn', t('work_leave'), t('leave_table_missing'));
+          rows=getLocalEmployeeLeaves();
+        }else{
+          throw leaveRes.error;
+        }
+      }else{
+        rows=(leaveRes?.data||[]);
+      }
+    }else{
+      throw empErr;
+    }
+    rows=(rows||[])
+      .filter(row=>row&&row.employee_id&&normalizeIsoDate(row.leave_start_date)&&normalizeIsoDate(row.return_date))
+      .sort((a,b)=>(b.leave_start_date||'').localeCompare(a.leave_start_date||''));
+    tbody.innerHTML='';
+    if(!rows.length){
+      tbody.innerHTML=`<tr><td colspan="6" style="text-align:center;color:var(--text3);padding:18px">${t('leave_admin_empty')}</td></tr>`;
+      return;
+    }
+    const today=todayISO();
+    rows.forEach((row,i)=>{
+      const tr=document.createElement('tr');
+      const status=today<=row.return_date?t('on_work_leave'):t('returned');
+      const source = row.id && String(row.id).startsWith('local_') ? 'local' : 'remote';
+      tr.innerHTML=`<td>${i+1}</td><td>${empMap.get(row.employee_id)||'-'}</td><td style="font-family:var(--mono)">${row.leave_start_date}</td><td style="font-family:var(--mono)">${row.return_date}</td><td><span class="badge bauto">${status}</span></td><td><button class="brd" onclick="removeEmployeeLeave('${row.id}','${source}')">${t('delete')}</button></td>`;
+      tbody.appendChild(tr);
+    });
+  }catch(e){
+    tbody.innerHTML=`<tr><td colspan="6" style="text-align:center;color:var(--danger);padding:18px">${e.message||t('leave_save_error')}</td></tr>`;
+  }
+}
+function saveLocalEmployeeLeave(payload){
+  const rows=getLocalEmployeeLeaves();
+  rows.push({
+    id:`local_${Date.now()}_${Math.random().toString(36).slice(2,8)}`,
+    employee_id:payload.employee_id,
+    leave_start_date:payload.leave_start_date,
+    return_date:payload.return_date,
+    created_at:new Date().toISOString()
+  });
+  setLocalEmployeeLeaves(rows);
+}
+async function addEmployeeLeave(){
+  const employeeId=document.getElementById('leave_emp')?.value||'';
+  const leaveStart=normalizeIsoDate(document.getElementById('leave_start')?.value||'');
+  const returnDate=normalizeIsoDate(document.getElementById('leave_return')?.value||'');
+  if(!employeeId||!leaveStart||!returnDate){
+    toast('warn', t('work_leave'), t('fill_all'));
+    return;
+  }
+  if(leaveStart>returnDate){
+    toast('warn', t('work_leave'), t('leave_invalid_dates'));
+    return;
+  }
+  const payload={employee_id:employeeId, leave_start_date:leaveStart, return_date:returnDate};
+  try{
+    if(employeeLeavesTableAvailable){
+      const {error}=await sb.from('employee_leaves').insert(payload);
+      if(error){
+        if(/employee_leaves|relation/i.test(error.message||'')){
+          employeeLeavesTableAvailable=false;
+          saveLocalEmployeeLeave(payload);
+          toast('warn', t('work_leave'), t('leave_table_missing'));
+        }else{
+          throw error;
+        }
+      }
+    }else{
+      saveLocalEmployeeLeave(payload);
+    }
+    document.getElementById('leave_emp').value='';
+    document.getElementById('leave_start').value='';
+    document.getElementById('leave_return').value='';
+    toast('success', t('work_leave'), t('leave_save_success'));
+    await loadEmployeeLeaveAdminList();
+    await loadTodayWorkLeaveCard();
+    await loadAtt();
+    loadDashboard();
+    if(mVisible)loadMonthly();
+  }catch(e){
+    toast('error', t('work_leave'), e.message||t('leave_save_error'));
+  }
+}
+async function removeEmployeeLeave(id, source='remote'){
+  if(!id)return;
+  try{
+    if(source==='local' || String(id).startsWith('local_') || !employeeLeavesTableAvailable){
+      const rows=getLocalEmployeeLeaves().filter(row=>String(row.id)!==String(id));
+      setLocalEmployeeLeaves(rows);
+    }else{
+      const {error}=await sb.from('employee_leaves').delete().eq('id', id);
+      if(error){
+        if(/employee_leaves|relation/i.test(error.message||'')){
+          employeeLeavesTableAvailable=false;
+          const rows=getLocalEmployeeLeaves().filter(row=>String(row.id)!==String(id));
+          setLocalEmployeeLeaves(rows);
+        }else{
+          throw error;
+        }
+      }
+    }
+    toast('success', t('work_leave'), t('leave_delete_success'));
+    await loadEmployeeLeaveAdminList();
+    await loadTodayWorkLeaveCard();
+    await loadAtt();
+    loadDashboard();
+    if(mVisible)loadMonthly();
+  }catch(e){
+    toast('error', t('work_leave'), e.message||t('leave_delete_error'));
+  }
 }
 function getAbsenceStartDate(){
   let ds=localStorage.getItem(ABSENCE_START_KEY);
@@ -2991,7 +3185,42 @@ function setToday(){const today=todayISO();document.getElementById('fd_from').va
 function setCurMonth(){document.getElementById('fmonth').value=curM();onAdminMonthChange();}
 function onAdminMonthChange(){loadDashboard();loadMonthly();}
 function refreshAdminMain(){loadAtt();loadDashboard();loadMonthly();loadTodayWorkLeaveCard();}
-function toggleMonthly(){mVisible=!mVisible;document.getElementById('mbox').classList.toggle('hidden',!mVisible);if(mVisible)loadMonthly();}
+function setAttendanceTableMode(monthly){
+  const dateRange=document.getElementById('att_date_range');
+  const todayBtn=document.getElementById('b_today');
+  const statusFilter=document.getElementById('fstatus');
+  if(dateRange)dateRange.style.display=monthly?'none':'flex';
+  if(todayBtn)todayBtn.style.display=monthly?'none':'';
+  if(statusFilter)statusFilter.style.display=monthly?'none':'';
+
+  if(monthly){
+    st('att_t', t('monthly_att_summary_title'));
+    st('th1', t('mas_emp'));
+    st('th2', t('th2'));
+    st('th4', t('mas_month'));
+    st('th5', t('mas_worked_days'));
+    st('th6', t('mas_late_count'));
+    st('th7', t('mas_absent_days'));
+    st('th_afk', t('mas_late_time'));
+    st('th8', t('mas_actions'));
+  }else{
+    st('att_t', t('att_t'));
+    st('th1', t('th1'));
+    st('th2', t('th2'));
+    st('th4', t('th4'));
+    st('th5', t('th5'));
+    st('th6', t('th6'));
+    st('th7', t('th7'));
+    st('th_afk', t('th_afk'));
+    st('th8', t('th8'));
+  }
+}
+function toggleMonthly(){
+  mVisible=!mVisible;
+  document.getElementById('mbox').classList.toggle('hidden',!mVisible);
+  if(mVisible)loadMonthly();
+  else loadAtt();
+}
 async function loadTodayWorkLeaveCard(){
   const today=todayISO();
   const [leaves, emps] = await Promise.all([
@@ -3236,6 +3465,12 @@ async function loadDashboard(){
 }
 
 async function loadAtt() {
+  if (mVisible) {
+    setAttendanceTableMode(true);
+    await loadMonthly();
+    return;
+  }
+  setAttendanceTableMode(false);
   const dateFrom = document.getElementById('fd_from').value || todayISO();
   const dateTo = document.getElementById('fd_to').value || todayISO();
   const search = document.getElementById('fsearch').value || '';
@@ -3376,13 +3611,18 @@ async function loadAtt() {
 function filterAtt(){
   const q=document.getElementById('fsearch').value.toLowerCase();
   const s=document.getElementById('fstatus').value;
-  document.querySelectorAll('#att_body tr').forEach(tr=>{tr.style.display=((tr.dataset.name||'').includes(q)&&(!s||tr.dataset.st===s))?'':'none';});
-  document.querySelectorAll('#mbody tr, #monthly_att_summary_body tr').forEach(tr=>{
+  document.querySelectorAll('#att_body tr').forEach(tr=>{
+    const matchesName=(tr.dataset.name||'').includes(q);
+    const matchesStatus=mVisible?true:(!s||tr.dataset.st===s);
+    tr.style.display=(matchesName&&matchesStatus)?'':'none';
+  });
+  document.querySelectorAll('#mbody tr').forEach(tr=>{
     tr.style.display=((tr.dataset.name||'').includes(q))?'':'none';
   });
 }
 
 async function loadMonthly(){
+  if(mVisible)setAttendanceTableMode(true);
   const month=document.getElementById('fmonth').value||curM();
   st('mlbl',month+' '+t('hisobot'));
   const[y,mo]=month.split('-').map(Number);const dim=new Date(y,mo,0).getDate();
@@ -3407,9 +3647,9 @@ async function loadMonthly(){
   monthlyData=[];
   monthlyAttendanceSummary=[];
   const tbody=document.getElementById('mbody');
-  const summaryBody=document.getElementById('monthly_att_summary_body');
+  const attBody=mVisible?document.getElementById('att_body'):null;
   tbody.innerHTML='';
-  summaryBody.innerHTML='';
+  if(attBody)attBody.innerHTML='';
   emps.forEach((emp,i)=>{
     const er=recMap.get(emp.id)||[];
     let late=0,came=0,half=0,sec=0,afkSec=0,totalLateMinutes=0;
@@ -3462,10 +3702,13 @@ async function loadMonthly(){
     tr.innerHTML=`<td>${i+1}</td><td>${emp.name}</td><td style="font-family:var(--mono)">${hs}</td><td style="color:${afkSec>0?'var(--danger)':'var(--text2)'};">${formatPenaltyAfk(afkSec)}</td><td>${late} ${t('marta')}</td><td>${half} ${t('kun')}</td><td>${abs} ${t('kun')}</td><td style="color:var(--danger)">-${pen} ${t('ball')}</td><td style="color:var(--success)">+${bon} ${t('ball')}</td><td><strong style="font-family:var(--mono)">${fin} ${t('ball')}</strong></td><td style="color:var(--success);font-weight:700;font-family:var(--mono)">${kpi.toLocaleString()} UZS</td><td><div style="display:flex;gap:3px"><button class="bsm bsm-g" onclick="adjKpi('${emp.id}','${month}',10)">+10</button><button class="bsm bsm-r" onclick="adjKpi('${emp.id}','${month}',-10)">-10</button><button class="bsm bsm-gr" onclick="adjKpi('${emp.id}','${month}',0,true)">${t('reset')}</button></div></td>`;
     tbody.appendChild(tr);
 
-    const summaryTr=document.createElement('tr');
-    summaryTr.dataset.name=(emp.name||'').toLowerCase();
-    summaryTr.innerHTML=`<td>${i+1}</td><td>${emp.name||'-'}</td><td style="font-family:var(--mono)">${month}</td><td>${came} ${t('kun')}</td><td>${late} ${t('marta')}</td><td>${abs} ${t('kun')}</td><td>${totalLateMinutes>0?`${totalLateMinutes} ${t('daq')}`:'-'}</td><td><button class="bsm bsm-g" onclick="openMonthlyAttendanceDetails('${emp.id}')">${t('details')}</button></td>`;
-    summaryBody.appendChild(summaryTr);
+    if(attBody){
+      const summaryTr=document.createElement('tr');
+      summaryTr.dataset.name=(emp.name||'').toLowerCase();
+      summaryTr.dataset.st='monthly';
+      summaryTr.innerHTML=`<td>${i+1}</td><td>${emp.name||'-'}</td><td style="font-family:var(--mono)">${emp.login||'-'}</td><td style="font-family:var(--mono)">${month}</td><td>${came} ${t('kun')}</td><td>${late} ${t('marta')}</td><td>${abs} ${t('kun')}</td><td>${totalLateMinutes>0?`${totalLateMinutes} ${t('daq')}`:'-'}</td><td><button class="bsm bsm-g" onclick="openMonthlyAttendanceDetails('${emp.id}')">${t('details')}</button></td>`;
+      attBody.appendChild(summaryTr);
+    }
   });
   st('me',''+emps.length);st('ml',''+tL);st('ma',''+tA);st('mh',formatHm(tH));st('mk',tK.toLocaleString()+' UZS');
   filterAtt();
@@ -3514,7 +3757,9 @@ async function loadEmpList() {
   }
 
   const tbody = document.getElementById('emp_body');
+  const leaveSelect = document.getElementById('leave_emp');
   tbody.innerHTML = '';
+  if (leaveSelect) leaveSelect.innerHTML = `<option value="">${t('leave_emp_placeholder')}</option>`;
 
   emps.forEach((emp, i) => {
     const ka = emp.kpi_type === 'junior' ? '400 000' : '560 000';
@@ -3533,11 +3778,18 @@ async function loadEmpList() {
       <td><button class="brd" onclick="delEmp('${emp.id}')">${t('delete')}</button></td>
     `;
     tbody.appendChild(tr);
+    if (leaveSelect) {
+      const opt = document.createElement('option');
+      opt.value = emp.id;
+      opt.textContent = emp.name || emp.login || '-';
+      leaveSelect.appendChild(opt);
+    }
   });
   Array.from(tbody.querySelectorAll('tr td:nth-child(5) span')).forEach(el=>{
     if(/Ro'yxatda|Зарегистрировано|registered/i.test(el.textContent)) el.textContent=`✅ ${t('face_registered_yes')}`;
     else el.textContent=`❌ ${t('face_registered_no')}`;
   });
+  await loadEmployeeLeaveAdminList();
 }
 async function delEmp(id) {
   if (!id) return;
@@ -4868,6 +5120,7 @@ async function startFaceDetection(){
   if(empState==='ended')return;
   const statusEl=document.getElementById('face_status_inline');
   const setStatus=(txt)=>{if(statusEl)statusEl.textContent=txt;};
+  const regBox=document.getElementById('faceRegBox');
 
   setStatus(t('face_loading'));
   setFaceDot('yellow', t('face_loading'));
@@ -4884,19 +5137,14 @@ async function startFaceDetection(){
   if(!camOk){
     setStatus(t('face_camera_error'));
     setFaceDot('gray', t('face_camera_error'));
-    const frb=document.getElementById('faceRegBox');
-    if(frb)frb.style.display='none';
+    if(regBox)regBox.style.display='none';
     return;
   }
 
   await loadMyFaceProfile();
-  if(myFaceDescriptor){
-    setStatus(t('face_ready'));
-    setFaceDot('green', t('face_detected'));
-  }else{
-    setStatus(t('face_need_registration'));
-    setFaceDot('yellow', t('face_need_registration'));
-  }
+  if(regBox)regBox.style.display='none';
+  setStatus(t('face_ready'));
+  setFaceDot('green', t('face_detected'));
 
   if(faceCheckIv){clearInterval(faceCheckIv);faceCheckIv=null;}
   if(faceCheckTimer){clearTimeout(faceCheckTimer);faceCheckTimer=null;}
@@ -4955,34 +5203,10 @@ async function runFaceCheck(){
 
   try{
     const opts=new faceapi.TinyFaceDetectorOptions({inputSize:160, scoreThreshold:0.5});
-    const det=await faceapi.detectSingleFace(video,opts).withFaceLandmarks(true).withFaceDescriptor();
+    const det=await faceapi.detectSingleFace(video,opts).withFaceLandmarks(true);
 
     if(det?.detection?.box && det.detection.box._width > 0 && det.detection.box._x !== null){
       const box=det.detection.box;
-      let reason='unknown_face';
-
-      if(!myFaceDescriptor){
-        const statusEl=document.getElementById('face_status_inline');
-        if(statusEl)statusEl.textContent=t('face_need_registration');
-        setFaceDot('yellow', t('face_need_registration'));
-        scheduleFaceCheck(FACE_MONITOR_INTERVAL);
-        return;
-      }
-
-      try{
-        const dist=getFaceDistance(det.descriptor, myFaceDescriptor);
-        reason=dist <= FACE_MATCH_THRESHOLD ? 'match' : 'unknown_face';
-      }catch(e){}
-
-      if(reason==='unknown_face'){
-        faceHitCount=0;
-        faceUnknownCount=1;
-        drawFaceBox(box,false);
-        faceMissCount=1;
-        onFaceMissed('wrong_person');
-        return;
-      }
-
       faceHitCount++;
       faceMissCount=0;
       faceUnknownCount=0;
@@ -4990,8 +5214,8 @@ async function runFaceCheck(){
       drawFaceBox(box,true);
       updateLiveness(box);
 
-      if(reason === 'match' && faceHitCount >= STABLE_HIT_REQUIRED){
-        onFaceStablyDetected(reason);
+      if(faceHitCount >= STABLE_HIT_REQUIRED){
+        onFaceStablyDetected('detected');
       }else{
         const verifyText=tf('face_verifying',{current:faceHitCount,total:STABLE_HIT_REQUIRED});
         const statusEl=document.getElementById('face_status_inline');
