@@ -1221,6 +1221,8 @@ const FACE_CHECK_INTERVAL = 25000;
 const FACE_MONITOR_INTERVAL = 4000;
 const FACE_RETRY_INTERVAL = 1200;
 const STABLE_HIT_REQUIRED = 3;
+const FACE_MIN_VISIBLE_AREA = 0.015;
+const FACE_MISS_REQUIRED = 3;
 const FACE_LOSS_WARNING_DELAY_SEC = 120;
 const AFK_GRACE_SEC       = 600;
 const BREAK_LIMIT_SEC     = 1800;
@@ -3116,6 +3118,10 @@ async function doLogin(){
   setLoginButtonLoading(false);
 }
 async function doLogout(){
+  const pausedForExit=pauseWorkForPlatformExit();
+  if(pausedForExit){
+    try{await savePartial();}catch(e){console.warn('logout pause save:',e.message||e);}
+  }
   stopAll();
   stopFaceDetection();
   stopRealtimeSubscriptions();
@@ -4025,13 +4031,14 @@ let prayerStart = null;
 let pIv = null;
 let autoEndIv = null;
 let autoEndDone = false;
+let platformPauseTimer = null;
 
 function todayBreakSec(){return breakSeconds;}
 
 function getLS(){return JSON.parse(localStorage.getItem('aloqa_emp_state')||'null');}
 function saveLS(){
   const ss=getLS()||{};
-  const data={date:todayISO(),state:empState,wAccum,lAccum,prayerAccum,afkSeconds,afkCount,breakSeconds,wStartISO:wStart?wStart.toISOString():null,lStartISO:lStart?lStart.toISOString():null,prayerStartISO:prayerStart?prayerStart.toISOString():null,afkStartISO:currentAfkStart?currentAfkStart.toISOString():null,i_s:document.getElementById('i_s')?.textContent||'-',i_e:document.getElementById('i_e')?.textContent||'-',i_ls:document.getElementById('i_ls')?.textContent||'-',i_le:document.getElementById('i_le')?.textContent||'-',i_ps:document.getElementById('i_ps')?.textContent||'-',i_pe:document.getElementById('i_pe')?.textContent||'-',lateMin:ss.lateMin||0,autoEndDone:autoEndDone||false};
+  const data={date:todayISO(),state:empState,wAccum,lAccum,prayerAccum,afkSeconds,afkCount,breakSeconds,wStartISO:wStart?wStart.toISOString():null,lStartISO:lStart?lStart.toISOString():null,prayerStartISO:prayerStart?prayerStart.toISOString():null,afkStartISO:currentAfkStart?currentAfkStart.toISOString():null,i_s:document.getElementById('i_s')?.textContent||'-',i_e:document.getElementById('i_e')?.textContent||'-',i_ls:document.getElementById('i_ls')?.textContent||'-',i_le:document.getElementById('i_le')?.textContent||'-',i_ps:document.getElementById('i_ps')?.textContent||'-',i_pe:document.getElementById('i_pe')?.textContent||'-',lateMin:ss.lateMin||0,autoEndDone:autoEndDone||false,lastSavedISO:tzNow().toISOString()};
   localStorage.setItem('aloqa_emp_state',JSON.stringify(data));
 }
 function restoreLS(){
@@ -4041,7 +4048,23 @@ function restoreLS(){
   if(ss.wStartISO)wStart=new Date(ss.wStartISO);
   if(ss.lStartISO)lStart=new Date(ss.lStartISO);
   if(ss.prayerStartISO)prayerStart=new Date(ss.prayerStartISO);
-  if(ss.afkStartISO){currentAfkStart=new Date(ss.afkStartISO);isAfk=true;const elapsed=Math.floor((tzNow()-currentAfkStart)/1000);if(elapsed>0){afkSeconds+=elapsed;breakSeconds+=elapsed;}currentAfkStart=null;isAfk=false;}
+  if(empState==='working'&&wStart&&ss.lastSavedISO){
+    const lastSaved=new Date(ss.lastSavedISO);
+    const gapSec=Math.floor((tzNow()-lastSaved)/1000);
+    if(gapSec>90){
+      const stopAt=lastSaved>wStart?lastSaved:wStart;
+      wAccum+=Math.max(0,Math.floor((stopAt-wStart)/1000));
+      wStart=null;
+      empState='paused';
+      ss.state='paused';
+      ss.wAccum=wAccum;
+      ss.wStartISO=null;
+      ss.afkStartISO=null;
+      ss.lastSavedISO=tzNow().toISOString();
+      localStorage.setItem('aloqa_emp_state',JSON.stringify(ss));
+    }
+  }
+  if(ss.afkStartISO&&empState==='working'){currentAfkStart=new Date(ss.afkStartISO);isAfk=true;const elapsed=Math.floor((tzNow()-currentAfkStart)/1000);if(elapsed>0){afkSeconds+=elapsed;breakSeconds+=elapsed;}currentAfkStart=null;isAfk=false;}
   st('i_s',ss.i_s||'-');st('i_e',ss.i_e||'-');st('i_ls',ss.i_ls||'-');st('i_le',ss.i_le||'-');st('i_ps',ss.i_ps||'-');st('i_pe',ss.i_pe||'-');
   const lt=document.getElementById('e_ltag');if(lt&&ss.lateMin!==undefined)lt.textContent=t('lt_pre')+' '+ss.lateMin+' '+t('lt_u');
   setTV(wAccum,'tw');setTV(lAccum,'tl');setTV(prayerAccum,'tp');updateAfkDisplay();updateBreakBar();updatePrayerInfo();updateEmpBtns();updateEmpStatusTag();
@@ -4083,7 +4106,7 @@ async function empStart(){
   const lm=computeLateMinutesFromDate(wStart);
   const el=document.getElementById('e_ltag');if(el)el.textContent=t('lt_pre')+' '+lm+' '+t('lt_u');
   const ss=getLS()||{};ss.lateMin=lm;localStorage.setItem('aloqa_emp_state',JSON.stringify(ss));
-  updateEmpBtns();updateEmpStatusTag();startWT();saveLS();
+  updateEmpBtns();updateEmpStatusTag();startWT();saveLS();startFaceDetection();
   await savePartial();
   toast('success',t('bs'),t('work_started_success'));
 }
@@ -4130,7 +4153,41 @@ async function empBackPrayer(){
   await savePartial();
   toast('success',t('prayer_btn'),`${t('work_continues')} 💼`);
 }
-async function empContinue(){if(empState!=='paused')return;empState='working';wStart=tzNow();document.getElementById('bc').classList.add('hidden');updateEmpBtns();updateEmpStatusTag();startWT();saveLS();await savePartial();}
+async function empContinue(){
+  if(empState!=='paused')return;
+  empState='working';
+  wStart=tzNow();
+  document.getElementById('bc').classList.add('hidden');
+  updateEmpBtns();updateEmpStatusTag();startWT();saveLS();startFaceDetection();
+  await savePartial();
+}
+function pauseWorkForPlatformExit({saveRemote=false}={}){
+  if(!CU||CU.role!=='employee'||empState!=='working')return false;
+  const now=tzNow();
+  if(wStart)wAccum+=Math.floor((now-wStart)/1000);
+  wStart=null;
+  empState='paused';
+  stopWT();
+  setTV(wAccum,'tw');
+  if(isAfk)endAfkSession();
+  afkPending=false;
+  afkWarnShown=false;
+  afkWarnDismissed=false;
+  afkVoiceCount=0;
+  clearAfkVoicePrompt();
+  if(afkCountdownIv){clearInterval(afkCountdownIv);afkCountdownIv=null;}
+  const warn=document.getElementById('m_afk_warn');
+  if(warn)warn.classList.add('hidden');
+  setAfkAlertVisualState(false);
+  stopFaceDetection();
+  const bc=document.getElementById('bc');
+  if(bc)bc.classList.remove('hidden');
+  updateEmpBtns();
+  updateEmpStatusTag();
+  saveLS();
+  if(saveRemote)savePartial().catch(e=>console.warn('platform pause save:',e.message||e));
+  return true;
+}
 async function empEnd(auto=false){
   if(!['working','lunch','paused','prayer'].includes(empState))return;
   const now=tzNow();
@@ -4444,7 +4501,7 @@ function speakAfkVoiceWarning(){afkVoiceCount=0;}
 
 function scheduleFaceCheck(ms){
   if(faceCheckTimer){clearTimeout(faceCheckTimer);faceCheckTimer=null;}
-  if(!faceApiLoaded||['ended','not_started','lunch','prayer'].includes(empState))return;
+  if(!faceApiLoaded||['ended','not_started','paused','lunch','prayer'].includes(empState))return;
   faceCheckTimer=setTimeout(runFaceCheck,ms);
 }
 
@@ -4761,7 +4818,7 @@ function onFaceMissed(reason='missing'){
   }
   const statusEl=document.getElementById('face_status_inline');
   const isWrongPerson=reason==='wrong_person';
-  const warningText=isWrongPerson ? t('face_wrong_person_afk') : t('face_not_detected');
+  const warningText=reason==='small_face' ? t('face_move_closer') : (isWrongPerson ? t('face_wrong_person_afk') : t('face_not_detected'));
   if(statusEl)statusEl.textContent=warningText;
   setFaceDot('red',warningText);
 
@@ -5062,9 +5119,7 @@ async function loadFaceModels(){
   for(const url of urls){
     try{
       await Promise.all([
-        faceapi.nets.tinyFaceDetector.loadFromUri(url),
-        faceapi.nets.faceLandmark68TinyNet.loadFromUri(url),
-        faceapi.nets.faceRecognitionNet.loadFromUri(url)
+        faceapi.nets.tinyFaceDetector.loadFromUri(url)
       ]);
       faceApiLoaded = true;
       return true;
@@ -5117,10 +5172,17 @@ async function startCamera(){
 }
 
 async function startFaceDetection(){
-  if(empState==='ended')return;
   const statusEl=document.getElementById('face_status_inline');
   const setStatus=(txt)=>{if(statusEl)statusEl.textContent=txt;};
   const regBox=document.getElementById('faceRegBox');
+  if(regBox)regBox.style.display='none';
+
+  if(empState!=='working'){
+    const idleText=empState==='paused'?t('paused'):(empState==='lunch'?t('st2'):(empState==='prayer'?t('prayer_btn'):t('st0')));
+    setStatus(idleText);
+    setFaceDot('gray', idleText);
+    return;
+  }
 
   setStatus(t('face_loading'));
   setFaceDot('yellow', t('face_loading'));
@@ -5142,7 +5204,6 @@ async function startFaceDetection(){
   }
 
   await loadMyFaceProfile();
-  if(regBox)regBox.style.display='none';
   setStatus(t('face_ready'));
   setFaceDot('green', t('face_detected'));
 
@@ -5203,10 +5264,18 @@ async function runFaceCheck(){
 
   try{
     const opts=new faceapi.TinyFaceDetectorOptions({inputSize:160, scoreThreshold:0.5});
-    const det=await faceapi.detectSingleFace(video,opts).withFaceLandmarks(true);
+    const det=await faceapi.detectSingleFace(video,opts);
+    const detection=det?.detection||det;
+    const box=detection?.box;
+    const boxWidth=box?.width||box?._width||0;
+    const boxHeight=box?.height||box?._height||0;
+    const boxX=box?.x??box?._x;
+    const boxY=box?.y??box?._y;
+    const videoArea=Math.max(1,(video.videoWidth||320)*(video.videoHeight||240));
+    const faceAreaRatio=(boxWidth*boxHeight)/videoArea;
+    const faceVisibleEnough=box&&boxWidth>0&&boxHeight>0&&boxX!==null&&boxX!==undefined&&boxY!==null&&boxY!==undefined&&faceAreaRatio>=FACE_MIN_VISIBLE_AREA;
 
-    if(det?.detection?.box && det.detection.box._width > 0 && det.detection.box._x !== null){
-      const box=det.detection.box;
+    if(faceVisibleEnough){
       faceHitCount++;
       faceMissCount=0;
       faceUnknownCount=0;
@@ -5226,11 +5295,23 @@ async function runFaceCheck(){
     }else{
       faceHitCount=Math.max(0, faceHitCount-1);
       faceUnknownCount=0;
-      faceMissCount=1;
-      clearFaceBox();
-      lastFaceBox=null;
+      faceMissCount++;
+      const hasSmallFace=box&&boxWidth>0&&boxHeight>0;
+      const waitText=hasSmallFace?t('face_move_closer'):t('face_searching');
+      if(hasSmallFace)drawFaceBox(box,false);
+      else{
+        clearFaceBox();
+        lastFaceBox=null;
+      }
       livenessScore=Math.max(0,livenessScore-0.05);
-      onFaceMissed('missing');
+      if(faceMissCount>=FACE_MISS_REQUIRED){
+        onFaceMissed(hasSmallFace?'small_face':'missing');
+      }else{
+        const statusEl=document.getElementById('face_status_inline');
+        if(statusEl)statusEl.textContent=waitText;
+        setFaceDot('yellow', waitText);
+        scheduleFaceCheck(FACE_RETRY_INTERVAL);
+      }
     }
   }catch(e){
     console.warn('runFaceCheck error:', e.message);
@@ -5257,8 +5338,7 @@ function updateLiveness(box){
 function onFaceStablyDetected(reason){
   resetFaceLossState();
   const statusEl=document.getElementById('face_status_inline');
-  const name=CU?.name||'';
-  const label=name ? `${t('face_detected')} ${name}` : t('face_detected');
+  const label=t('face_detected');
   if(statusEl)statusEl.textContent=label;
   setFaceDot('green', label);
   if(isAfk)endAfkSession();
@@ -5399,8 +5479,9 @@ async function saveFaceProfile(){
 //  EMP UI HELPERS
 // ============================================================
 function updateEmpBtns(){
-  const bsE=document.getElementById('bs'),blE=document.getElementById('bl'),bpE=document.getElementById('bp'),beE=document.getElementById('be');
+  const bsE=document.getElementById('bs'),blE=document.getElementById('bl'),bpE=document.getElementById('bp'),beE=document.getElementById('be'),bcE=document.getElementById('bc');
   const dis=(b,d)=>{if(b)b.disabled=d;};
+  if(bcE)bcE.classList.toggle('hidden',empState!=='paused');
   if(empState==='not_started'){dis(bsE,false);dis(blE,true);dis(bpE,true);dis(beE,true);if(blE){blE.textContent=t('bl');blE.onclick=empLunch;} if(bpE){bpE.textContent=t('prayer_btn');bpE.onclick=empPrayer;}}
   else if(empState==='working'){dis(bsE,true);dis(blE,false);dis(bpE,false);dis(beE,false);if(blE){blE.textContent=t('bl');blE.onclick=empLunch;} if(bpE){bpE.textContent=t('prayer_btn');bpE.onclick=empPrayer;}}
   else if(empState==='lunch'){dis(bsE,true);dis(blE,false);dis(bpE,true);dis(beE,true);if(blE){blE.textContent=t('bb');blE.onclick=empBackLunch;} if(bpE){bpE.textContent=t('prayer_btn');bpE.onclick=empPrayer;}}
@@ -5495,8 +5576,24 @@ async function loadHist(){
     });
   }
 
+  window.addEventListener('pagehide',()=>{pauseWorkForPlatformExit();});
+  window.addEventListener('beforeunload',()=>{pauseWorkForPlatformExit();});
+  window.addEventListener('blur',()=>{
+    if(platformPauseTimer)clearTimeout(platformPauseTimer);
+    platformPauseTimer=setTimeout(()=>{
+      if(document.hidden||!document.hasFocus())pauseWorkForPlatformExit({saveRemote:true});
+    },1200);
+  });
+  window.addEventListener('focus',()=>{
+    if(platformPauseTimer){clearTimeout(platformPauseTimer);platformPauseTimer=null;}
+  });
+
   // ✅ FIX 3: Tab qaytganda — faceHitCount reset, video qayta yoqiladi
   document.addEventListener('visibilitychange',()=>{
+    if(document.hidden){
+      pauseWorkForPlatformExit({saveRemote:true});
+      return;
+    }
     if(!document.hidden && CU && CU.role==='employee'){ loadNotificationsEmp(true); }
     if(!document.hidden && CU && CU.role==='employee' && empState==='working'){
       if(!faceStream){
