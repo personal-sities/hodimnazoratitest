@@ -1031,7 +1031,7 @@ html, body { font-family:var(--font); background:var(--bg); color:var(--text); m
         <div style="margin-top:10px;padding:12px;background:var(--bg3);border-radius:var(--radius-sm);border:1px solid var(--border)">
           <div style="font-size:11px;color:var(--text2);margin-bottom:5px;font-weight:600" id="face_info_lbl">📷 Yuz nazorati</div>
           <div id="face_status_inline" style="font-size:12.5px;font-weight:700;">⏳ Yuklanmoqda...</div>
-          <div class="face-reg-box" id="faceRegBox" style="margin-top:8px;">
+          <div class="face-reg-box" id="faceRegBox" style="margin-top:8px;display:none;">
             <h4 id="face_reg_title">🎯 Yuzni ro'yxatdan o'tkazish</h4>
             <div class="face-samples" id="faceSamples"></div>
             <div class="face-quality" id="faceQuality">0/5 namuna olindi</div>
@@ -1218,8 +1218,10 @@ const TASHKENT_TIMEZONE = 'Asia/Tashkent';
 const WORKDAY_START_MINUTES = 9 * 60;
 const WORKDAY_END_MINUTES = 18 * 60;
 const FACE_CHECK_INTERVAL = 25000;
-const FACE_MONITOR_INTERVAL = 4000;
-const FACE_RETRY_INTERVAL = 1200;
+const FACE_FOUND_COOLDOWN_INTERVAL = 60000;
+const FACE_SEARCH_INTERVAL = 1000;
+const FACE_MONITOR_INTERVAL = FACE_FOUND_COOLDOWN_INTERVAL;
+const FACE_RETRY_INTERVAL = FACE_SEARCH_INTERVAL;
 const STABLE_HIT_REQUIRED = 3;
 const FACE_MIN_VISIBLE_AREA = 0.015;
 const FACE_MISS_REQUIRED = 3;
@@ -4032,6 +4034,7 @@ let pIv = null;
 let autoEndIv = null;
 let autoEndDone = false;
 let platformPauseTimer = null;
+let pendingAutoEndSave = false;
 
 function todayBreakSec(){return breakSeconds;}
 
@@ -4041,6 +4044,11 @@ function saveLS(){
   const data={date:todayISO(),state:empState,wAccum,lAccum,prayerAccum,afkSeconds,afkCount,breakSeconds,wStartISO:wStart?wStart.toISOString():null,lStartISO:lStart?lStart.toISOString():null,prayerStartISO:prayerStart?prayerStart.toISOString():null,afkStartISO:currentAfkStart?currentAfkStart.toISOString():null,i_s:document.getElementById('i_s')?.textContent||'-',i_e:document.getElementById('i_e')?.textContent||'-',i_ls:document.getElementById('i_ls')?.textContent||'-',i_le:document.getElementById('i_le')?.textContent||'-',i_ps:document.getElementById('i_ps')?.textContent||'-',i_pe:document.getElementById('i_pe')?.textContent||'-',lateMin:ss.lateMin||0,autoEndDone:autoEndDone||false,lastSavedISO:tzNow().toISOString()};
   localStorage.setItem('aloqa_emp_state',JSON.stringify(data));
 }
+function getTodayAutoEndDate(){
+  const hh=String(AUTO_END_HOUR).padStart(2,'0');
+  const mm=String(AUTO_END_MIN).padStart(2,'0');
+  return new Date(`${todayISO()}T${hh}:${mm}:00+05:00`);
+}
 function restoreLS(){
   const ss=getLS();
   if(!ss||ss.date!==todayISO()){localStorage.removeItem('aloqa_emp_state');updateEmpBtns();return false;}
@@ -4048,26 +4056,26 @@ function restoreLS(){
   if(ss.wStartISO)wStart=new Date(ss.wStartISO);
   if(ss.lStartISO)lStart=new Date(ss.lStartISO);
   if(ss.prayerStartISO)prayerStart=new Date(ss.prayerStartISO);
-  if(empState==='working'&&wStart&&ss.lastSavedISO){
-    const lastSaved=new Date(ss.lastSavedISO);
-    const gapSec=Math.floor((tzNow()-lastSaved)/1000);
-    if(gapSec>90){
-      const stopAt=lastSaved>wStart?lastSaved:wStart;
-      wAccum+=Math.max(0,Math.floor((stopAt-wStart)/1000));
-      wStart=null;
-      empState='paused';
-      ss.state='paused';
-      ss.wAccum=wAccum;
-      ss.wStartISO=null;
-      ss.afkStartISO=null;
-      ss.lastSavedISO=tzNow().toISOString();
+  if(!autoEndDone&&['working','lunch','paused','prayer'].includes(empState)){
+    const autoEndAt=getTodayAutoEndDate();
+    if(tzNow()>=autoEndAt){
+      if(empState==='working'&&wStart)wAccum+=Math.max(0,Math.floor((autoEndAt-wStart)/1000));
+      if(empState==='lunch'&&lStart)lAccum+=Math.max(0,Math.floor((autoEndAt-lStart)/1000));
+      if(empState==='prayer'&&prayerStart)prayerAccum+=Math.max(0,Math.floor((autoEndAt-prayerStart)/1000));
+      wStart=null;lStart=null;prayerStart=null;empState='ended';autoEndDone=true;
+      ss.state='ended';ss.wAccum=wAccum;ss.lAccum=lAccum;ss.prayerAccum=prayerAccum;
+      ss.wStartISO=null;ss.lStartISO=null;ss.prayerStartISO=null;ss.afkStartISO=null;
+      ss.i_e=ss.i_e&&ss.i_e!=='-'?ss.i_e:fmtHM(autoEndAt);
+      ss.autoEndDone=true;ss.lastSavedISO=tzNow().toISOString();
       localStorage.setItem('aloqa_emp_state',JSON.stringify(ss));
+      pendingAutoEndSave=true;
     }
   }
   if(ss.afkStartISO&&empState==='working'){currentAfkStart=new Date(ss.afkStartISO);isAfk=true;const elapsed=Math.floor((tzNow()-currentAfkStart)/1000);if(elapsed>0){afkSeconds+=elapsed;breakSeconds+=elapsed;}currentAfkStart=null;isAfk=false;}
   st('i_s',ss.i_s||'-');st('i_e',ss.i_e||'-');st('i_ls',ss.i_ls||'-');st('i_le',ss.i_le||'-');st('i_ps',ss.i_ps||'-');st('i_pe',ss.i_pe||'-');
   const lt=document.getElementById('e_ltag');if(lt&&ss.lateMin!==undefined)lt.textContent=t('lt_pre')+' '+ss.lateMin+' '+t('lt_u');
-  setTV(wAccum,'tw');setTV(lAccum,'tl');setTV(prayerAccum,'tp');updateAfkDisplay();updateBreakBar();updatePrayerInfo();updateEmpBtns();updateEmpStatusTag();
+  const displayWork=empState==='working'&&wStart?wAccum+Math.max(0,Math.floor((tzNow()-wStart)/1000)):wAccum;
+  setTV(displayWork,'tw');setTV(lAccum,'tl');setTV(prayerAccum,'tp');updateAfkDisplay();updateBreakBar();updatePrayerInfo();updateEmpBtns();updateEmpStatusTag();
   if(empState==='working')startWT();
   if(empState==='lunch')startLT();
   if(empState==='prayer')startPT();
@@ -4082,6 +4090,10 @@ function initEmp(){
   document.getElementById('m_welcome').classList.remove('hidden');
   const mt=document.getElementById('e_mtag');if(mt)mt.textContent=curM();
   startFaceDetection();startAutoEndCheck();startPrayerClock();
+  if(pendingAutoEndSave){
+    pendingAutoEndSave=false;
+    saveAtt(true).catch(e=>console.warn('auto-end restore save:',e.message||e));
+  }
   loadTodayLunchPlan().then(()=>ensureLunchShiftPrompt());
   if(Notification.permission==='granted'){scheduleReminders();}
   subscribeEmployeeRealtime();
@@ -4187,6 +4199,11 @@ function pauseWorkForPlatformExit({saveRemote=false}={}){
   saveLS();
   if(saveRemote)savePartial().catch(e=>console.warn('platform pause save:',e.message||e));
   return true;
+}
+function syncWorkWhileAway({saveRemote=false}={}){
+  if(!CU||CU.role!=='employee'||empState==='not_started')return;
+  saveLS();
+  if(saveRemote&&empState!=='ended')savePartial().catch(e=>console.warn('platform sync save:',e.message||e));
 }
 async function empEnd(auto=false){
   if(!['working','lunch','paused','prayer'].includes(empState))return;
@@ -4445,6 +4462,7 @@ let faceCheckTimer  = null;
 let faceMissCount   = 0;
 let faceHitCount    = 0;
 let faceUnknownCount= 0;
+let lastStableFaceDetectedAt = 0;
 let faceWidgetMin   = false;
 let afkCurIv        = null;
 let afkCountdownIv  = null;
@@ -4502,7 +4520,11 @@ function speakAfkVoiceWarning(){afkVoiceCount=0;}
 function scheduleFaceCheck(ms){
   if(faceCheckTimer){clearTimeout(faceCheckTimer);faceCheckTimer=null;}
   if(!faceApiLoaded||['ended','not_started','paused','lunch','prayer'].includes(empState))return;
-  faceCheckTimer=setTimeout(runFaceCheck,ms);
+  const cooldownRemaining=lastStableFaceDetectedAt
+    ? Math.max(0, FACE_FOUND_COOLDOWN_INTERVAL-(Date.now()-lastStableFaceDetectedAt))
+    : 0;
+  const delay=cooldownRemaining>0 ? Math.max(ms, cooldownRemaining) : ms;
+  faceCheckTimer=setTimeout(runFaceCheck,delay);
 }
 
 function toggleFaceWidget(){
@@ -4601,9 +4623,10 @@ async function startFaceDetection(){
   if(!modelsOk){setStatus(t('face_model_error'));setFaceDot('gray',t('face_model_error'));toast('error',t('face_title'),t('face_model_error'));return;}
   const camOk=await startCamera();
   if(!camOk){setStatus('⚠️ Kamera ruxsati yoq');setFaceDot('gray','Kamera yoq');const frb=document.getElementById('faceRegBox');if(frb)frb.style.display='none';return;}
-  await loadMyFaceProfile();
-  if(myFaceDescriptor){setStatus('✅ Yuz nazorati tayyor');setFaceDot('green','Tayyor');}
-  else{setStatus('📸 Yuzni royxatdan otkazing');setFaceDot('yellow','Royxat kerak');}
+  const frb=document.getElementById('faceRegBox');
+  if(frb)frb.style.display='none';
+  setStatus(t('face_ready'));
+  setFaceDot('green',t('face_detected'));
   if(faceCheckIv){clearInterval(faceCheckIv);faceCheckIv=null;}
   if(faceCheckTimer){clearTimeout(faceCheckTimer);faceCheckTimer=null;}
   // ✅ FIX 3: Yangi detection siklida counterlarni reset qil
@@ -4670,42 +4693,16 @@ async function runFaceCheck(){
 
   try{
     const opts=new faceapi.TinyFaceDetectorOptions({inputSize:160,scoreThreshold:0.5});
-    const det=await faceapi.detectSingleFace(video,opts).withFaceLandmarks(true).withFaceDescriptor();
+    const det=await faceapi.detectSingleFace(video,opts);
 
     if(det && det.detection && det.detection.box &&
    det.detection.box._width > 0 &&
    det.detection.box._x !== null){
   const box = det.detection.box;
 
-      // Recognition tekshiruvi — oldin tekshir, keyin hitCount oshir
-      let reason='detected';
-      if(myFaceDescriptor){
-        try{
-          const dist=faceapi.euclideanDistance(Array.from(det.descriptor||[]),Array.from(myFaceDescriptor));
-          reason=dist<0.56?'match':'unknown_face';
-        }catch(e){}
-      }
+      const reason='detected';
 
-      // ❌ Boshqa odam yuzi — bir necha marta ketma-ket chiqsa miss sifatida hisoblash
-      if(reason==='unknown_face'){
-        faceHitCount=0; // reset — stabil bo'lmasin
-        faceUnknownCount++;
-        drawFaceBox(box,false); // qizil ramka
-        setFaceDot('yellow','Yuz qayta tekshirilyapti...');
-        const statusEl=document.getElementById('face_status_inline');
-        if(statusEl)statusEl.textContent='🔄 Yuz qayta tekshirilyapti...';
-        if(faceUnknownCount>=3){
-          faceMissCount++;
-          setFaceDot('red','⚠️ Boshqa shaxs!');
-          if(statusEl)statusEl.textContent='⚠️ Noto\'g\'ri yuz! AFK hisoblanmoqda';
-          onFaceMissed();
-        }else{
-          scheduleFaceCheck(FACE_RETRY_INTERVAL);
-        }
-        return;
-      }
-
-  // ✅ O'z yuzi — hit hisoblash
+  // Kamera oldida istalgan odam yuzi ko'rinsa ish davom etadi.
   faceHitCount++;
   faceMissCount = 0;
   faceUnknownCount = 0;
@@ -4782,6 +4779,7 @@ function updateLiveness(box){
 
 // ✅ FIX 5: Faqat STABIL detection dan keyin AFK/banner tozalanadi
 function onFaceStablyDetected(reason){
+  lastStableFaceDetectedAt=Date.now();
   resetFaceLossState();
   const statusEl=document.getElementById('face_status_inline');
   const name=CU?.name||'';
@@ -4840,7 +4838,7 @@ function onFaceMissed(reason='missing'){
     startAfkCountdown(remainingSec);
     speakAfkVoiceWarning();
   }
-  scheduleFaceCheck(FACE_MONITOR_INTERVAL);
+  scheduleFaceCheck(FACE_RETRY_INTERVAL);
 }
 
 // ── AFK SESSION ────────────────────────────────────────────
@@ -5084,6 +5082,7 @@ function stopFaceDetection(){
   afkVoiceCount=0;
   clearAfkVoicePrompt();
   currentAfkStart=null;
+  lastStableFaceDetectedAt=0;
   faceHitCount=0;
   faceMissCount=0;
   faceUnknownCount=0;
@@ -5203,7 +5202,6 @@ async function startFaceDetection(){
     return;
   }
 
-  await loadMyFaceProfile();
   setStatus(t('face_ready'));
   setFaceDot('green', t('face_detected'));
 
@@ -5336,6 +5334,7 @@ function updateLiveness(box){
 }
 
 function onFaceStablyDetected(reason){
+  lastStableFaceDetectedAt=Date.now();
   resetFaceLossState();
   const statusEl=document.getElementById('face_status_inline');
   const label=t('face_detected');
@@ -5576,12 +5575,12 @@ async function loadHist(){
     });
   }
 
-  window.addEventListener('pagehide',()=>{pauseWorkForPlatformExit();});
-  window.addEventListener('beforeunload',()=>{pauseWorkForPlatformExit();});
+  window.addEventListener('pagehide',()=>{syncWorkWhileAway({saveRemote:true});});
+  window.addEventListener('beforeunload',()=>{syncWorkWhileAway({saveRemote:true});});
   window.addEventListener('blur',()=>{
     if(platformPauseTimer)clearTimeout(platformPauseTimer);
     platformPauseTimer=setTimeout(()=>{
-      if(document.hidden||!document.hasFocus())pauseWorkForPlatformExit({saveRemote:true});
+      if(document.hidden||!document.hasFocus())syncWorkWhileAway({saveRemote:true});
     },1200);
   });
   window.addEventListener('focus',()=>{
@@ -5591,9 +5590,10 @@ async function loadHist(){
   // ✅ FIX 3: Tab qaytganda — faceHitCount reset, video qayta yoqiladi
   document.addEventListener('visibilitychange',()=>{
     if(document.hidden){
-      pauseWorkForPlatformExit({saveRemote:true});
+      syncWorkWhileAway({saveRemote:true});
       return;
     }
+    syncWorkWhileAway();
     if(!document.hidden && CU && CU.role==='employee'){ loadNotificationsEmp(true); }
     if(!document.hidden && CU && CU.role==='employee' && empState==='working'){
       if(!faceStream){
