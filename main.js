@@ -1,16 +1,65 @@
-const { app, BrowserWindow } = require('electron');
+const { app, BrowserWindow, Menu, Tray } = require('electron');
+const path = require('path');
+
+let win = null;
+let tray = null;
+let isQuitting = false;
+
+function showWindow() {
+  if (!win) createWindow();
+  win.show();
+  win.focus();
+}
 
 function createWindow() {
-  const win = new BrowserWindow({
+  win = new BrowserWindow({
     width: 1000,
     height: 700,
     webPreferences: {
       nodeIntegration: true,
-      contextIsolation: false
+      contextIsolation: false,
+      backgroundThrottling: false
     }
   });
 
-  win.loadFile('index.html'); // yoki saytning index.html
+  win.loadFile('index.html');
+
+  win.on('close', event => {
+    if (isQuitting) return;
+    event.preventDefault();
+    win.hide();
+  });
+
+  win.on('closed', () => {
+    win = null;
+  });
 }
 
-app.whenReady().then(createWindow);
+function createTray() {
+  if (tray) return;
+
+  tray = new Tray(path.join(__dirname, 'favicon.ico'));
+  tray.setToolTip('AloqaPro - Nazorat tizimi');
+  tray.setContextMenu(Menu.buildFromTemplate([
+    { label: 'Ochish', click: showWindow },
+    {
+      label: 'Chiqish',
+      click: () => {
+        isQuitting = true;
+        app.quit();
+      }
+    }
+  ]));
+  tray.on('double-click', showWindow);
+}
+
+app.whenReady().then(() => {
+  createWindow();
+  createTray();
+});
+
+app.on('before-quit', () => {
+  isQuitting = true;
+});
+
+app.on('activate', showWindow);
