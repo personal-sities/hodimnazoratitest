@@ -35,6 +35,7 @@
 }
 
 [data-theme="dark"] {
+  color-scheme: dark;
   --bg: #0f1923;
   --bg2: #16212e;
   --bg3: #1d2d3e;
@@ -54,9 +55,18 @@
   --sidebar-text: #c8d8e8;
   --sidebar-active: rgba(74,140,245,.25);
   --sidebar-hover: rgba(255,255,255,.06);
+  --shadow: 0 14px 34px rgba(0,0,0,.28);
+  --shadow-lg: 0 20px 56px rgba(0,0,0,.38);
+  --pill-bg: rgba(132,72,255,.16);
+  --pill-border: rgba(132,72,255,.28);
+  --panel-soft: rgba(255,255,255,.04);
+  --chart-grid-line: rgba(255,255,255,.06);
+  --bar-track: #223246;
+  --chart-dot-fill: var(--card);
 }
 
 [data-theme="light"] {
+  color-scheme: light;
   --bg: #f7f8fb;
   --bg2: #f1f3f7;
   --bg3: #f6f7fb;
@@ -76,10 +86,35 @@
   --sidebar-text: #626b7a;
   --sidebar-active: rgba(132,72,255,.10);
   --sidebar-hover: rgba(132,72,255,.06);
+  --pill-bg: #f1f5ff;
+  --pill-border: rgba(132,72,255,.08);
+  --panel-soft: rgba(255,255,255,.45);
+  --chart-grid-line: rgba(31,36,51,.05);
+  --bar-track: #f0f0f3;
+  --chart-dot-fill: #fff;
 }
 
 *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
-html, body { font-family:var(--font); background:var(--bg); color:var(--text); min-height:100vh; -webkit-text-size-adjust:100%; transition:background .3s, color .3s; }
+html, body { font-family:var(--font); background:var(--bg); color:var(--text); min-height:100vh; -webkit-text-size-adjust:100%; transition:background .3s, color .3s; -webkit-user-select:none; user-select:none; -webkit-touch-callout:none; }
+input, textarea, select, [contenteditable="true"] { -webkit-user-select:text; user-select:text; }
+input, textarea, select, button { color-scheme:inherit; }
+input::placeholder, textarea::placeholder { color:var(--text3); opacity:1; }
+select option { background:var(--card); color:var(--text); }
+input[type="date"]::-webkit-calendar-picker-indicator,
+input[type="month"]::-webkit-calendar-picker-indicator { opacity:.75; }
+[data-theme="dark"] input[type="date"]::-webkit-calendar-picker-indicator,
+[data-theme="dark"] input[type="month"]::-webkit-calendar-picker-indicator { filter:invert(1) brightness(1.2); opacity:.85; }
+[data-theme="dark"] input:-webkit-autofill,
+[data-theme="dark"] input:-webkit-autofill:hover,
+[data-theme="dark"] input:-webkit-autofill:focus,
+[data-theme="dark"] textarea:-webkit-autofill,
+[data-theme="dark"] select:-webkit-autofill {
+  -webkit-text-fill-color:var(--text);
+  caret-color:var(--text);
+  box-shadow:0 0 0 1000px var(--input-bg) inset;
+  transition:background-color 9999s ease-out 0s;
+}
+::selection { background:transparent; }
 ::-webkit-scrollbar { width:5px; height:5px; }
 ::-webkit-scrollbar-track { background:transparent; }
 ::-webkit-scrollbar-thumb { background:var(--border2); border-radius:10px; }
@@ -197,7 +232,21 @@ html, body { font-family:var(--font); background:var(--bg); color:var(--text); m
 .scard:nth-child(4) { --accent-card: var(--accent2); }
 .scard h4 { font-size:11px; color:var(--text2); margin-bottom:8px; font-weight:500; text-transform:uppercase; letter-spacing:.5px; }
 .snum { font-size:26px; font-weight:800; font-family:var(--mono); }
+.scard-status { background:var(--scard-status-bg); border-color:var(--scard-status-border); box-shadow:0 10px 26px var(--scard-status-shadow); }
+.scard-status h4 { color:var(--scard-status-label); font-weight:800; }
+.scard-status .snum { color:var(--scard-status-value); }
+.scard-work { --scard-status-bg:linear-gradient(135deg, rgba(46,213,115,.20), rgba(46,213,115,.07)); --scard-status-border:rgba(46,213,115,.30); --scard-status-label:#1b8f50; --scard-status-value:#135c36; --scard-status-shadow:rgba(46,213,115,.13); }
+.scard-late { --scard-status-bg:linear-gradient(135deg, rgba(255,193,7,.22), rgba(255,165,2,.07)); --scard-status-border:rgba(255,165,2,.32); --scard-status-label:#a46b00; --scard-status-value:#614600; --scard-status-shadow:rgba(255,165,2,.13); }
+.scard-absent { --scard-status-bg:linear-gradient(135deg, rgba(255,71,87,.18), rgba(255,71,87,.06)); --scard-status-border:rgba(255,71,87,.30); --scard-status-label:#bd3b46; --scard-status-value:#6d1e27; --scard-status-shadow:rgba(255,71,87,.12); }
+[data-theme="dark"] .scard-work { --scard-status-bg:linear-gradient(135deg, rgba(46,213,115,.24), rgba(46,213,115,.08)); --scard-status-border:rgba(46,213,115,.34); --scard-status-label:#8ee6b1; --scard-status-value:#e4fff0; --scard-status-shadow:rgba(0,0,0,.24); }
+[data-theme="dark"] .scard-late { --scard-status-bg:linear-gradient(135deg, rgba(255,193,7,.24), rgba(255,165,2,.08)); --scard-status-border:rgba(255,165,2,.34); --scard-status-label:#ffd27a; --scard-status-value:#fff4cf; --scard-status-shadow:rgba(0,0,0,.24); }
+[data-theme="dark"] .scard-absent { --scard-status-bg:linear-gradient(135deg, rgba(255,71,87,.24), rgba(255,71,87,.08)); --scard-status-border:rgba(255,71,87,.36); --scard-status-label:#ff9ca4; --scard-status-value:#ffe7ea; --scard-status-shadow:rgba(0,0,0,.24); }
 @keyframes fadeUp { from{transform:translateY(12px);opacity:0} to{transform:translateY(0);opacity:1} }
+@keyframes cardOpen { 0%{transform:translateY(18px) scale(.985);opacity:0;filter:blur(2px)} 60%{transform:translateY(-2px) scale(1.002);opacity:1;filter:blur(0)} 100%{transform:translateY(0) scale(1);opacity:1;filter:blur(0)} }
+.card-animate-in { animation:cardOpen .56s cubic-bezier(.22,.9,.26,1) both !important; animation-delay:var(--card-delay,0ms) !important; will-change:transform,opacity,filter; }
+@media (prefers-reduced-motion: reduce){
+  .card-animate-in { animation:none !important; opacity:1; transform:none; filter:none; }
+}
 
 .box { background:var(--card); border-radius:12px; padding:24px; box-shadow:var(--shadow); margin-bottom:24px; border:1px solid var(--border); animation:fadeUp .4s ease both; }
 .btitle { font-size:15px; font-weight:800; margin-bottom:16px; display:flex; align-items:center; gap:8px; color:var(--text); }
@@ -243,7 +292,7 @@ html, body { font-family:var(--font); background:var(--bg); color:var(--text); m
 .dash-card { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:24px; min-width:0; box-shadow:var(--shadow); }
 .dash-card h4 { font-size:16px; color:var(--text); letter-spacing:0; margin-bottom:18px; font-weight:800; text-transform:none; }
 .dash-head { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:16px; }
-.dash-pill { background:#f1f5ff; color:var(--accent); border:1px solid rgba(132,72,255,.08); border-radius:8px; padding:6px 10px; font-size:11px; font-weight:700; }
+.dash-pill { background:var(--pill-bg); color:var(--accent); border:1px solid var(--pill-border); border-radius:8px; padding:6px 10px; font-size:11px; font-weight:700; }
 .dash-line-wrap { display:flex; flex-direction:column; gap:16px; min-height:220px; }
 .dash-line-meta { display:flex; align-items:flex-start; justify-content:space-between; gap:14px; flex-wrap:wrap; }
 .dash-line-summary { display:flex; flex-direction:column; gap:4px; }
@@ -256,23 +305,23 @@ html, body { font-family:var(--font); background:var(--bg); color:var(--text); m
 .dash-mini-stat span { display:block; margin-top:4px; font-size:11px; color:var(--text2); }
 .dash-line-chart { position:relative; width:100%; height:190px; border-radius:12px; background:
   linear-gradient(to bottom, rgba(132,72,255,.08), rgba(132,72,255,.02)),
-  repeating-linear-gradient(to top, transparent 0, transparent 36px, rgba(31,36,51,.05) 37px);
+  repeating-linear-gradient(to top, transparent 0, transparent 36px, var(--chart-grid-line) 37px);
   border:1px solid var(--border);
   overflow:hidden;
 }
 .dash-line-chart svg { width:100%; height:100%; display:block; }
 .dash-line-area { fill:url(#dashLineGradient); }
 .dash-line-path { fill:none; stroke:var(--accent); stroke-width:4; stroke-linecap:round; stroke-linejoin:round; }
-.dash-line-dot { fill:#fff; stroke:var(--accent); stroke-width:3; }
+.dash-line-dot { fill:var(--chart-dot-fill); stroke:var(--accent); stroke-width:3; }
 .dash-line-dot.active { r:5; }
 .dash-line-labels { display:grid; grid-template-columns:repeat(7,1fr); gap:6px; margin-top:4px; }
 .dash-line-labels span { font-size:11px; color:var(--text3); text-align:center; }
 .dash-bar-card { min-height:244px; }
 .dash-bars { height:178px; display:grid; grid-template-columns:38px 1fr; gap:12px; }
-.dash-yaxis { display:flex; flex-direction:column; justify-content:space-between; color:#b1b7c3; font-size:11px; padding:3px 0 28px; text-align:right; font-family:var(--mono); }
-.dash-plot { display:flex; align-items:end; gap:18px; border-bottom:1px solid var(--border); background:repeating-linear-gradient(to top, transparent 0, transparent 35px, rgba(31,36,51,.05) 36px); padding:0 8px 0; overflow:hidden; }
+.dash-yaxis { display:flex; flex-direction:column; justify-content:space-between; color:var(--text3); font-size:11px; padding:3px 0 28px; text-align:right; font-family:var(--mono); }
+.dash-plot { display:flex; align-items:end; gap:18px; border-bottom:1px solid var(--border); background:repeating-linear-gradient(to top, transparent 0, transparent 35px, var(--chart-grid-line) 36px); padding:0 8px 0; overflow:hidden; }
 .dash-bar-item { flex:1; min-width:54px; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; gap:8px; height:100%; }
-.dash-bar-track { width:100%; max-width:44px; height:138px; border-radius:8px 8px 0 0; background:#f0f0f3; display:flex; align-items:end; overflow:hidden; }
+.dash-bar-track { width:100%; max-width:44px; height:138px; border-radius:8px 8px 0 0; background:var(--bar-track); display:flex; align-items:end; overflow:hidden; border:1px solid var(--border); }
 .dash-bar-fill { width:100%; min-height:4px; border-radius:8px 8px 0 0; background:var(--accent); transition:height .45s ease; position:relative; }
 .dash-bar-value { color:var(--text2); font-size:11px; font-family:var(--mono); font-weight:800; min-height:13px; }
 .dash-bar-name { color:var(--text2); font-size:11px; max-width:78px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-align:center; }
@@ -289,7 +338,7 @@ html, body { font-family:var(--font); background:var(--bg); color:var(--text); m
 .dash-eff-score-label { display:block; font-size:10px; color:var(--text3); text-transform:uppercase; letter-spacing:.4px; }
 .dash-eff-score { display:block; font-size:24px; line-height:1; font-weight:900; color:var(--text); font-family:var(--mono); }
 .dash-eff-breakdown { display:flex; flex-direction:column; gap:6px; }
-.dash-eff-row { display:flex; align-items:center; justify-content:space-between; gap:10px; background:rgba(255,255,255,.45); border:1px solid var(--border); border-radius:9px; padding:7px 9px; }
+.dash-eff-row { display:flex; align-items:center; justify-content:space-between; gap:10px; background:var(--panel-soft); border:1px solid var(--border); border-radius:9px; padding:7px 9px; }
 .dash-eff-label { display:flex; align-items:center; gap:7px; min-width:0; font-size:11.5px; color:var(--text2); }
 .dash-eff-label span:last-child { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .dash-eff-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
@@ -297,6 +346,32 @@ html, body { font-family:var(--font); background:var(--bg); color:var(--text); m
 .dash-eff-dot.yellow { background:#f4b740; }
 .dash-eff-dot.red { background:#f25f5c; }
 .dash-eff-value { font-size:12px; font-weight:800; font-family:var(--mono); white-space:nowrap; color:var(--text); }
+.dash-amocrm-card { grid-column:1 / -1; }
+.dash-amocrm-summary { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; margin-bottom:16px; }
+.dash-amocrm-stat { background:var(--bg3); border:1px solid var(--border); border-radius:10px; padding:10px 12px; }
+.dash-amocrm-stat strong { display:block; color:var(--text); font-size:20px; line-height:1; font-weight:900; font-family:var(--mono); }
+.dash-amocrm-stat span { display:block; color:var(--text2); font-size:11px; margin-top:5px; }
+.dash-amocrm-chart { min-height:230px; display:grid; grid-auto-flow:column; grid-auto-columns:minmax(116px,1fr); gap:14px; align-items:end; border:1px solid var(--border); border-radius:12px; padding:16px 14px 12px; background:
+  linear-gradient(to bottom, rgba(132,72,255,.06), rgba(132,72,255,.01)),
+  repeating-linear-gradient(to top, transparent 0, transparent 39px, var(--chart-grid-line) 40px);
+  overflow-x:auto;
+}
+.dash-amocrm-bar-item { min-width:116px; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; gap:8px; min-height:222px; }
+.dash-amocrm-count { color:var(--text); font-size:13px; font-weight:900; font-family:var(--mono); }
+.dash-amocrm-track { width:100%; max-width:54px; height:150px; border-radius:10px 10px 7px 7px; background:var(--bg3); border:1px solid var(--border); display:flex; align-items:end; overflow:hidden; }
+.dash-amocrm-fill { width:100%; min-height:4px; border-radius:10px 10px 6px 6px; overflow:hidden; display:flex; flex-direction:column-reverse; background:rgba(74,140,245,.16); transition:height .35s ease; }
+.dash-amocrm-seg { width:100%; min-height:3px; }
+.dash-amocrm-seg.green { background:var(--success); }
+.dash-amocrm-seg.red { background:var(--danger); }
+.dash-amocrm-label { max-width:112px; text-align:center; min-height:36px; display:flex; flex-direction:column; gap:2px; align-items:center; justify-content:flex-start; }
+.dash-amocrm-name { color:var(--text2); font-size:11px; font-weight:800; max-width:112px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-align:center; }
+.dash-amocrm-owner { color:var(--text3); font-size:10.5px; line-height:1.25; max-width:112px; display:flex; flex-direction:column; align-items:center; gap:1px; }
+.dash-amocrm-owner span { display:block; max-width:112px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.dash-amocrm-legend { display:flex; gap:12px; flex-wrap:wrap; margin-top:12px; color:var(--text2); font-size:11px; }
+.dash-amocrm-legend span { display:inline-flex; align-items:center; gap:6px; }
+.dash-amocrm-legend i { width:9px; height:9px; border-radius:50%; display:inline-block; }
+.dash-amocrm-legend .green { background:var(--success); }
+.dash-amocrm-legend .red { background:var(--danger); }
 
 .sf { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:14px; }
 
@@ -437,6 +512,12 @@ html, body { font-family:var(--font); background:var(--bg); color:var(--text); m
 .liveness-dot { width:8px; height:8px; border-radius:50%; background:var(--text3); }
 .liveness-dot.ok { background:var(--success); }
 .liveness-dot.checking { background:var(--warn); animation:pulse 1s infinite; }
+.face-control-card { display:flex; align-items:flex-start; justify-content:space-between; gap:14px; flex-wrap:wrap; background:var(--bg3); border:1px solid var(--border); border-radius:var(--radius); padding:14px; }
+.face-control-copy { min-width:220px; flex:1; }
+.face-control-copy strong { display:block; color:var(--text); font-size:13px; margin-bottom:4px; }
+.face-control-copy span { display:block; color:var(--text2); font-size:12px; line-height:1.5; }
+.face-control-state { color:var(--text3); font-size:11.5px; margin-top:8px; }
+.face-control-toggle { display:flex; align-items:center; gap:10px; color:var(--text2); font-size:12px; font-weight:700; cursor:pointer; user-select:none; }
 
 .ov { position:fixed; inset:0; background:rgba(0,0,0,.6); display:flex; align-items:center; justify-content:center; z-index:9999; padding:16px; backdrop-filter:blur(4px); animation:fadein .2s ease; }
 @keyframes fadein { from{opacity:0} to{opacity:1} }
@@ -467,9 +548,64 @@ html, body { font-family:var(--font); background:var(--bg); color:var(--text); m
 .notif-send-row { display:flex; gap:8px; flex-wrap:wrap; }
 .notif-send-row input, .notif-send-row textarea, .notif-send-row select { flex:1; padding:8px 10px; background:var(--input-bg); border:1.5px solid var(--border2); border-radius:var(--radius-sm); font-size:12px; color:var(--text); font-family:var(--font); outline:none; min-width:160px; }
 .notif-send-row input:focus, .notif-send-row textarea:focus { border-color:var(--accent); }
+.amocrm-summary-grid { grid-template-columns:repeat(3,1fr); }
+.amocrm-summary-card:nth-child(1){--accent-card:var(--accent);}
+.amocrm-summary-card:nth-child(2){--accent-card:var(--danger);}
+.amocrm-summary-card:nth-child(3){--accent-card:var(--success);}
+.amocrm-summary-card:nth-child(4){--accent-card:var(--accent2);}
+.amocrm-summary-card:nth-child(5){--accent-card:var(--success);}
+.amocrm-summary-card:nth-child(6){--accent-card:var(--warn);}
+.amocrm-toolbar { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; margin-bottom:12px; }
+.amocrm-error { background:rgba(255,71,87,.08); color:var(--danger); border:1px solid rgba(255,71,87,.22); border-radius:var(--radius-sm); padding:10px 12px; margin-bottom:12px; font-size:12.5px; }
+.amocrm-table-note { color:var(--text3); font-size:12px; margin-bottom:10px; }
+.amocrm-stat-row { cursor:pointer; }
+.amocrm-stat-row:focus { outline:2px solid rgba(132,72,255,.35); outline-offset:-2px; }
+.amocrm-employee-name { font-weight:800; color:var(--text); }
+.amocrm-num-cell { font-family:var(--mono); color:var(--text); font-weight:700; }
+.amocrm-status { display:inline-flex; align-items:center; gap:6px; border-radius:20px; padding:4px 10px; font-size:11px; font-weight:800; white-space:nowrap; }
+.amocrm-status::before { content:''; width:7px; height:7px; border-radius:50%; background:currentColor; }
+.amocrm-status.green { background:rgba(46,213,115,.14); color:var(--success); }
+.amocrm-status.red { background:rgba(255,71,87,.14); color:var(--danger); }
+.amocrm-status.yellow { background:rgba(255,165,2,.15); color:var(--warn); }
+.amocrm-status.neutral { background:var(--bg3); color:var(--text3); }
+.amocrm-eff { min-width:132px; }
+.amocrm-eff-head { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:5px; }
+.amocrm-eff-bar { height:6px; background:var(--bg3); border-radius:20px; overflow:hidden; border:1px solid var(--border); }
+.amocrm-eff-fill { display:block; height:100%; border-radius:20px; transition:width .22s ease; }
+.amocrm-eff-fill.green { background:var(--success); }
+.amocrm-eff-fill.yellow { background:var(--warn); }
+.amocrm-eff-fill.red { background:var(--danger); }
+.amocrm-task-modal { max-height:92vh; overflow-y:auto; }
+.amocrm-task-list { display:grid; gap:10px; }
+.amocrm-task-card { background:var(--bg3); border:1px solid var(--border); border-radius:var(--radius-sm); padding:12px; }
+.amocrm-task-head { display:flex; align-items:flex-start; justify-content:space-between; gap:10px; margin-bottom:10px; }
+.amocrm-task-text { color:var(--text); font-size:13px; font-weight:700; line-height:1.45; overflow-wrap:anywhere; }
+.amocrm-task-meta { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; }
+.amocrm-task-meta div { background:var(--card); border:1px solid var(--border); border-radius:7px; padding:8px; min-width:0; }
+.amocrm-task-meta span { display:block; color:var(--text3); font-size:10.5px; margin-bottom:3px; }
+.amocrm-task-meta strong { display:block; color:var(--text2); font-size:12px; font-family:var(--mono); overflow-wrap:anywhere; }
+.amocrm-loading-row td { padding:18px !important; }
+.amocrm-skel { height:12px; width:100%; background:var(--skeleton); background-size:200% 100%; animation:shimmer 1.5s infinite; border-radius:8px; }
+.amocrm-skel.short { width:56%; }
+.amocrm-dept-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; }
+.amocrm-dept-card { background:var(--bg3); border:1px solid var(--border); border-radius:var(--radius); padding:16px; transition:var(--transition); }
+.amocrm-dept-card:hover { transform:translateY(-1px); box-shadow:var(--shadow); }
+.amocrm-dept-top { display:flex; align-items:flex-start; justify-content:space-between; gap:10px; margin-bottom:12px; }
+.amocrm-dept-name { color:var(--text); font-size:15px; font-weight:800; }
+.amocrm-dept-active { font-size:34px; line-height:1; font-weight:900; font-family:var(--mono); color:var(--accent); margin-bottom:4px; }
+.amocrm-dept-active-label { color:var(--text3); font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.35px; }
+.amocrm-dept-metrics { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin:12px 0; }
+.amocrm-dept-metric { background:var(--card); border:1px solid var(--border); border-radius:7px; padding:8px; }
+.amocrm-dept-metric span { display:block; color:var(--text3); font-size:10.5px; margin-bottom:3px; }
+.amocrm-dept-metric strong { display:block; color:var(--text); font-size:18px; font-family:var(--mono); }
+.amocrm-dept-deadline { color:var(--text2); font-size:12px; border-top:1px solid var(--border); padding-top:10px; }
+.amocrm-dept-deadline strong { color:var(--text); font-family:var(--mono); }
+.amocrm-empty { color:var(--text3); font-size:13px; padding:18px 0; text-align:center; }
+.course-badge { display:inline-flex; align-items:center; justify-content:center; max-width:150px; padding:3px 9px; border-radius:20px; background:var(--bg3); border:1px solid var(--border); color:var(--text2); font-size:11px; font-weight:800; white-space:nowrap; }
+.course-badge.empty { color:var(--text3); font-weight:700; }
 .sb-bottom { display:none; padding:12px 16px; border-top:1px solid var(--border); gap:10px; align-items:center; justify-content:space-between; }
 
-@media(max-width:900px){.scards{grid-template-columns:repeat(2,1fr)}.mst{grid-template-columns:repeat(3,1fr)}.dash-grid{grid-template-columns:1fr}.dash-eff-grid{grid-template-columns:1fr}}
+@media(max-width:900px){.scards{grid-template-columns:repeat(2,1fr)}.mst{grid-template-columns:repeat(3,1fr)}.dash-grid{grid-template-columns:1fr}.dash-eff-grid{grid-template-columns:1fr}.amocrm-dept-grid{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:680px){
   .logo-blk{max-width:340px;min-height:200px;margin-bottom:-4px;}
   .logo-img-main{width:340px;height:190px;}
@@ -544,6 +680,14 @@ html, body { font-family:var(--font); background:var(--bg); color:var(--text); m
   .tbl-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;}
   .tbl th,.tbl td{padding:7px 8px;white-space:nowrap;font-size:11px;}
   .modal{padding:22px 16px;}
+  .scards.amocrm-summary-grid{grid-template-columns:1fr;}
+  .amocrm-toolbar{align-items:stretch;}
+  .amocrm-toolbar .bb{width:100%;}
+  .amocrm-task-meta{grid-template-columns:1fr 1fr;}
+  .amocrm-task-head{flex-direction:column;}
+  .dash-amocrm-summary{grid-template-columns:1fr;}
+  .amocrm-dept-grid{grid-template-columns:1fr;}
+  .amocrm-dept-active{font-size:30px;}
   #faceWidget{width:150px;bottom:8px;right:8px;}
 }
 
@@ -636,8 +780,9 @@ html, body { font-family:var(--font); background:var(--bg); color:var(--text); m
       </div>
       <div class="sb-nav">
         <button class="nbtn active" id="nav_main" onclick="adminTab('main');closeSidebar()"><span class="ni"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg></span><span id="n_main">Asosiy</span></button>
-        <button class="nbtn" id="nav_notif" onclick="adminTab('notif');closeSidebar()"><span class="ni"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-bell-ring-icon lucide-bell-ring"><path d="M10.268 21a2 2 0 0 0 3.464 0"/><path d="M22 8c0-2.3-.8-4.3-2-6"/><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"/><path d="M4 2C2.8 3.7 2 5.7 2 8"/></svg></span><span id="n_notif">Bildirishnomalar</span> <span id="notifBadgeAdmin" class="notif-badge hidden">0</span></button>
+        <button class="nbtn" id="nav_amocrm" onclick="adminTab('amocrm');closeSidebar()"><span class="ni"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="m9 14 2 2 4-4"/></svg></span><span id="n_amocrm">amoCRM vazifalari</span></button>
         <button class="nbtn" id="nav_feedback" onclick="adminTab('feedback');closeSidebar()"><span class="ni"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/><path d="M8 12h.01"/><path d="M12 12h.01"/><path d="M16 12h.01"/></svg></span><span id="n_fb">Fikrlar</span> <span id="fbBadge" class="notif-badge hidden">0</span></button>
+        <button class="nbtn" id="nav_notif" onclick="adminTab('notif');closeSidebar()"><span class="ni"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-bell-ring-icon lucide-bell-ring"><path d="M10.268 21a2 2 0 0 0 3.464 0"/><path d="M22 8c0-2.3-.8-4.3-2-6"/><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"/><path d="M4 2C2.8 3.7 2 5.7 2 8"/></svg></span><span id="n_notif">Bildirishnomalar</span> <span id="notifBadgeAdmin" class="notif-badge hidden">0</span></button>
         <button class="nbtn" id="nav_settings" onclick="adminTab('settings');closeSidebar()"><span class="ni"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg></span><span id="n_set">Sozlamalar</span></button>
         <button class="nbtn" id="nav_kpi" onclick="adminTab('kpi');closeSidebar()"><span class="ni"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 21h8"/><path d="M12 17v4"/><path d="M7 4h10"/><path d="M17 4v4a5 5 0 0 1-10 0V4"/><path d="M5 9a2 2 0 0 1-2-2V6"/><path d="M19 9a2 2 0 0 0 2-2V6"/></svg></span><span id="n_kpi">KPI Qoidalar</span></button>
       </div>
@@ -669,15 +814,14 @@ html, body { font-family:var(--font); background:var(--bg); color:var(--text); m
       <div class="pbody">
         <div id="tab_main">
           <div class="scards">
-            <div class="scard"><h4 id="sc1">Bugun ishda</h4><div class="snum" id="sw">0</div></div>
-            <div class="scard"><h4 id="sc2">Kechikkan</h4><div class="snum" id="sl">0</div></div>
-            <div class="scard"><h4 id="sc3">Kelmagan</h4><div class="snum" id="sa">0</div></div>
+            <div class="scard scard-status scard-work"><h4 id="sc1">Bugun ishda</h4><div class="snum" id="sw">0</div></div>
+            <div class="scard scard-status scard-late"><h4 id="sc2">Kechikkan</h4><div class="snum" id="sl">0</div></div>
+            <div class="scard scard-status scard-absent"><h4 id="sc3">Kelmagan</h4><div class="snum" id="sa">0</div></div>
             <div class="scard">
               <h4 id="sc_leave">Ish ta'tili</h4>
               <div class="snum" id="sleave">0</div>
               <button class="bg2" id="sc_leave_btn" style="margin-top:10px" onclick="openWorkLeaveModal()">Ish ta'tilidagi xodimlar</button>
             </div>
-            <div class="scard"><h4 id="sc4">Sana</h4><div class="snum" id="sd" style="font-size:13px">-</div></div>
           </div>
           <div class="box">
             <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:12px">
@@ -685,6 +829,17 @@ html, body { font-family:var(--font); background:var(--bg); color:var(--text); m
               <span style="font-size:11px;color:var(--text3);font-family:var(--mono)" id="dash_month">-</span>
             </div>
             <div class="dash-grid">
+              <div class="dash-card dash-amocrm-card">
+                <div class="dash-head">
+                  <h4 id="dash_amocrm_t" style="margin:0">amoCRM task diagrammasi</h4>
+                  <span class="dash-pill" id="dash_amocrm_pill">Bo'limlar bo'yicha</span>
+                </div>
+                <div class="dash-amocrm-summary" id="dash_amocrm_summary"></div>
+                <div class="dash-amocrm-chart" id="dash_amocrm_chart">
+                  <div class="dash-empty">Yuklanmoqda...</div>
+                </div>
+                <div class="dash-amocrm-legend" id="dash_amocrm_legend"></div>
+              </div>
               <div class="dash-card">
                 <div class="dash-head">
                   <h4 id="dash_work_t" style="margin:0">Davomat holati</h4>
@@ -845,11 +1000,21 @@ html, body { font-family:var(--font); background:var(--bg); color:var(--text); m
                 <option value="senior">Eski hodim (560 000 UZS)</option>
                 <option value="junior">Yangi hodim (400 000 UZS)</option>
               </select>
+              <select id="ne_course">
+                <option value="" id="ne_course_none">Kurs mas'ulligi yo'q</option>
+                <option value="1-kurs">1-kurs</option>
+                <option value="2-kurs">2-kurs</option>
+                <option value="3-kurs">3-kurs</option>
+                <option value="4-kurs">4-kurs</option>
+                <option value="5-kurs">5-kurs</option>
+                <option value="umumiy call">Umumiy call</option>
+                <option value="copywriter">Copywriter</option>
+              </select>
               <button class="bb" id="b_addemp" onclick="addEmp()">Qo'shish</button>
             </div>
             <div class="tbl-wrap">
-              <table class="tbl" style="min-width:480px;">
-                <thead><tr><th>#</th><th id="et1">Ism familiya</th><th id="et2">Login</th><th id="et3">Parol</th><th>Yuz</th><th id="et4">KPI summasi</th><th id="et5">O'chirish</th></tr></thead>
+              <table class="tbl" style="min-width:620px;">
+                <thead><tr><th>#</th><th id="et1">Ism familiya</th><th id="et2">Login</th><th id="et_course">Kurs mas'ulligi</th><th id="et3">Parol</th><th>Yuz</th><th id="et4">KPI summasi</th><th id="et5">O'chirish</th></tr></thead>
                 <tbody id="emp_body"></tbody>
               </table>
             </div>
@@ -881,6 +1046,20 @@ html, body { font-family:var(--font); background:var(--bg); color:var(--text); m
             </div>
             <p style="font-size:11.5px;color:var(--text2);margin-top:8px">Joriy GPS: <strong id="gps_now_show" style="font-family:var(--mono)">aniqlanmagan</strong></p>
             <p style="font-size:11.5px;color:var(--text2)" id="gps_saved_info">GPS cheklov o'chirilgan</p>
+          </div>
+          <div class="box">
+            <div class="btitle"><span id="face_control_title">Yuz nazorati</span></div>
+            <div class="face-control-card">
+              <div class="face-control-copy">
+                <strong id="face_control_label">Face aniqlash bilan ishlash</strong>
+                <span id="face_control_desc">Yoqilganida hodim ish boshlaganda kamera orqali yuz nazorati ishlaydi. O'chirilganida ish vaqti yuz tekshiruvisiz boshlanadi.</span>
+                <div class="face-control-state" id="face_control_state">Yuklanmoqda...</div>
+              </div>
+              <label class="face-control-toggle">
+                <input type="checkbox" id="face_control_enabled" onchange="saveFaceControlToggle()">
+                <span id="face_control_switch_label">Yoqish</span>
+              </label>
+            </div>
           </div>
           <div class="box">
             <div class="btitle">📅 <span id="hol_t">Dam olish kunlari</span></div>
@@ -938,6 +1117,24 @@ html, body { font-family:var(--font); background:var(--bg); color:var(--text); m
                 <div class="krow"><div class="kcol">70 dan kam</div><div>+0 UZS</div></div>
               </div>
             </div>
+          </div>
+        </div>
+        <div id="tab_amocrm" class="hidden">
+          <div id="amocrm_error" class="amocrm-error hidden"></div>
+          <div class="scards amocrm-summary-grid">
+            <div class="scard amocrm-summary-card"><h4 id="amocrm_card_active">Jami faol vazifalar</h4><div class="snum" id="amocrm_total_active">-</div></div>
+            <div class="scard amocrm-summary-card"><h4 id="amocrm_card_overdue">Muddati o'tgan</h4><div class="snum" id="amocrm_total_overdue">-</div></div>
+            <div class="scard amocrm-summary-card"><h4 id="amocrm_card_on_time_active">Hali muddati o'tmagan</h4><div class="snum" id="amocrm_total_on_time_active">-</div></div>
+          </div>
+          <div class="box">
+            <div class="amocrm-toolbar">
+              <span class="btitle" id="amocrm_stats_title" style="margin:0">Bo'limlar bo'yicha amoCRM tasklari</span>
+              <button class="bb" id="amocrm_refresh_btn" onclick="loadAmoCrmDepartmentCounts()">Yangilash</button>
+            </div>
+            <div id="amocrm_table_note" class="amocrm-table-note"></div>
+            <div id="amocrm_department_grid" class="amocrm-dept-grid"></div>
+            <div id="amocrm_empty" class="amocrm-empty hidden">amoCRM task ma'lumotlari topilmadi</div>
+            <div id="amocrm_last_updated" style="color:var(--text3);font-family:var(--mono);font-size:12px;margin-top:12px;">-</div>
           </div>
         </div>
       </div>
@@ -1351,6 +1548,99 @@ async function saveGPSRegionSettings(cfg){
     toast('error','GPS',t('gps_save_error'));
   }
 }
+const FACE_CONTROL_SETTING_KEY='face_control_enabled';
+let faceControlEnabled = localStorage.getItem('aloqa_face_control_enabled') !== 'false';
+function normalizeFaceControlValue(raw){
+  if(raw===null||raw===undefined||raw==='')return true;
+  if(typeof raw==='boolean')return raw;
+  if(typeof raw==='object')return raw.enabled!==false;
+  const text=String(raw).trim();
+  try{
+    const parsed=JSON.parse(text);
+    if(typeof parsed==='boolean')return parsed;
+    if(parsed&&typeof parsed==='object')return parsed.enabled!==false;
+  }catch(e){}
+  return !/^(false|0|off|disabled)$/i.test(text);
+}
+async function getFaceControlSettings(){
+  const {data,error}=await sb.from('settings').select('value').eq('key',FACE_CONTROL_SETTING_KEY).maybeSingle();
+  if(error)throw error;
+  return normalizeFaceControlValue(data?.value);
+}
+function updateFaceControlSettingsUI(){
+  const checkbox=document.getElementById('face_control_enabled');
+  const state=document.getElementById('face_control_state');
+  const switchLabel=document.getElementById('face_control_switch_label');
+  if(checkbox)checkbox.checked=!!faceControlEnabled;
+  if(state)state.textContent=faceControlEnabled?t('face_control_on'):t('face_control_off');
+  if(switchLabel)switchLabel.textContent=t('face_control_switch');
+  st('face_control_title', t('face_control_title'));
+  st('face_control_label', t('face_control_label'));
+  st('face_control_desc', t('face_control_desc'));
+}
+function updateFaceControlEmployeeUI(){
+  const employeeVisible=document.getElementById('employeePage')&&getComputedStyle(document.getElementById('employeePage')).display!=='none';
+  const widget=document.getElementById('faceWidget');
+  if(widget&&CU?.role==='employee')widget.classList.toggle('hidden', !employeeVisible || !faceControlEnabled);
+  if(faceControlEnabled)return;
+  stopFaceDetection();
+  const statusEl=document.getElementById('face_status_inline');
+  if(statusEl)statusEl.textContent=t('face_control_disabled_employee');
+  setFaceDot('gray', t('face_control_off'));
+  const regBox=document.getElementById('faceRegBox');
+  if(regBox)regBox.style.display='none';
+  const liveText=document.getElementById('livenessText');
+  if(liveText)liveText.textContent=t('face_control_off');
+  const liveWidget=document.getElementById('livenessWidgetTxt');
+  if(liveWidget)liveWidget.textContent=t('face_control_off');
+}
+async function loadFaceControlSettings(){
+  try{
+    faceControlEnabled=await getFaceControlSettings();
+    localStorage.setItem('aloqa_face_control_enabled', String(faceControlEnabled));
+  }catch(e){
+    console.warn('loadFaceControlSettings:', e.message||e);
+    faceControlEnabled=localStorage.getItem('aloqa_face_control_enabled') !== 'false';
+  }
+  updateFaceControlSettingsUI();
+  updateFaceControlEmployeeUI();
+  return faceControlEnabled;
+}
+async function saveFaceControlToggle(){
+  const checkbox=document.getElementById('face_control_enabled');
+  const enabled=!!checkbox?.checked;
+  try{
+    await sb.from('settings').upsert({key:FACE_CONTROL_SETTING_KEY,value:JSON.stringify({enabled})},{onConflict:'key'});
+    faceControlEnabled=enabled;
+    localStorage.setItem('aloqa_face_control_enabled', String(enabled));
+    updateFaceControlSettingsUI();
+    updateFaceControlEmployeeUI();
+    toast('success', t('face_control_title'), t('face_control_saved'));
+  }catch(e){
+    console.error('saveFaceControlToggle error:', e);
+    if(checkbox)checkbox.checked=faceControlEnabled;
+    toast('error', t('face_control_title'), e.message||t('gps_save_error'));
+  }
+}
+function maybeStartFaceDetection(){
+  if(faceControlEnabled)startFaceDetection();
+  else updateFaceControlEmployeeUI();
+}
+function startFaceControlPolling(){
+  stopFaceControlPolling();
+  faceControlPollTimer=setInterval(async()=>{
+    if(!CU||CU.role!=='employee')return;
+    const wasEnabled=faceControlEnabled;
+    const enabled=await loadFaceControlSettings();
+    if(enabled&&!wasEnabled&&empState==='working')maybeStartFaceDetection();
+  },30000);
+}
+function stopFaceControlPolling(){
+  if(faceControlPollTimer){
+    clearInterval(faceControlPollTimer);
+    faceControlPollTimer=null;
+  }
+}
 function formatCoords(lat,lng){
   if(lat===null||lng===null||lat===undefined||lng===undefined)return 'aniqlanmagan';
   return `${Number(lat).toFixed(6)}, ${Number(lng).toFixed(6)}`;
@@ -1483,6 +1773,7 @@ function showIPBlock(value,title,msg){
   document.getElementById('ipBlockPage').style.display='flex';
   if(title)st('ipb_t',title);
   if(msg)st('ipb_p',msg);
+  animateCurrentView();
   st('ipb_val',value||'—');
 }
 
@@ -1986,6 +2277,276 @@ Object.assign(TR.ru,{
   afk_total_widget:'AFK всего: {minutes} мин',
   report_headers:'#|ФИО|Раб. часы|AFK|Опоздание|Полдня|Пропуск|Штраф|Бонус|Баллы|KPI (UZS)'
 });
+Object.assign(TR.uz,{
+  face_control_title:'Yuz nazorati',
+  face_control_label:'Face aniqlash bilan ishlash',
+  face_control_desc:'Yoqilganida hodim ish boshlaganda kamera orqali yuz nazorati ishlaydi. O\'chirilganida ish vaqti yuz tekshiruvisiz boshlanadi.',
+  face_control_switch:'Yoqish',
+  face_control_on:'Yoqilgan',
+  face_control_off:'O\'chirilgan',
+  face_control_saved:'Yuz nazorati sozlamasi saqlandi',
+  face_control_disabled_employee:'Yuz nazorati o\'chirilgan. Ishni kamerani tekshirmasdan boshlashingiz mumkin.'
+});
+Object.assign(TR.ru,{
+  face_control_title:'Контроль лица',
+  face_control_label:'Работать с распознаванием лица',
+  face_control_desc:'Когда включено, при начале работы запускается контроль лица через камеру. Когда выключено, рабочее время начинается без проверки лица.',
+  face_control_switch:'Включить',
+  face_control_on:'Включено',
+  face_control_off:'Выключено',
+  face_control_saved:'Настройка контроля лица сохранена',
+  face_control_disabled_employee:'Контроль лица выключен. Можно начать работу без проверки камеры.'
+});
+Object.assign(TR.en,{
+  face_control_title:'Face control',
+  face_control_label:'Work with face detection',
+  face_control_desc:'When enabled, camera-based face control runs when an employee starts work. When disabled, work time starts without face verification.',
+  face_control_switch:'Enable',
+  face_control_on:'Enabled',
+  face_control_off:'Disabled',
+  face_control_saved:'Face control setting saved',
+  face_control_disabled_employee:'Face control is disabled. You can start work without camera verification.'
+});
+Object.assign(TR.uz,{
+  nav_amocrm:'amoCRM vazifalari',
+  adm_amocrm:'Boshqaruv | amoCRM vazifalari',
+  amocrm_card_active:'Jami faol vazifalar',
+  amocrm_card_overdue:'Muddati o\'tgan',
+  amocrm_card_on_time_active:'Hali muddati o\'tmagan',
+  amocrm_card_completed_total:'Jami bajarilgan',
+  amocrm_card_completed_on_time:'O\'z vaqtida bajarilgan',
+  amocrm_card_completed_late:'Kech bajarilgan',
+  amocrm_stats_title:'amoCRM vazifalari statistikasi',
+  amocrm_refresh:'Yangilash',
+  amocrm_search_ph:'Xodim yoki login bo\'yicha qidirish...',
+  amocrm_filter_all:'Barchasi',
+  amocrm_filter_overdue:'Muddati o\'tganlar',
+  amocrm_filter_on_time:'O\'z vaqtida ishlayotganlar',
+  amocrm_filter_no_active:'Faol taski yo\'qlar',
+  amocrm_filter_unlinked:'amoCRM bilan bog\'lanmaganlar',
+  amocrm_th_employee:'Xodim',
+  amocrm_th_login:'Login',
+  amocrm_th_active:'Faol tasklar',
+  amocrm_th_overdue:'Muddati o\'tgan',
+  amocrm_th_on_time_active:'Muddati o\'tmagan',
+  amocrm_th_completed_total:'Jami bajarilgan',
+  amocrm_th_completed_on_time:'O\'z vaqtida bajarilgan',
+  amocrm_th_completed_late:'Kech bajarilgan',
+  amocrm_th_efficiency:'Samaradorlik foizi',
+  amocrm_th_status:'Holat',
+  amocrm_status_on_time:'O\'z vaqtida',
+  amocrm_status_overdue:'Kechikkan vazifa bor',
+  amocrm_status_no_active:'Faol vazifa yo\'q',
+  amocrm_status_unlinked:'amoCRM bilan bog\'lanmagan',
+  amocrm_empty_stats:'Statistik ma\'lumot topilmadi',
+  amocrm_empty_search:'Qidiruv bo\'yicha natija topilmadi',
+  amocrm_stats_error:'amoCRM statistikasi yuklanmadi',
+  amocrm_detail_error:'Xodim vazifalari yuklanmadi',
+  amocrm_detail_title:'amoCRM vazifalari',
+  amocrm_detail_close:'Yopish',
+  amocrm_detail_empty:'Tanlangan xodimda faol task yo\'q',
+  amocrm_task_id:'Task ID',
+  amocrm_task_deadline:'Muddati',
+  amocrm_task_entity_type:'Entity type',
+  amocrm_task_entity_id:'Entity ID',
+  amocrm_task_overdue:'Muddati o\'tgan',
+  amocrm_task_active:'Faol',
+  amocrm_task_no_text:'Task matni yo\'q',
+  amocrm_click_hint:'Qatorni bosing: faol tasklar ko\'rsatiladi'
+});
+Object.assign(TR.ru,{
+  nav_amocrm:'Задачи amoCRM',
+  adm_amocrm:'Управление | Задачи amoCRM',
+  amocrm_card_active:'Всего активных задач',
+  amocrm_card_overdue:'Просрочено',
+  amocrm_card_on_time_active:'Не просрочено',
+  amocrm_card_completed_total:'Всего выполнено',
+  amocrm_card_completed_on_time:'Выполнено вовремя',
+  amocrm_card_completed_late:'Выполнено с опозданием',
+  amocrm_stats_title:'Статистика задач amoCRM',
+  amocrm_refresh:'Обновить',
+  amocrm_search_ph:'Поиск по сотруднику или логину...',
+  amocrm_filter_all:'Все',
+  amocrm_filter_overdue:'Просроченные',
+  amocrm_filter_on_time:'Работают вовремя',
+  amocrm_filter_no_active:'Без активных задач',
+  amocrm_filter_unlinked:'Не связаны с amoCRM',
+  amocrm_th_employee:'Сотрудник',
+  amocrm_th_login:'Логин',
+  amocrm_th_active:'Активные задачи',
+  amocrm_th_overdue:'Просрочено',
+  amocrm_th_on_time_active:'Не просрочено',
+  amocrm_th_completed_total:'Всего выполнено',
+  amocrm_th_completed_on_time:'Вовремя',
+  amocrm_th_completed_late:'С опозданием',
+  amocrm_th_efficiency:'Эффективность',
+  amocrm_th_status:'Статус',
+  amocrm_status_on_time:'Вовремя',
+  amocrm_status_overdue:'Есть просроченная задача',
+  amocrm_status_no_active:'Нет активных задач',
+  amocrm_status_unlinked:'Не связан с amoCRM',
+  amocrm_empty_stats:'Статистика не найдена',
+  amocrm_empty_search:'Поиск не дал результатов',
+  amocrm_stats_error:'Не удалось загрузить статистику amoCRM',
+  amocrm_detail_error:'Не удалось загрузить задачи сотрудника',
+  amocrm_detail_title:'Задачи amoCRM',
+  amocrm_detail_close:'Закрыть',
+  amocrm_detail_empty:'У выбранного сотрудника нет активных задач',
+  amocrm_task_id:'ID задачи',
+  amocrm_task_deadline:'Срок',
+  amocrm_task_entity_type:'Тип entity',
+  amocrm_task_entity_id:'ID entity',
+  amocrm_task_overdue:'Просрочено',
+  amocrm_task_active:'Активна',
+  amocrm_task_no_text:'Текст задачи отсутствует',
+  amocrm_click_hint:'Нажмите на строку, чтобы увидеть активные задачи'
+});
+Object.assign(TR.en,{
+  nav_amocrm:'amoCRM Tasks',
+  adm_amocrm:'Admin | amoCRM Tasks',
+  amocrm_card_active:'Total active tasks',
+  amocrm_card_overdue:'Overdue',
+  amocrm_card_on_time_active:'Not overdue',
+  amocrm_card_completed_total:'Total completed',
+  amocrm_card_completed_on_time:'Completed on time',
+  amocrm_card_completed_late:'Completed late',
+  amocrm_stats_title:'amoCRM task statistics',
+  amocrm_refresh:'Refresh',
+  amocrm_search_ph:'Search by employee or login...',
+  amocrm_filter_all:'All',
+  amocrm_filter_overdue:'Overdue',
+  amocrm_filter_on_time:'Working on time',
+  amocrm_filter_no_active:'No active tasks',
+  amocrm_filter_unlinked:'Not linked to amoCRM',
+  amocrm_th_employee:'Employee',
+  amocrm_th_login:'Login',
+  amocrm_th_active:'Active tasks',
+  amocrm_th_overdue:'Overdue',
+  amocrm_th_on_time_active:'Not overdue',
+  amocrm_th_completed_total:'Total completed',
+  amocrm_th_completed_on_time:'Completed on time',
+  amocrm_th_completed_late:'Completed late',
+  amocrm_th_efficiency:'Efficiency percent',
+  amocrm_th_status:'Status',
+  amocrm_status_on_time:'On time',
+  amocrm_status_overdue:'Has overdue task',
+  amocrm_status_no_active:'No active tasks',
+  amocrm_status_unlinked:'Not linked to amoCRM',
+  amocrm_empty_stats:'No statistics found',
+  amocrm_empty_search:'No search results found',
+  amocrm_stats_error:'Could not load amoCRM statistics',
+  amocrm_detail_error:'Could not load employee tasks',
+  amocrm_detail_title:'amoCRM Tasks',
+  amocrm_detail_close:'Close',
+  amocrm_detail_empty:'This employee has no active tasks',
+  amocrm_task_id:'Task ID',
+  amocrm_task_deadline:'Deadline',
+  amocrm_task_entity_type:'Entity type',
+  amocrm_task_entity_id:'Entity ID',
+  amocrm_task_overdue:'Overdue',
+  amocrm_task_active:'Active',
+  amocrm_task_no_text:'Task text is empty',
+  amocrm_click_hint:'Click a row to view active tasks'
+});
+Object.assign(TR.uz,{
+  amocrm_stats_title:'amoCRM task soni',
+  amocrm_stats_error:'amoCRM task soni yuklanmadi',
+  amocrm_count_source:'Ma\'lumotlar faqat amocrm_tasks jadvalidan olinmoqda.',
+  amocrm_count_note:'Xodimlar kesimidagi statistika hozircha ishlatilmaydi.',
+  amocrm_last_updated:'Oxirgi yangilanish',
+  amocrm_click_hint:'Faol tasklar soni realtime va har 30 soniyada yangilanadi.'
+});
+Object.assign(TR.ru,{
+  amocrm_stats_title:'Количество задач amoCRM',
+  amocrm_stats_error:'Не удалось загрузить количество задач amoCRM',
+  amocrm_count_source:'Данные берутся только из таблицы amocrm_tasks.',
+  amocrm_count_note:'Статистика по сотрудникам сейчас не используется.',
+  amocrm_last_updated:'Последнее обновление',
+  amocrm_click_hint:'Количество активных задач обновляется realtime и каждые 30 секунд.'
+});
+Object.assign(TR.en,{
+  amocrm_stats_title:'amoCRM task count',
+  amocrm_stats_error:'Could not load amoCRM task count',
+  amocrm_count_source:'Data is loaded only from the amocrm_tasks table.',
+  amocrm_count_note:'Employee-level statistics are not used for now.',
+  amocrm_last_updated:'Last updated',
+  amocrm_click_hint:'Active task counts update in realtime and every 30 seconds.'
+});
+Object.assign(TR.uz,{
+  amocrm_card_active:'Jami faol tasklar',
+  amocrm_card_overdue:'Muddati o\'tgan tasklar',
+  amocrm_card_on_time_active:'Muddati o\'tmagan tasklar',
+  amocrm_stats_title:'Bo\'limlar bo\'yicha amoCRM tasklari',
+  amocrm_stats_error:'amoCRM bo\'lim tasklari yuklanmadi',
+  amocrm_empty_stats:'amoCRM task ma\'lumotlari topilmadi',
+  amocrm_department_active:'Faol tasklar',
+  amocrm_department_overdue:'Muddati o\'tgan',
+  amocrm_department_on_time:'Muddati o\'tmagan',
+  amocrm_nearest_deadline:'Eng yaqin deadline',
+  amocrm_no_deadline:'Deadline yo\'q',
+  amocrm_last_updated:'Oxirgi yangilanish',
+  amocrm_click_hint:'Ma\'lumotlar amocrm_department_task_counts view orqali olinadi.'
+});
+Object.assign(TR.ru,{
+  amocrm_card_active:'Всего активных задач',
+  amocrm_card_overdue:'Просроченные задачи',
+  amocrm_card_on_time_active:'Непросроченные задачи',
+  amocrm_stats_title:'Задачи amoCRM по отделам',
+  amocrm_stats_error:'Не удалось загрузить задачи amoCRM по отделам',
+  amocrm_empty_stats:'Данные задач amoCRM не найдены',
+  amocrm_department_active:'Активные задачи',
+  amocrm_department_overdue:'Просрочено',
+  amocrm_department_on_time:'Не просрочено',
+  amocrm_nearest_deadline:'Ближайший deadline',
+  amocrm_no_deadline:'Deadline нет',
+  amocrm_last_updated:'Последнее обновление',
+  amocrm_click_hint:'Данные загружаются из view amocrm_department_task_counts.'
+});
+Object.assign(TR.en,{
+  amocrm_card_active:'Total active tasks',
+  amocrm_card_overdue:'Overdue tasks',
+  amocrm_card_on_time_active:'Not overdue tasks',
+  amocrm_stats_title:'amoCRM tasks by department',
+  amocrm_stats_error:'Could not load amoCRM department tasks',
+  amocrm_empty_stats:'amoCRM task data was not found',
+  amocrm_department_active:'Active tasks',
+  amocrm_department_overdue:'Overdue',
+  amocrm_department_on_time:'Not overdue',
+  amocrm_nearest_deadline:'Nearest deadline',
+  amocrm_no_deadline:'No deadline',
+  amocrm_last_updated:'Last updated',
+  amocrm_click_hint:'Data is loaded from the amocrm_department_task_counts view.'
+});
+Object.assign(TR.uz,{
+  dash_amocrm_t:'amoCRM task diagrammasi',
+  dash_amocrm_pill:'Bo\'limlar bo\'yicha',
+  dash_amocrm_empty:'amoCRM task ma\'lumotlari topilmadi'
+});
+Object.assign(TR.ru,{
+  dash_amocrm_t:'Диаграмма задач amoCRM',
+  dash_amocrm_pill:'По отделам',
+  dash_amocrm_empty:'Данные задач amoCRM не найдены'
+});
+Object.assign(TR.en,{
+  dash_amocrm_t:'amoCRM task diagram',
+  dash_amocrm_pill:'By department',
+  dash_amocrm_empty:'amoCRM task data was not found'
+});
+Object.assign(TR.uz,{
+  ne_course_none:'Kurs mas\'ulligi yo\'q',
+  et_course:'Kurs mas\'ulligi',
+  course_none:'-'
+});
+Object.assign(TR.ru,{
+  ne_course_none:'Без ответственности за курс',
+  et_course:'Ответственный курс',
+  course_none:'-'
+});
+Object.assign(TR.en,{
+  ne_course_none:'No course responsibility',
+  et_course:'Course responsibility',
+  course_none:'-'
+});
 let lang = localStorage.getItem('aloqa_lang') || 'uz';
 const t = k => ((TR[lang] && TR[lang][k]) ?? TR.uz[k] ?? k);
 const tf = (key, params={}) => Object.entries(params).reduce((acc,[name,value]) => acc.replaceAll(`{${name}}`, value), t(key));
@@ -2045,6 +2606,41 @@ function setFeedbackFilterOptions(){
   };
   Object.entries(map).forEach(([id, value]) => st(id, value));
   st('fb_filter_refresh_btn', t('feedback_filter_refresh'));
+}
+function getAdminTabTitle(tab){
+  const titles={
+    main:t('adm_m'),
+    settings:t('adm_s'),
+    kpi:t('adm_k'),
+    notif:t('nav_notif'),
+    feedback:t('nav_fb'),
+    amocrm:t('adm_amocrm')
+  };
+  return titles[tab] || titles.main;
+}
+function refreshAmoCrmStaticLabels(){
+  [
+    'amocrm_card_active','amocrm_card_overdue','amocrm_card_on_time_active',
+    'amocrm_stats_title'
+  ].forEach(id=>st(id,t(id)));
+  st('amocrm_refresh_btn', t('amocrm_refresh'));
+  st('amocrm_empty', t('amocrm_empty_stats'));
+  const tab=document.getElementById('tab_amocrm');
+  if(tab && !tab.classList.contains('hidden'))st('admTitle',t('adm_amocrm'));
+}
+async function fetchAmoCrmDepartmentTaskCounts(){
+  return sb
+    .from('amocrm_department_task_counts')
+    .select(`
+      responsible_user_id,
+      department_name,
+      sort_order,
+      active_tasks,
+      overdue_tasks,
+      on_time_tasks,
+      nearest_deadline
+    `)
+    .order('sort_order', { ascending: true });
 }
 function formatHm(totalSeconds){
   if(!totalSeconds)return '—';
@@ -2173,7 +2769,8 @@ function refreshStaticLabels(){
     ['#tab_settings .box:nth-of-type(1) .btitle','settings',document.getElementById('set_t')?.textContent||t('set_t')],
     ['#tab_settings .box:nth-of-type(2) .btitle','globe',document.getElementById('ip_t')?.textContent||t('ip_t')],
     ['#tab_settings .box:nth-of-type(3) .btitle','pin',t('gps_region_title')],
-    ['#tab_settings .box:nth-of-type(4) .btitle','calendar',document.getElementById('hol_t')?.textContent||t('hol_t')],
+    ['#face_control_title','camera',t('face_control_title')],
+    ['#tab_settings .box:nth-of-type(5) .btitle','calendar',document.getElementById('hol_t')?.textContent||t('hol_t')],
     ['#tab_kpi .btitle','trophy',document.getElementById('kpi_t')?.textContent||t('kpi_t')],
     ['#emp_tab_notif .btitle','bell',t('notifications_title')],
     ['#enablePushBtn','bell',lang==='uz'?'Push bildirishnomalarni yoqish':'Включить push-уведомления'],
@@ -2224,6 +2821,7 @@ function refreshStaticLabels(){
   if(gpsMyBtn)gpsMyBtn.textContent=t('gps_my_location');
   const gpsSaved=document.getElementById('gps_saved_info');
   if(gpsSaved && gpsSaved.textContent===t('gps_disabled'))gpsSaved.textContent=t('gps_disabled');
+  updateFaceControlSettingsUI();
   const gpsNowLabel=document.querySelector('p #gps_now_show')?.parentElement;
   if(gpsNowLabel)gpsNowLabel.childNodes[0].textContent=`${t('gps_current')} `;
   const myIpLabel=document.querySelector('p #my_ip_show')?.parentElement;
@@ -2235,8 +2833,8 @@ function applyLang(){
   ['ll','al','el','sl'].forEach(p=>{const u=document.getElementById(p+'_uz'),r=document.getElementById(p+'_ru');if(u)u.classList.toggle('active',lang==='uz');if(r)r.classList.toggle('active',lang==='ru');});
   st('lc_t',t('loginTitle'));st('lc_s',t('loginSub'));setLoginButtonLoading(false);
   sp('inp_l',t('loginPH'));sp('inp_p',t('passPH'));
-  ['n_main','n_notif','n_fb','n_set','n_kpi'].forEach((id,i)=>{st(id,t(['nav_m','nav_notif','nav_fb','nav_s','nav_k'][i]||''));});
-  st('admTitle',t('adm_m'));
+  ['n_main','n_notif','n_fb','n_set','n_kpi','n_amocrm'].forEach((id,i)=>{st(id,t(['nav_m','nav_notif','nav_fb','nav_s','nav_k','nav_amocrm'][i]||''));});
+  st('admTitle',getAdminTabTitle(currentAdminTab||'main'));
   const ae=document.getElementById('admExit');if(ae)ae.textContent=t('exit');
   const ee=document.getElementById('empExit');if(ee)ee.textContent=t('exit');
   st('emp_work_tab_lbl',t('emp_work_tab_lbl'));
@@ -2245,10 +2843,10 @@ function applyLang(){
   st('emp_logout_tab_lbl',t('emp_logout_tab_lbl'));
   updateDates();
   ['sc1','sc2','sc3','sc_leave','sc_leave_btn','sc4','att_t','from_l','to_l','b_today','b_monthly','b_cm','b_ref','o_all','o_came','o_late','o_abs',
-   'th1','th2','th4','th5','th6','th7','th_afk','th8','dash_t','dash_work_t','dash_late_t','dash_kpi_t','mth_t','ms1','ms2','ms3','ms4','ms5',
+   'th1','th2','th4','th5','th6','th7','th_afk','th8','dash_t','dash_work_t','dash_late_t','dash_kpi_t','dash_amocrm_t','dash_amocrm_pill','mth_t','ms1','ms2','ms3','ms4','ms5',
    'mt1','mt2','mt_afk','mt3','mt_half','mt4','mt5','mt6','mt7','mt8','mt9',
     'monthly_att_summary_title','mas_emp','mas_month','mas_worked_days','mas_late_count','mas_absent_days','mas_late_time','mas_actions','month_att_detail_title','month_att_detail_close',
-    'set_t','b_addemp','et1','et2','et3','et4','et5','hol_t','b_addh','hol_info','leave_manage_title','leave_add_btn',
+    'set_t','b_addemp','ne_course_none','et1','et2','et_course','et3','et4','et5','hol_t','b_addh','hol_info','leave_manage_title','leave_add_btn',
     'kpi_t','k1','k2','k3','k4','k5','k_afk','k6','k7','k8',
     'ew_t','et_t','eh_t','ewl','ell','eprl','ewd','eld','e_note','prayer_next_lbl',
     'ei1','ei2','ei3','ei4','ei5','ei6','ht1','ht2','ht3','ht4','ht5','ht6','ht7','ht8','ht_afk','ht9',
@@ -2277,6 +2875,7 @@ function applyLang(){
   const bcE=document.getElementById('bc');if(bcE)bcE.textContent=t('bc');
   const ks=document.getElementById('ne_k');if(ks){ks.options[0].text=t('kpi_sr');ks.options[1].text=t('kpi_jr');}
   refreshStaticLabels();
+  refreshAmoCrmStaticLabels();
   normalizeDynamicTranslations(document);
   try{
     const prayerUpdate = updatePrayerInfo();
@@ -2301,9 +2900,13 @@ function rerenderLocalizedViews(){
     const feedbackTab=document.getElementById('tab_feedback');
     const notifTab=document.getElementById('tab_notif');
     const settingsTab=document.getElementById('tab_settings');
+    const amoCrmTab=document.getElementById('tab_amocrm');
     if(feedbackTab && !feedbackTab.classList.contains('hidden'))loadFeedbackAdmin();
     if(notifTab && !notifTab.classList.contains('hidden'))loadNotificationsAdmin();
     if(settingsTab && !settingsTab.classList.contains('hidden'))loadEmpList();
+    if(amoCrmTab && !amoCrmTab.classList.contains('hidden')){
+      renderAmoCrmTaskPage();
+    }
   }
 
   if(employeeVisible && CU){
@@ -2620,6 +3223,17 @@ function getAbsenceDatesForMonth(month,cameDates,leaveDates=new Set()){
 function updateDates(){const s=t('today')+': '+fmtD(tzNow());st('admDate',s);st('empDate',s);}
 setInterval(updateDates,30000);
 
+function isEditableTarget(target){
+  return !!target?.closest?.('input, textarea, select, [contenteditable="true"]');
+}
+function blockClipboardEvent(e){
+  e.preventDefault();
+  e.stopPropagation();
+  if(e.clipboardData){
+    try{e.clipboardData.setData('text/plain','');}catch(_){}
+  }
+  return false;
+}
 function disableClipboardFeatures(){
   try{
     if(navigator.clipboard){
@@ -2630,6 +3244,33 @@ function disableClipboardFeatures(){
     }
   }catch(e){
     console.warn('Clipboard override failed:', e.message);
+  }
+  if(!disableClipboardFeatures.bound){
+    document.addEventListener('copy', blockClipboardEvent, true);
+    document.addEventListener('cut', blockClipboardEvent, true);
+    document.addEventListener('contextmenu', e=>{
+      e.preventDefault();
+      e.stopPropagation();
+    }, true);
+    document.addEventListener('dragstart', e=>{
+      e.preventDefault();
+      e.stopPropagation();
+    }, true);
+    document.addEventListener('selectstart', e=>{
+      if(!isEditableTarget(e.target)){
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    }, true);
+    document.addEventListener('keydown', e=>{
+      const key = (e.key || '').toLowerCase();
+      const blockedShortcut = (e.ctrlKey || e.metaKey) && (key === 'c' || key === 'x' || key === 'insert');
+      if(blockedShortcut){
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    }, true);
+    disableClipboardFeatures.bound = true;
   }
   document.querySelectorAll('[data-copy],[data-action="copy"],.copy-btn,.copy-button,button[onclick*="copy"],button[onclick*="clipboard"]').forEach(btn=>{
     btn.disabled = true;
@@ -2647,6 +3288,9 @@ let notifPollIv = null;
 let seenNotifIds = new Set(JSON.parse(localStorage.getItem('aloqa_seen_notif_ids')||'[]'));
 let employeeNotifRealtime = null;
 let adminRealtime = null;
+let amoCrmTaskRealtime = null;
+let amoCrmRefreshTimer = null;
+let faceControlPollTimer = null;
 let todayLunchShift = null;
 
 function lunchPlanLocalKey(){
@@ -2711,6 +3355,8 @@ function removeRealtimeChannel(channelRef){
 function stopRealtimeSubscriptions(){
   employeeNotifRealtime = removeRealtimeChannel(employeeNotifRealtime);
   adminRealtime = removeRealtimeChannel(adminRealtime);
+  stopFaceControlPolling();
+  stopAmoCrmTaskPage();
 }
 function subscribeEmployeeRealtime(){
   if(!CU||CU.role!=='employee')return;
@@ -2732,6 +3378,15 @@ function subscribeEmployeeRealtime(){
       filter:`employee_id=eq.${CU.id}`
     }, async () => {
       await loadMyFeedback();
+    })
+    .on('postgres_changes',{
+      event:'*',
+      schema:REALTIME_SCHEMA,
+      table:'settings',
+      filter:`key=eq.${FACE_CONTROL_SETTING_KEY}`
+    }, async () => {
+      const enabled=await loadFaceControlSettings();
+      if(enabled&&empState==='working')maybeStartFaceDetection();
     })
     .subscribe();
 }
@@ -3137,16 +3792,68 @@ async function doLogout(){
 }
 function toggleEye(){const i=document.getElementById('inp_p');i.type=i.type==='password'?'text':'password';}
 
+const CARD_ANIMATION_SELECTOR=[
+  '.login-card',
+  '.ip-card',
+  '.scard',
+  '.box',
+  '.dash-card',
+  '.dash-amocrm-stat',
+  '.dash-amocrm-bar-item',
+  '.dash-eff-card',
+  '.ec',
+  '.ii',
+  '.fb-item',
+  '.notif-item',
+  '.amocrm-dept-card',
+  '.amocrm-task-card',
+  '.modal'
+].join(',');
+function shouldReduceMotion(){
+  return window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+}
+function animateVisibleCards(scope=document){
+  if(shouldReduceMotion())return;
+  const root=scope && scope.querySelectorAll ? scope : document;
+  const cards=Array.from(root.querySelectorAll(CARD_ANIMATION_SELECTOR))
+    .filter(el=>el && !el.classList.contains('hidden') && el.offsetParent!==null);
+  cards.forEach((el,idx)=>{
+    el.classList.remove('card-animate-in');
+    el.style.setProperty('--card-delay', `${Math.min(idx,12)*45}ms`);
+    void el.offsetWidth;
+    el.classList.add('card-animate-in');
+  });
+}
+function animateCurrentView(){
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{
+    const admin=document.getElementById('adminPage');
+    const employee=document.getElementById('employeePage');
+    const login=document.getElementById('loginPage');
+    const ip=document.getElementById('ipBlockPage');
+    if(admin && getComputedStyle(admin).display!=='none'){
+      const activeTab=document.querySelector('#adminPage .pbody > div:not(.hidden)');
+      animateVisibleCards(activeTab || admin);
+    }else if(employee && getComputedStyle(employee).display!=='none'){
+      animateVisibleCards(employee);
+    }else if(login && getComputedStyle(login).display!=='none'){
+      animateVisibleCards(login);
+    }else if(ip && getComputedStyle(ip).display!=='none'){
+      animateVisibleCards(ip);
+    }
+  }));
+}
+
 function showPage(p){
   stopRealtimeSubscriptions();
   document.getElementById('loginPage').style.display=p==='login'?'flex':'none';
   document.getElementById('adminPage').style.display=p==='admin'?'block':'none';
   document.getElementById('employeePage').style.display=p==='employee'?'block':'none';
   document.getElementById('ipBlockPage').style.display='none';
-  document.getElementById('faceWidget').classList.toggle('hidden',p!=='employee');
+  document.getElementById('faceWidget').classList.toggle('hidden',p!=='employee'||!faceControlEnabled);
   if(p==='admin')initAdmin();
   if(p==='employee')initEmp();
   applyLang();
+  animateCurrentView();
 }
 
 // ============================================================
@@ -3158,6 +3865,7 @@ function empNavTab(tab){
   ['work','notif','feedback'].forEach(t2=>{const b=document.getElementById('ebn_'+t2);if(b)b.classList.toggle('active',t2===tab);});
   if(tab==='notif')loadNotificationsEmp();
   if(tab==='feedback')loadMyFeedback();
+  animateCurrentView();
 }
 
 // ============================================================
@@ -3166,8 +3874,9 @@ function empNavTab(tab){
 let mVisible = false;
 let monthlyData = [];
 let monthlyAttendanceSummary = [];
+let currentAdminTab = 'main';
 
-function initAdmin(){adminTab('main');setToday();setCurMonth();updateDates();updateHolList();updateIPList();loadGPSSettingsUI();loadMyIPDisplay();loadNotifEmpSelect();checkFeedbackBadge();subscribeAdminRealtime();loadTodayWorkLeaveCard();}
+function initAdmin(){adminTab('main');setToday();setCurMonth();updateDates();updateHolList();updateIPList();loadGPSSettingsUI();loadFaceControlSettings();loadMyIPDisplay();loadNotifEmpSelect();checkFeedbackBadge();subscribeAdminRealtime();loadTodayWorkLeaveCard();}
 async function loadMyIPDisplay(){if(!userPublicIP)userPublicIP=await getUserIP();const el=document.getElementById('my_ip_show');if(el)el.textContent=userPublicIP||'—';refreshStaticLabels();}
 async function loadNotifEmpSelect(){
   const{data:emps}=await sb.from('employees').select('id,name');
@@ -3181,18 +3890,266 @@ async function checkFeedbackBadge(){
   if(badge){const c=(data||[]).length;badge.textContent=c;badge.classList.toggle('hidden',c===0);}
 }
 function adminTab(tab){
-  ['main','notif','feedback','settings','kpi'].forEach(n=>{const el=document.getElementById('tab_'+n);if(el)el.classList.toggle('hidden',n!==tab);});
-  ['nav_main','nav_notif','nav_feedback','nav_settings','nav_kpi'].forEach((id,i)=>{const el=document.getElementById(id);if(el)el.classList.toggle('active',['main','notif','feedback','settings','kpi'][i]===tab);});
-  const titles={main:t('adm_m'),settings:t('adm_s'),kpi:t('adm_k'),notif:t('nav_notif'),feedback:t('nav_fb')};
-  st('admTitle',titles[tab]||'');
-  if(tab==='settings'){loadEmpList();updateIPList();loadGPSSettingsUI();}
+  currentAdminTab = tab;
+  ['main','notif','feedback','settings','kpi','amocrm'].forEach(n=>{const el=document.getElementById('tab_'+n);if(el)el.classList.toggle('hidden',n!==tab);});
+  ['nav_main','nav_amocrm','nav_feedback','nav_notif','nav_settings','nav_kpi'].forEach((id,i)=>{const el=document.getElementById(id);if(el)el.classList.toggle('active',['main','amocrm','feedback','notif','settings','kpi'][i]===tab);});
+  st('admTitle',getAdminTabTitle(tab));
+  if(tab!=='amocrm' && tab!=='main')stopAmoCrmTaskPage();
+  if(tab==='main'){
+    subscribeAmoCrmTaskRealtime();
+    startAmoCrmRefreshInterval();
+  }
+  if(tab==='settings'){loadEmpList();updateIPList();loadGPSSettingsUI();loadFaceControlSettings();}
   if(tab==='feedback')loadFeedbackAdmin();
   if(tab==='notif'){loadNotificationsAdmin();loadNotifEmpSelect();}
+  if(tab==='amocrm')startAmoCrmTaskPage();
+  animateCurrentView();
 }
 function setToday(){const today=todayISO();document.getElementById('fd_from').value=today;document.getElementById('fd_to').value=today;loadAtt();}
 function setCurMonth(){document.getElementById('fmonth').value=curM();onAdminMonthChange();}
 function onAdminMonthChange(){loadDashboard();loadMonthly();}
 function refreshAdminMain(){loadAtt();loadDashboard();loadMonthly();loadTodayWorkLeaveCard();}
+let amoCrmDepartmentRows = [];
+let amoCrmTaskCounts = {total:0, overdue:0, onTime:0, updatedAt:null};
+let amoCrmStatsLoading = false;
+let amoCrmStatsLoaded = false;
+let amoCrmStatsRequestId = 0;
+
+function amoCrmSafeCount(value){
+  const n = Number(value ?? 0);
+  return Number.isFinite(n) ? n : 0;
+}
+function setAmoCrmError(id, msg=''){
+  const el=document.getElementById(id);
+  if(!el)return;
+  el.textContent=msg;
+  el.classList.toggle('hidden', !msg);
+}
+function setAmoCrmSummaryLoading(){
+  [
+    'amocrm_total_active','amocrm_total_overdue','amocrm_total_on_time_active'
+  ].forEach(id=>st(id,'...'));
+  st('amocrm_last_updated','-');
+  renderAmoCrmDepartmentLoading();
+  const empty=document.getElementById('amocrm_empty');
+  if(empty)empty.classList.add('hidden');
+}
+function renderAmoCrmSummary(){
+  if(amoCrmStatsLoading){
+    setAmoCrmSummaryLoading();
+    return;
+  }
+  st('amocrm_total_active', amoCrmTaskCounts.total);
+  st('amocrm_total_overdue', amoCrmTaskCounts.overdue);
+  st('amocrm_total_on_time_active', amoCrmTaskCounts.onTime);
+  const note=document.getElementById('amocrm_table_note');
+  if(note)note.textContent=t('amocrm_click_hint');
+  const updated=document.getElementById('amocrm_last_updated');
+  if(updated){
+    updated.textContent=amoCrmTaskCounts.updatedAt
+      ? `${t('amocrm_last_updated')}: ${fmtD(amoCrmTaskCounts.updatedAt)} ${fmtHM(amoCrmTaskCounts.updatedAt)}`
+      : '-';
+  }
+}
+function parseAmoCrmDeadline(value){
+  if(value===null || value===undefined || value==='')return null;
+  if(typeof value==='number'){
+    const d=new Date(value > 100000000000 ? value : value*1000);
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
+  const text=String(value);
+  if(/^\d+$/.test(text)){
+    const n=Number(text);
+    const d=new Date(n > 100000000000 ? n : n*1000);
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
+  const d=new Date(text);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+function formatAmoCrmDeadline(value){
+  const d=parseAmoCrmDeadline(value);
+  return d ? `${fmtD(d)}, ${fmtHM(d)}` : t('amocrm_no_deadline');
+}
+function getAmoCrmDepartmentStatus(row){
+  const active=amoCrmSafeCount(row?.active_tasks);
+  const overdue=amoCrmSafeCount(row?.overdue_tasks);
+  if(active===0)return {cls:'neutral', text:t('amocrm_status_no_active')};
+  if(overdue>0)return {cls:'red', text:t('amocrm_status_overdue')};
+  return {cls:'green', text:t('amocrm_status_on_time')};
+}
+function createAmoCrmStatusBadge(status){
+  const badge=document.createElement('span');
+  badge.className=`amocrm-status ${status.cls}`;
+  badge.textContent=status.text;
+  return badge;
+}
+function renderAmoCrmDepartmentLoading(){
+  const grid=document.getElementById('amocrm_department_grid');
+  if(!grid)return;
+  grid.innerHTML='';
+  for(let i=0;i<6;i++){
+    const card=document.createElement('div');
+    card.className='amocrm-dept-card';
+    ['','short','','short'].forEach(cls=>{
+      const skel=document.createElement('div');
+      skel.className=`amocrm-skel ${cls}`.trim();
+      skel.style.marginBottom='10px';
+      card.appendChild(skel);
+    });
+    grid.appendChild(card);
+  }
+}
+function addAmoCrmDepartmentMetric(parent, label, value){
+  const box=document.createElement('div');
+  box.className='amocrm-dept-metric';
+  const l=document.createElement('span');
+  l.textContent=label;
+  const v=document.createElement('strong');
+  v.textContent=String(amoCrmSafeCount(value));
+  box.appendChild(l);
+  box.appendChild(v);
+  parent.appendChild(box);
+}
+function renderAmoCrmDepartments(){
+  const grid=document.getElementById('amocrm_department_grid');
+  const empty=document.getElementById('amocrm_empty');
+  if(!grid)return;
+  grid.innerHTML='';
+  const hasRows=amoCrmDepartmentRows.length>0;
+  if(empty)empty.classList.toggle('hidden', hasRows || !amoCrmStatsLoaded);
+  if(!hasRows)return;
+  amoCrmDepartmentRows.forEach(row=>{
+    const departmentId=row.responsible_user_id;
+    const card=document.createElement('div');
+    card.className='amocrm-dept-card';
+    if(departmentId!==null && departmentId!==undefined)card.dataset.id=String(departmentId);
+
+    const top=document.createElement('div');
+    top.className='amocrm-dept-top';
+    const titleWrap=document.createElement('div');
+    const name=document.createElement('div');
+    name.className='amocrm-dept-name';
+    name.textContent=row.department_name || '-';
+    const active=document.createElement('div');
+    active.className='amocrm-dept-active';
+    active.textContent=String(amoCrmSafeCount(row.active_tasks));
+    const activeLabel=document.createElement('div');
+    activeLabel.className='amocrm-dept-active-label';
+    activeLabel.textContent=t('amocrm_department_active');
+    titleWrap.appendChild(name);
+    titleWrap.appendChild(active);
+    titleWrap.appendChild(activeLabel);
+    top.appendChild(titleWrap);
+    top.appendChild(createAmoCrmStatusBadge(getAmoCrmDepartmentStatus(row)));
+
+    const metrics=document.createElement('div');
+    metrics.className='amocrm-dept-metrics';
+    addAmoCrmDepartmentMetric(metrics, t('amocrm_department_overdue'), row.overdue_tasks);
+    addAmoCrmDepartmentMetric(metrics, t('amocrm_department_on_time'), row.on_time_tasks);
+
+    const deadline=document.createElement('div');
+    deadline.className='amocrm-dept-deadline';
+    const label=document.createElement('span');
+    label.textContent=`${t('amocrm_nearest_deadline')}: `;
+    const value=document.createElement('strong');
+    value.textContent=formatAmoCrmDeadline(row.nearest_deadline);
+    deadline.appendChild(label);
+    deadline.appendChild(value);
+
+    card.appendChild(top);
+    card.appendChild(metrics);
+    card.appendChild(deadline);
+    grid.appendChild(card);
+  });
+}
+function renderAmoCrmTaskPage(){
+  refreshAmoCrmStaticLabels();
+  renderAmoCrmSummary();
+  if(!amoCrmStatsLoading)renderAmoCrmDepartments();
+}
+async function loadAmoCrmDepartmentCounts({showLoading=true}={}){
+  const requestId=++amoCrmStatsRequestId;
+  const btn=document.getElementById('amocrm_refresh_btn');
+  if(showLoading){
+    amoCrmStatsLoading=true;
+    if(btn)btn.disabled=true;
+    setAmoCrmError('amocrm_error','');
+    renderAmoCrmTaskPage();
+  }
+  try{
+    const {data,error}=await fetchAmoCrmDepartmentTaskCounts();
+    if(error)throw error;
+    if(requestId!==amoCrmStatsRequestId)return;
+    const rows=Array.isArray(data) ? data : [];
+    const total=rows.reduce((sum,row)=>sum+amoCrmSafeCount(row.active_tasks),0);
+    const overdue=rows.reduce((sum,row)=>sum+amoCrmSafeCount(row.overdue_tasks),0);
+    const onTime=rows.reduce((sum,row)=>sum+amoCrmSafeCount(row.on_time_tasks),0);
+    amoCrmDepartmentRows=rows;
+    amoCrmTaskCounts={
+      total,
+      overdue,
+      onTime,
+      updatedAt:new Date()
+    };
+    amoCrmStatsLoaded=true;
+    setAmoCrmError('amocrm_error','');
+  }catch(e){
+    if(requestId!==amoCrmStatsRequestId)return;
+    console.error('loadAmoCrmDepartmentCounts error:', e);
+    amoCrmDepartmentRows=[];
+    amoCrmTaskCounts={total:0, overdue:0, onTime:0, updatedAt:null};
+    amoCrmStatsLoaded=true;
+    setAmoCrmError('amocrm_error', e.message || t('amocrm_stats_error'));
+    toast('error', t('error_title'), t('amocrm_stats_error'));
+  }finally{
+    if(requestId===amoCrmStatsRequestId){
+      amoCrmStatsLoading=false;
+      if(btn)btn.disabled=false;
+      renderAmoCrmTaskPage();
+    }
+  }
+}
+async function loadAmoCrmTaskStats(opts={}){
+  return loadAmoCrmDepartmentCounts(opts);
+}
+async function refreshAmoCrmTasks(showLoading=true){
+  await loadAmoCrmDepartmentCounts({showLoading});
+}
+function subscribeAmoCrmTaskRealtime(){
+  if(!CU || CU.role!=='admin')return;
+  amoCrmTaskRealtime = removeRealtimeChannel(amoCrmTaskRealtime);
+  amoCrmTaskRealtime = sb
+    .channel('amocrm-active-tasks-changes')
+    .on('postgres_changes',{
+      event:'*',
+      schema:REALTIME_SCHEMA,
+      table:'amocrm_active_tasks'
+    }, async () => {
+      if(currentAdminTab==='amocrm')await loadAmoCrmDepartmentCounts({showLoading:true});
+      if(currentAdminTab==='main')await loadMainAmoCrmDiagram({showLoading:false});
+    })
+    .subscribe();
+}
+function startAmoCrmRefreshInterval(){
+  if(amoCrmRefreshTimer)clearInterval(amoCrmRefreshTimer);
+  amoCrmRefreshTimer=setInterval(()=>{
+    if(currentAdminTab==='amocrm')loadAmoCrmDepartmentCounts({showLoading:true});
+    if(currentAdminTab==='main')loadMainAmoCrmDiagram({showLoading:false});
+  }, 30000);
+}
+function startAmoCrmTaskPage(){
+  refreshAmoCrmStaticLabels();
+  subscribeAmoCrmTaskRealtime();
+  startAmoCrmRefreshInterval();
+  loadAmoCrmDepartmentCounts({showLoading:true});
+}
+function stopAmoCrmTaskPage(){
+  amoCrmTaskRealtime = removeRealtimeChannel(amoCrmTaskRealtime);
+  if(amoCrmRefreshTimer){
+    clearInterval(amoCrmRefreshTimer);
+    amoCrmRefreshTimer=null;
+  }
+}
 function setAttendanceTableMode(monthly){
   const dateRange=document.getElementById('att_date_range');
   const todayBtn=document.getElementById('b_today');
@@ -3412,6 +4369,295 @@ function renderDashboardCharts(rows,workDays,empCount,recs=[]){
     foot.textContent=best?`${t('dash_efficiency_best')}: ${best.name} (${best.efficiency}%)`:'';
     foot.title=t('dash_efficiency_hint');
   }
+  if(currentAdminTab==='main')animateVisibleCards(document.getElementById('tab_main'));
+}
+let mainAmoCrmDiagramRequestId = 0;
+let amoCrmActiveEmployees = [];
+const AMOCRM_EMPLOYEE_COURSE_COLUMN = 'responsible_course';
+const AMOCRM_DEPARTMENT_OPTIONS = [
+  {key:'1-kurs', label:'1-kurs', ids:[8952522], defaultNames:['Abdullayeva Sabina']},
+  {key:'2-kurs', label:'2-kurs', ids:[8952902], defaultNames:['Rustamova Sevinch']},
+  {key:'3-kurs', label:'3-kurs', ids:[8952890], defaultNames:['Mamarajabova Mohinur']},
+  {key:'4-kurs', label:'4-kurs', ids:[8952886], defaultNames:['Djumanazarova Sabina']},
+  {key:'5-kurs', label:'5-kurs', ids:[8952862], defaultNames:['Ergashboyeva Donoxon','Musulmonova Vazira']},
+  {key:'umumiy call', label:'Umumiy call', ids:[], defaultNames:["Zokirova Ra'no"]},
+  {key:'copywriter', label:'Copywriter', ids:[9035378], defaultNames:['Umirbekov Diyorbek']}
+];
+function createMainAmoCrmStat(value,label){
+  const card=document.createElement('div');
+  card.className='dash-amocrm-stat';
+  const v=document.createElement('strong');
+  v.textContent=String(value);
+  const l=document.createElement('span');
+  l.textContent=label;
+  card.appendChild(v);
+  card.appendChild(l);
+  return card;
+}
+function normalizeAmoCrmDepartmentName(name=''){
+  return String(name).toLowerCase().replace(/ё/g,'е').replace(/\s+/g,' ').trim();
+}
+function getAmoCrmResponsibleShortName(row){
+  const byName={
+    '1-kurs':'Abdullayeva S.',
+    '2-kurs':'Rustamova S.',
+    '3-kurs':'Mamarajabova M.',
+    '4-kurs':'Djumanazarova S.',
+    '5-kurs':'Musulmonova V., Ergashboyeva D.',
+    'umumiy call':'Zokirova R.',
+    'copywriter':'Umirbekov D.'
+  };
+  const byId={
+    8952522:'Abdullayeva S.',
+    8952902:'Rustamova S.',
+    8952890:'Mamarajabova M.',
+    8952886:'Djumanazarova S.',
+    8952862:'Musulmonova V., Ergashboyeva D.',
+    9035378:'Umirbekov D.'
+  };
+  const id=Number(row?.responsible_user_id);
+  return byName[normalizeAmoCrmDepartmentName(row?.department_name)] || byId[id] || '';
+}
+function normalizeEmployeeName(name=''){
+  return String(name).toLowerCase().replace(/[`´‘’]/g,"'").replace(/\s+/g,' ').trim();
+}
+function shortEmployeeName(name=''){
+  const parts=String(name||'').trim().split(/\s+/).filter(Boolean);
+  if(!parts.length)return '';
+  if(parts.length===1)return parts[0];
+  return `${parts[0]} ${parts[1].charAt(0).toUpperCase()}.`;
+}
+function normalizeCourseKey(value=''){
+  const text=normalizeAmoCrmDepartmentName(value);
+  if(!text)return '';
+  if(text.includes('1-kurs') || text.includes('1 kurs'))return '1-kurs';
+  if(text.includes('2-kurs') || text.includes('2 kurs'))return '2-kurs';
+  if(text.includes('3-kurs') || text.includes('3 kurs'))return '3-kurs';
+  if(text.includes('4-kurs') || text.includes('4 kurs'))return '4-kurs';
+  if(text.includes('5-kurs') || text.includes('5 kurs'))return '5-kurs';
+  if(text.includes('umumiy') && text.includes('call'))return 'umumiy call';
+  if(text.includes('copywriter'))return 'copywriter';
+  const opt=AMOCRM_DEPARTMENT_OPTIONS.find(item=>normalizeAmoCrmDepartmentName(item.key)===text || normalizeAmoCrmDepartmentName(item.label)===text);
+  return opt?.key || text;
+}
+function getAmoCrmDepartmentKey(row){
+  const id=Number(row?.responsible_user_id);
+  const byId={};
+  AMOCRM_DEPARTMENT_OPTIONS.forEach(opt=>(opt.ids||[]).forEach(optId=>{byId[optId]=opt.key;}));
+  return byId[id] || normalizeCourseKey(row?.department_name);
+}
+function getCourseLabel(key){
+  const normalized=normalizeCourseKey(key);
+  const opt=AMOCRM_DEPARTMENT_OPTIONS.find(item=>item.key===normalized);
+  return opt?.label || normalized || t('course_none');
+}
+function setAmoCrmActiveEmployees(employees=[]){
+  amoCrmActiveEmployees=(employees||[]).filter(emp=>emp && emp.id);
+}
+function getDefaultCourseForEmployee(emp){
+  const name=normalizeEmployeeName(emp?.name || '');
+  if(!name)return '';
+  const match=AMOCRM_DEPARTMENT_OPTIONS.find(opt=>(opt.defaultNames||[]).some(defaultName=>normalizeEmployeeName(defaultName)===name));
+  return match?.key || '';
+}
+function getEmployeeCourseResponsibilityKey(emp){
+  if(!emp?.id)return '';
+  return normalizeCourseKey(emp?.responsible_course || '') || getDefaultCourseForEmployee(emp);
+}
+async function updateEmployeeCourseResponsibility(employeeId, courseKey){
+  if(!employeeId)return;
+  const normalized=normalizeCourseKey(courseKey);
+  const { error } = await sb
+    .from('employees')
+    .update({ [AMOCRM_EMPLOYEE_COURSE_COLUMN]: normalized || null })
+    .eq('id', employeeId);
+  if(error)throw error;
+}
+function buildCourseResponsibilityMap(employees=amoCrmActiveEmployees){
+  const map=new Map(AMOCRM_DEPARTMENT_OPTIONS.map(opt=>[opt.key,[]]));
+  const seen=new Map(AMOCRM_DEPARTMENT_OPTIONS.map(opt=>[opt.key,new Set()]));
+  const add=(key,emp)=>{
+    const normalized=normalizeCourseKey(key);
+    if(!normalized || !emp)return;
+    if(!map.has(normalized)){
+      map.set(normalized,[]);
+      seen.set(normalized,new Set());
+    }
+    const marker=String(emp.id || normalizeEmployeeName(emp.name));
+    if(seen.get(normalized).has(marker))return;
+    seen.get(normalized).add(marker);
+    map.get(normalized).push(emp);
+  };
+  (employees||[]).forEach(emp=>{
+    const key=getEmployeeCourseResponsibilityKey(emp);
+    if(key)add(key,emp);
+  });
+  AMOCRM_DEPARTMENT_OPTIONS.forEach(opt=>{
+    const order=new Map((opt.defaultNames||[]).map((name,idx)=>[normalizeEmployeeName(name),idx]));
+    const arr=map.get(opt.key);
+    if(arr){
+      arr.sort((a,b)=>{
+        const ai=order.has(normalizeEmployeeName(a.name)) ? order.get(normalizeEmployeeName(a.name)) : 999;
+        const bi=order.has(normalizeEmployeeName(b.name)) ? order.get(normalizeEmployeeName(b.name)) : 999;
+        if(ai!==bi)return ai-bi;
+        return String(a.name||a.login||'').localeCompare(String(b.name||b.login||''), 'uz');
+      });
+    }
+  });
+  return map;
+}
+function getAmoCrmResponsibleShortNames(row, employees=amoCrmActiveEmployees, responsibilityMap=null){
+  const courseKey=getAmoCrmDepartmentKey(row);
+  const map=responsibilityMap || buildCourseResponsibilityMap(employees);
+  return (map.get(courseKey)||[]).map(emp=>shortEmployeeName(emp.name||emp.login)).filter(Boolean);
+}
+function getAmoCrmResponsibleShortName(row, employees=amoCrmActiveEmployees){
+  return getAmoCrmResponsibleShortNames(row, employees).join(', ');
+}
+function setMainAmoCrmDiagramLoading(){
+  const summary=document.getElementById('dash_amocrm_summary');
+  const chart=document.getElementById('dash_amocrm_chart');
+  const legend=document.getElementById('dash_amocrm_legend');
+  if(summary){
+    summary.innerHTML='';
+    summary.appendChild(createMainAmoCrmStat('...', t('amocrm_department_active')));
+    summary.appendChild(createMainAmoCrmStat('...', t('amocrm_department_overdue')));
+    summary.appendChild(createMainAmoCrmStat('...', t('amocrm_department_on_time')));
+  }
+  if(chart){
+    chart.innerHTML='';
+    const empty=document.createElement('div');
+    empty.className='dash-empty';
+    empty.textContent=t('loading');
+    chart.appendChild(empty);
+  }
+  if(legend)legend.innerHTML='';
+}
+function renderMainAmoCrmDiagram(rows=[], employees=amoCrmActiveEmployees){
+  if(Array.isArray(employees))setAmoCrmActiveEmployees(employees);
+  const responsibilityMap=buildCourseResponsibilityMap(amoCrmActiveEmployees);
+  const summary=document.getElementById('dash_amocrm_summary');
+  const chart=document.getElementById('dash_amocrm_chart');
+  const legend=document.getElementById('dash_amocrm_legend');
+  const items=Array.isArray(rows) ? rows.slice().sort((a,b)=>amoCrmSafeCount(a.sort_order)-amoCrmSafeCount(b.sort_order)) : [];
+  const total=items.reduce((sum,row)=>sum+amoCrmSafeCount(row.active_tasks),0);
+  const overdue=items.reduce((sum,row)=>sum+amoCrmSafeCount(row.overdue_tasks),0);
+  const onTime=items.reduce((sum,row)=>sum+amoCrmSafeCount(row.on_time_tasks),0);
+  if(summary){
+    summary.innerHTML='';
+    summary.appendChild(createMainAmoCrmStat(total, t('amocrm_department_active')));
+    summary.appendChild(createMainAmoCrmStat(overdue, t('amocrm_department_overdue')));
+    summary.appendChild(createMainAmoCrmStat(onTime, t('amocrm_department_on_time')));
+  }
+  if(chart){
+    chart.innerHTML='';
+    if(!items.length){
+      const empty=document.createElement('div');
+      empty.className='dash-empty';
+      empty.textContent=t('dash_amocrm_empty');
+      chart.appendChild(empty);
+    }else{
+      const maxActive=Math.max(...items.map(row=>amoCrmSafeCount(row.active_tasks)),1);
+      items.forEach(row=>{
+        const active=amoCrmSafeCount(row.active_tasks);
+        const rowOverdue=amoCrmSafeCount(row.overdue_tasks);
+        const rowOnTime=amoCrmSafeCount(row.on_time_tasks);
+        const barHeight=active ? Math.max(6, Math.round((active/maxActive)*100)) : 0;
+        const overduePct=active ? Math.max(0, Math.min(100, (rowOverdue/active)*100)) : 0;
+        const onTimePct=active ? Math.max(0, Math.min(100, (rowOnTime/active)*100)) : 0;
+
+        const item=document.createElement('div');
+        item.className='dash-amocrm-bar-item';
+        item.title=`${row.department_name || '-'}: ${active}`;
+        item.dataset.id=String(row.responsible_user_id ?? '');
+
+        const count=document.createElement('div');
+        count.className='dash-amocrm-count';
+        count.textContent=String(active);
+
+        const track=document.createElement('div');
+        track.className='dash-amocrm-track';
+        const fill=document.createElement('div');
+        fill.className='dash-amocrm-fill';
+        fill.style.height=active ? `${barHeight}%` : '0';
+
+        if(active){
+          const green=document.createElement('div');
+          green.className='dash-amocrm-seg green';
+          green.style.height=`${onTimePct}%`;
+          green.title=`${t('amocrm_department_on_time')}: ${rowOnTime}`;
+          const red=document.createElement('div');
+          red.className='dash-amocrm-seg red';
+          red.style.height=`${overduePct}%`;
+          red.title=`${t('amocrm_department_overdue')}: ${rowOverdue}`;
+          fill.appendChild(green);
+          fill.appendChild(red);
+        }
+
+        const label=document.createElement('div');
+        label.className='dash-amocrm-label';
+        const name=document.createElement('div');
+        name.className='dash-amocrm-name';
+        name.textContent=row.department_name || '-';
+        const owner=document.createElement('div');
+        owner.className='dash-amocrm-owner';
+        const ownerNames=getAmoCrmResponsibleShortNames(row, amoCrmActiveEmployees, responsibilityMap);
+        ownerNames.forEach((ownerName, ownerIdx)=>{
+          const line=document.createElement('span');
+          line.textContent=ownerIdx < ownerNames.length - 1 ? `${ownerName},` : ownerName;
+          owner.appendChild(line);
+        });
+        label.appendChild(name);
+        if(owner.childNodes.length)label.appendChild(owner);
+
+        track.appendChild(fill);
+        item.appendChild(count);
+        item.appendChild(track);
+        item.appendChild(label);
+        chart.appendChild(item);
+      });
+    }
+  }
+  if(legend){
+    legend.innerHTML='';
+    const onTimeItem=document.createElement('span');
+    const onTimeDot=document.createElement('i');
+    onTimeDot.className='green';
+    onTimeItem.appendChild(onTimeDot);
+    onTimeItem.appendChild(document.createTextNode(t('amocrm_department_on_time')));
+    const overdueItem=document.createElement('span');
+    const overdueDot=document.createElement('i');
+    overdueDot.className='red';
+    overdueItem.appendChild(overdueDot);
+    overdueItem.appendChild(document.createTextNode(t('amocrm_department_overdue')));
+    legend.appendChild(onTimeItem);
+    legend.appendChild(overdueItem);
+  }
+  if(currentAdminTab==='main')animateVisibleCards(document.getElementById('tab_main'));
+}
+async function loadMainAmoCrmDiagram({showLoading=true, employees=null}={}){
+  const requestId=++mainAmoCrmDiagramRequestId;
+  if(Array.isArray(employees))setAmoCrmActiveEmployees(employees);
+  if(showLoading)setMainAmoCrmDiagramLoading();
+  try{
+    const {data,error}=await fetchAmoCrmDepartmentTaskCounts();
+    if(error)throw error;
+    if(requestId!==mainAmoCrmDiagramRequestId)return;
+    renderMainAmoCrmDiagram(data||[], amoCrmActiveEmployees);
+  }catch(e){
+    if(requestId!==mainAmoCrmDiagramRequestId)return;
+    console.error('loadMainAmoCrmDiagram error:', e);
+    renderMainAmoCrmDiagram([], amoCrmActiveEmployees);
+    const chart=document.getElementById('dash_amocrm_chart');
+    if(chart){
+      chart.innerHTML='';
+      const empty=document.createElement('div');
+      empty.className='dash-empty';
+      empty.textContent=e.message || t('amocrm_stats_error');
+      chart.appendChild(empty);
+    }
+    if(showLoading && currentAdminTab==='main')toast('error', t('error_title'), t('amocrm_stats_error'));
+  }
 }
 async function loadDashboard(){
   const month=document.getElementById('fmonth')?.value||curM();
@@ -3423,6 +4669,7 @@ async function loadDashboard(){
   if(stats)stats.innerHTML=`<div class="dash-mini-stat"><strong>...</strong><span>${t('loading')}</span></div>`;
   if(labels)labels.innerHTML='';
   ['dash_late','dash_kpi'].forEach(id=>{const el=document.getElementById(id);if(el)el.innerHTML=`<div class="dash-empty">${t('loading')}</div>`;});
+  setMainAmoCrmDiagramLoading();
   const[y,mo]=month.split('-').map(Number);const dim=new Date(y,mo,0).getDate();
   let wd=0;for(let d=1;d<=dim;d++){const ds=`${y}-${String(mo).padStart(2,'0')}-${String(d).padStart(2,'0')}`;if(isWorkDay(ds))wd++;}
   const monthStart=`${month}-01`;
@@ -3434,6 +4681,8 @@ async function loadDashboard(){
     fetchEmployeeLeavesInRange(monthStart, monthEnd)
   ]);
   if(empErr||recErr||bonErr){toast('error','Dashboard',(empErr||recErr||bonErr).message||t('dashboard_error'));return;}
+  setAmoCrmActiveEmployees((emps||[]).filter(emp=>emp.active!==false));
+  loadMainAmoCrmDiagram({showLoading:false, employees:amoCrmActiveEmployees});
   const leaveDateMap=buildEmployeeLeaveDateMap(leaves, monthStart, monthEnd);
   const rows=(emps||[]).map(emp=>{
     const er=(recs||[]).filter(r=>r.employee_id===emp.id);
@@ -3755,14 +5004,15 @@ async function adjKpi(eid,month,delta,reset=false){const{data:ex}=await sb.from(
 async function loadEmpList() {
   const { data: emps, error } = await sb
     .from('employees')
-    .select('id,name,login,kpi_type,face_registered')
+    .select('id,name,login,kpi_type,face_registered,responsible_course')
     .eq('active', true)
     .order('name');
 
   if (error || !emps) {
     toast('error', t('error_title'), error?.message || t('employees_load_error'));
-    return;
+    return [];
   }
+  setAmoCrmActiveEmployees(emps);
 
   const tbody = document.getElementById('emp_body');
   const leaveSelect = document.getElementById('leave_emp');
@@ -3771,6 +5021,9 @@ async function loadEmpList() {
 
   emps.forEach((emp, i) => {
     const ka = emp.kpi_type === 'junior' ? '400 000' : '560 000';
+    const courseKey = getEmployeeCourseResponsibilityKey(emp);
+    const courseLabel = courseKey ? getCourseLabel(courseKey) : t('course_none');
+    const courseClass = courseKey ? 'course-badge' : 'course-badge empty';
     const faceStatus = emp.face_registered
       ? '<span style="color:var(--success);font-size:11px">✅ Ro\'yxatda</span>'
       : '<span style="color:var(--text3);font-size:11px">❌ Yo\'q</span>';
@@ -3780,6 +5033,7 @@ async function loadEmpList() {
       <td>${i + 1}</td>
       <td>${emp.name}</td>
       <td style="font-family:var(--mono)">${emp.login}</td>
+      <td><span class="${courseClass}">${courseLabel}</span></td>
       <td style="font-family:var(--mono)">*****</td>
       <td>${faceStatus}</td>
       <td style="font-family:var(--mono)">+${ka} UZS</td>
@@ -3793,11 +5047,12 @@ async function loadEmpList() {
       leaveSelect.appendChild(opt);
     }
   });
-  Array.from(tbody.querySelectorAll('tr td:nth-child(5) span')).forEach(el=>{
+  Array.from(tbody.querySelectorAll('tr td:nth-child(6) span')).forEach(el=>{
     if(/Ro'yxatda|Зарегистрировано|registered/i.test(el.textContent)) el.textContent=`✅ ${t('face_registered_yes')}`;
     else el.textContent=`❌ ${t('face_registered_no')}`;
   });
   await loadEmployeeLeaveAdminList();
+  return emps;
 }
 async function delEmp(id) {
   if (!id) return;
@@ -3831,7 +5086,8 @@ async function delEmp(id) {
     }
 
     toast('success', t('employee_title'), t('employee_removed'));
-    await loadEmpList();
+    const emps = await loadEmpList();
+    loadMainAmoCrmDiagram({showLoading:false, employees:emps||amoCrmActiveEmployees});
     loadDashboard();
     if (mVisible) loadMonthly();
   } catch (e) {
@@ -3844,9 +5100,11 @@ async function addEmp() {
   const email = document.getElementById('ne_l').value.trim().toLowerCase();
   const ps = document.getElementById('ne_p').value.trim();
   const kp = document.getElementById('ne_k').value;
+  const courseKey = document.getElementById('ne_course')?.value || '';
+  const normalizedCourseKey = normalizeCourseKey(courseKey);
 
   console.log('--- addEmp START ---');
-  console.log('FORM VALUES:', { nm, email, psLength: ps.length, kp });
+  console.log('FORM VALUES:', { nm, email, psLength: ps.length, kp, courseKey: normalizedCourseKey });
 
   if (!nm || !email || !ps) {
     toast('warn', t('error_title'), t('fill_required_short'));
@@ -3917,8 +5175,25 @@ async function addEmp() {
     document.getElementById('ne_n').value = '';
     document.getElementById('ne_l').value = '';
     document.getElementById('ne_p').value = '';
+    const createdId = result.employee_id || result.id || result.employee?.id || result.employee?.employee_id || result.data?.id || result.data?.employee_id;
+    if (normalizedCourseKey && createdId) {
+      await updateEmployeeCourseResponsibility(createdId, normalizedCourseKey);
+    }
+    let emps = await loadEmpList();
+    if (normalizedCourseKey && !createdId) {
+      const created = (emps || []).find(emp =>
+        normalizeEmployeeName(emp.login) === normalizeEmployeeName(email) ||
+        normalizeEmployeeName(emp.name) === normalizeEmployeeName(nm)
+      );
+      if (created?.id) {
+        await updateEmployeeCourseResponsibility(created.id, normalizedCourseKey);
+        emps = await loadEmpList();
+      }
+    }
+    const courseSelect = document.getElementById('ne_course');
+    if (courseSelect) courseSelect.value = '';
 
-    await loadEmpList();
+    loadMainAmoCrmDiagram({showLoading:false, employees:emps||amoCrmActiveEmployees});
     toast('success', t('employee_title'), t('employee_added'));
   } catch (e) {
     console.error('addEmp CATCH ERROR:', e);
@@ -4085,11 +5360,13 @@ function restoreLS(){
 // ============================================================
 //  EMPLOYEE INIT
 // ============================================================
-function initEmp(){
+async function initEmp(){
   restoreLS();setEmpMonth();loadHist();updateDates();
   document.getElementById('m_welcome').classList.remove('hidden');
   const mt=document.getElementById('e_mtag');if(mt)mt.textContent=curM();
-  startFaceDetection();startAutoEndCheck();startPrayerClock();
+  await loadFaceControlSettings();
+  startFaceControlPolling();
+  maybeStartFaceDetection();startAutoEndCheck();startPrayerClock();
   if(pendingAutoEndSave){
     pendingAutoEndSave=false;
     saveAtt(true).catch(e=>console.warn('auto-end restore save:',e.message||e));
@@ -4118,7 +5395,8 @@ async function empStart(){
   const lm=computeLateMinutesFromDate(wStart);
   const el=document.getElementById('e_ltag');if(el)el.textContent=t('lt_pre')+' '+lm+' '+t('lt_u');
   const ss=getLS()||{};ss.lateMin=lm;localStorage.setItem('aloqa_emp_state',JSON.stringify(ss));
-  updateEmpBtns();updateEmpStatusTag();startWT();saveLS();startFaceDetection();
+  await loadFaceControlSettings();
+  updateEmpBtns();updateEmpStatusTag();startWT();saveLS();maybeStartFaceDetection();
   await savePartial();
   toast('success',t('bs'),t('work_started_success'));
 }
@@ -4170,7 +5448,7 @@ async function empContinue(){
   empState='working';
   wStart=tzNow();
   document.getElementById('bc').classList.add('hidden');
-  updateEmpBtns();updateEmpStatusTag();startWT();saveLS();startFaceDetection();
+  updateEmpBtns();updateEmpStatusTag();startWT();saveLS();maybeStartFaceDetection();
   await savePartial();
 }
 function pauseWorkForPlatformExit({saveRemote=false}={}){
@@ -4519,7 +5797,7 @@ function speakAfkVoiceWarning(){afkVoiceCount=0;}
 
 function scheduleFaceCheck(ms){
   if(faceCheckTimer){clearTimeout(faceCheckTimer);faceCheckTimer=null;}
-  if(!faceApiLoaded||['ended','not_started','paused','lunch','prayer'].includes(empState))return;
+  if(!faceControlEnabled||!faceApiLoaded||['ended','not_started','paused','lunch','prayer'].includes(empState))return;
   const cooldownRemaining=lastStableFaceDetectedAt
     ? Math.max(0, FACE_FOUND_COOLDOWN_INTERVAL-(Date.now()-lastStableFaceDetectedAt))
     : 0;
@@ -4614,6 +5892,10 @@ async function startCamera(){
 
 // ── MAIN ENTRY ─────────────────────────────────────────────
 async function startFaceDetection(){
+  if(!faceControlEnabled){
+    updateFaceControlEmployeeUI();
+    return;
+  }
   if(['ended','lunch','prayer'].includes(empState))return;
   const statusEl=document.getElementById('face_status_inline');
   const setStatus=(txt)=>{if(statusEl)statusEl.textContent=txt;};
@@ -4636,6 +5918,7 @@ async function startFaceDetection(){
 
 // ── FACE CHECK — TO'LIQ QAYTA YOZILGAN ────────────────────
 async function runFaceCheck(){
+  if(!faceControlEnabled)return;
   if(['lunch','prayer','not_started','ended'].includes(empState)){
     scheduleFaceCheck(FACE_CHECK_INTERVAL);
     return;
@@ -4938,7 +6221,7 @@ function resumeFaceMonitoringAfterBreak(){
   if(warn)warn.classList.add('hidden');
   afkWarnShown=false;
   setAfkAlertVisualState(false);
-  startFaceDetection();
+  maybeStartFaceDetection();
 }
 
 // ── FACE REGISTRATION ──────────────────────────────────────
@@ -4946,6 +6229,11 @@ let regSamples=[];
 let regCapturing=false;
 
 function startFaceRegistration(){
+  if(!faceControlEnabled){
+    toast('info', t('face_control_title'), t('face_control_disabled_employee'));
+    updateFaceControlEmployeeUI();
+    return;
+  }
   if(regCapturing)return;
   if(!faceApiLoaded){toast('warn',t('face_title'),t('face_model_wait'));return;}
   regCapturing=true;regSamples=[];updateSampleDots();
@@ -5033,7 +6321,7 @@ async function saveFaceProfile(){
     faceHitCount=0;
     // ✅ FIX: Face profile ni qayta yukla va detection ni qayta boshlash
     await loadMyFaceProfile();
-    setTimeout(()=>startFaceDetection(), 500);
+    setTimeout(()=>maybeStartFaceDetection(), 500);
   }catch(e){
   console.error('saveFaceReg xato:', e);
   console.error('xato message:', e.message);
@@ -5171,6 +6459,10 @@ async function startCamera(){
 }
 
 async function startFaceDetection(){
+  if(!faceControlEnabled){
+    updateFaceControlEmployeeUI();
+    return;
+  }
   const statusEl=document.getElementById('face_status_inline');
   const setStatus=(txt)=>{if(statusEl)statusEl.textContent=txt;};
   const regBox=document.getElementById('faceRegBox');
@@ -5217,6 +6509,7 @@ async function startFaceDetection(){
 }
 
 async function runFaceCheck(){
+  if(!faceControlEnabled)return;
   if(['lunch','prayer','paused','not_started','ended'].includes(empState)){
     scheduleFaceCheck(FACE_MONITOR_INTERVAL);
     return;
@@ -5355,6 +6648,11 @@ function onFaceStablyDetected(reason){
 }
 
 function startFaceRegistration(){
+  if(!faceControlEnabled){
+    toast('info', t('face_control_title'), t('face_control_disabled_employee'));
+    updateFaceControlEmployeeUI();
+    return;
+  }
   if(regCapturing)return;
   if(!faceApiLoaded){
     toast('warn', t('face_title'), t('face_model_wait'));
@@ -5465,7 +6763,7 @@ async function saveFaceProfile(){
     if(btn)btn.textContent=t('face_reg_done');
     faceHitCount=0;
     await loadMyFaceProfile();
-    setTimeout(()=>startFaceDetection(),500);
+    setTimeout(()=>maybeStartFaceDetection(),500);
   }catch(e){
     console.error('saveFaceReg xato:', e);
     toast('error',t('face_title'),e.message);
@@ -5595,10 +6893,10 @@ async function loadHist(){
     }
     syncWorkWhileAway();
     if(!document.hidden && CU && CU.role==='employee'){ loadNotificationsEmp(true); }
-    if(!document.hidden && CU && CU.role==='employee' && empState==='working'){
+    if(!document.hidden && CU && CU.role==='employee' && empState==='working' && faceControlEnabled){
       if(!faceStream){
         // Stream yo'q — to'liq qayta boshlash
-        startFaceDetection();
+        maybeStartFaceDetection();
       } else {
         // Stream bor — faqat video ni qayta yoqish va counterlarni reset
         const video=document.getElementById('faceVideo');
@@ -5613,6 +6911,8 @@ async function loadHist(){
         isDetectingStartTime=0;
         scheduleFaceCheck(FACE_RETRY_INTERVAL);
       }
+    }else if(!document.hidden && CU && CU.role==='employee' && empState==='working'){
+      updateFaceControlEmployeeUI();
     }
   });
 
