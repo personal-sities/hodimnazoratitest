@@ -1427,6 +1427,7 @@ const AFK_GRACE_SEC       = 600;
 const BREAK_LIMIT_SEC     = 1800;
 const AUTO_END_HOUR       = 18;
 const AUTO_END_MIN        = 0;
+const AUTO_END_TASK_WARNING_INTERVAL_MS = 5 * 60 * 1000;
 const LATE_AFTER_MINUTES  = WORKDAY_START_MINUTES;
 const HALF_DAY_START_MINUTES = 11 * 60;
 const HALF_DAY_END_MINUTES   = 15 * 60;
@@ -2516,6 +2517,15 @@ Object.assign(TR.en,{
   amocrm_no_deadline:'No deadline',
   amocrm_last_updated:'Last updated',
   amocrm_click_hint:'Data is loaded from the amocrm_department_task_counts view.'
+});
+Object.assign(TR.uz,{
+  unfinished_tasks_warning:'Sizda bajarilmagan vazifalar avval vazifangizni yakunlang!'
+});
+Object.assign(TR.ru,{
+  unfinished_tasks_warning:'U vas est nevypolnennye zadachi. Snachala zavershite zadachu!'
+});
+Object.assign(TR.en,{
+  unfinished_tasks_warning:'You have unfinished tasks. Finish your task first!'
 });
 Object.assign(TR.uz,{
   dash_amocrm_t:'amoCRM task diagrammasi',
@@ -4373,6 +4383,7 @@ function renderDashboardCharts(rows,workDays,empCount,recs=[]){
 }
 let mainAmoCrmDiagramRequestId = 0;
 let amoCrmActiveEmployees = [];
+let unfinishedTaskWarningAt = 0;
 const AMOCRM_EMPLOYEE_COURSE_COLUMN = 'responsible_course';
 const AMOCRM_DEPARTMENT_OPTIONS = [
   {key:'1-kurs', label:'1-kurs', ids:[8952522], defaultNames:['Abdullayeva Sabina']},
@@ -4463,6 +4474,26 @@ function getDefaultCourseForEmployee(emp){
 function getEmployeeCourseResponsibilityKey(emp){
   if(!emp?.id)return '';
   return normalizeCourseKey(emp?.responsible_course || '') || getDefaultCourseForEmployee(emp);
+}
+function showUnfinishedTaskWarning({force=false}={}){
+  const now=Date.now();
+  if(!force && now-unfinishedTaskWarningAt<AUTO_END_TASK_WARNING_INTERVAL_MS)return;
+  unfinishedTaskWarningAt=now;
+  toast('warn', t('be'), t('unfinished_tasks_warning'), 6500);
+}
+async function employeeHasUnfinishedAmoCrmTasks(emp=CU){
+  const courseKey=getEmployeeCourseResponsibilityKey(emp);
+  if(!courseKey)return false;
+  const {data,error}=await fetchAmoCrmDepartmentTaskCounts();
+  if(error)throw error;
+  return (data||[]).some(row=>getAmoCrmDepartmentKey(row)===courseKey && amoCrmSafeCount(row.active_tasks)>0);
+}
+async function canFinishWorkByAmoCrmTasks({auto=false}={}){
+  if(!CU || CU.role!=='employee')return true;
+  const hasTasks=await employeeHasUnfinishedAmoCrmTasks(CU);
+  if(!hasTasks)return true;
+  showUnfinishedTaskWarning({force:!auto});
+  return false;
 }
 async function updateEmployeeCourseResponsibility(employeeId, courseKey){
   if(!employeeId)return;
@@ -5324,7 +5355,7 @@ function getTodayAutoEndDate(){
   const mm=String(AUTO_END_MIN).padStart(2,'0');
   return new Date(`${todayISO()}T${hh}:${mm}:00+05:00`);
 }
-function restoreLS(){
+async function restoreLS(){
   const ss=getLS();
   if(!ss||ss.date!==todayISO()){localStorage.removeItem('aloqa_emp_state');updateEmpBtns();return false;}
   empState=ss.state||'not_started';wAccum=ss.wAccum||0;lAccum=ss.lAccum||0;prayerAccum=ss.prayerAccum||0;afkSeconds=ss.afkSeconds||0;afkCount=ss.afkCount||0;breakSeconds=ss.breakSeconds||0;autoEndDone=ss.autoEndDone||false;
@@ -5334,16 +5365,24 @@ function restoreLS(){
   if(!autoEndDone&&['working','lunch','paused','prayer'].includes(empState)){
     const autoEndAt=getTodayAutoEndDate();
     if(tzNow()>=autoEndAt){
-      if(empState==='working'&&wStart)wAccum+=Math.max(0,Math.floor((autoEndAt-wStart)/1000));
-      if(empState==='lunch'&&lStart)lAccum+=Math.max(0,Math.floor((autoEndAt-lStart)/1000));
-      if(empState==='prayer'&&prayerStart)prayerAccum+=Math.max(0,Math.floor((autoEndAt-prayerStart)/1000));
-      wStart=null;lStart=null;prayerStart=null;empState='ended';autoEndDone=true;
-      ss.state='ended';ss.wAccum=wAccum;ss.lAccum=lAccum;ss.prayerAccum=prayerAccum;
-      ss.wStartISO=null;ss.lStartISO=null;ss.prayerStartISO=null;ss.afkStartISO=null;
-      ss.i_e=ss.i_e&&ss.i_e!=='-'?ss.i_e:fmtHM(autoEndAt);
-      ss.autoEndDone=true;ss.lastSavedISO=tzNow().toISOString();
-      localStorage.setItem('aloqa_emp_state',JSON.stringify(ss));
-      pendingAutoEndSave=true;
+      let canAutoFinish=false;
+      try{
+        canAutoFinish=await canFinishWorkByAmoCrmTasks({auto:true});
+      }catch(e){
+        console.warn('auto-end restore task check:', e.message||e);
+      }
+      if(canAutoFinish){
+        if(empState==='working'&&wStart)wAccum+=Math.max(0,Math.floor((autoEndAt-wStart)/1000));
+        if(empState==='lunch'&&lStart)lAccum+=Math.max(0,Math.floor((autoEndAt-lStart)/1000));
+        if(empState==='prayer'&&prayerStart)prayerAccum+=Math.max(0,Math.floor((autoEndAt-prayerStart)/1000));
+        wStart=null;lStart=null;prayerStart=null;empState='ended';autoEndDone=true;
+        ss.state='ended';ss.wAccum=wAccum;ss.lAccum=lAccum;ss.prayerAccum=prayerAccum;
+        ss.wStartISO=null;ss.lStartISO=null;ss.prayerStartISO=null;ss.afkStartISO=null;
+        ss.i_e=ss.i_e&&ss.i_e!=='-'?ss.i_e:fmtHM(autoEndAt);
+        ss.autoEndDone=true;ss.lastSavedISO=tzNow().toISOString();
+        localStorage.setItem('aloqa_emp_state',JSON.stringify(ss));
+        pendingAutoEndSave=true;
+      }
     }
   }
   if(ss.afkStartISO&&empState==='working'){currentAfkStart=new Date(ss.afkStartISO);isAfk=true;const elapsed=Math.floor((tzNow()-currentAfkStart)/1000);if(elapsed>0){afkSeconds+=elapsed;breakSeconds+=elapsed;}currentAfkStart=null;isAfk=false;}
@@ -5361,7 +5400,7 @@ function restoreLS(){
 //  EMPLOYEE INIT
 // ============================================================
 async function initEmp(){
-  restoreLS();setEmpMonth();loadHist();updateDates();
+  await restoreLS();setEmpMonth();loadHist();updateDates();
   document.getElementById('m_welcome').classList.remove('hidden');
   const mt=document.getElementById('e_mtag');if(mt)mt.textContent=curM();
   await loadFaceControlSettings();
@@ -5485,6 +5524,14 @@ function syncWorkWhileAway({saveRemote=false}={}){
 }
 async function empEnd(auto=false){
   if(!['working','lunch','paused','prayer'].includes(empState))return;
+  try{
+    const canFinish=await canFinishWorkByAmoCrmTasks({auto});
+    if(!canFinish)return;
+  }catch(e){
+    console.warn('finish task check:', e.message||e);
+    if(!auto)toast('error', t('error_title'), e.message || t('amocrm_stats_error'), 5000);
+    return;
+  }
   const now=tzNow();
   if(empState==='working'&&wStart)wAccum+=Math.floor((now-wStart)/1000);
   if(empState==='lunch'&&lStart)lAccum+=Math.floor((now-lStart)/1000);
