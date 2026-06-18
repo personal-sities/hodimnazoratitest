@@ -916,7 +916,14 @@ input[type="month"]::-webkit-calendar-picker-indicator { opacity:.75; }
           <div class="box">
             <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:16px">
               <span class="btitle" style="margin:0">📞 Bugungi qo'ng'iroqlar (PBX)</span>
-              <button class="xbtn" onclick="adminTab('pbx')" style="font-size:12px">Batafsil →</button>
+              <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+                <button class="pbx-filter-btn active" id="dash_pbx_f_all"    onclick="setPbxFilter('all')"      style="padding:5px 12px;border-radius:20px;font-size:11px;font-weight:700;cursor:pointer;border:1.5px solid var(--accent);background:var(--accent);color:#fff;font-family:var(--font);transition:var(--transition)">Jami</button>
+                <button class="pbx-filter-btn"        id="dash_pbx_f_in"     onclick="setPbxFilter('incoming')" style="padding:5px 12px;border-radius:20px;font-size:11px;font-weight:700;cursor:pointer;border:1.5px solid var(--border2);background:var(--bg3);color:var(--text2);font-family:var(--font);transition:var(--transition)">📥 Kiruvchi</button>
+                <button class="pbx-filter-btn"        id="dash_pbx_f_out"    onclick="setPbxFilter('outgoing')" style="padding:5px 12px;border-radius:20px;font-size:11px;font-weight:700;cursor:pointer;border:1.5px solid var(--border2);background:var(--bg3);color:var(--text2);font-family:var(--font);transition:var(--transition)">📤 Chiquvchi</button>
+                <button class="pbx-filter-btn"        id="dash_pbx_f_ans"    onclick="setPbxFilter('answered')" style="padding:5px 12px;border-radius:20px;font-size:11px;font-weight:700;cursor:pointer;border:1.5px solid var(--border2);background:var(--bg3);color:var(--text2);font-family:var(--font);transition:var(--transition)">✅ Gaplashilgan</button>
+                <button class="pbx-filter-btn"        id="dash_pbx_f_miss"   onclick="setPbxFilter('missed')"   style="padding:5px 12px;border-radius:20px;font-size:11px;font-weight:700;cursor:pointer;border:1.5px solid var(--border2);background:var(--bg3);color:var(--text2);font-family:var(--font);transition:var(--transition)">❌ Ko'tarilmagan</button>
+                <button class="xbtn" onclick="adminTab('pbx')" style="font-size:11px;margin-left:4px">Batafsil →</button>
+              </div>
             </div>
             <!-- Summary kartalar -->
             <div class="scards" style="grid-template-columns:repeat(6,1fr);margin-bottom:16px">
@@ -1198,7 +1205,7 @@ input[type="month"]::-webkit-calendar-picker-indicator { opacity:.75; }
         ═══════════════════════════════════════════════ -->
         <div id="tab_pbx" class="hidden">
 
-          <!-- Summary kartalar -->
+          <!-- Summary kartalar — asosiy scards bilan bir xil, ikki yoni yopishmasin -->
           <div class="scards" style="grid-template-columns:repeat(6,1fr)">
             <div class="scard" style="border-top:3px solid var(--accent)"><h4>1-KURS</h4><div class="snum" id="pbx_c1">—</div><div style="font-size:11px;color:var(--text3);margin-top:4px">Abdullayeva Sabina</div></div>
             <div class="scard" style="border-top:3px solid #e67e22"><h4>2-KURS</h4><div class="snum" id="pbx_c2">—</div><div style="font-size:11px;color:var(--text3);margin-top:4px">Rustamova Sevinch</div></div>
@@ -1208,7 +1215,7 @@ input[type="month"]::-webkit-calendar-picker-indicator { opacity:.75; }
             <div class="scard" style="border-top:3px solid var(--accent2)"><h4>UMUMIY CALL</h4><div class="snum" id="pbx_c6">—</div><div style="font-size:11px;color:var(--text3);margin-top:4px">Zokirova Ra'no</div></div>
           </div>
 
-          <!-- Bar diagramma + Jadval bitta box ichida -->
+          <!-- Bar diagramma + Jadval bitta box ichida, to'liq ko'rinsin -->
           <div class="box">
             <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:18px">
               <span class="btitle" style="margin:0">📞 Kurslar bo'yicha qo'ng'iroqlar diagrammasi</span>
@@ -1218,13 +1225,13 @@ input[type="month"]::-webkit-calendar-picker-indicator { opacity:.75; }
                 <button class="bb" onclick="loadPbxStats()" style="padding:7px 14px;font-size:12px">Yangilash</button>
               </div>
             </div>
-            <div class="pbx-bar-chart" id="pbx_bar_chart" style="margin-bottom:24px">
+            <div class="pbx-bar-chart" id="pbx_bar_chart" style="margin-bottom:28px">
               <div class="pbx-loading">Yuklanmoqda...</div>
             </div>
 
             <div class="btitle" style="margin-bottom:14px">📋 Extension bo'yicha batafsil</div>
-            <div class="tbl-wrap">
-              <table class="tbl">
+            <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;width:100%">
+              <table class="tbl" style="min-width:640px;width:100%">
                 <thead>
                   <tr>
                     <th>#</th>
@@ -3994,7 +4001,17 @@ let monthlyData = [];
 let monthlyAttendanceSummary = [];
 let currentAdminTab = 'main';
 
-function initAdmin(){adminTab('main');setToday();setCurMonth();updateDates();updateHolList();updateIPList();loadGPSSettingsUI();loadFaceControlSettings();loadMyIPDisplay();loadNotifEmpSelect();checkFeedbackBadge();subscribeAdminRealtime();loadTodayWorkLeaveCard();}
+function initAdmin(){adminTab('main');setToday();setCurMonth();updateDates();updateHolList();updateIPList();loadGPSSettingsUI();loadFaceControlSettings();loadMyIPDisplay();loadNotifEmpSelect();checkFeedbackBadge();subscribeAdminRealtime();loadTodayWorkLeaveCard();startPbxAutoRefresh();}
+
+let _pbxAutoRefreshTimer = null;
+function startPbxAutoRefresh() {
+  if (_pbxAutoRefreshTimer) clearInterval(_pbxAutoRefreshTimer);
+  // Har 60 soniyada PBX widget'ni yangilab tur
+  _pbxAutoRefreshTimer = setInterval(() => {
+    if (currentAdminTab === 'main') loadDashboardPbxWidget();
+    if (currentAdminTab === 'pbx')  loadPbxStats();
+  }, 60000);
+}
 async function loadMyIPDisplay(){if(!userPublicIP)userPublicIP=await getUserIP();const el=document.getElementById('my_ip_show');if(el)el.textContent=userPublicIP||'—';refreshStaticLabels();}
 async function loadNotifEmpSelect(){
   const{data:emps}=await sb.from('employees').select('id,name');
@@ -4416,75 +4433,114 @@ async function loadDashboardPbxWidget() {
       .eq('stat_date', today);
 
     if (error) throw error;
-    const rows = data || [];
-
-    // countMap
-    const countMap = {};
-    rows.forEach(r => { countMap[String(r.extension)] = r.call_count || 0; });
-
-    // Mini summary kartalar
-    const miniIds = ['dash_pbx_c1','dash_pbx_c2','dash_pbx_c3','dash_pbx_c4','dash_pbx_c5','dash_pbx_c6'];
-    PBX_ORDERED_EXTENSIONS.forEach((ext, i) => {
-      const el = document.getElementById(miniIds[i]);
-      if (el) el.textContent = countMap[ext] ?? 0;
-    });
-
-    // Mini bar chart — mavjud dash-amocrm stillarini ishlatamiz
-    if (chart) {
-      chart.innerHTML = '';
-      const orderedData = PBX_ORDERED_EXTENSIONS.map(ext => ({
-        ext,
-        count: countMap[ext] || 0,
-        ...PBX_COURSE_MAP[ext],
-      }));
-      const maxCount = Math.max(...orderedData.map(d => d.count), 1);
-
-      if (orderedData.every(d => d.count === 0)) {
-        chart.innerHTML = `<div class="dash-empty" style="font-size:12px">Bugun qo'ng'iroq yo'q</div>`;
-      } else {
-        orderedData.forEach(item => {
-          const barPct = item.count ? Math.max(4, Math.round((item.count / maxCount) * 100)) : 0;
-
-          const barItem = document.createElement('div');
-          barItem.className = 'dash-amocrm-bar-item';
-          barItem.title = `${item.label}: ${item.count}`;
-
-          const countEl = document.createElement('div');
-          countEl.className = 'dash-amocrm-count';
-          countEl.textContent = item.count;
-
-          const track = document.createElement('div');
-          track.className = 'dash-amocrm-track';
-          const fill = document.createElement('div');
-          fill.className = 'dash-amocrm-fill';
-          fill.style.height = `${barPct}%`;
-          fill.style.background = item.color;
-          track.appendChild(fill);
-
-          const label = document.createElement('div');
-          label.className = 'dash-amocrm-label';
-          const nameEl = document.createElement('div');
-          nameEl.className = 'dash-amocrm-name';
-          nameEl.textContent = item.label;
-          const ownerEl = document.createElement('div');
-          ownerEl.className = 'dash-amocrm-owner';
-          const sp = document.createElement('span');
-          sp.textContent = item.owner;
-          ownerEl.appendChild(sp);
-
-          label.appendChild(nameEl);
-          label.appendChild(ownerEl);
-          barItem.appendChild(countEl);
-          barItem.appendChild(track);
-          barItem.appendChild(label);
-          chart.appendChild(barItem);
-        });
-      }
-    }
+    window._pbxAllRows = data || [];
+    renderDashboardPbxChart(window._pbxAllRows, window._pbxFilter || 'all');
   } catch(err) {
     console.error('loadDashboardPbxWidget error:', err.message);
     if (chart) chart.innerHTML = `<div class="dash-empty" style="font-size:12px;color:var(--danger)">${err.message}</div>`;
   }
+}
+
+let _pbxFilter = 'all';
+window._pbxFilter = 'all';
+window._pbxAllRows = [];
+
+function setPbxFilter(filter) {
+  _pbxFilter = filter;
+  window._pbxFilter = filter;
+  // Tugmalar rangini yangilash
+  const map = { all:'dash_pbx_f_all', incoming:'dash_pbx_f_in', outgoing:'dash_pbx_f_out', answered:'dash_pbx_f_ans', missed:'dash_pbx_f_miss' };
+  Object.entries(map).forEach(([key, id]) => {
+    const btn = document.getElementById(id);
+    if (!btn) return;
+    if (key === filter) {
+      btn.style.background = 'var(--accent)';
+      btn.style.color = '#fff';
+      btn.style.borderColor = 'var(--accent)';
+    } else {
+      btn.style.background = 'var(--bg3)';
+      btn.style.color = 'var(--text2)';
+      btn.style.borderColor = 'var(--border2)';
+    }
+  });
+  renderDashboardPbxChart(window._pbxAllRows, filter);
+}
+
+function filterPbxRows(rows, filter) {
+  if (filter === 'all') return rows;
+  if (filter === 'incoming')  return rows.filter(r => r.call_type === 'incoming');
+  if (filter === 'outgoing')  return rows.filter(r => r.call_type === 'outgoing');
+  if (filter === 'answered')  return rows.filter(r => r.call_type === 'answered');
+  if (filter === 'missed')    return rows.filter(r => r.call_type === 'missed');
+  return rows;
+}
+
+function renderDashboardPbxChart(allRows, filter) {
+  const chart = document.getElementById('dash_pbx_chart');
+  const rows = filterPbxRows(allRows, filter);
+
+  // countMap
+  const countMap = {};
+  rows.forEach(r => {
+    const ext = String(r.extension);
+    countMap[ext] = (countMap[ext] || 0) + (r.call_count || 0);
+  });
+
+  // Mini summary kartalar
+  const miniIds = ['dash_pbx_c1','dash_pbx_c2','dash_pbx_c3','dash_pbx_c4','dash_pbx_c5','dash_pbx_c6'];
+  PBX_ORDERED_EXTENSIONS.forEach((ext, i) => {
+    const el = document.getElementById(miniIds[i]);
+    if (el) el.textContent = countMap[ext] ?? 0;
+  });
+
+  if (!chart) return;
+  chart.innerHTML = '';
+  const orderedData = PBX_ORDERED_EXTENSIONS.map(ext => ({
+    ext, count: countMap[ext] || 0, ...PBX_COURSE_MAP[ext],
+  }));
+  const maxCount = Math.max(...orderedData.map(d => d.count), 1);
+
+  if (orderedData.every(d => d.count === 0)) {
+    chart.innerHTML = `<div class="dash-empty" style="font-size:12px">Ma'lumot yo'q</div>`;
+    return;
+  }
+
+  orderedData.forEach(item => {
+    const barPct = item.count ? Math.max(4, Math.round((item.count / maxCount) * 100)) : 0;
+    const barItem = document.createElement('div');
+    barItem.className = 'dash-amocrm-bar-item';
+    barItem.title = `${item.label}: ${item.count}`;
+
+    const countEl = document.createElement('div');
+    countEl.className = 'dash-amocrm-count';
+    countEl.textContent = item.count;
+
+    const track = document.createElement('div');
+    track.className = 'dash-amocrm-track';
+    const fill = document.createElement('div');
+    fill.className = 'dash-amocrm-fill';
+    fill.style.height = `${barPct}%`;
+    fill.style.background = item.color;
+    track.appendChild(fill);
+
+    const label = document.createElement('div');
+    label.className = 'dash-amocrm-label';
+    const nameEl = document.createElement('div');
+    nameEl.className = 'dash-amocrm-name';
+    nameEl.textContent = item.label;
+    const ownerEl = document.createElement('div');
+    ownerEl.className = 'dash-amocrm-owner';
+    const sp = document.createElement('span');
+    sp.textContent = item.owner;
+    ownerEl.appendChild(sp);
+
+    label.appendChild(nameEl);
+    label.appendChild(ownerEl);
+    barItem.appendChild(countEl);
+    barItem.appendChild(track);
+    barItem.appendChild(label);
+    chart.appendChild(barItem);
+  });
 }
 async function refreshAmoCrmTasks(showLoading=true){
   await loadAmoCrmDepartmentCounts({showLoading});
