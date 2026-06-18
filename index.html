@@ -871,27 +871,6 @@ input[type="month"]::-webkit-calendar-picker-indicator { opacity:.75; }
                 </div>
                 <div class="dash-amocrm-legend" id="dash_amocrm_legend"></div>
               </div>
-
-              <!-- PBX Mini Widget -->
-              <div class="dash-card dash-amocrm-card" style="margin-top:0">
-                <div class="dash-head">
-                  <h4 style="margin:0">📞 Bugungi qo'ng'iroqlar (PBX)</h4>
-                  <button class="xbtn" onclick="adminTab('pbx')" style="font-size:11px">Batafsil →</button>
-                </div>
-                <!-- Mini summary -->
-                <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-bottom:14px" id="dash_pbx_summary">
-                  <div class="dash-amocrm-stat"><strong id="dash_pbx_c1">—</strong><span>1-kurs</span></div>
-                  <div class="dash-amocrm-stat"><strong id="dash_pbx_c2">—</strong><span>2-kurs</span></div>
-                  <div class="dash-amocrm-stat"><strong id="dash_pbx_c3">—</strong><span>3-kurs</span></div>
-                  <div class="dash-amocrm-stat"><strong id="dash_pbx_c4">—</strong><span>4-kurs</span></div>
-                  <div class="dash-amocrm-stat"><strong id="dash_pbx_c5">—</strong><span>5-kurs</span></div>
-                  <div class="dash-amocrm-stat"><strong id="dash_pbx_c6">—</strong><span>Umumiy</span></div>
-                </div>
-                <!-- Mini bar chart -->
-                <div class="dash-amocrm-chart" id="dash_pbx_chart" style="min-height:180px">
-                  <div class="dash-empty">Yuklanmoqda...</div>
-                </div>
-              </div>
               <div class="dash-card">
                 <div class="dash-head">
                   <h4 id="dash_work_t" style="margin:0">Davomat holati</h4>
@@ -931,6 +910,28 @@ input[type="month"]::-webkit-calendar-picker-indicator { opacity:.75; }
               </div>
             </div>
           </div>
+
+          <!-- ═══ PBX QO'NG'IROQLAR MINI WIDGET ═══ -->
+          <div class="box">
+            <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:16px">
+              <span class="btitle" style="margin:0">📞 Bugungi qo'ng'iroqlar (PBX)</span>
+              <button class="xbtn" onclick="adminTab('pbx')" style="font-size:12px">Batafsil →</button>
+            </div>
+            <!-- Summary kartalar -->
+            <div class="scards" style="grid-template-columns:repeat(6,1fr);margin-bottom:16px">
+              <div class="scard"><h4>1-KURS</h4><div class="snum" id="dash_pbx_c1">—</div><div style="font-size:11px;color:var(--text3);margin-top:4px">Abdullayeva Sabina</div></div>
+              <div class="scard"><h4>2-KURS</h4><div class="snum" id="dash_pbx_c2">—</div><div style="font-size:11px;color:var(--text3);margin-top:4px">Rustamova Sevinch</div></div>
+              <div class="scard"><h4>3-KURS</h4><div class="snum" id="dash_pbx_c3">—</div><div style="font-size:11px;color:var(--text3);margin-top:4px">Mamarajabova Mohinur</div></div>
+              <div class="scard"><h4>4-KURS</h4><div class="snum" id="dash_pbx_c4">—</div><div style="font-size:11px;color:var(--text3);margin-top:4px">Djumanazarova Sabina</div></div>
+              <div class="scard"><h4>5-KURS</h4><div class="snum" id="dash_pbx_c5">—</div><div style="font-size:11px;color:var(--text3);margin-top:4px">Ergashboyeva / Musulmonova</div></div>
+              <div class="scard"><h4>UMUMIY CALL</h4><div class="snum" id="dash_pbx_c6">—</div><div style="font-size:11px;color:var(--text3);margin-top:4px">Zokirova Ra'no</div></div>
+            </div>
+            <!-- Mini bar chart -->
+            <div class="dash-amocrm-chart" id="dash_pbx_chart" style="min-height:200px">
+              <div class="dash-empty">Yuklanmoqda...</div>
+            </div>
+          </div>
+          <!-- ═══════════════════════════════════════ -->
           <div class="box">
             <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:12px">
               <span class="btitle" id="att_t" style="margin:0">Hodimlar nazorati</span>
@@ -1197,13 +1198,13 @@ input[type="month"]::-webkit-calendar-picker-indicator { opacity:.75; }
         <div id="tab_pbx" class="hidden">
 
           <!-- Summary kartalar -->
-          <div class="pbx-summary-grid" id="pbx_summary_cards">
-            <div class="pbx-summary-card"><h4>1-kurs</h4><div class="pbx-num" id="pbx_c1">—</div><div class="pbx-sub" id="pbx_c1_name">Abdullayeva Sabina</div></div>
-            <div class="pbx-summary-card"><h4>2-kurs</h4><div class="pbx-num" id="pbx_c2">—</div><div class="pbx-sub" id="pbx_c2_name">Rustamova Sevinch</div></div>
-            <div class="pbx-summary-card"><h4>3-kurs</h4><div class="pbx-num" id="pbx_c3">—</div><div class="pbx-sub" id="pbx_c3_name">Mamarajabova Mohinur</div></div>
-            <div class="pbx-summary-card"><h4>4-kurs</h4><div class="pbx-num" id="pbx_c4">—</div><div class="pbx-sub" id="pbx_c4_name">Djumanazarova Sabina</div></div>
-            <div class="pbx-summary-card"><h4>5-kurs</h4><div class="pbx-num" id="pbx_c5">—</div><div class="pbx-sub" id="pbx_c5_name">Ergashboyeva / Musulmonova</div></div>
-            <div class="pbx-summary-card"><h4>Umumiy call</h4><div class="pbx-num" id="pbx_c6">—</div><div class="pbx-sub" id="pbx_c6_name">Zokirova Ra'no</div></div>
+          <div class="scards" style="grid-template-columns:repeat(6,1fr);margin-bottom:24px" id="pbx_summary_cards">
+            <div class="scard"><h4>1-KURS</h4><div class="snum" id="pbx_c1">—</div><div style="font-size:11px;color:var(--text3);margin-top:4px" id="pbx_c1_name">Abdullayeva Sabina</div></div>
+            <div class="scard"><h4>2-KURS</h4><div class="snum" id="pbx_c2">—</div><div style="font-size:11px;color:var(--text3);margin-top:4px" id="pbx_c2_name">Rustamova Sevinch</div></div>
+            <div class="scard"><h4>3-KURS</h4><div class="snum" id="pbx_c3">—</div><div style="font-size:11px;color:var(--text3);margin-top:4px" id="pbx_c3_name">Mamarajabova Mohinur</div></div>
+            <div class="scard"><h4>4-KURS</h4><div class="snum" id="pbx_c4">—</div><div style="font-size:11px;color:var(--text3);margin-top:4px" id="pbx_c4_name">Djumanazarova Sabina</div></div>
+            <div class="scard"><h4>5-KURS</h4><div class="snum" id="pbx_c5">—</div><div style="font-size:11px;color:var(--text3);margin-top:4px" id="pbx_c5_name">Ergashboyeva / Musulmonova</div></div>
+            <div class="scard"><h4>UMUMIY CALL</h4><div class="snum" id="pbx_c6">—</div><div style="font-size:11px;color:var(--text3);margin-top:4px" id="pbx_c6_name">Zokirova Ra'no</div></div>
           </div>
 
           <!-- Bar diagramma -->
