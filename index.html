@@ -1525,6 +1525,86 @@ const SUPABASE_ANON = 'sb_publishable_CZUB0mOSzmmCvviNzWykzw_B3_0-5bE';
 const FUNCTIONS_BASE = `${SUPABASE_URL}/functions/v1`;
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
 
+// ============================================================
+//  SUPABASE DIAGNOSTIKA — barcha jadvallar + RPC tekshiruvi
+// ============================================================
+(async function runSupabaseDiagnostics(){
+  const TABLES = ['employees','attendance','admins','settings','kpi_bonuses','notifications','feedback'];
+  const results = {};
+
+  function describeError(err){
+    if(!err) return null;
+    const m = err.message || '';
+    const c = err.code || '';
+    if(c==='PGRST301'||m.includes('JWT')||m.includes('apikey')||m.includes('invalid key'))
+      return `🔑 API_KEY_XATO: Kalit noto'g'ri yoki muddati tugagan. Supabase → Settings → API → yangi kalit oling.`;
+    if(c==='42501'||m.includes('permission denied')||m.includes('policy'))
+      return `🔒 RLS_BLOKLANGAN: Bu jadvalga anonymous ruxsat yo'q. Supabase → Table Editor → "${err._table||'?'}" → RLS Policies → "SELECT" policy qo'shing: (auth.role() = 'authenticated') yoki (true) — faqat authenticated foydalanuvchilar uchun.`;
+    if(c==='42P01'||m.includes('does not exist'))
+      return `📋 JADVAL_YO'Q: Bu jadval Supabase da mavjud emas. Migration yoki SQL Editor orqali yarating.`;
+    if(m.includes('Failed to fetch')||m.includes('NetworkError')||m.includes('net::ERR'))
+      return `🌐 TARMOQ_XATO: ${SUPABASE_URL} ga ulanib bo'lmadi. Loyiha to'xtatilgan (paused) bo'lishi mumkin. Supabase dashboard → loyihani tekshiring.`;
+    if(c==='PGRST116') return `⚠️  Ko'p yoki nol natija qaytdi (maybeSingle muammosi).`;
+    return `❓ NOMA'LUM (${c}): ${m}`;
+  }
+
+  // 1. Har bir jadval uchun SELECT tekshiruvi
+  for(const tbl of TABLES){
+    try{
+      const {error} = await sb.from(tbl).select('*',{count:'exact',head:true});
+      if(error){ error._table=tbl; results[tbl]={ok:false, desc:describeError(error)}; }
+      else results[tbl]={ok:true};
+    }catch(e){
+      results[tbl]={ok:false, desc:`💥 JS xatosi: ${e.message}`};
+    }
+  }
+
+  // 2. RPC funksiyasi tekshiruvi
+  try{
+    const today = new Date().toISOString().slice(0,10);
+    const {error} = await sb.rpc('admin_attendance_range',{p_from:today,p_to:today,p_search:'',p_status:''});
+    if(error){ error._table='rpc:admin_attendance_range'; results['rpc:admin_attendance_range']={ok:false,desc:describeError(error)}; }
+    else results['rpc:admin_attendance_range']={ok:true};
+  }catch(e){
+    results['rpc:admin_attendance_range']={ok:false,desc:`💥 JS xatosi: ${e.message}`};
+  }
+
+  // 3. Auth tekshiruvi
+  try{
+    const {data:sess,error:authErr} = await sb.auth.getSession();
+    results['auth:getSession'] = authErr
+      ? {ok:false, desc:`🔑 Auth xatosi: ${authErr.message}`}
+      : {ok:true, user: sess?.session?.user?.email || 'Sessiya yo\'q (login kerak)'};
+  }catch(e){
+    results['auth:getSession']={ok:false,desc:`💥 JS xatosi: ${e.message}`};
+  }
+
+  // 4. Konsolga chiqarish
+  const failed = Object.entries(results).filter(([,v])=>!v.ok);
+  const passed = Object.entries(results).filter(([,v])=>v.ok);
+
+  console.group('🔍 SUPABASE DIAGNOSTIKA NATIJASI');
+  if(passed.length){
+    console.group(`✅ Muvaffaqiyatli (${passed.length})`);
+    passed.forEach(([k,v])=>console.log(`  ✅ ${k}${v.user?' → '+v.user:''}`));
+    console.groupEnd();
+  }
+  if(failed.length){
+    console.group(`🔴 Xatolar (${failed.length}) — MUAMMOLAR SABABINI KO'RING:`);
+    failed.forEach(([k,v])=>console.error(`  🔴 ${k}\n     ${v.desc}`));
+    console.groupEnd();
+    console.warn(`\n📌 YECHIM YO'LLARI:\n` +
+      `  1. Supabase loyiha to'xtatilgan bo'lsa: https://supabase.com/dashboard → loyihani "Resume" qiling\n` +
+      `  2. RLS muammosi bo'lsa: Table Editor → jadval → "RLS" → "New Policy" → authenticated users uchun SELECT qo'shing\n` +
+      `  3. Kalit noto'g'ri bo'lsa: Settings → API → "Publishable key" ni ko'chirib index.html da SUPABASE_ANON ga qo'ying\n` +
+      `  4. RPC yo'q bo'lsa: SQL Editor da "admin_attendance_range" funksiyasini yarating`
+    );
+  } else {
+    console.log('🎉 Barcha tekshiruvlar muvaffaqiyatli o\'tdi!');
+  }
+  console.groupEnd();
+})();
+
 const TASHKENT_TIMEZONE = 'Asia/Tashkent';
 const WORKDAY_START_MINUTES = 9 * 60;
 const WORKDAY_END_MINUTES = 18 * 60;
@@ -3832,7 +3912,22 @@ async function doLogin(){
     });
 
     if (error || !data?.user) {
-      err.textContent = t('loginErr');
+      console.error('🔴 Login xato:', error?.status, error?.message, error?.code);
+      let errMsg = t('loginErr');
+      if(error?.message?.includes('Invalid login')||error?.message?.includes('invalid_credentials')){
+        errMsg = t('loginErr');
+      } else if(error?.message?.includes('Email not confirmed')){
+        errMsg = '📧 Email tasdiqlanmagan. Emailingizni tekshiring.';
+      } else if(error?.message?.includes('Too many requests')){
+        errMsg = '⏳ Ko\'p urinish. Biroz kuting va qayta urinib ko\'ring.';
+      } else if(error?.message?.includes('Failed to fetch')||error?.message?.includes('NetworkError')){
+        errMsg = '🌐 Tarmoq xatosi: Supabase ga ulanib bo\'lmadi.';
+      } else if(error?.status === 400 || error?.status === 422){
+        errMsg = t('loginErr');
+      } else if(error?.message){
+        errMsg = error.message;
+      }
+      err.textContent = errMsg;
       loginInFlight = false;
       setLoginButtonLoading(false);
       return;
@@ -5130,7 +5225,23 @@ async function loadDashboard(){
     sb.from('kpi_bonuses').select('*').eq('month',month),
     fetchEmployeeLeavesInRange(monthStart, monthEnd)
   ]);
-  if(empErr||recErr||bonErr){toast('error','Dashboard',(empErr||recErr||bonErr).message||t('dashboard_error'));return;}
+  if(empErr||recErr||bonErr){
+    const err = empErr||recErr||bonErr;
+    console.error('🔴 loadDashboard xato:', err.code, err.message, err.hint||'', err.details||'');
+    let msg = err.message || t('dashboard_error');
+    if(err.code==='42501'||msg.includes('permission denied')||msg.includes('policy')){
+      msg = '🔒 RLS ruxsat xatosi: jadvalga kirish taqiqlangan. Supabase → Table Editor → RLS policies tekshiring.';
+    } else if(err.code==='PGRST301'||msg.includes('JWT')||msg.includes('apikey')){
+      msg = '🔑 API kalit xatosi: Supabase dashboard dan yangi kalit oling (Settings → API).';
+    } else if(msg.includes('Failed to fetch')||msg.includes('NetworkError')){
+      msg = '🌐 Tarmoq xatosi: ' + SUPABASE_URL + ' ga ulanib bo\'lmadi.';
+    } else if(err.code==='42P01'||msg.includes('does not exist')){
+      msg = '📋 Jadval topilmadi: "' + (empErr?'employees':recErr?'attendance':'kpi_bonuses') + '" jadvali mavjud emas.';
+    }
+    toast('error','Dashboard', msg);
+    if(stats)stats.innerHTML=`<div class="dash-empty" style="color:var(--danger)">${msg}</div>`;
+    return;
+  }
   setAmoCrmActiveEmployees((emps||[]).filter(emp=>emp.active!==false));
   loadMainAmoCrmDiagram({showLoading:false, employees:amoCrmActiveEmployees});
   loadDashboardPbxWidget();
@@ -5195,8 +5306,20 @@ async function loadAtt() {
   ]);
 
   if (error) {
-    console.error('loadAtt rpc error:', error);
-    toast('error', t('error_title'), error.message || t('attendance_load_error'));
+    console.error('🔴 loadAtt rpc xato:', error.code, error.message, error.hint||'', error.details||'');
+    let msg = error.message || t('attendance_load_error');
+    if(error.code==='42501'||msg.includes('permission denied')||msg.includes('policy')){
+      msg = '🔒 RLS ruxsat xatosi: "attendance" jadvalga kirish taqiqlangan.';
+    } else if(error.code==='42883'||msg.includes('function')||msg.includes('does not exist')){
+      msg = '📋 RPC funksiya topilmadi: "admin_attendance_range" funksiyasi Supabase da mavjud emas. SQL Editor da yaratish kerak.';
+    } else if(error.code==='PGRST301'||msg.includes('JWT')||msg.includes('apikey')){
+      msg = '🔑 API kalit xatosi: Supabase dashboard dan yangi kalit oling (Settings → API).';
+    } else if(msg.includes('Failed to fetch')||msg.includes('NetworkError')){
+      msg = '🌐 Tarmoq xatosi: Supabase ga ulanib bo\'lmadi.';
+    }
+    const tbody2 = document.getElementById('att_body');
+    if(tbody2) tbody2.innerHTML = `<tr><td colspan="12" style="text-align:center;color:var(--danger);padding:20px">${msg}</td></tr>`;
+    toast('error', t('error_title'), msg);
     return;
   }
 
@@ -5343,7 +5466,18 @@ async function loadMonthly(){
     sb.from('kpi_bonuses').select('employee_id,bonus').eq('month',month),
     fetchEmployeeLeavesInRange(monthStart, monthEnd)
   ]);
-  if(empErr||recErr||bonErr||!emps)return;
+  if(empErr||recErr||bonErr||!emps){
+    const err = empErr||recErr||bonErr;
+    if(err){
+      console.error('🔴 loadMonthly xato:', err.code, err.message, err.hint||'', err.details||'');
+      let msg = err.message;
+      if(err.code==='42501'||msg?.includes('permission denied')) msg='🔒 RLS ruxsat xatosi: jadvalga kirish taqiqlangan.';
+      else if(err.code==='PGRST301'||msg?.includes('JWT')) msg='🔑 API kalit xatosi. Supabase dashboard → Settings → API.';
+      else if(msg?.includes('Failed to fetch')) msg='🌐 Tarmoq xatosi: Supabase ga ulanib bo\'lmadi.';
+      toast('error', t('error_title'), msg||t('dashboard_error'));
+    }
+    return;
+  }
   const leaveDateMap=buildEmployeeLeaveDateMap(leaves, monthStart, monthEnd);
   const recMap=new Map();
   (recs||[]).forEach(r=>{
