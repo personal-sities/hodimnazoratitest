@@ -4355,9 +4355,8 @@ const PBX_COURSE_MAP = {
 const PBX_ORDERED_EXTENSIONS = ['105','103','101','100','102','104'];
 
 function pbxTodayISO() {
-  const now = new Date();
-  const tz = new Date(now.getTime() + 5 * 60 * 60 * 1000);
-  return tz.toISOString().split('T')[0];
+  // Toshkent vaqtida bugungi sanani olish (Intl API — ishonchli)
+  return new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Tashkent' });
 }
 
 async function loadPbxStats() {
@@ -4382,13 +4381,42 @@ async function loadPbxStats() {
   });
 
   try {
-    const { data, error } = await sb
+    let { data, error } = await sb
       .from('pbx_daily_stats')
       .select('*')
       .eq('stat_date', dateStr)
       .order('call_count', { ascending: false });
 
     if (error) throw error;
+
+    // Bugungi ma'lumot yo'q bo'lsa — oxirgi mavjud kunga avtomatik o'tish
+    if ((!data || data.length === 0) && dateStr === pbxTodayISO()) {
+      const { data: latest, error: latestErr } = await sb
+        .from('pbx_daily_stats')
+        .select('stat_date')
+        .order('stat_date', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (!latestErr && latest?.stat_date && latest.stat_date !== dateStr) {
+        // Oxirgi kun ma'lumotlarini yuklaymiz
+        const fallbackDate = latest.stat_date;
+        const { data: fallbackData, error: fallbackErr } = await sb
+          .from('pbx_daily_stats')
+          .select('*')
+          .eq('stat_date', fallbackDate)
+          .order('call_count', { ascending: false });
+
+        if (!fallbackErr && fallbackData?.length) {
+          data = fallbackData;
+          // Date input va label ni yangilaymiz
+          if (dateInput) dateInput.value = fallbackDate;
+          if (lastUpd) lastUpd.textContent = `⚠️ Bugungi ma'lumot yo'q — oxirgi: ${fallbackDate}`;
+          renderPbxDiagram(data, fallbackDate);
+          return;
+        }
+      }
+    }
 
     const rows = data || [];
     renderPbxDiagram(rows, dateStr);
@@ -4515,12 +4543,31 @@ async function loadDashboardPbxWidget() {
   if (chart) chart.innerHTML = '<div class="dash-empty" style="font-size:12px">Yuklanmoqda...</div>';
 
   try {
-    const { data, error } = await sb
+    let { data, error } = await sb
       .from('pbx_daily_stats')
       .select('*')
       .eq('stat_date', today);
 
     if (error) throw error;
+
+    // Bugungi ma'lumot yo'q bo'lsa — oxirgi mavjud kunni olish
+    if (!data || data.length === 0) {
+      const { data: latest, error: latestErr } = await sb
+        .from('pbx_daily_stats')
+        .select('stat_date')
+        .order('stat_date', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (!latestErr && latest?.stat_date) {
+        const { data: fallback, error: fbErr } = await sb
+          .from('pbx_daily_stats')
+          .select('*')
+          .eq('stat_date', latest.stat_date);
+        if (!fbErr) data = fallback || [];
+      }
+    }
+
     window._pbxAllRows = data || [];
     renderDashboardPbxChart(window._pbxAllRows, window._pbxFilter || 'all');
   } catch(err) {
