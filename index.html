@@ -4397,24 +4397,26 @@ async function loadPbxStats() {
     const requestedDate = dateInput?.value || '';
 
     if (requestedDate) {
-      // Foydalanuvchi aniq sana tanlagan — o'sha sanadan so'raymiz
+      // Foydalanuvchi aniq sana tanlagan — faqat o'sha sanadan so'raymiz, input ni O'ZGARTIRMAYMIZ
       const { data, error } = await sb
         .from('pbx_daily_stats')
         .select('*')
         .eq('stat_date', requestedDate)
         .order('call_count', { ascending: false });
       if (error) throw error;
-      rows      = data || [];
-      usedDate  = requestedDate;
+      rows     = data || [];
+      usedDate = requestedDate;
 
-      // Agar shu sana bo'sh bo'lsa — oxirgi mavjud sanani yuklaymiz
+      // Ma'lumot yo'q bo'lsa — faqat xabar ko'rsatamiz, sana o'zgartirilmaydi
       if (rows.length === 0) {
-        const latest = await fetchLatestPbxData();
-        rows     = latest.rows;
-        usedDate = latest.date || requestedDate;
-        if (latest.date && dateInput) dateInput.value = latest.date;
-        if (lastUpd && latest.date)
-          lastUpd.textContent = `⚠️ ${requestedDate} da ma'lumot yo'q — oxirgi: ${latest.date}`;
+        if (chart) chart.innerHTML = `<div class="pbx-empty">📭 ${requestedDate} sanasi uchun qo'ng'iroq ma'lumoti yo'q</div>`;
+        if (tbody) tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--text3);padding:20px">📭 ${requestedDate} sanasi uchun ma'lumot yo'q</td></tr>`;
+        if (lastUpd) lastUpd.textContent = `${requestedDate} — ma'lumot topilmadi`;
+        PBX_ORDERED_EXTENSIONS.forEach(ext => {
+          const el = document.getElementById(PBX_COURSE_MAP[ext]?.cardId);
+          if (el) el.textContent = '0';
+        });
+        return;
       }
     } else {
       // Sana tanlanmagan — bazadagi eng so'nggi sanani avtomatik yuklaymiz
