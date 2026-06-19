@@ -604,16 +604,9 @@ input[type="month"]::-webkit-calendar-picker-indicator { opacity:.75; }
 
 /* ── PBX STATS ── */
 .pbx-summary-grid { display:grid; grid-template-columns:repeat(6,1fr); gap:18px; margin-bottom:24px; }
-.pbx-summary-card { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:18px 20px; box-shadow:var(--shadow); position:relative; overflow:hidden; animation:fadeUp .4s ease both; }
-.pbx-summary-card::after { content:''; position:absolute; bottom:0; left:0; right:0; height:3px; background:var(--pbx-accent,var(--accent)); border-radius:0 0 12px 12px; }
-.pbx-summary-card:nth-child(1){ --pbx-accent:var(--accent); }
-.pbx-summary-card:nth-child(2){ --pbx-accent:#e67e22; }
-.pbx-summary-card:nth-child(3){ --pbx-accent:var(--success); }
-.pbx-summary-card:nth-child(4){ --pbx-accent:var(--danger); }
-.pbx-summary-card:nth-child(5){ --pbx-accent:var(--purple); }
-.pbx-summary-card:nth-child(6){ --pbx-accent:var(--accent2); }
-.pbx-summary-card h4 { font-size:11px; color:var(--text2); font-weight:600; text-transform:uppercase; letter-spacing:.4px; margin-bottom:8px; }
-.pbx-summary-card .pbx-num { font-size:28px; font-weight:900; font-family:var(--mono); color:var(--text); }
+.pbx-summary-card { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:18px 20px; box-shadow:var(--shadow); position:relative; overflow:hidden; animation:fadeUp .4s ease both; border-top:3px solid var(--pbx-accent,var(--accent)); }
+.pbx-summary-card h4 { font-size:11px; color:var(--text2); font-weight:700; text-transform:uppercase; letter-spacing:.5px; margin-bottom:8px; }
+.pbx-summary-card .pbx-num { font-size:26px; font-weight:800; font-family:var(--mono); color:var(--text); }
 .pbx-summary-card .pbx-sub { font-size:11px; color:var(--text3); margin-top:4px; }
 .pbx-chart-box { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:24px; box-shadow:var(--shadow); margin-bottom:24px; }
 .pbx-chart-title { font-size:15px; font-weight:800; color:var(--text); margin-bottom:18px; display:flex; align-items:center; justify-content:space-between; gap:10px; }
@@ -630,7 +623,8 @@ input[type="month"]::-webkit-calendar-picker-indicator { opacity:.75; }
 .pbx-empty { color:var(--text3); font-size:13px; text-align:center; padding:24px 0; }
 .pbx-loading { color:var(--text3); font-size:13px; text-align:center; padding:24px 0; animation:pulse 1.2s ease-in-out infinite; }
 @media(max-width:900px){ .pbx-summary-grid{ grid-template-columns:repeat(3,1fr); } }
-@media(max-width:580px){ .pbx-summary-grid{ grid-template-columns:repeat(2,1fr); } }
+@media(max-width:580px){ .pbx-summary-grid{ grid-template-columns:repeat(2,1fr); gap:8px; } }
+@media(max-width:400px){ .pbx-summary-grid{ grid-template-columns:1fr 1fr; gap:8px; } }
 .course-badge { display:inline-flex; align-items:center; justify-content:center; max-width:150px; padding:3px 9px; border-radius:20px; background:var(--bg3); border:1px solid var(--border); color:var(--text2); font-size:11px; font-weight:800; white-space:nowrap; }
 .course-badge.empty { color:var(--text3); font-weight:700; }
 .sb-bottom { display:none; padding:12px 16px; border-top:1px solid var(--border); gap:10px; align-items:center; justify-content:space-between; }
@@ -1204,14 +1198,14 @@ input[type="month"]::-webkit-calendar-picker-indicator { opacity:.75; }
         ═══════════════════════════════════════════════ -->
         <div id="tab_pbx" class="hidden">
 
-          <!-- Summary kartalar — asosiy scards bilan bir xil, ikki yoni yopishmasin -->
-          <div class="scards" style="grid-template-columns:repeat(6,1fr)">
-            <div class="scard" style="border-top:3px solid var(--accent)"><h4>1-KURS</h4><div class="snum" id="pbx_c1">—</div><div style="font-size:11px;color:var(--text3);margin-top:4px">Abdullayeva Sabina</div></div>
-            <div class="scard" style="border-top:3px solid #e67e22"><h4>2-KURS</h4><div class="snum" id="pbx_c2">—</div><div style="font-size:11px;color:var(--text3);margin-top:4px">Rustamova Sevinch</div></div>
-            <div class="scard" style="border-top:3px solid var(--success)"><h4>3-KURS</h4><div class="snum" id="pbx_c3">—</div><div style="font-size:11px;color:var(--text3);margin-top:4px">Mamarajabova Mohinur</div></div>
-            <div class="scard" style="border-top:3px solid var(--danger)"><h4>4-KURS</h4><div class="snum" id="pbx_c4">—</div><div style="font-size:11px;color:var(--text3);margin-top:4px">Djumanazarova Sabina</div></div>
-            <div class="scard" style="border-top:3px solid var(--purple)"><h4>5-KURS</h4><div class="snum" id="pbx_c5">—</div><div style="font-size:11px;color:var(--text3);margin-top:4px">Ergashboyeva / Musulmonova</div></div>
-            <div class="scard" style="border-top:3px solid var(--accent2)"><h4>UMUMIY CALL</h4><div class="snum" id="pbx_c6">—</div><div style="font-size:11px;color:var(--text3);margin-top:4px">Zokirova Ra'no</div></div>
+          <!-- Summary kartalar — pbx-summary-grid/card klasi ishlatiladi (responsive, to'g'ri bo'shliqlar) -->
+          <div class="pbx-summary-grid">
+            <div class="pbx-summary-card" style="--pbx-accent:var(--accent)"><h4>1-KURS</h4><div class="pbx-num" id="pbx_c1">—</div><div class="pbx-sub">Abdullayeva Sabina</div></div>
+            <div class="pbx-summary-card" style="--pbx-accent:#e67e22"><h4>2-KURS</h4><div class="pbx-num" id="pbx_c2">—</div><div class="pbx-sub">Rustamova Sevinch</div></div>
+            <div class="pbx-summary-card" style="--pbx-accent:var(--success)"><h4>3-KURS</h4><div class="pbx-num" id="pbx_c3">—</div><div class="pbx-sub">Mamarajabova Mohinur</div></div>
+            <div class="pbx-summary-card" style="--pbx-accent:var(--danger)"><h4>4-KURS</h4><div class="pbx-num" id="pbx_c4">—</div><div class="pbx-sub">Djumanazarova Sabina</div></div>
+            <div class="pbx-summary-card" style="--pbx-accent:var(--purple)"><h4>5-KURS</h4><div class="pbx-num" id="pbx_c5">—</div><div class="pbx-sub">Ergashboyeva / Musulmonova</div></div>
+            <div class="pbx-summary-card" style="--pbx-accent:var(--accent2)"><h4>UMUMIY CALL</h4><div class="pbx-num" id="pbx_c6">—</div><div class="pbx-sub">Zokirova Ra'no</div></div>
           </div>
 
           <!-- Bar diagramma + Jadval bitta box ichida, to'liq ko'rinsin -->
