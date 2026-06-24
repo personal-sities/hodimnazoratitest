@@ -261,7 +261,7 @@ async function loadAmoCrmTaskStats(opts={}){
  * @property {boolean} ok
  * @property {string=} source
  * @property {Object} filters
- * @property {{total:number,incoming:number,outgoing:number,internal:number,missed:number,answered:number,totalDuration:number,averageDuration:number,notCalledBack:number,notReached:number,withQualityScore:number,callback:number}} stats
+ * @property {{total:number,incoming:number,outgoing:number,internal:number,outsideWork:number,missed:number,answered:number,totalDuration:number,averageDuration:number,notCalledBack:number,notReached:number,withQualityScore:number,unknown:number,callback:number}} stats
  * @property {{limit:number,offset:number,returned:number,totalFiltered:number,hasNext:boolean,hasPrev:boolean}=} pagination
  * @property {Array<{id:string|null,date:string|null,direction:string|null,status:string|null,from_number:string|null,to_number:string|null,duration:number,recording_url:string|null,course_code?:string|null,course_label?:string,raw?:any}>} calls
  */
@@ -280,6 +280,140 @@ const ONLINE_PBX_DEFAULT_FILTERS = {
 const ONLINE_PBX_CHART_PAGE_LIMIT = 1000;
 const ONLINE_PBX_CHART_MAX_PAGES = 60;
 const ONLINE_PBX_FETCH_LIMIT = 20000;
+const PBX_TEXT = {
+  uz: {
+    pageTitle: "PBX qo'ng'iroqlari",
+    navCalls: "Qo'ng'iroqlar",
+    pageSubtitle: "OnlinePBX ma'lumotlari faqat Supabase Edge Function orqali yuklanadi.",
+    dashboardTitle: "Kurs kesimidagi qo'ng'iroqlar",
+    details: "Batafsil",
+    responsiblesTitle: "Kurs mas'ullari",
+    all: "Barchasi",
+    total: "Jami",
+    totalCalls: "Jami qo'ng'iroqlar",
+    incoming: "Kiruvchi",
+    outgoing: "Chiquvchi",
+    internal: "Ichki",
+    outsideWork: "Ishdan tashqari qo'ng'iroqlar",
+    missed: "Yetib bormagan",
+    notCalledBack: "Qayta qo'ng'iroq qilinmagan",
+    notCalledBackShort: "Qayta qilinmagan",
+    unknown: "Aniqlanmadi",
+    quality: "Baholangan",
+    answered: "Gaplashilgan",
+    answeredFilter: "Javob berilgan",
+    courseCalls: "Kurs kesimidagi qo'ng'iroqlar",
+    hourlyCalls: "Soat bo'yicha qo'ng'iroqlar",
+    loading: "Yuklanmoqda...",
+    chartLoading: "Diagramma yuklanmoqda...",
+    fullApiLoading: "To'liq API ma'lumotlari yuklanmoqda",
+    noCourseCalls: "Kurs kesimida qo'ng'iroqlar topilmadi",
+    noHourCalls: "Soat bo'yicha qo'ng'iroqlar topilmadi",
+    noCalls: "Qo'ng'iroqlar topilmadi",
+    callsCount: "ta qo'ng'iroq",
+    totalLabel: "jami",
+    today: "Bugun",
+    todayView: "Bugungi ko'rinish",
+    rangeToday: "Bugungi kun",
+    rangeHintDefault: "Tanlanmasa bugungi kun ma'lumoti yuklanadi",
+    rangeHintSelect: "Sana tanlang",
+    rangeHintEnd: "Yakun sanani tanlang yoki shu sanani qayta bosing",
+    rangeHintSelected: "Tanlangan sana diapazoni",
+    updated: "Yangilangan",
+    courses: "Kurslar",
+    unassignedResponsible: "Mas'ul biriktirilmagan",
+    most: "Eng ko'p",
+    error: "Qo'ng'iroqlarni yuklashda xatolik yuz berdi"
+  },
+  ru: {
+    pageTitle: "PBX звонки",
+    navCalls: "Звонки",
+    pageSubtitle: "Данные OnlinePBX загружаются только через Supabase Edge Function.",
+    dashboardTitle: "Звонки по курсам",
+    details: "Подробнее",
+    responsiblesTitle: "Ответственные за курсы",
+    all: "Все",
+    total: "Итого",
+    totalCalls: "Всего звонков",
+    incoming: "Входящие",
+    outgoing: "Исходящие",
+    internal: "Внутренние",
+    outsideWork: "Звонки вне рабочего времени",
+    missed: "Недозвон",
+    notCalledBack: "Не перезвонили",
+    notCalledBackShort: "Не перезвонили",
+    unknown: "Не определено",
+    quality: "Оцененные",
+    answered: "Разговоры",
+    answeredFilter: "Отвеченные",
+    courseCalls: "Звонки по курсам",
+    hourlyCalls: "Звонки по часам",
+    loading: "Загрузка...",
+    chartLoading: "Диаграмма загружается...",
+    fullApiLoading: "Загружаются полные данные API",
+    noCourseCalls: "Звонки по курсам не найдены",
+    noHourCalls: "Звонки по часам не найдены",
+    noCalls: "Звонки не найдены",
+    callsCount: "звонков",
+    totalLabel: "всего",
+    today: "Сегодня",
+    todayView: "Вид за сегодня",
+    rangeToday: "Сегодня",
+    rangeHintDefault: "Если дата не выбрана, загружаются данные за сегодня",
+    rangeHintSelect: "Выберите дату",
+    rangeHintEnd: "Выберите конечную дату или нажмите эту дату еще раз",
+    rangeHintSelected: "Выбранный диапазон дат",
+    updated: "Обновлено",
+    courses: "Курсы",
+    unassignedResponsible: "Ответственный не назначен",
+    most: "Больше всего",
+    error: "Ошибка при загрузке звонков"
+  },
+  en: {
+    pageTitle: "PBX calls",
+    navCalls: "Calls",
+    pageSubtitle: "OnlinePBX data is loaded only through the Supabase Edge Function.",
+    dashboardTitle: "Calls by course",
+    details: "Details",
+    responsiblesTitle: "Course responsibles",
+    all: "All",
+    total: "Total",
+    totalCalls: "Total calls",
+    incoming: "Incoming",
+    outgoing: "Outgoing",
+    internal: "Internal",
+    outsideWork: "Outside work calls",
+    missed: "Not reached",
+    notCalledBack: "Not called back",
+    notCalledBackShort: "Not called back",
+    unknown: "Unknown",
+    quality: "Rated",
+    answered: "Answered",
+    answeredFilter: "Answered",
+    courseCalls: "Calls by course",
+    hourlyCalls: "Calls by hour",
+    loading: "Loading...",
+    chartLoading: "Chart loading...",
+    fullApiLoading: "Full API data is loading",
+    noCourseCalls: "No calls found by course",
+    noHourCalls: "No calls found by hour",
+    noCalls: "No calls found",
+    callsCount: "calls",
+    totalLabel: "total",
+    today: "Today",
+    todayView: "Today view",
+    rangeToday: "Today",
+    rangeHintDefault: "Today is loaded when no date is selected",
+    rangeHintSelect: "Select date",
+    rangeHintEnd: "Select an end date or click the same date again",
+    rangeHintSelected: "Selected date range",
+    updated: "Updated",
+    courses: "Courses",
+    unassignedResponsible: "No responsible assigned",
+    most: "Most",
+    error: "Could not load calls"
+  }
+};
 const PBX_COURSE_MAP = {
   '105': '1-kurs',
   '103': '2-kurs',
@@ -296,31 +430,22 @@ const ONLINE_PBX_DASHBOARD_FILTERS = {
   missed: { status: 'missed' }
 };
 const ONLINE_PBX_PAGE_STAT_META = [
-  { id: 'total', el: 'pbx_stat_total', label: 'Barchasi', icon: 'Phone' },
-  { id: 'incoming', el: 'pbx_stat_incoming', label: 'Kiruvchi', icon: 'PhoneIncoming' },
-  { id: 'outgoing', el: 'pbx_stat_outgoing', label: 'Chiquvchi', icon: 'PhoneOutgoing' },
-  { id: 'internal', el: 'pbx_stat_internal', label: 'Ichki', icon: 'PhoneCall' },
-  { id: 'missed', el: 'pbx_stat_missed', label: "O'tkazib yuborilgan", icon: 'PhoneMissed' },
-  { id: 'notCalledBack', el: 'pbx_stat_not_called_back', label: "Qayta qo'ng'iroq qilinmagan", icon: 'RotateCcw' },
-  { id: 'notReached', el: 'pbx_stat_not_reached', label: 'Yetib bormagan', icon: 'AlertCircle' },
-  { id: 'withQualityScore', el: 'pbx_stat_with_quality_score', label: 'Baholangan', icon: 'Headphones' },
-  { id: 'callback', el: 'pbx_stat_callback', label: 'Callback', icon: 'PhoneCall' }
-];
-const ONLINE_PBX_DASHBOARD_STAT_META = [
-  { id: 'total', label: "Jami qo'ng'iroqlar", icon: 'Phone', color: 'var(--accent)' },
-  { id: 'incoming', label: 'Kiruvchi', icon: 'PhoneIncoming', color: 'var(--success)' },
-  { id: 'outgoing', label: 'Chiquvchi', icon: 'PhoneOutgoing', color: 'var(--accent2)' },
-  { id: 'answered', label: 'Javob berilgan', icon: 'Headphones', color: 'var(--purple)' },
-  { id: 'missed', label: "O'tkazib yuborilgan", icon: 'PhoneMissed', color: 'var(--danger)' }
+  { id: 'total', el: 'pbx_stat_total', labelKey: 'all', icon: 'Phone' },
+  { id: 'incoming', el: 'pbx_stat_incoming', labelKey: 'incoming', icon: 'PhoneIncoming' },
+  { id: 'outgoing', el: 'pbx_stat_outgoing', labelKey: 'outgoing', icon: 'PhoneOutgoing' },
+  { id: 'outsideWork', el: 'pbx_stat_outside_work', labelKey: 'outsideWork', icon: 'Clock' },
+  { id: 'missed', el: 'pbx_stat_missed', labelKey: 'missed', icon: 'PhoneMissed' },
+  { id: 'notCalledBack', el: 'pbx_stat_not_called_back', labelKey: 'notCalledBack', icon: 'RotateCcw' },
+  { id: 'unknown', el: 'pbx_stat_unknown', labelKey: 'unknown', icon: 'HelpCircle' },
+  { id: 'withQualityScore', el: 'pbx_stat_with_quality_score', labelKey: 'quality', icon: 'Headphones' }
 ];
 const PBX_COURSE_CHART_METRICS = [
-  { id: 'total', label: 'Jami', icon: 'Phone', color: 'var(--accent)' },
-  { id: 'incoming', label: 'Kiruvchi', icon: 'PhoneIncoming', color: 'var(--success)' },
-  { id: 'outgoing', label: 'Chiquvchi', icon: 'PhoneOutgoing', color: 'var(--accent2)' },
-  { id: 'missed', label: "O'tkazib yuborilgan", icon: 'PhoneMissed', color: 'var(--danger)' },
-  { id: 'answered', label: 'Gaplashilgan', icon: 'Headphones', color: 'var(--purple)' },
-  { id: 'notCalledBack', label: 'Qayta qilinmagan', icon: 'RotateCcw', color: 'var(--warn)' },
-  { id: 'notReached', label: 'Yetib bormagan', icon: 'AlertCircle', color: '#ff6b6b' }
+  { id: 'total', labelKey: 'total', icon: 'Phone', color: 'var(--accent)' },
+  { id: 'incoming', labelKey: 'incoming', icon: 'PhoneIncoming', color: 'var(--success)' },
+  { id: 'outgoing', labelKey: 'outgoing', icon: 'PhoneOutgoing', color: 'var(--accent2)' },
+  { id: 'missed', labelKey: 'missed', icon: 'PhoneMissed', color: 'var(--danger)' },
+  { id: 'answered', labelKey: 'answered', icon: 'Headphones', color: 'var(--purple)' },
+  { id: 'notCalledBack', labelKey: 'notCalledBackShort', icon: 'RotateCcw', color: 'var(--warn)' }
 ];
 const PBX_UZ_MONTHS = ['Yanvar','Fevral','Mart','Aprel','May','Iyun','Iyul','Avgust','Sentabr','Oktabr','Noyabr','Dekabr'];
 const PBX_LUCIDE_PATHS = {
@@ -338,6 +463,7 @@ const PBX_LUCIDE_PATHS = {
   RotateCcw: '<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/>',
   Loader2: '<path d="M21 12a9 9 0 1 1-6.2-8.56"/>',
   AlertCircle: '<circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/>',
+  HelpCircle: '<circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 1 1 5.8 1c-.4.8-1 1.1-1.8 1.7-.7.5-1.1 1-1.1 2.3"/><path d="M12 17h.01"/>',
   BarChart3: '<path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/>',
   Headphones: '<path d="M3 14h3a2 2 0 0 1 2 2v3H5a2 2 0 0 1-2-2v-3Z"/><path d="M21 14h-3a2 2 0 0 0-2 2v3h3a2 2 0 0 0 2-2v-3Z"/><path d="M3 14v-3a9 9 0 0 1 18 0v3"/>',
   PlayCircle: '<circle cx="12" cy="12" r="10"/><path d="m10 8 6 4-6 4V8Z"/>'
@@ -348,10 +474,40 @@ let pbxCalendarMonth = null;
 let pbxCalendarOpen = false;
 let pbxCourseChartMetric = 'total';
 let onlinePbxChartCalls = [];
+let onlinePbxDashboardChartCalls = [];
 let onlinePbxDashboardFilter = 'all';
 let onlinePbxDashboardLoading = false;
 let onlinePbxDashboardRequestId = 0;
 
+function pbxText(key){
+  const currentLang=(typeof lang==='string' && PBX_TEXT[lang]) ? lang : 'uz';
+  return PBX_TEXT[currentLang]?.[key] ?? PBX_TEXT.uz[key] ?? key;
+}
+function pbxMetricLabel(metric){
+  return pbxText(metric?.labelKey || metric?.id || '');
+}
+function setPbxTitleHtml(id, icon, text){
+  const el=document.getElementById(id);
+  if(el)el.innerHTML=pbxIcon(icon) + ' ' + escapePbxHtml(text);
+}
+function refreshPbxStaticLabels(){
+  setPbxTitleHtml('dash_pbx_course_title','BarChart3',pbxText('dashboardTitle'));
+  setPbxTitleHtml('pbx_page_title','PhoneCall',pbxText('pageTitle'));
+  setPbxTitleHtml('pbx_responsibles_title','Headphones',pbxText('responsiblesTitle'));
+  setPbxTitleHtml('pbx_course_chart_title','BarChart3',pbxText('courseCalls'));
+  setPbxTitleHtml('pbx_hour_chart_title','Clock',pbxText('hourlyCalls'));
+  st('pbx_page_subtitle',pbxText('pageSubtitle'));
+  st('dash_pbx_detail_txt',pbxText('details'));
+  st('n_pbx',pbxText('navCalls'));
+  const loaded=document.getElementById('pbx_loaded_at');
+  if(loaded && /Bugungi|Сегодня|Today/i.test(loaded.textContent || ''))loaded.textContent=pbxText('todayView');
+  ONLINE_PBX_PAGE_STAT_META.forEach(item=>{
+    const card=document.getElementById(item.el)?.closest('.pbx-stat-card');
+    const label=card?.querySelector('small');
+    if(label)label.textContent=pbxText(item.labelKey);
+  });
+  hydratePbxIcons();
+}
 function pbxIcon(name, cls=''){
   const paths = PBX_LUCIDE_PATHS[name] || PBX_LUCIDE_PATHS.Phone;
   const extra = cls ? ' ' + cls : '';
@@ -362,7 +518,12 @@ function hydratePbxIcons(root=document){
   root.querySelectorAll('[data-pbx-icon]').forEach(el=>{ el.innerHTML=pbxIcon(el.getAttribute('data-pbx-icon') || 'Phone'); });
 }
 function onlinePbxNumber(value){const n=Number(value ?? 0);return Number.isFinite(n)?n:0;}
-function onlinePbxFormatNumber(value){return new Intl.NumberFormat('uz-UZ').format(onlinePbxNumber(value));}
+function onlinePbxLocale(){
+  if(typeof lang==='string' && lang==='ru')return 'ru-RU';
+  if(typeof lang==='string' && lang==='en')return 'en-US';
+  return 'uz-UZ';
+}
+function onlinePbxFormatNumber(value){return new Intl.NumberFormat(onlinePbxLocale()).format(onlinePbxNumber(value));}
 function escapePbxHtml(value){
   return String(value ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
 }
@@ -377,7 +538,7 @@ function formatOnlinePbxDate(value){
   if(!value)return '-';
   const d=new Date(value);
   if(Number.isNaN(d.getTime()))return String(value);
-  return new Intl.DateTimeFormat('uz-UZ',{timeZone:TASHKENT_TIMEZONE,year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}).format(d);
+  return new Intl.DateTimeFormat(onlinePbxLocale(),{timeZone:TASHKENT_TIMEZONE,year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}).format(d);
 }
 function normalizePbxText(value){
   return value === null || value === undefined || value === '' ? null : String(value);
@@ -437,7 +598,7 @@ function getPbxCourseInfo(call){
   if(directCode || directLabel){
     return {
       code: directCode,
-      label: directLabel || PBX_COURSE_MAP[directCode] || 'Aniqlanmadi'
+      label: directLabel || PBX_COURSE_MAP[directCode] || pbxText('unknown')
     };
   }
 
@@ -446,7 +607,7 @@ function getPbxCourseInfo(call){
     if(code)return { code, label:PBX_COURSE_MAP[code] };
   }
 
-  return { code:null, label:'Aniqlanmadi' };
+  return { code:null, label:pbxText('unknown') };
 }
 function filterCallsByCourse(calls, course){
   if(!course || course==='all')return calls;
@@ -455,22 +616,22 @@ function filterCallsByCourse(calls, course){
 function getOnlinePbxDirectionInfo(value){
   const direction=String(value || '').toLowerCase();
   if(direction.includes('inbound') || direction.includes('incoming') || direction==='in'){
-    return { label:'Kiruvchi', icon:'PhoneIncoming', key:'incoming' };
+    return { label:pbxText('incoming'), icon:'PhoneIncoming', key:'incoming' };
   }
   if(direction.includes('outbound') || direction.includes('outgoing') || direction==='out'){
-    return { label:'Chiquvchi', icon:'PhoneOutgoing', key:'outgoing' };
+    return { label:pbxText('outgoing'), icon:'PhoneOutgoing', key:'outgoing' };
   }
   if(direction.includes('internal')){
-    return { label:'Ichki', icon:'PhoneCall', key:'internal' };
+    return { label:pbxText('internal'), icon:'PhoneCall', key:'internal' };
   }
   return { label:value ? String(value) : '-', icon:'Phone', key:'' };
 }
 function getOnlinePbxStatusInfo(call){
   const duration=onlinePbxNumber(call?.duration);
   const status=String(call?.status || '').toLowerCase();
-  if(status.includes('normal_clearing') && duration>0)return { label:'Yakunlangan', cls:'answered' };
-  if(duration>0)return { label:'Gaplashilgan', cls:'answered' };
-  if(duration===0)return { label:"O'tkazib yuborilgan", cls:'missed' };
+  if(status.includes('normal_clearing') && duration>0)return { label:pbxText('answered'), cls:'answered' };
+  if(duration>0)return { label:pbxText('answered'), cls:'answered' };
+  if(duration===0)return { label:pbxText('missed'), cls:'missed' };
   return { label:call?.status ? String(call.status) : '-', cls:'' };
 }
 function pbxDateFromIso(iso){
@@ -518,7 +679,7 @@ function getPbxEffectiveChartFilters(filters={}){
 function getPbxRangeNote(filters=onlinePbxPageState.filters || ONLINE_PBX_DEFAULT_FILTERS){
   const start=(filters.dateFrom || '').trim();
   const end=(filters.dateTo || '').trim();
-  if(!start && !end)return 'Bugun';
+  if(!start && !end)return pbxText('today');
   if(start && (!end || start===end))return pbxFormatIsoLabel(start);
   return pbxFormatIsoLabel(start) + ' - ' + pbxFormatIsoLabel(end);
 }
@@ -530,17 +691,17 @@ function updatePbxRangeSummary(){
   const start=filters.dateFrom || '';
   const end=filters.dateTo || '';
   if(!start && !end){
-    if(text)text.textContent='Bugungi kun';
-    if(hint)hint.textContent='Tanlanmasa bugungi kun ma\'lumoti yuklanadi';
+    if(text)text.textContent=pbxText('rangeToday');
+    if(hint)hint.textContent=pbxText('rangeHintDefault');
     return;
   }
   if(start && !end){
     if(text)text.textContent=pbxFormatIsoLabel(start);
-    if(hint)hint.textContent='Yakun sanani tanlang yoki shu sanani qayta bosing';
+    if(hint)hint.textContent=pbxText('rangeHintEnd');
     return;
   }
   if(text)text.textContent=start===end ? pbxFormatIsoLabel(start) : pbxFormatIsoLabel(start) + ' - ' + pbxFormatIsoLabel(end);
-  if(hint)hint.textContent='Tanlangan sana diapazoni';
+  if(hint)hint.textContent=pbxText('rangeHintSelected');
 }
 function setPbxCalendarOpen(open){
   pbxCalendarOpen=!!open;
@@ -686,6 +847,26 @@ function readOnlinePbxFilters(){
     offset:0
   };
 }
+function getPbxCallLocalMinutes(value){
+  if(!value)return null;
+  const date=new Date(value);
+  if(Number.isNaN(date.getTime()))return null;
+  const parts=new Intl.DateTimeFormat('en-US',{timeZone:TASHKENT_TIMEZONE,hour:'2-digit',minute:'2-digit',hour12:false}).formatToParts(date);
+  let hour=Number(parts.find(part=>part.type==='hour')?.value);
+  const minute=Number(parts.find(part=>part.type==='minute')?.value);
+  if(!Number.isFinite(hour) || !Number.isFinite(minute))return null;
+  if(hour===24)hour=0;
+  return hour * 60 + minute;
+}
+function isPbxOutsideWorkCall(call={}){
+  const minutes=getPbxCallLocalMinutes(call.date);
+  if(minutes===null)return false;
+  return minutes < WORKDAY_START_MINUTES || minutes >= WORKDAY_END_MINUTES;
+}
+function isPbxUnknownCourse(call={}){
+  const info=getPbxCourseInfo(call);
+  return !info.code || !PBX_COURSE_MAP[info.code];
+}
 function normalizeOnlinePbxCall(call={}){
   const raw=call?.raw || {};
   const normalized={
@@ -743,6 +924,8 @@ function getPbxCallStatFlags(call={}){
     answered,
     withQualityScore:onlinePbxNumber(raw.quality_score || call.quality_score)>0,
     callback:accountcode.includes('callback') || status.includes('callback'),
+    unknown:isPbxUnknownCourse(call),
+    outsideWork:isPbxOutsideWorkCall(call),
     notReached:outgoing && duration===0,
     notCalledBack:incoming && missed && !raw.callback_at && !raw.called_back_at
   };
@@ -760,6 +943,8 @@ function computePbxStats(calls=[], apiStats={}){
     averageDuration:0,
     notCalledBack:0,
     notReached:0,
+    outsideWork:0,
+    unknown:0,
     withQualityScore:0,
     callback:0
   };
@@ -776,6 +961,8 @@ function computePbxStats(calls=[], apiStats={}){
 
     if(flags.withQualityScore)computed.withQualityScore+=1;
     if(flags.callback)computed.callback+=1;
+    if(flags.unknown)computed.unknown+=1;
+    if(flags.outsideWork)computed.outsideWork+=1;
     if(flags.notReached)computed.notReached+=1;
     if(flags.notCalledBack)computed.notCalledBack+=1;
   }
@@ -793,6 +980,8 @@ function computePbxStats(calls=[], apiStats={}){
     averageDuration:has('averageDuration') ? onlinePbxNumber(apiStats.averageDuration) : computed.averageDuration,
     notCalledBack:has('notCalledBack') ? onlinePbxNumber(apiStats.notCalledBack) : computed.notCalledBack,
     notReached:has('notReached') ? onlinePbxNumber(apiStats.notReached) : computed.notReached,
+    outsideWork:has('outsideWork') ? onlinePbxNumber(apiStats.outsideWork) : computed.outsideWork,
+    unknown:has('unknown') ? onlinePbxNumber(apiStats.unknown) : computed.unknown,
     withQualityScore:has('withQualityScore') ? onlinePbxNumber(apiStats.withQualityScore) : computed.withQualityScore,
     callback:has('callback') ? onlinePbxNumber(apiStats.callback) : computed.callback
   };
@@ -913,14 +1102,14 @@ function renderPbxResponsibles(){
     card.className='pbx-responsible-card';
     const chips=names.length
       ? names.map(name=>'<span>' + escapePbxHtml(name) + '</span>').join('')
-      : '<em>Mas\'ul biriktirilmagan</em>';
+      : '<em>' + escapePbxHtml(pbxText('unassignedResponsible')) + '</em>';
     card.innerHTML=[
       '<div class="pbx-responsible-course">' + pbxIcon('Headphones') + '<strong>' + escapePbxHtml(course.label) + '</strong></div>',
       '<div class="pbx-responsible-people">' + chips + '</div>'
     ].join('');
     grid.appendChild(card);
   });
-  st('pbx_result_count', 'Kurslar: ' + onlinePbxFormatNumber(courses.length));
+  st('pbx_result_count', pbxText('courses') + ': ' + onlinePbxFormatNumber(courses.length));
 }
 function renderPbxStats(stats={}){
   ONLINE_PBX_PAGE_STAT_META.forEach(item=>st(item.el, onlinePbxFormatNumber(stats[item.id] || 0)));
@@ -928,9 +1117,9 @@ function renderPbxStats(stats={}){
 function setPbxChartLoading(){
   const courseChart=document.getElementById('pbx_course_chart');
   const hourChart=document.getElementById('pbx_hour_chart');
-  if(courseChart)courseChart.innerHTML='<div class="pbx-loading">' + pbxIcon('Loader2','spin') + ' Diagramma yuklanmoqda...</div>';
-  if(hourChart)hourChart.innerHTML='<div class="pbx-loading">' + pbxIcon('Loader2','spin') + ' Diagramma yuklanmoqda...</div>';
-  st('pbx_course_chart_note','To\'liq API ma\'lumotlari yuklanmoqda');
+  if(courseChart)courseChart.innerHTML='<div class="pbx-loading">' + pbxIcon('Loader2','spin') + ' ' + pbxText('chartLoading') + '</div>';
+  if(hourChart)hourChart.innerHTML='<div class="pbx-loading">' + pbxIcon('Loader2','spin') + ' ' + pbxText('chartLoading') + '</div>';
+  st('pbx_course_chart_note',pbxText('fullApiLoading'));
   st('pbx_hour_chart_note','-');
 }
 function getPbxCourseChartRows(calls=[]){
@@ -938,11 +1127,11 @@ function getPbxCourseChartRows(calls=[]){
     code,
     { code, label, total:0, incoming:0, outgoing:0, missed:0, answered:0, notCalledBack:0, notReached:0 }
   ]));
-  const unknown={ code:'unknown', label:'Aniqlanmadi', total:0, incoming:0, outgoing:0, missed:0, answered:0, notCalledBack:0, notReached:0 };
 
   (calls||[]).forEach(call=>{
     const info=getPbxCourseInfo(call);
-    const row=rows.get(info.code) || unknown;
+    const row=rows.get(info.code);
+    if(!row)return;
     const flags=getPbxCallStatFlags(call);
     row.total+=1;
     if(flags.incoming)row.incoming+=1;
@@ -953,15 +1142,13 @@ function getPbxCourseChartRows(calls=[]){
     if(flags.notReached)row.notReached+=1;
   });
 
-  const result=[...rows.values()];
-  if(unknown.total>0)result.push(unknown);
-  return result;
+  return [...rows.values()];
 }
 function getPbxCourseMetricMeta(metric=pbxCourseChartMetric){
   return PBX_COURSE_CHART_METRICS.find(item=>item.id===metric) || PBX_COURSE_CHART_METRICS[0];
 }
-function renderPbxCourseMetricButtons(rows=[]){
-  const wrap=document.getElementById('pbx_course_metric_buttons');
+function renderPbxCourseMetricButtons(rows=[], target='page'){
+  const wrap=document.getElementById(target==='dashboard' ? 'dash_pbx_course_metric_buttons' : 'pbx_course_metric_buttons');
   if(!wrap)return;
   wrap.innerHTML='';
   PBX_COURSE_CHART_METRICS.forEach(item=>{
@@ -970,7 +1157,7 @@ function renderPbxCourseMetricButtons(rows=[]){
     btn.type='button';
     btn.className='pbx-chart-tab' + (item.id===pbxCourseChartMetric ? ' active' : '');
     btn.style.setProperty('--metric-color', item.color);
-    btn.innerHTML=pbxIcon(item.icon) + '<span>' + escapePbxHtml(item.label) + '</span><b>' + onlinePbxFormatNumber(total) + '</b>';
+    btn.innerHTML=pbxIcon(item.icon) + '<span>' + escapePbxHtml(pbxMetricLabel(item)) + '</span><b>' + onlinePbxFormatNumber(total) + '</b>';
     btn.onclick=()=>setPbxCourseChartMetric(item.id);
     wrap.appendChild(btn);
   });
@@ -979,25 +1166,26 @@ function setPbxCourseChartMetric(metric){
   if(!PBX_COURSE_CHART_METRICS.some(item=>item.id===metric))return;
   pbxCourseChartMetric=metric;
   renderPbxCourseChart(onlinePbxChartCalls);
+  renderDashboardPbxCourseChart(onlinePbxDashboardChartCalls);
 }
-function renderPbxCourseChart(calls=[]){
-  const chart=document.getElementById('pbx_course_chart');
+function renderPbxCourseChartInto(calls=[], options={}){
+  const chart=document.getElementById(options.chartId || 'pbx_course_chart');
   if(!chart)return;
   const rows=getPbxCourseChartRows(calls);
   const activeRows=rows.filter(row=>row.total>0);
-  renderPbxCourseMetricButtons(rows);
+  renderPbxCourseMetricButtons(rows, options.target || 'page');
   const metric=getPbxCourseMetricMeta();
   const max=Math.max(...rows.map(row=>onlinePbxNumber(row[metric.id])),1);
   const total=rows.reduce((sum,row)=>sum+row.total,0);
   const selectedTotal=rows.reduce((sum,row)=>sum+onlinePbxNumber(row[metric.id]),0);
   const note=metric.id==='total'
-    ? onlinePbxFormatNumber(total) + ' ta qo\'ng\'iroq'
-    : metric.label + ' ' + onlinePbxFormatNumber(selectedTotal) + ' ta / jami ' + onlinePbxFormatNumber(total);
-  st('pbx_course_chart_note', getPbxRangeNote() + ': ' + note);
+    ? onlinePbxFormatNumber(total) + ' ' + pbxText('callsCount')
+    : pbxMetricLabel(metric) + ' ' + onlinePbxFormatNumber(selectedTotal) + ' / ' + pbxText('totalLabel') + ' ' + onlinePbxFormatNumber(total);
+  st(options.noteId || 'pbx_course_chart_note', (options.rangeNote || getPbxRangeNote()) + ': ' + note);
   chart.innerHTML='';
 
   if(!activeRows.length){
-    chart.innerHTML='<div class="pbx-empty">Kurs kesimida qo\'ng\'iroqlar topilmadi</div>';
+    chart.innerHTML='<div class="pbx-empty">' + pbxText('noCourseCalls') + '</div>';
     return;
   }
 
@@ -1012,12 +1200,25 @@ function renderPbxCourseChart(calls=[]){
       '<div class="pbx-course-track"><span style="height:' + height + '%"></span></div>',
       '<div class="pbx-course-name">' + escapePbxHtml(row.label) + '</div>'
     ].join('');
-    bar.title=row.label + ': ' + metric.label + ' ' + onlinePbxFormatNumber(value) + ', jami ' + onlinePbxFormatNumber(row.total);
+    bar.title=row.label + ': ' + pbxMetricLabel(metric) + ' ' + onlinePbxFormatNumber(value) + ', ' + pbxText('totalLabel') + ' ' + onlinePbxFormatNumber(row.total);
     chart.appendChild(bar);
   });
 }
+function renderPbxCourseChart(calls=[]){
+  onlinePbxChartCalls=Array.isArray(calls) ? calls : [];
+  renderPbxCourseChartInto(onlinePbxChartCalls,{target:'page',chartId:'pbx_course_chart',noteId:'pbx_course_chart_note',rangeNote:getPbxRangeNote()});
+}
+function renderDashboardPbxCourseChart(calls=[]){
+  onlinePbxDashboardChartCalls=Array.isArray(calls) ? calls : [];
+  renderPbxCourseChartInto(onlinePbxDashboardChartCalls,{
+    target:'dashboard',
+    chartId:'dash_pbx_course_chart',
+    noteId:'dash_pbx_course_chart_note',
+    rangeNote:pbxText('today')
+  });
+}
 function formatPbxHourLabel(hour){
-  return Number(hour || 0) + ':00';
+  return String(Number(hour || 0)).padStart(2,'0') + ':00';
 }
 function getPbxCallHour(value){
   if(!value)return null;
@@ -1040,11 +1241,11 @@ function renderPbxHourChart(calls=[]){
   const total=rows.reduce((sum,row)=>sum+row.total,0);
   const peak=rows.reduce((best,row)=>row.total>best.total?row:best,rows[0]);
   const max=Math.max(...rows.map(row=>row.total),1);
-  st('pbx_hour_chart_note', total ? 'Eng ko\'p: ' + formatPbxHourLabel(peak.hour) + ' (' + onlinePbxFormatNumber(peak.total) + ')' : '-');
+  st('pbx_hour_chart_note', total ? pbxText('most') + ': ' + formatPbxHourLabel(peak.hour) + ' (' + onlinePbxFormatNumber(peak.total) + ')' : '-');
   chart.innerHTML='';
 
   if(!total){
-    chart.innerHTML='<div class="pbx-empty">Soat bo\'yicha qo\'ng\'iroqlar topilmadi</div>';
+    chart.innerHTML='<div class="pbx-empty">' + pbxText('noHourCalls') + '</div>';
     return;
   }
 
@@ -1057,7 +1258,7 @@ function renderPbxHourChart(calls=[]){
       '<div class="pbx-hour-track"><span style="height:' + height + '%"></span></div>',
       '<div class="pbx-hour-label">' + formatPbxHourLabel(row.hour) + '</div>'
     ].join('');
-    bar.title=formatPbxHourLabel(row.hour) + ' - ' + onlinePbxFormatNumber(row.total) + ' ta, ' + onlinePbxFormatNumber(row.talked) + ' gaplashilgan';
+    bar.title=formatPbxHourLabel(row.hour) + ' - ' + onlinePbxFormatNumber(row.total) + ' ' + pbxText('callsCount') + ', ' + onlinePbxFormatNumber(row.talked) + ' ' + pbxText('answered').toLowerCase();
     chart.appendChild(bar);
   });
 }
@@ -1074,7 +1275,7 @@ function renderPbxStateMessage(type,text){
 }
 function setPbxResponsiblesLoading(){
   const grid=document.getElementById('pbx_responsibles_grid');
-  if(grid)grid.innerHTML='<div class="pbx-loading">' + pbxIcon('Loader2','spin') + ' Yuklanmoqda...</div>';
+  if(grid)grid.innerHTML='<div class="pbx-loading">' + pbxIcon('Loader2','spin') + ' ' + pbxText('loading') + '</div>';
   setPbxChartLoading();
   st('pbx_result_count','-');
 }
@@ -1091,7 +1292,7 @@ function renderPbxPage(data,{chartsLoading=false}={}){
   if(chartsLoading)setPbxChartLoading();
   else renderPbxCharts(calls);
   renderPbxResponsibles();
-  const loaded=document.getElementById('pbx_loaded_at');if(loaded)loaded.textContent='Yangilangan: ' + formatOnlinePbxDate(new Date().toISOString());
+  const loaded=document.getElementById('pbx_loaded_at');if(loaded)loaded.textContent=pbxText('updated') + ': ' + formatOnlinePbxDate(new Date().toISOString());
   renderPbxStateMessage('', '');
 }
 async function loadPbxStats(options={}){
@@ -1099,7 +1300,8 @@ async function loadPbxStats(options={}){
   const requestId=++onlinePbxPageState.requestId;
   onlinePbxPageState.filters={...ONLINE_PBX_DEFAULT_FILTERS,...filters};onlinePbxPageState.error=null;
   setOnlinePbxFilterInputs(onlinePbxPageState.filters);
-  setPbxPageLoading(true);setPbxResponsiblesLoading();renderPbxStateMessage('loading',"Qo'ng'iroqlar yuklanmoqda...");
+  refreshPbxStaticLabels();
+  setPbxPageLoading(true);setPbxResponsiblesLoading();renderPbxStateMessage('loading',pbxText('loading'));
   try{
     const data=await useOnlinePbxCalls().fetchCalls(onlinePbxPageState.filters);
     if(requestId!==onlinePbxPageState.requestId)return;
@@ -1124,7 +1326,7 @@ async function loadPbxStats(options={}){
     renderPbxStats(computePbxStats([]));
     renderPbxCharts([]);
     renderPbxResponsibles();
-    renderPbxStateMessage('error',ONLINE_PBX_ERROR_MESSAGE);
+    renderPbxStateMessage('error',pbxText('error'));
   }finally{if(requestId===onlinePbxPageState.requestId)setPbxPageLoading(false);}
 }
 function applyPbxFilters(){setPbxCalendarOpen(false);loadPbxStats({filters:{...readOnlinePbxFilters(),offset:0}});}
@@ -1132,49 +1334,35 @@ function clearPbxFilters(){const filters={...ONLINE_PBX_DEFAULT_FILTERS};setOnli
 function dashboardPbxFiltersFor(filter){return {...ONLINE_PBX_DEFAULT_FILTERS,...(ONLINE_PBX_DASHBOARD_FILTERS[filter]||{})};}
 function setDashboardPbxLoading(loading){
   onlinePbxDashboardLoading=loading;
-  ['dash_pbx_f_all','dash_pbx_f_in','dash_pbx_f_out','dash_pbx_f_ans','dash_pbx_f_miss'].forEach(id=>{const btn=document.getElementById(id);if(btn)btn.disabled=loading;});
+  const detail=document.getElementById('dash_pbx_detail_txt')?.closest('button');
+  if(detail)detail.disabled=loading;
 }
 function updateDashboardPbxButtons(filter=onlinePbxDashboardFilter){
-  const map={all:'dash_pbx_f_all',incoming:'dash_pbx_f_in',outgoing:'dash_pbx_f_out',answered:'dash_pbx_f_ans',missed:'dash_pbx_f_miss'};
-  Object.entries(map).forEach(([key,id])=>{const btn=document.getElementById(id);if(btn)btn.classList.toggle('active',key===filter);});
+  onlinePbxDashboardFilter=filter || 'all';
 }
 function renderDashboardPbxStats(stats={}){
-  const values={dash_pbx_total:stats.total,dash_pbx_incoming:stats.incoming,dash_pbx_outgoing:stats.outgoing,dash_pbx_answered:stats.answered,dash_pbx_missed:stats.missed};
-  Object.entries(values).forEach(([id,value])=>st(id,onlinePbxFormatNumber(value)));
+  return stats;
 }
 function renderDashboardPbxChart(data){
-  const chart=document.getElementById('dash_pbx_chart');if(!chart)return;
-  const stats=data?.stats||{};
-  const max=Math.max(...ONLINE_PBX_DASHBOARD_STAT_META.map(item=>onlinePbxNumber(stats[item.id])),1);
-  if(onlinePbxNumber(stats.total)===0){chart.innerHTML='<div class="pbx-empty">Qo\'ng\'iroqlar topilmadi</div>';return;}
-  chart.innerHTML='';
-  ONLINE_PBX_DASHBOARD_STAT_META.forEach(item=>{
-    const value=onlinePbxNumber(stats[item.id]);
-    const pct=value?Math.max(4,Math.round((value/max)*100)):0;
-    const row=document.createElement('div');
-    row.className='pbx-dash-bar';
-    row.innerHTML='<div class="pbx-dash-bar-label">' + pbxIcon(item.icon) + '<span>' + item.label + '</span><strong>' + onlinePbxFormatNumber(value) + '</strong></div><div class="pbx-dash-bar-track"><span style="width:' + pct + '%;background:' + item.color + '"></span></div>';
-    chart.appendChild(row);
-  });
-  const meta=document.createElement('div');
-  meta.className='pbx-dashboard-duration';
-  meta.innerHTML='<span>' + pbxIcon('Clock') + ' Jami: ' + formatOnlinePbxDuration(stats.totalDuration) + '</span><span>O\'rtacha: ' + formatOnlinePbxDuration(stats.averageDuration) + '</span>';
-  chart.appendChild(meta);
+  renderDashboardPbxCourseChart(data?.calls || []);
 }
 async function loadDashboardPbxWidget(options={}){
   const filter=options.filter||onlinePbxDashboardFilter||'all';
   const requestId=++onlinePbxDashboardRequestId;
   onlinePbxDashboardFilter=filter;updateDashboardPbxButtons(filter);setDashboardPbxLoading(true);
-  renderDashboardPbxStats({total:0,incoming:0,outgoing:0,answered:0,missed:0});
-  const chart=document.getElementById('dash_pbx_chart');if(chart)chart.innerHTML='<div class="pbx-loading">' + pbxIcon('Loader2','spin') + ' Yuklanmoqda...</div>';
+  refreshPbxStaticLabels();
+  const chart=document.getElementById('dash_pbx_course_chart');
+  if(chart)chart.innerHTML='<div class="pbx-loading">' + pbxIcon('Loader2','spin') + ' ' + pbxText('chartLoading') + '</div>';
+  st('dash_pbx_course_chart_note',pbxText('fullApiLoading'));
   try{
-    const data=await useOnlinePbxCalls().fetchCalls(dashboardPbxFiltersFor(filter));
+    const data=await fetchOnlinePbxAllCalls(dashboardPbxFiltersFor(filter));
     if(requestId!==onlinePbxDashboardRequestId)return;
-    renderDashboardPbxStats(data.stats);renderDashboardPbxChart(data);
+    renderDashboardPbxChart(data);
   }catch(err){
     if(requestId!==onlinePbxDashboardRequestId)return;
     console.error('loadDashboardPbxWidget error:',err);
-    if(chart)chart.innerHTML='<div class="pbx-empty error">' + ONLINE_PBX_ERROR_MESSAGE + '</div>';
+    if(chart)chart.innerHTML='<div class="pbx-empty error">' + pbxText('error') + '</div>';
+    st('dash_pbx_course_chart_note','-');
   }finally{if(requestId===onlinePbxDashboardRequestId)setDashboardPbxLoading(false);}
 }
 function setPbxFilter(filter){onlinePbxDashboardFilter=filter||'all';loadDashboardPbxWidget({filter:onlinePbxDashboardFilter});}
@@ -1187,7 +1375,7 @@ document.addEventListener('keydown', event=>{
   if(event.key==='Enter' && event.target && event.target.id==='pbx_phone')applyPbxFilters();
 });
 setOnlinePbxFilterInputs(ONLINE_PBX_DEFAULT_FILTERS);
-hydratePbxIcons();
+refreshPbxStaticLabels();
 async function refreshAmoCrmTasks(showLoading=true){
   await loadAmoCrmDepartmentCounts({showLoading});
 }
