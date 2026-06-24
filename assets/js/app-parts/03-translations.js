@@ -844,7 +844,7 @@ function getAdminTabTitle(tab){
     notif:t('nav_notif'),
     feedback:t('nav_fb'),
     amocrm:t('adm_amocrm'),
-    pbx:"PBX qo'ng'iroqlari"
+    pbx:(typeof pbxText==='function' ? pbxText('pageTitle') : "PBX qo'ng'iroqlari")
   };
   return titles[tab] || titles.main;
 }
@@ -1064,6 +1064,7 @@ function applyLang(){
   st('lc_t',t('loginTitle'));st('lc_s',t('loginSub'));setLoginButtonLoading(false);
   sp('inp_l',t('loginPH'));sp('inp_p',t('passPH'));
   ['n_main','n_notif','n_fb','n_set','n_kpi','n_amocrm'].forEach((id,i)=>{st(id,t(['nav_m','nav_notif','nav_fb','nav_s','nav_k','nav_amocrm'][i]||''));});
+  if(typeof refreshPbxStaticLabels==='function')refreshPbxStaticLabels();
   st('admTitle',getAdminTabTitle(currentAdminTab||'main'));
   const ae=document.getElementById('admExit');if(ae)ae.textContent=t('exit');
   const ee=document.getElementById('empExit');if(ee)ee.textContent=t('exit');
