@@ -193,26 +193,16 @@
             </div>
           </div>
 
-          <div class="box pbx-dashboard-widget">
+          <div class="box pbx-dashboard-widget pbx-dashboard-course-widget">
             <div class="pbx-widget-head">
-              <span class="btitle pbx-title"><span data-pbx-icon="PhoneCall"></span> Bugungi qo'ng'iroqlar (OnlinePBX)</span>
-              <div class="pbx-filter-group" id="dash_pbx_filters">
-                <button class="pbx-filter-btn active" id="dash_pbx_f_all" onclick="setPbxFilter('all')"><span data-pbx-icon="Phone"></span> Jami</button>
-                <button class="pbx-filter-btn" id="dash_pbx_f_in" onclick="setPbxFilter('incoming')"><span data-pbx-icon="PhoneIncoming"></span> Kiruvchi</button>
-                <button class="pbx-filter-btn" id="dash_pbx_f_out" onclick="setPbxFilter('outgoing')"><span data-pbx-icon="PhoneOutgoing"></span> Chiquvchi</button>
-                <button class="pbx-filter-btn" id="dash_pbx_f_ans" onclick="setPbxFilter('answered')"><span data-pbx-icon="PhoneCall"></span> Javob berilgan</button>
-                <button class="pbx-filter-btn" id="dash_pbx_f_miss" onclick="setPbxFilter('missed')"><span data-pbx-icon="PhoneMissed"></span> O'tkazib yuborilgan</button>
-                <button class="xbtn pbx-detail-btn" onclick="adminTab('pbx')"><span data-pbx-icon="BarChart3"></span> Batafsil</button>
+              <span class="btitle pbx-title" id="dash_pbx_course_title"><span data-pbx-icon="BarChart3"></span> Kurs kesimidagi qo'ng'iroqlar</span>
+              <div class="pbx-chart-head-actions">
+                <div class="pbx-chart-metric-tabs" id="dash_pbx_course_metric_buttons"></div>
+                <span id="dash_pbx_course_chart_note" class="pbx-result-count">-</span>
+                <button class="xbtn pbx-detail-btn" onclick="adminTab('pbx')"><span data-pbx-icon="BarChart3"></span><span id="dash_pbx_detail_txt">Batafsil</span></button>
               </div>
             </div>
-            <div class="pbx-mini-grid">
-              <div class="pbx-mini-card"><span data-pbx-icon="Phone"></span><small>Jami</small><strong id="dash_pbx_total">-</strong></div>
-              <div class="pbx-mini-card"><span data-pbx-icon="PhoneIncoming"></span><small>Kiruvchi</small><strong id="dash_pbx_incoming">-</strong></div>
-              <div class="pbx-mini-card"><span data-pbx-icon="PhoneOutgoing"></span><small>Chiquvchi</small><strong id="dash_pbx_outgoing">-</strong></div>
-              <div class="pbx-mini-card"><span data-pbx-icon="Headphones"></span><small>Javob</small><strong id="dash_pbx_answered">-</strong></div>
-              <div class="pbx-mini-card"><span data-pbx-icon="PhoneMissed"></span><small>Missed</small><strong id="dash_pbx_missed">-</strong></div>
-            </div>
-            <div class="pbx-dashboard-bars" id="dash_pbx_chart">
+            <div class="pbx-course-chart pbx-dashboard-course-chart" id="dash_pbx_course_chart">
               <div class="pbx-loading">Yuklanmoqda...</div>
             </div>
           </div>
@@ -478,8 +468,8 @@
         <div id="tab_pbx" class="hidden">
           <div class="box pbx-page-head">
             <div>
-              <div class="btitle pbx-title"><span data-pbx-icon="PhoneCall"></span> PBX qo'ng'iroqlari</div>
-              <p class="pbx-subtitle">OnlinePBX ma'lumotlari faqat Supabase Edge Function orqali yuklanadi.</p>
+              <div class="btitle pbx-title" id="pbx_page_title"><span data-pbx-icon="PhoneCall"></span> PBX qo'ng'iroqlari</div>
+              <p class="pbx-subtitle" id="pbx_page_subtitle">OnlinePBX ma'lumotlari faqat Supabase Edge Function orqali yuklanadi.</p>
             </div>
             <div class="pbx-head-actions">
               <div class="pbx-date-picker" id="pbx_date_picker">
@@ -527,7 +517,7 @@
 
           <div class="box pbx-responsibles-box">
             <div class="pbx-table-head">
-              <span class="btitle pbx-title"><span data-pbx-icon="Headphones"></span> Kurs mas'ullari</span>
+              <span class="btitle pbx-title" id="pbx_responsibles_title"><span data-pbx-icon="Headphones"></span> Kurs mas'ullari</span>
               <span id="pbx_result_count" class="pbx-result-count">amoCRM mas'ulliklari</span>
             </div>
             <div class="pbx-responsibles-grid" id="pbx_responsibles_grid"></div>
@@ -537,19 +527,18 @@
             <div class="pbx-stat-card" data-tone="total"><span data-pbx-icon="Phone"></span><small>Barchasi</small><strong id="pbx_stat_total">-</strong></div>
             <div class="pbx-stat-card" data-tone="incoming"><span data-pbx-icon="PhoneIncoming"></span><small>Kiruvchi</small><strong id="pbx_stat_incoming">-</strong></div>
             <div class="pbx-stat-card" data-tone="outgoing"><span data-pbx-icon="PhoneOutgoing"></span><small>Chiquvchi</small><strong id="pbx_stat_outgoing">-</strong></div>
-            <div class="pbx-stat-card" data-tone="internal"><span data-pbx-icon="PhoneCall"></span><small>Ichki</small><strong id="pbx_stat_internal">-</strong></div>
-            <div class="pbx-stat-card" data-tone="missed"><span data-pbx-icon="PhoneMissed"></span><small>O'tkazib yuborilgan</small><strong id="pbx_stat_missed">-</strong></div>
+            <div class="pbx-stat-card" data-tone="outside-work"><span data-pbx-icon="Clock"></span><small>Ishdan tashqari qo'ng'iroqlar</small><strong id="pbx_stat_outside_work">-</strong></div>
+            <div class="pbx-stat-card" data-tone="missed"><span data-pbx-icon="PhoneMissed"></span><small>Yetib bormagan</small><strong id="pbx_stat_missed">-</strong></div>
             <div class="pbx-stat-card" data-tone="not-called"><span data-pbx-icon="RotateCcw"></span><small>Qayta qo'ng'iroq qilinmagan</small><strong id="pbx_stat_not_called_back">-</strong></div>
-            <div class="pbx-stat-card" data-tone="not-reached"><span data-pbx-icon="AlertCircle"></span><small>Yetib bormagan</small><strong id="pbx_stat_not_reached">-</strong></div>
+            <div class="pbx-stat-card" data-tone="unknown"><span data-pbx-icon="HelpCircle"></span><small>Aniqlanmadi</small><strong id="pbx_stat_unknown">-</strong></div>
             <div class="pbx-stat-card" data-tone="quality"><span data-pbx-icon="Headphones"></span><small>Baholangan</small><strong id="pbx_stat_with_quality_score">-</strong></div>
-            <div class="pbx-stat-card" data-tone="callback"><span data-pbx-icon="PhoneCall"></span><small>Callback</small><strong id="pbx_stat_callback">-</strong></div>
           </div>
 
           <div id="pbx_status_message" class="pbx-state-message hidden"></div>
 
           <div class="box pbx-course-chart-box">
             <div class="pbx-table-head">
-              <span class="btitle pbx-title"><span data-pbx-icon="BarChart3"></span> Kurs kesimidagi qo'ng'iroqlar</span>
+              <span class="btitle pbx-title" id="pbx_course_chart_title"><span data-pbx-icon="BarChart3"></span> Kurs kesimidagi qo'ng'iroqlar</span>
               <div class="pbx-chart-head-actions">
                 <div class="pbx-chart-metric-tabs" id="pbx_course_metric_buttons"></div>
                 <span id="pbx_course_chart_note" class="pbx-result-count">-</span>
@@ -558,7 +547,7 @@
             <div class="pbx-course-chart" id="pbx_course_chart"></div>
             <div class="pbx-hour-section">
               <div class="pbx-table-head">
-                <span class="btitle pbx-title"><span data-pbx-icon="Clock"></span> Soat bo'yicha qo'ng'iroqlar</span>
+                <span class="btitle pbx-title" id="pbx_hour_chart_title"><span data-pbx-icon="Clock"></span> Soat bo'yicha qo'ng'iroqlar</span>
                 <span id="pbx_hour_chart_note" class="pbx-result-count">-</span>
               </div>
               <div class="pbx-hour-chart" id="pbx_hour_chart"></div>
