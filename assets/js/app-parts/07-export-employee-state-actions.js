@@ -25,7 +25,7 @@ function exportPDF(){
   doc.text('Sana: '+new Date().toLocaleDateString(),14,22);
   const headers=[t('report_headers').split('|')];
   const rows=monthlyData.map((d,i)=>[i+1,d.name,d.hours,d.afk,d.late,d.half,d.abs,d.penalty,'+'+d.bonus,d.ball,d.kpi.toLocaleString()]);
-  doc.autoTable({head:headers,body:rows,startY:28,styles:{fontSize:9,cellPadding:2},headStyles:{fillColor:[74,140,245],textColor:[255,255,255],fontStyle:'bold'},alternateRowStyles:{fillColor:[245,248,252]},margin:{left:14,right:14}});
+  doc.autoTable({head:headers,body:rows,startY:28,styles:{fontSize:9,cellPadding:2},headStyles:{fillColor:[139,17,25],textColor:[255,255,255],fontStyle:'bold'},alternateRowStyles:{fillColor:[245,248,252]},margin:{left:14,right:14}});
   doc.save('AloqaPro_'+month+'_KPI.pdf');
   toast('success',t('export_title'),'PDF: '+t('export_downloaded'));
 }
