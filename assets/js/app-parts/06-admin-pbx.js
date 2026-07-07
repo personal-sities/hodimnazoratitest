@@ -1581,8 +1581,8 @@ function renderDashboardCharts(rows,workDays,empCount,recs=[]){
       chart.innerHTML = `
         <defs>
           <linearGradient id="dashLineGradient" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stop-color="rgba(132,72,255,.26)"></stop>
-            <stop offset="100%" stop-color="rgba(132,72,255,0)"></stop>
+            <stop offset="0%" stop-color="rgba(139,17,25,.26)"></stop>
+            <stop offset="100%" stop-color="rgba(139,17,25,0)"></stop>
           </linearGradient>
         </defs>
         <polyline class="dash-line-area" points="${area}"></polyline>
@@ -2344,6 +2344,7 @@ async function delEmp(id) {
   if (!id) return;
   if (!confirm(t('del_c'))) return;
 
+  showBlockingLoader(t('employee_deleting_wait'));
   try {
     const { data: sessData, error: sessErr } = await sb.auth.getSession();
     if (sessErr || !sessData?.session?.access_token) {
@@ -2379,6 +2380,8 @@ async function delEmp(id) {
   } catch (e) {
     console.error('delEmp error:', e);
     toast('error', t('error_title'), e.message || t('employee_remove_error'));
+  } finally {
+    hideBlockingLoader();
   }
 }
 async function addEmp() {
@@ -2394,6 +2397,7 @@ async function addEmp() {
     return;
   }
 
+  showBlockingLoader(t('employee_adding_wait'));
   try {
     const { data: userData, error: userErr } = await sb.auth.getUser();
     if (userErr || !userData?.user) {
@@ -2465,6 +2469,8 @@ async function addEmp() {
   } catch (e) {
     console.error('addEmp CATCH ERROR:', e);
     toast('error', t('error_title'), e.message || t('system_error'));
+  } finally {
+    hideBlockingLoader();
   }
 }
 function addHol(){const d=document.getElementById('hol_d').value;if(!d)return;const h=JSON.parse(localStorage.getItem('aloqa_hols')||'[]');if(!h.includes(d))h.push(d);localStorage.setItem('aloqa_hols',JSON.stringify(h));document.getElementById('hol_d').value='';updateHolList();}
@@ -2480,6 +2486,7 @@ async function savePass() {
     return;
   }
 
+  showBlockingLoader(t('password_changing_wait'));
   try {
     const { data: sessData, error: sessErr } = await sb.auth.getSession();
     if (sessErr || !sessData?.session?.access_token) {
@@ -2518,6 +2525,8 @@ async function savePass() {
   } catch (err) {
     console.error('savePass error:', err);
     toast('error', t('error_title'), err.message || t('password_update_error'));
+  } finally {
+    hideBlockingLoader();
   }
 }
 // ============================================================
