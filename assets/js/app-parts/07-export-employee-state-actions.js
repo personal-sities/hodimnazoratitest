@@ -235,13 +235,13 @@ function syncWorkWhileAway({saveRemote=false}={}){
 }
 async function empEnd(auto=false){
   if(!['working','lunch','paused','prayer'].includes(empState))return;
-  try{
-    const canFinish=await canFinishWorkByAmoCrmTasks({auto});
-    if(!canFinish)return;
-  }catch(e){
-    console.warn('finish task check:', e.message||e);
-    if(!auto)toast('error', t('error_title'), e.message || t('amocrm_stats_error'), 5000);
-    return;
+  if (!(window.ALOQA_CONFIG && window.ALOQA_CONFIG.ENABLE_AMOCRM === false)) {
+    try{
+      const canFinish=await canFinishWorkByAmoCrmTasks({auto});
+      if(!canFinish)return;
+    }catch(e){
+      console.warn('finish task check:', e.message||e);
+    }
   }
   const now=tzNow();
   if(empState==='working'&&wStart)wAccum+=Math.floor((now-wStart)/1000);

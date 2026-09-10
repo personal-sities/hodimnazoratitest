@@ -1,0 +1,28 @@
+# Muhit o'zgaruvchilari (maxfiy kalitlar)
+.env
+.env.local
+.env.*.local
+
+# Dependency papkalari
+node_modules/
+package-lock.json
+
+# Log fayllari
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Ma'lumotlar bazasi va keshlar
+data/
+*.sqlite
+*.db
+.cache/
+
+# Tizim va muharrir fayllari
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+.codex/

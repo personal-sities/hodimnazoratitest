@@ -1,0 +1,20 @@
+{
+  "name": "aloqapro",
+  "version": "2.0.0",
+  "description": "AloqaPro - Xodimlar nazorati va davomat tizimi (Ubuntu Server)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js",
+    "cleanup": "node -e \"require('./server.js').runRetentionCleanup(true)\"",
+    "migrate": "node migrate-from-supabase.js",
+    "export-data": "node export-supabase-data.js"
+  },
+  "dependencies": {
+    "pg": "^8.11.3"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "private": true
+}

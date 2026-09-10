@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  # 1. PostgreSQL Ma'lumotlar bazasi (Ubuntu lokal)
+  db:
+    image: postgres:16-alpine
+    container_name: aloqapro_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: aloqapro
+      POSTGRES_USER: aloqa_user
+      POSTGRES_PASSWORD: aloqa_password
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+      - ./schema.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aloqa_user -d aloqapro"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # 2. AloqaPro Server ilovasi
+  app:
+    build: .
+    container_name: aloqapro_app
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      PORT: 3000
+      DATABASE_URL: postgres://aloqa_user:aloqa_password@db:5432/aloqapro
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./.env:/app/.env:ro
+      - ./.cleanup_last_run:/app/.cleanup_last_run

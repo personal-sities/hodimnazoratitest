@@ -1,9 +1,10 @@
 // ============================================================
 //  CONFIG
 // ============================================================
-const SUPABASE_URL  = 'https://hdbhdddekjjjtwtyocfa.supabase.co';
-const SUPABASE_ANON = 'sb_publishable_CZUB0mOSzmmCvviNzWykzw_B3_0-5bE';
-const FUNCTIONS_BASE = `${SUPABASE_URL}/functions/v1`;
+const _cfg = window.ALOQA_CONFIG || {};
+const SUPABASE_URL  = _cfg.SUPABASE_URL || 'https://hdbhdddekjjjtwtyocfa.supabase.co';
+const SUPABASE_ANON = _cfg.SUPABASE_ANON_KEY || 'sb_publishable_CZUB0mOSzmmCvviNzWykzw_B3_0-5bE';
+const FUNCTIONS_BASE = _cfg.FUNCTIONS_BASE || `${SUPABASE_URL}/functions/v1`;
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
 
 const TASHKENT_TIMEZONE = 'Asia/Tashkent';

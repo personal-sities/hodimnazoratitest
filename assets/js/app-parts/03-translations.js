@@ -844,7 +844,7 @@ function getAdminTabTitle(tab){
     notif:t('nav_notif'),
     feedback:t('nav_fb'),
     amocrm:t('adm_amocrm'),
-    pbx:"PBX qo'ng'iroqlari"
+    pbx:(typeof pbxText==='function' ? pbxText('pageTitle') : "PBX qo'ng'iroqlari")
   };
   return titles[tab] || titles.main;
 }
@@ -859,18 +859,25 @@ function refreshAmoCrmStaticLabels(){
   if(tab && !tab.classList.contains('hidden'))st('admTitle',t('adm_amocrm'));
 }
 async function fetchAmoCrmDepartmentTaskCounts(){
-  return sb
-    .from('amocrm_department_task_counts')
-    .select(`
-      responsible_user_id,
-      department_name,
-      sort_order,
-      active_tasks,
-      overdue_tasks,
-      on_time_tasks,
-      nearest_deadline
-    `)
-    .order('sort_order', { ascending: true });
+  if (window.ALOQA_CONFIG && window.ALOQA_CONFIG.ENABLE_AMOCRM === false) {
+    return { data: [], error: null };
+  }
+  try {
+    return await sb
+      .from('amocrm_department_task_counts')
+      .select(`
+        responsible_user_id,
+        department_name,
+        sort_order,
+        active_tasks,
+        overdue_tasks,
+        on_time_tasks,
+        nearest_deadline
+      `)
+      .order('sort_order', { ascending: true });
+  } catch (e) {
+    return { data: [], error: e };
+  }
 }
 function formatHm(totalSeconds){
   if(!totalSeconds)return '—';
@@ -1064,6 +1071,7 @@ function applyLang(){
   st('lc_t',t('loginTitle'));st('lc_s',t('loginSub'));setLoginButtonLoading(false);
   sp('inp_l',t('loginPH'));sp('inp_p',t('passPH'));
   ['n_main','n_notif','n_fb','n_set','n_kpi','n_amocrm'].forEach((id,i)=>{st(id,t(['nav_m','nav_notif','nav_fb','nav_s','nav_k','nav_amocrm'][i]||''));});
+  if(typeof refreshPbxStaticLabels==='function')refreshPbxStaticLabels();
   st('admTitle',getAdminTabTitle(currentAdminTab||'main'));
   const ae=document.getElementById('admExit');if(ae)ae.textContent=t('exit');
   const ee=document.getElementById('empExit');if(ee)ee.textContent=t('exit');
