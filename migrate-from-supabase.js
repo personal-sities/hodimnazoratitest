@@ -70,7 +70,12 @@ async function main() {
         }
 
         let insertedCount = 0;
+        let failedCount = 0;
         for (const row of rows) {
+          if (table === 'attendance') {
+            delete row.worked_seconds;
+          }
+
           const keys = Object.keys(row);
           if (keys.length === 0) continue;
 
@@ -101,11 +106,16 @@ async function main() {
             ${conflictClause}
           `;
 
-          await client.query(query, values);
-          insertedCount++;
+          try {
+            await client.query(query, values);
+            insertedCount++;
+          } catch (rowErr) {
+            failedCount++;
+          }
         }
 
-        console.log(`Muvaffaqiyatli: ${insertedCount} ta yozuv ko'chirildi!`);
+        const failMsg = failedCount > 0 ? ` (${failedCount} ta xatolik o'tkazib yuborildi)` : '';
+        console.log(`Muvaffaqiyatli: ${insertedCount} ta yozuv ko'chirildi!${failMsg}`);
       } catch (tableErr) {
         console.log(`Ogohlantirish/Xato: ${tableErr.message}`);
       }

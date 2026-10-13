@@ -18,12 +18,15 @@ const MIME = {
   '.png': 'image/png',
   '.jpg': 'image/jpeg',
   '.jpeg': 'image/jpeg',
+  '.webp': 'image/webp',
   '.ico': 'image/x-icon',
+  '.svg': 'image/svg+xml',
   '.wasm': 'application/wasm',
   '.bin': 'application/octet-stream',
-  '.mp3': 'audio/mpeg',
-  '.ogg': 'audio/ogg',
-  '.svg': 'image/svg+xml'
+  '.woff': 'font/woff',
+  '.woff2': 'font/woff2',
+  '.ttf': 'font/ttf',
+  '.webmanifest': 'application/manifest+json'
 };
 
 // PostgreSQL kutubxonasi (mavjud bo'lsa)
@@ -31,7 +34,7 @@ let pg = null;
 try {
   pg = require('pg');
 } catch (e) {
-  // pg o'rnatilmagan bo'lsa ogohlantirish
+  // pg o'rnatilmagan bo'lsa ogohlantirishsiz o'tadi
 }
 
 // 2. HTTP SERVER
@@ -51,7 +54,9 @@ const server = http.createServer(async (req, res) => {
         retention_months: Number(process.env.RETENTION_MONTHS || 3),
         retention_interval_months: Number(process.env.RETENTION_INTERVAL_MONTHS || 2),
         google_sheets: 'disabled',
-        uptime: process.uptime()
+        has_database: Boolean(process.env.DATABASE_URL && pg),
+        has_supabase: Boolean(process.env.SUPABASE_URL),
+        uptime: Math.floor(process.uptime())
       });
     }
 
@@ -93,18 +98,32 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
-server.listen(PORT, HOST, () => {
-  console.log(`====================================================`);
-  console.log(`  AloqaPro Server muvaffaqiyatli ishga tushdi`);
-  console.log(`  Manzil: http://${HOST}:${PORT}`);
-  console.log(`  Ma'lumotlar bazasi: Server PostgreSQL`);
-  console.log(`  Google Sheets: TO'XTATILGAN (Faqat server bazasi)`);
-  console.log(`  Tozalash siyosati: Har ${process.env.RETENTION_INTERVAL_MONTHS || 2} oyda, 3 oydan eski ma'lumotlar o'chiriladi`);
-  console.log(`====================================================`);
+// Faqat to'g'ridan-to'g'ri ishga tushirilganda listen qilish
+if (require.main === module) {
+  server.listen(PORT, HOST, () => {
+    console.log(`====================================================`);
+    console.log(`  AloqaPro Server muvaffaqiyatli ishga tushdi`);
+    console.log(`  Manzil: http://${HOST}:${PORT}`);
+    console.log(`  Ma'lumotlar bazasi: ${process.env.DATABASE_URL ? 'PostgreSQL ulandi' : 'Supabase Cloud / Standart'}`);
+    console.log(`  Google Sheets: TO'XTATILGAN (Faqat xavfsiz baza)`);
+    console.log(`  Tozalash siyosati: Har ${process.env.RETENTION_INTERVAL_MONTHS || 2} oyda, 3 oydan eski ma'lumotlar o'chiriladi`);
+    console.log(`====================================================`);
 
-  // Tozalash vazifasini ishga tushirish
-  initRetentionScheduler();
-});
+    // Tozalash vazifasini ishga tushirish
+    initRetentionScheduler();
+  });
+
+  // Toza to'xtatish (graceful shutdown)
+  const shutdown = () => {
+    console.log('\n[AloqaPro]: Server to\'xtatilmoqda...');
+    server.close(() => {
+      console.log('[AloqaPro]: Server to\'xtatildi.');
+      process.exit(0);
+    });
+  };
+  process.on('SIGINT', shutdown);
+  process.on('SIGTERM', shutdown);
+}
 
 // ============================================================
 //  FUNKSIYALAR VA YORDAMCHILAR
@@ -139,7 +158,7 @@ function sendEnv(res) {
   const config = {
     SUPABASE_URL: process.env.SUPABASE_URL || 'https://hdbhdddekjjjtwtyocfa.supabase.co',
     SUPABASE_ANON_KEY: process.env.SUPABASE_ANON_KEY || 'sb_publishable_CZUB0mOSzmmCvviNzWykzw_B3_0-5bE',
-    FUNCTIONS_BASE: process.env.FUNCTIONS_BASE || `${process.env.SUPABASE_URL || ''}/functions/v1`,
+    FUNCTIONS_BASE: process.env.FUNCTIONS_BASE || '/api/functions/v1',
     ENABLE_AMOCRM: parseBool(process.env.ENABLE_AMOCRM),
     ENABLE_ONLINEPBX: parseBool(process.env.ENABLE_ONLINEPBX),
     ENABLE_GOOGLE_SHEETS: false
@@ -182,7 +201,6 @@ async function handleFunction(req, res, name) {
       });
     }
 
-    // OnlinePBX yoqilgan bo'lsa tashqi API yoki mahalliy bazadan olish
     return handleOnlinePbxProxy(res, body);
   }
 
@@ -205,7 +223,6 @@ async function handleFunction(req, res, name) {
 }
 
 async function handleOnlinePbxProxy(res, body) {
-  // Agar API key bo'lsa OnlinePBX API chaqiriladi, aks holda toza bo'sh struktura
   return sendJson(res, 200, {
     ok: true,
     source: 'local_proxy',
@@ -228,10 +245,10 @@ async function handleCreateEmployee(res, body) {
   const kpiType = body.kpi_type || 'junior';
 
   if (!name || !email || !password) {
-    return sendJson(res, 400, { error: 'Ism, email va parol kiritilishi shart' });
+    return sendJson(res, 400, { ok: false, error: 'Ism, email va parol kiritilishi shart' });
   }
 
-  // Agar Supabase Service Role mavjud bo'lsa Supabase Auth ga qo'shish
+  // 1. Supabase Service Role mavjud bo'lsa Supabase Auth ga qo'shish
   if (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
     try {
       const userRes = await fetch(`${process.env.SUPABASE_URL}/auth/v1/admin/users`, {
@@ -249,7 +266,9 @@ async function handleCreateEmployee(res, body) {
         })
       });
       const userData = await userRes.json();
-      if (!userRes.ok) throw new Error(userData.msg || userData.message || 'Foydalanuvchi yaratilmadi');
+      if (!userRes.ok) {
+        throw new Error(userData.msg || userData.message || userData.error_description || 'Foydalanuvchi yaratilmadi');
+      }
 
       const empRes = await fetch(`${process.env.SUPABASE_URL}/rest/v1/employees`, {
         method: 'POST',
@@ -269,23 +288,48 @@ async function handleCreateEmployee(res, body) {
         })
       });
       const empData = await empRes.json();
+      if (!empRes.ok) {
+        throw new Error(empData.message || empData.msg || 'Xodim ma\'lumotlar bazasiga yozilmadi');
+      }
+
       return sendJson(res, 200, { ok: true, employee_id: empData?.[0]?.id, employee: empData?.[0] });
     } catch (err) {
       console.error('handleCreateEmployee Supabase xatosi:', err);
+      return sendJson(res, 400, { ok: false, error: err.message || 'Xodimni yaratishda xatolik yuz berdi' });
     }
   }
 
-  // Mahalliy DB orqali qo'shish (fallback)
-  return sendJson(res, 200, { ok: true, message: 'Xodim qabul qilindi' });
+  // 2. Mahalliy PostgreSQL mavjud bo'lsa
+  if (process.env.DATABASE_URL && pg) {
+    const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
+    try {
+      const query = `
+        INSERT INTO public.employees (user_id, name, login, kpi_type, active, face_registered)
+        VALUES (gen_random_uuid(), $1, $2, $3, true, false)
+        RETURNING id, name, login, kpi_type;
+      `;
+      const result = await pool.query(query, [name, email, kpiType]);
+      await pool.end();
+      return sendJson(res, 200, { ok: true, employee_id: result.rows[0]?.id, employee: result.rows[0] });
+    } catch (dbErr) {
+      await pool.end().catch(() => {});
+      console.error('handleCreateEmployee DB xatosi:', dbErr);
+      return sendJson(res, 400, { ok: false, error: dbErr.message });
+    }
+  }
+
+  return sendJson(res, 400, { ok: false, error: "SUPABASE_SERVICE_ROLE_KEY yoki DATABASE_URL sozlanmagan" });
 }
 
 async function handleDeleteEmployee(res, body) {
   const employeeId = body.employee_id || body.id;
-  if (!employeeId) return sendJson(res, 400, { error: 'employee_id berilmadi' });
+  if (!employeeId) return sendJson(res, 400, { ok: false, error: 'employee_id berilmadi' });
+
+  let handled = false;
 
   if (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
     try {
-      await fetch(`${process.env.SUPABASE_URL}/rest/v1/employees?id=eq.${encodeURIComponent(employeeId)}`, {
+      const delRes = await fetch(`${process.env.SUPABASE_URL}/rest/v1/employees?id=eq.${encodeURIComponent(employeeId)}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -294,9 +338,26 @@ async function handleDeleteEmployee(res, body) {
         },
         body: JSON.stringify({ active: false })
       });
-      return sendJson(res, 200, { ok: true });
+      if (!delRes.ok) {
+        const txt = await delRes.text();
+        throw new Error(txt || 'Xodimni o\'chirishda xatolik');
+      }
+      handled = true;
     } catch (e) {
       console.error('handleDeleteEmployee error:', e);
+      return sendJson(res, 500, { ok: false, error: e.message });
+    }
+  }
+
+  if (process.env.DATABASE_URL && pg && !handled) {
+    const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
+    try {
+      await pool.query('UPDATE public.employees SET active = false WHERE id = $1', [employeeId]);
+      await pool.end();
+      handled = true;
+    } catch (dbErr) {
+      await pool.end().catch(() => {});
+      return sendJson(res, 500, { ok: false, error: dbErr.message });
     }
   }
 
@@ -306,16 +367,97 @@ async function handleDeleteEmployee(res, body) {
 async function handleResetEmployeePassword(res, body) {
   const employeeId = body.employee_id || body.id;
   const newPassword = body.new_password;
-  if (!employeeId || !newPassword) return sendJson(res, 400, { error: 'employee_id va new_password kiritilishi shart' });
-  return sendJson(res, 200, { ok: true, message: 'Parol yangilandi' });
+  if (!employeeId || !newPassword) {
+    return sendJson(res, 400, { ok: false, error: 'employee_id va new_password kiritilishi shart' });
+  }
+
+  if (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    try {
+      // 1. Employee ning user_id sini topish
+      const empRes = await fetch(`${process.env.SUPABASE_URL}/rest/v1/employees?id=eq.${encodeURIComponent(employeeId)}&select=user_id`, {
+        headers: {
+          'apikey': process.env.SUPABASE_SERVICE_ROLE_KEY,
+          'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`
+        }
+      });
+      const emps = await empRes.json();
+      const userId = emps?.[0]?.user_id;
+      if (!userId) {
+        return sendJson(res, 404, { ok: false, error: 'Xodim yoki uning auth user_id si topilmadi' });
+      }
+
+      // 2. Supabase Auth da parolni yangilash
+      const passRes = await fetch(`${process.env.SUPABASE_URL}/auth/v1/admin/users/${userId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': process.env.SUPABASE_SERVICE_ROLE_KEY,
+          'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`
+        },
+        body: JSON.stringify({ password: newPassword })
+      });
+      const passData = await passRes.json();
+      if (!passRes.ok) {
+        throw new Error(passData.msg || passData.message || 'Parolni yangilab bo\'lmadi');
+      }
+
+      return sendJson(res, 200, { ok: true, message: 'Parol muvaffaqiyatli yangilandi' });
+    } catch (err) {
+      console.error('handleResetEmployeePassword error:', err);
+      return sendJson(res, 500, { ok: false, error: err.message || 'Parolni yangilashda xatolik' });
+    }
+  }
+
+  return sendJson(res, 400, { ok: false, error: 'SUPABASE_SERVICE_ROLE_KEY sozlanmagan' });
 }
+
+// Himoyalangan ichki fayllar ro'yxati (hech qachon brauzerga berilmaydi)
+const PROTECTED_FILES = new Set([
+  '.env',
+  '.env.example',
+  '.env.local',
+  '.gitignore',
+  '.dockerignore',
+  'dockerfile',
+  'docker-compose.yml',
+  'docker-compose.yaml',
+  'server.js',
+  'package.json',
+  'package-lock.json',
+  'schema.sql',
+  'migrate-from-supabase.js',
+  'export-supabase-data.js',
+  'ubuntu_deploy.md',
+  'readme.md',
+  '.cleanup_last_run'
+]);
 
 // Statik fayllarni xavfsiz tarqatish
 function serveStatic(requestPath, res) {
-  const safePath = requestPath === '/' ? '/index.html' : decodeURIComponent(requestPath.split('?')[0]);
-  const fullPath = path.normalize(path.join(ROOT, safePath));
+  const cleanPath = decodeURIComponent(requestPath.split('?')[0]);
+  const safePath = cleanPath === '/' ? '/index.html' : cleanPath;
 
-  if (!fullPath.startsWith(ROOT)) {
+  // 1. Xavfsizlik: Nuqta bilan boshlanuvchi yashirin fayl va papkalarni taqiqlash (.env, .git, va h.k.)
+  if (/(?:^|\/)\.[^\/]/.test(safePath)) {
+    return sendText(res, 403, 'Taqiqlangan (Forbidden)');
+  }
+
+  // 2. Xavfsizlik: Path traversal hujumlarini bartaraf etish
+  const fullPath = path.resolve(ROOT, '.' + safePath);
+  if (!fullPath.startsWith(ROOT + path.sep) && fullPath !== ROOT) {
+    return sendText(res, 403, 'Taqiqlangan (Forbidden)');
+  }
+
+  // 3. Xavfsizlik: Server kodlari, konfiguratsiyalar va ma'lumotlar bazasi fayllarini yashirish
+  const baseName = path.basename(fullPath).toLowerCase();
+  const relPath = path.relative(ROOT, fullPath).replace(/\\/g, '/').toLowerCase();
+  if (
+    PROTECTED_FILES.has(baseName) ||
+    baseName.endsWith('.sql') ||
+    relPath.startsWith('data/') ||
+    relPath.startsWith('.git/') ||
+    relPath.startsWith('.vscode/')
+  ) {
     return sendText(res, 403, 'Taqiqlangan (Forbidden)');
   }
 
@@ -335,8 +477,8 @@ function serveStatic(requestPath, res) {
     const ext = path.extname(fullPath).toLowerCase();
     const contentType = MIME[ext] || 'application/octet-stream';
 
-    // Model va kutubxona fayllari uchun uzoq muddatli keshlash
-    const isImmutable = fullPath.includes('model') || ext === '.wasm' || ext === '.mp3';
+    // Model va og'ir kutubxona fayllari uchun uzoq muddatli keshlash
+    const isImmutable = fullPath.includes('model') || ext === '.wasm' || ext === '.bin';
     const cacheControl = isImmutable
       ? 'public, max-age=2592000, immutable'
       : 'no-cache';
@@ -348,6 +490,10 @@ function serveStatic(requestPath, res) {
     });
 
     const stream = fs.createReadStream(fullPath);
+    stream.on('error', (streamErr) => {
+      console.error('Stream xatosi:', streamErr.message);
+      if (!res.headersSent) sendText(res, 500, 'Faylni o\'qishda xatolik');
+    });
     stream.pipe(res);
   });
 }
@@ -389,88 +535,144 @@ async function runRetentionCleanup(isManual = false) {
   console.log(`[Tozalash]: ${retentionMonths} oydan eski ma'lumotlarni tozalash jarayoni boshlandi... (${isManual ? 'qo\'lda' : 'avtomatik'})`);
 
   const dbUrl = process.env.DATABASE_URL;
-  if (!dbUrl || !pg) {
-    console.log('[Tozalash ogohlantirish]: DATABASE_URL yoki pg kutubxonasi mavjud emas. Tozalash faqat ma\'lumotlar bazasi ulanganda ishlaydi.');
-    return {
-      ok: false,
-      message: "DATABASE_URL yoki pg mavjud emas",
-      retention_months: retentionMonths
-    };
-  }
 
-  const pool = new pg.Pool({ connectionString: dbUrl });
-  try {
-    // 1. Agar stored procedure bo'lsa chaqirish
-    const procResult = await pool.query('SELECT public.cleanup_old_records($1) AS res', [retentionMonths]).catch(() => null);
-    if (procResult && procResult.rows && procResult.rows[0]?.res) {
-      const summary = procResult.rows[0].res;
-      console.log(`[Tozalash muvaffaqiyatli]:`, summary);
-      saveLastCleanupTimestamp();
-      return summary;
-    }
-
-    // 2. Aks holda to'g'ridan-to'g'ri SQL bilan xavfsiz tozalash
-    const client = await pool.connect();
+  // 1-USUL: PostgreSQL bazasi to'g'ridan-to'g'ri ulangan bo'lsa
+  if (dbUrl && pg) {
+    const pool = new pg.Pool({ connectionString: dbUrl });
     try {
-      await client.query('BEGIN');
-      const cutoffDateQuery = `(CURRENT_DATE - INTERVAL '${retentionMonths} months')::date`;
-      const cutoffTzQuery = `(now() - INTERVAL '${retentionMonths} months')`;
-
-      const r1 = await client.query(`DELETE FROM public.attendance WHERE work_date < ${cutoffDateQuery}`);
-      const r2 = await client.query(`DELETE FROM public.notifications WHERE sent_at < ${cutoffTzQuery}`);
-      const r3 = await client.query(`DELETE FROM public.feedback WHERE created_at < ${cutoffTzQuery}`);
-      const r4 = await client.query(`DELETE FROM public.employee_leaves WHERE return_date < ${cutoffDateQuery}`);
-
-      let r5Count = 0;
-      const callsExists = await client.query(`SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='calls'`);
-      if (callsExists.rowCount > 0) {
-        const r5 = await client.query(`DELETE FROM public.calls WHERE started_at < ${cutoffTzQuery}`);
-        r5Count = r5.rowCount;
+      // 1. Stored procedure cleanup_old_records orqali tozalash
+      const procResult = await pool.query('SELECT public.cleanup_old_records($1) AS res', [retentionMonths]).catch(() => null);
+      if (procResult && procResult.rows && procResult.rows[0]?.res) {
+        const summary = procResult.rows[0].res;
+        console.log(`[Tozalash muvaffaqiyatli]:`, summary);
+        saveLastCleanupTimestamp();
+        return summary;
       }
 
-      await client.query('COMMIT');
+      // 2. Aks holda SQL so'rovlari orqali xavfsiz tozalash
+      const client = await pool.connect();
+      try {
+        await client.query('BEGIN');
+        const cutoffDateQuery = `(CURRENT_DATE - INTERVAL '${retentionMonths} months')::date`;
+        const cutoffTzQuery = `(now() - INTERVAL '${retentionMonths} months')`;
+
+        const r1 = await client.query(`DELETE FROM public.attendance WHERE work_date < ${cutoffDateQuery}`);
+        const r2 = await client.query(`DELETE FROM public.notifications WHERE sent_at < ${cutoffTzQuery}`);
+        const r3 = await client.query(`DELETE FROM public.feedback WHERE created_at < ${cutoffTzQuery}`);
+        const r4 = await client.query(`DELETE FROM public.employee_leaves WHERE return_date < ${cutoffDateQuery}`);
+
+        let r5Count = 0;
+        const callsExists = await client.query(`SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='calls'`);
+        if (callsExists.rowCount > 0) {
+          const r5 = await client.query(`DELETE FROM public.calls WHERE started_at < ${cutoffTzQuery}`);
+          r5Count = r5.rowCount;
+        }
+
+        await client.query('COMMIT');
+
+        const summary = {
+          ok: true,
+          method: 'postgresql_direct',
+          retention_months: retentionMonths,
+          deleted_attendance: r1.rowCount,
+          deleted_notifications: r2.rowCount,
+          deleted_feedback: r3.rowCount,
+          deleted_leaves: r4.rowCount,
+          deleted_calls: r5Count,
+          cleaned_at: new Date().toISOString()
+        };
+        console.log(`[Tozalash muvaffaqiyatli]:`, summary);
+        saveLastCleanupTimestamp();
+        return summary;
+      } catch (sqlErr) {
+        await client.query('ROLLBACK');
+        throw sqlErr;
+      } finally {
+        client.release();
+      }
+    } catch (err) {
+      console.error('[Tozalash xatosi - PostgreSQL]:', err.message);
+      return { ok: false, error: err.message };
+    } finally {
+      await pool.end().catch(() => {});
+    }
+  }
+
+  // 2-USUL: Supabase REST API orqali tozalash (agar DATABASE_URL yo'q, lekin Supabase service kaliti bo'lsa)
+  if (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    try {
+      console.log('[Tozalash]: Supabase REST API orqali eski ma\'lumotlar tozalanmoqda...');
+      const cutoffDate = new Date();
+      cutoffDate.setMonth(cutoffDate.getMonth() - retentionMonths);
+      const cutoffDateStr = cutoffDate.toISOString().split('T')[0];
+      const cutoffIso = cutoffDate.toISOString();
+
+      const headers = {
+        'apikey': process.env.SUPABASE_SERVICE_ROLE_KEY,
+        'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
+        'Prefer': 'count=exact'
+      };
+
+      const [r1, r2, r3, r4] = await Promise.all([
+        fetch(`${process.env.SUPABASE_URL}/rest/v1/attendance?work_date=lt.${cutoffDateStr}`, { method: 'DELETE', headers }),
+        fetch(`${process.env.SUPABASE_URL}/rest/v1/notifications?sent_at=lt.${cutoffIso}`, { method: 'DELETE', headers }),
+        fetch(`${process.env.SUPABASE_URL}/rest/v1/feedback?created_at=lt.${cutoffIso}`, { method: 'DELETE', headers }),
+        fetch(`${process.env.SUPABASE_URL}/rest/v1/employee_leaves?return_date=lt.${cutoffDateStr}`, { method: 'DELETE', headers })
+      ]);
 
       const summary = {
         ok: true,
+        method: 'supabase_rest',
         retention_months: retentionMonths,
-        deleted_attendance: r1.rowCount,
-        deleted_notifications: r2.rowCount,
-        deleted_feedback: r3.rowCount,
-        deleted_leaves: r4.rowCount,
-        deleted_calls: r5Count,
+        cutoff_date: cutoffDateStr,
+        attendance_status: r1.status,
+        notifications_status: r2.status,
+        feedback_status: r3.status,
+        leaves_status: r4.status,
         cleaned_at: new Date().toISOString()
       };
-      console.log(`[Tozalash muvaffaqiyatli]:`, summary);
+      console.log(`[Tozalash muvaffaqiyatli - Supabase REST]:`, summary);
       saveLastCleanupTimestamp();
       return summary;
-    } catch (sqlErr) {
-      await client.query('ROLLBACK');
-      throw sqlErr;
-    } finally {
-      client.release();
+    } catch (restErr) {
+      console.error('[Tozalash xatosi - Supabase REST]:', restErr.message);
+      return { ok: false, error: restErr.message };
     }
-  } catch (err) {
-    console.error('[Tozalash xatosi]:', err.message);
-    return { ok: false, error: err.message };
-  } finally {
-    await pool.end().catch(() => {});
   }
+
+  console.log('[Tozalash ogohlantirish]: DATABASE_URL yoki SUPABASE_SERVICE_ROLE_KEY mavjud emas. Tozalash uchun ulardan birini sozlang.');
+  return {
+    ok: false,
+    message: "DATABASE_URL yoki SUPABASE_SERVICE_ROLE_KEY mavjud emas",
+    retention_months: retentionMonths
+  };
 }
 
 const CLEANUP_TIMESTAMP_FILE = path.join(__dirname, '.cleanup_last_run');
 
 function saveLastCleanupTimestamp() {
   try {
-    fs.writeFileSync(CLEANUP_TIMESTAMP_FILE, new Date().toISOString(), 'utf8');
-  } catch (e) {}
+    // Agar docker bind-mount sababli katalog bo'lib qolgan bo'lsa ichiga yozish
+    if (fs.existsSync(CLEANUP_TIMESTAMP_FILE) && fs.statSync(CLEANUP_TIMESTAMP_FILE).isDirectory()) {
+      fs.writeFileSync(path.join(CLEANUP_TIMESTAMP_FILE, 'timestamp'), new Date().toISOString(), 'utf8');
+    } else {
+      fs.writeFileSync(CLEANUP_TIMESTAMP_FILE, new Date().toISOString(), 'utf8');
+    }
+  } catch (e) {
+    console.warn('[saveLastCleanupTimestamp]:', e.message);
+  }
 }
 
 function getLastCleanupTimestamp() {
   try {
     if (fs.existsSync(CLEANUP_TIMESTAMP_FILE)) {
-      const content = fs.readFileSync(CLEANUP_TIMESTAMP_FILE, 'utf8').trim();
-      const d = new Date(content);
-      return Number.isNaN(d.getTime()) ? null : d;
+      const isDir = fs.statSync(CLEANUP_TIMESTAMP_FILE).isDirectory();
+      const targetFile = isDir ? path.join(CLEANUP_TIMESTAMP_FILE, 'timestamp') : CLEANUP_TIMESTAMP_FILE;
+      if (fs.existsSync(targetFile)) {
+        const content = fs.readFileSync(targetFile, 'utf8').trim();
+        const d = new Date(content);
+        return Number.isNaN(d.getTime()) ? null : d;
+      }
     }
   } catch (e) {}
   return null;
@@ -480,7 +682,7 @@ function initRetentionScheduler() {
   const intervalMonths = Number(process.env.RETENTION_INTERVAL_MONTHS || 2);
   const intervalMs = intervalMonths * 30 * 24 * 60 * 60 * 1000; // ~60 kun
 
-  // Server yoqilganda: Agar oxirgi tozalash 2 oydan oldin bo'lgan bo'lsa yoki bo'lmagan bo'lsa hoziroq tekshirib tozalash
+  // Server yoqilganda: Agar oxirgi tozalash 2 oydan oldin bo'lgan bo'lsa yoki bo'lmagan bo'lsa tekshirish
   const lastRun = getLastCleanupTimestamp();
   const now = Date.now();
   if (!lastRun || (now - lastRun.getTime() >= intervalMs)) {
@@ -493,14 +695,18 @@ function initRetentionScheduler() {
     console.log(`[Scheduler]: Oxirgi tozalash: ${lastRun.toISOString()}. Keyingi tozalash taxminan ${nextDays} kundan so'ng.`);
   }
 
-  // Har 24 soatda bir tekshirib, 2 oy to'lganda tozalashni amalga oshiradigan ishonchli kunlik tekshiruv taymeri
-  setInterval(() => {
+  // Har 24 soatda bir tekshirib turadigan kunlik tekshiruv taymeri
+  const dailyTimer = setInterval(() => {
     const lr = getLastCleanupTimestamp();
     const current = Date.now();
     if (!lr || (current - lr.getTime() >= intervalMs)) {
       runRetentionCleanup(false).catch(err => console.error('[Scheduler periodic err]:', err));
     }
   }, 24 * 60 * 60 * 1000);
+
+  if (dailyTimer && typeof dailyTimer.unref === 'function') {
+    dailyTimer.unref();
+  }
 }
 
 module.exports = {

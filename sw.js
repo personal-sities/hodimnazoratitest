@@ -22,6 +22,13 @@ self.addEventListener('activate', event => {
 self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET') return;
 
+  try {
+    const reqUrl = new URL(event.request.url);
+    if (reqUrl.pathname.startsWith('/api/') || reqUrl.pathname.endsWith('/env.js')) {
+      return;
+    }
+  } catch (e) {}
+
   event.respondWith(
     fetch(event.request)
       .then(response => {

@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node server.js",
-    "cleanup": "node -e \"require('./server.js').runRetentionCleanup(true)\"",
+    "cleanup": "node -e \"require('./server.js').runRetentionCleanup(true).then(r => { console.log(r); process.exit(r?.ok ? 0 : 1); }).catch(e => { console.error(e); process.exit(1); })\"",
     "migrate": "node migrate-from-supabase.js",
     "export-data": "node export-supabase-data.js"
   },

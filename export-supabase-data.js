@@ -103,6 +103,9 @@ async function main() {
       if (rows.length > 0) {
         sqlStatements.push(`\n-- Jadval: ${table}`);
         for (const row of rows) {
+          if (table === 'attendance') {
+            delete row.worked_seconds;
+          }
           const cols = Object.keys(row).map(c => `"${c}"`).join(', ');
           const vals = Object.values(row).map(val => sqlValue(val)).join(', ');
           const updateCols = Object.keys(row)

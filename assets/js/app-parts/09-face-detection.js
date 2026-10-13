@@ -20,10 +20,6 @@ let faceWidgetMin   = false;
 let afkCurIv        = null;
 let afkCountdownIv  = null;
 let afkCountdownSec = AFK_GRACE_SEC;
-let afkPending      = false;
-let afkVoiceCount   = 0;
-let afkVoiceTimer   = null;
-let afkVoiceAudio   = null;
 let afkWarnDismissed= false;
 let faceLossStartedAt = 0;
 let lastFaceBox     = null;
@@ -32,8 +28,6 @@ let myFaceDescriptor= null;
 let isDetecting     = false;
 // ✅ FIX 1: isDetecting stuck bo'lsa aniqlash uchun timestamp
 let isDetectingStartTime = 0;
-
-function getAfkVoiceAsset(){return null;}
 
 function setAfkAlertVisualState(active){
   const employeePage=document.getElementById('employeePage');
@@ -58,17 +52,8 @@ function shouldDelayFaceWarning(reason='missing'){
 }
 
 function clearAfkVoicePrompt(){
-  if(afkVoiceTimer){clearTimeout(afkVoiceTimer);afkVoiceTimer=null;}
-  if(afkVoiceAudio){
-    afkVoiceAudio.pause();
-    afkVoiceAudio.currentTime=0;
-    afkVoiceAudio=null;
-  }
   if(window.speechSynthesis)window.speechSynthesis.cancel();
 }
-
-function speakAfkVoiceFallback(langCode){return langCode;}
-function speakAfkVoiceWarning(){afkVoiceCount=0;}
 
 function scheduleFaceCheck(ms){
   if(faceCheckTimer){clearTimeout(faceCheckTimer);faceCheckTimer=null;}

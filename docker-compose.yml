@@ -7,16 +7,16 @@ services:
     container_name: aloqapro_db
     restart: unless-stopped
     environment:
-      POSTGRES_DB: aloqapro
-      POSTGRES_USER: aloqa_user
-      POSTGRES_PASSWORD: aloqa_password
+      POSTGRES_DB: ${DB_NAME:-aloqapro}
+      POSTGRES_USER: ${DB_USER:-aloqa_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-aloqa_password}
     volumes:
       - ./data/postgres:/var/lib/postgresql/data
       - ./schema.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
     ports:
       - "5432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U aloqa_user -d aloqapro"]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -33,9 +33,8 @@ services:
       - .env
     environment:
       PORT: 3000
-      DATABASE_URL: postgres://aloqa_user:aloqa_password@db:5432/aloqapro
+      DATABASE_URL: postgres://${DB_USER:-aloqa_user}:${DB_PASSWORD:-aloqa_password}@db:5432/${DB_NAME:-aloqapro}
     ports:
       - "3000:3000"
     volumes:
-      - ./.env:/app/.env:ro
-      - ./.cleanup_last_run:/app/.cleanup_last_run
+      - ./data:/app/data

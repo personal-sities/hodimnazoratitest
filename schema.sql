@@ -51,7 +51,7 @@ CREATE TABLE IF NOT EXISTS public.attendance (
   lunch_start TIME,
   lunch_end TIME,
   work_seconds INTEGER NOT NULL DEFAULT 0,
-  worked_seconds INTEGER GENERATED ALWAYS AS (work_seconds) STORED,
+  worked_seconds INTEGER NOT NULL DEFAULT 0,
   lunch_seconds INTEGER NOT NULL DEFAULT 0,
   afk_seconds INTEGER NOT NULL DEFAULT 0,
   afk_count INTEGER NOT NULL DEFAULT 0,
@@ -202,10 +202,33 @@ BEGIN
 END;
 $$;
 
+CREATE OR REPLACE FUNCTION public.sync_attendance_seconds()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  IF NEW.work_seconds IS NOT NULL AND (NEW.worked_seconds IS NULL OR NEW.worked_seconds = 0) THEN
+    NEW.worked_seconds = NEW.work_seconds;
+  ELSIF NEW.worked_seconds IS NOT NULL AND (NEW.work_seconds IS NULL OR NEW.work_seconds = 0) THEN
+    NEW.work_seconds = NEW.worked_seconds;
+  ELSE
+    NEW.worked_seconds = COALESCE(NEW.work_seconds, NEW.worked_seconds, 0);
+    NEW.work_seconds = NEW.worked_seconds;
+  END IF;
+  NEW.updated_at = now();
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS attendance_sync_seconds_insert ON public.attendance;
+CREATE TRIGGER attendance_sync_seconds_insert
+BEFORE INSERT ON public.attendance
+FOR EACH ROW EXECUTE FUNCTION public.sync_attendance_seconds();
+
 DROP TRIGGER IF EXISTS attendance_set_updated_at ON public.attendance;
 CREATE TRIGGER attendance_set_updated_at
 BEFORE UPDATE ON public.attendance
-FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+FOR EACH ROW EXECUTE FUNCTION public.sync_attendance_seconds();
 
 DROP TRIGGER IF EXISTS settings_set_updated_at ON public.settings;
 CREATE TRIGGER settings_set_updated_at
