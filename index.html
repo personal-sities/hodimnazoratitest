@@ -12,6 +12,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <script src="./env.js"></script>
 <script src="./supabase.js"></script>
+<script src="assets/js/app-parts/00-lucide-icons.js"></script>
 <script>window.wasmPath = './';</script>
 <script defer src="./face-api.js"></script>
 <script defer src="./xlsx.full.min.js"></script>
@@ -23,21 +24,21 @@
 
 <div id="toast-container"></div>
 
-<div id="afkBanner">⚠️ <span id="afkBannerTxt">Yuz aniqlanmadi! AFK vaqt hisoblanmoqda...</span></div>
-<div id="autoEndBanner">✅ <span id="autoEndTxt">Ish vaqti tugadi. Tizim tomonidan yakunlandi (18:00)</span></div>
-<div id="breakBanner">☕ <span id="breakBannerTxt">Tanaffus vaqtingiz: 0:00 / 30 daqiqa</span></div>
+<div id="afkBanner"><span class="banner-ico" data-lucide="shield-alert"></span> <span id="afkBannerTxt">Yuz aniqlanmadi! AFK vaqt hisoblanmoqda...</span></div>
+<div id="autoEndBanner"><span class="banner-ico" data-lucide="check-circle-2"></span> <span id="autoEndTxt">Ish vaqti tugadi. Tizim tomonidan yakunlandi (18:00)</span></div>
+<div id="breakBanner"><span class="banner-ico" data-lucide="coffee"></span> <span id="breakBannerTxt">Tanaffus vaqtingiz: 0:00 / 30 daqiqa</span></div>
 
 <div id="installBanner">
-  <p>📱 AloqaPro ni o'rnatish</p>
+  <p><span class="banner-ico" data-lucide="smartphone"></span> AloqaPro ni o'rnatish</p>
   <div class="install-btns">
-    <button class="btn-install" onclick="installPWA()">O'rnatish</button>
+    <button class="btn-install" onclick="installPWA()"><span class="btn-icon" data-lucide="download"></span> O'rnatish</button>
     <button class="btn-install-no" onclick="dismissInstall()">Keyinroq</button>
   </div>
 </div>
 
 <div id="ipBlockPage">
   <div class="ip-card">
-    <div class="ip-icon">🔒</div>
+    <div class="ip-icon" data-lucide="lock"></div>
     <h2 id="ipb_t">Kirish taqiqlandi</h2>
     <p id="ipb_p">Bu tizimga faqat ishxona tarmog'i orqali kirishingiz mumkin.</p>
     <p id="ipb_p2" style="font-size:12px;color:var(--text3);margin-top:6px">Sizning IP manzilingiz:</p>
@@ -73,11 +74,13 @@
       <div class="iw"><input type="email" id="inp_l" placeholder="Email" autocomplete="username"></div>
       <div class="iw">
         <input type="password" id="inp_p" placeholder="Parol" autocomplete="current-password">
-        <button class="eye" onclick="toggleEye()" type="button">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10 10 0 0 1 12 20C5 20 1 12 1 12a18 18 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9 9 0 0 1 12 4c7 0 11 8 11 8a18 18 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+        <button class="eye" onclick="toggleEye()" type="button" aria-label="Parolni ko'rsatish">
+          <span class="eye-ico" data-lucide="eye" id="eyeIcon"></span>
         </button>
       </div>
-      <button class="lbtn" id="lbtn" type="submit"><span id="lbtnLabel">Kirish</span></button>
+      <button class="lbtn" id="lbtn" type="submit">
+        <span class="btn-icon" data-lucide="log-in"></span> <span id="lbtnLabel">Kirish</span>
+      </button>
       <div class="lerr" id="lerr"></div>
     </form>
   </div>
@@ -92,13 +95,13 @@
         <span class="sb-logo-txt">Aloqa<span>Pro</span></span>
       </div>
       <div class="sb-nav">
-        <button class="nbtn active" id="nav_main" onclick="adminTab('main');closeSidebar()"><span class="ni"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-layout-dashboard"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg></span><span id="n_main">Asosiy</span></button>
-        <button class="nbtn" id="nav_pbx" onclick="adminTab('pbx');closeSidebar()"><span class="ni" data-pbx-icon="PhoneCall"></span><span id="n_pbx">Qo'ng'iroqlar</span></button>
-        <button class="nbtn" id="nav_amocrm" onclick="adminTab('amocrm');closeSidebar()"><span class="ni"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-clipboard-check"><rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="m9 14 2 2 4-4"/></svg></span><span id="n_amocrm">amoCRM vazifalari</span></button>
-        <button class="nbtn" id="nav_feedback" onclick="adminTab('feedback');closeSidebar()"><span class="ni"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-message-circle"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg></span><span id="n_fb">Fikrlar</span> <span id="fbBadge" class="notif-badge hidden">0</span></button>
-        <button class="nbtn" id="nav_notif" onclick="adminTab('notif');closeSidebar()"><span class="ni"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-bell-ring"><path d="M10.268 21a2 2 0 0 0 3.464 0"/><path d="M22 8c0-2.3-.8-4.3-2-6"/><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"/><path d="M4 2C2.8 3.7 2 5.7 2 8"/></svg></span><span id="n_notif">Bildirishnomalar</span> <span id="notifBadgeAdmin" class="notif-badge hidden">0</span></button>
-        <button class="nbtn" id="nav_settings" onclick="adminTab('settings');closeSidebar()"><span class="ni"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-settings"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg></span><span id="n_set">Sozlamalar</span></button>
-        <button class="nbtn" id="nav_kpi" onclick="adminTab('kpi');closeSidebar()"><span class="ni"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-trophy"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2z"/></svg></span><span id="n_kpi">KPI Qoidalar</span></button>
+        <button class="nbtn active" id="nav_main" onclick="adminTab('main');closeSidebar()"><span class="ni" data-lucide="layout-dashboard"></span><span id="n_main">Asosiy</span></button>
+        <button class="nbtn" id="nav_pbx" onclick="adminTab('pbx');closeSidebar()"><span class="ni" data-lucide="phone-call"></span><span id="n_pbx">Qo'ng'iroqlar</span></button>
+        <button class="nbtn" id="nav_amocrm" onclick="adminTab('amocrm');closeSidebar()"><span class="ni" data-lucide="clipboard-check"></span><span id="n_amocrm">amoCRM vazifalari</span></button>
+        <button class="nbtn" id="nav_feedback" onclick="adminTab('feedback');closeSidebar()"><span class="ni" data-lucide="message-square"></span><span id="n_fb">Fikrlar</span> <span id="fbBadge" class="notif-badge hidden">0</span></button>
+        <button class="nbtn" id="nav_notif" onclick="adminTab('notif');closeSidebar()"><span class="ni" data-lucide="bell"></span><span id="n_notif">Bildirishnomalar</span> <span id="notifBadgeAdmin" class="notif-badge hidden">0</span></button>
+        <button class="nbtn" id="nav_settings" onclick="adminTab('settings');closeSidebar()"><span class="ni" data-lucide="settings"></span><span id="n_set">Sozlamalar</span></button>
+        <button class="nbtn" id="nav_kpi" onclick="adminTab('kpi');closeSidebar()"><span class="ni" data-lucide="trophy"></span><span id="n_kpi">KPI Qoidalar</span></button>
       </div>
       <div class="sb-bottom">
         <label class="theme-toggle" title="Mavzu"><input type="checkbox" id="themeToggle4" onchange="toggleTheme()"><span class="theme-slider"></span></label>
@@ -107,7 +110,7 @@
           <span class="lsep"></span>
           <button class="lb" id="sl_ru" onclick="setLang('ru')"><span class="flag"><svg viewBox="0 0 34 22"><rect width="34" height="7.33" fill="#fff"/><rect y="7.33" width="34" height="7.34" fill="#1C3F94"/><rect y="14.67" width="34" height="7.33" fill="#CE2028"/></svg></span></button>
         </div>
-        <button class="xbtn" onclick="doLogout()" style="font-size:11px;padding:5px 10px">Chiqish</button>
+        <button class="xbtn" onclick="doLogout()"><span class="btn-icon" data-lucide="log-out"></span> <span id="sbExitTxt">Chiqish</span></button>
       </div>
     </div>
     <div class="mcol">
@@ -115,26 +118,47 @@
         <button class="hamburger" id="hamburger" onclick="toggleSidebar()"><span></span><span></span><span></span></button>
         <h1 id="admTitle">Boshqaruv paneli</h1>
         <div class="hdr-r">
-          <span class="hdr-date" id="admDate"></span>
+          <span class="hdr-date"><span class="hdr-date-ico" data-lucide="calendar"></span> <span id="admDate"></span></span>
           <label class="theme-toggle" title="Mavzu"><input type="checkbox" id="themeToggle2" onchange="toggleTheme()"><span class="theme-slider"></span></label>
           <div class="lsw">
             <button class="lb active" id="al_uz" onclick="setLang('uz')"><span class="flag"><svg viewBox="0 0 34 22"><rect width="34" height="7.33" fill="#1EB3E4"/><rect y="7.33" width="34" height="7.34" fill="#fff"/><rect y="14.67" width="34" height="7.33" fill="#32A84C"/><rect y="6.9" width="34" height=".8" fill="#CE2028"/><rect y="14.3" width="34" height=".8" fill="#CE2028"/><circle cx="9" cy="3.7" r="2.3" fill="#fff"/><circle cx="10.1" cy="3.7" r="2.3" fill="#1EB3E4"/></svg></span></button>
             <span class="lsep"></span>
             <button class="lb" id="al_ru" onclick="setLang('ru')"><span class="flag"><svg viewBox="0 0 34 22"><rect width="34" height="7.33" fill="#fff"/><rect y="7.33" width="34" height="7.34" fill="#1C3F94"/><rect y="14.67" width="34" height="7.33" fill="#CE2028"/></svg></span></button>
           </div>
-          <button class="xbtn" id="admExit" onclick="doLogout()">Chiqish</button>
+          <button class="xbtn" id="admExit" onclick="doLogout()"><span class="btn-icon" data-lucide="log-out"></span> <span id="admExitTxt">Chiqish</span></button>
         </div>
       </div>
       <div class="pbody">
         <div id="tab_main">
           <div class="scards">
-            <div class="scard scard-status scard-work"><h4 id="sc1">Bugun ishda</h4><div class="snum" id="sw">0</div></div>
-            <div class="scard scard-status scard-late"><h4 id="sc2">Kechikkan</h4><div class="snum" id="sl">0</div></div>
-            <div class="scard scard-status scard-absent"><h4 id="sc3">Kelmagan</h4><div class="snum" id="sa">0</div></div>
-            <div class="scard">
-              <h4 id="sc_leave">Ish ta'tili</h4>
+            <div class="scard scard-status scard-work">
+              <div class="scard-top">
+                <h4 id="sc1">Bugun ishda</h4>
+                <div class="scard-icon" data-lucide="user-check"></div>
+              </div>
+              <div class="snum" id="sw">0</div>
+            </div>
+            <div class="scard scard-status scard-late">
+              <div class="scard-top">
+                <h4 id="sc2">Kechikkan</h4>
+                <div class="scard-icon" data-lucide="clock"></div>
+              </div>
+              <div class="snum" id="sl">0</div>
+            </div>
+            <div class="scard scard-status scard-absent">
+              <div class="scard-top">
+                <h4 id="sc3">Kelmagan</h4>
+                <div class="scard-icon" data-lucide="user-x"></div>
+              </div>
+              <div class="snum" id="sa">0</div>
+            </div>
+            <div class="scard scard-leave">
+              <div class="scard-top">
+                <h4 id="sc_leave">Ish ta'tili</h4>
+                <div class="scard-icon" data-lucide="palmtree"></div>
+              </div>
               <div class="snum" id="sleave">0</div>
-              <button class="bg2" id="sc_leave_btn" style="margin-top:10px" onclick="openWorkLeaveModal()">Ish ta'tilidagi xodimlar</button>
+              <button class="bg2" id="sc_leave_btn" style="margin-top:10px" onclick="openWorkLeaveModal()"><span class="btn-icon" data-lucide="palmtree"></span> <span>Ish ta'tilidagi xodimlar</span></button>
             </div>
           </div>
           <div class="box">
@@ -217,8 +241,8 @@
                   <label id="to_l">Gacha:</label>
                   <input type="date" id="fd_to" onchange="loadAtt()">
                 </div>
-                <button class="bg2" id="b_today" onclick="setToday()">Bugun</button>
-                <button class="bb" id="b_monthly" onclick="toggleMonthly()">Oylik</button>
+                <button class="bg2" id="b_today" onclick="setToday()"><span class="btn-icon" data-lucide="calendar-check"></span> <span>Bugun</span></button>
+                <button class="bb" id="b_monthly" onclick="toggleMonthly()"><span class="btn-icon" data-lucide="calendar-days"></span> <span>Oylik</span></button>
               </div>
             </div>
             <div class="frow">
@@ -230,8 +254,8 @@
                 <option value="kelmadi" id="o_abs">Kelmadi</option>
               </select>
               <input type="month" id="fmonth" onchange="onAdminMonthChange()" style="font-size:12px;padding:7px 9px;border:1.5px solid var(--border2);border-radius:var(--radius-sm);background:var(--input-bg);color:var(--text);">
-              <button class="bg2" id="b_cm" onclick="setCurMonth()">Joriy oy</button>
-              <button class="bb" id="b_ref" onclick="refreshAdminMain()">Yangilash</button>
+              <button class="bg2" id="b_cm" onclick="setCurMonth()"><span class="btn-icon" data-lucide="calendar"></span> <span>Joriy oy</span></button>
+              <button class="bb" id="b_ref" onclick="refreshAdminMain()"><span class="btn-icon" data-lucide="refresh-cw"></span> <span>Yangilash</span></button>
             </div>
             <div class="tbl-wrap">
               <table class="tbl" style="min-width:720px;">
@@ -250,8 +274,8 @@
               <span class="btitle" id="mth_t" style="margin:0">Oylik hisobot</span>
               <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
                 <span style="font-size:11px;color:var(--text3)" id="mlbl"></span>
-                <button class="btn-export" onclick="exportExcel()">📊 Excel</button>
-                <button class="btn-export" onclick="exportPDF()">📄 PDF</button>
+                <button class="btn-export" onclick="exportExcel()"><span class="btn-icon" data-lucide="file-spreadsheet"></span> Excel</button>
+                <button class="btn-export" onclick="exportPDF()"><span class="btn-icon" data-lucide="file-text"></span> PDF</button>
               </div>
             </div>
             <div class="mst">
@@ -278,7 +302,7 @@
 
         <div id="tab_notif" class="hidden">
           <div class="box">
-            <div class="btitle" id="notif_box_title">🔔 Bildirishnoma yuborish</div>
+            <div class="btitle" id="notif_box_title"><span class="title-ico" data-lucide="bell"></span> <span id="nbt_txt">Bildirishnoma yuborish</span></div>
             <div class="notif-send-box">
               <h4 id="ns_title">Hodimga bildirishnoma yuborish</h4>
               <div class="notif-send-row" style="margin-bottom:8px">
@@ -290,16 +314,16 @@
               <div class="notif-send-row">
                 <textarea id="ns_body" placeholder="Xabar matni..." style="min-height:70px;"></textarea>
               </div>
-              <button class="bb" id="ns_send_btn" style="margin-top:8px;" onclick="adminSendNotif()">📤 Yuborish</button>
+              <button class="bb" id="ns_send_btn" style="margin-top:8px;" onclick="adminSendNotif()"><span class="btn-icon" data-lucide="send"></span> <span id="ns_send_txt">Yuborish</span></button>
             </div>
-            <div class="btitle" id="notif_sent_title" style="margin-top:16px">📋 Yuborilgan bildirishnomalar</div>
+            <div class="btitle" id="notif_sent_title" style="margin-top:16px"><span class="title-ico" data-lucide="clipboard-check"></span> <span id="nst_txt">Yuborilgan bildirishnomalar</span></div>
             <div id="notif_list_admin"></div>
           </div>
         </div>
 
         <div id="tab_feedback" class="hidden">
           <div class="box">
-            <div class="btitle" id="feedback_admin_title">💬 Hodimlar fikr va shikoyatlari</div>
+            <div class="btitle" id="feedback_admin_title"><span class="title-ico" data-lucide="message-square"></span> <span id="fat_txt">Hodimlar fikr va shikoyatlari</span></div>
             <div class="frow" style="margin-bottom:12px">
               <select id="fb_filter" onchange="loadFeedbackAdmin()">
                 <option value="" id="fb_filter_all">Barcha</option>
@@ -308,7 +332,7 @@
                 <option value="complaint" id="fb_filter_complaint">Shikoyat</option>
                 <option value="suggestion" id="fb_filter_suggestion">Taklif</option>
               </select>
-              <button class="bg2" id="fb_filter_refresh_btn" onclick="loadFeedbackAdmin()">Yangilash</button>
+              <button class="bg2" id="fb_filter_refresh_btn" onclick="loadFeedbackAdmin()"><span class="btn-icon" data-lucide="refresh-cw"></span> <span>Yangilash</span></button>
             </div>
             <div id="feedback_list_admin">
               <div class="sk-line skeleton"></div>
@@ -319,7 +343,7 @@
 
         <div id="tab_settings" class="hidden">
           <div class="box">
-            <div class="btitle">⚙️ <span id="set_t">Hodimlar boshqaruvi</span></div>
+            <div class="btitle"><span class="title-ico" data-lucide="users"></span> <span id="set_t">Hodimlar boshqaruvi</span></div>
             <div class="sf">
               <input type="text" id="ne_n" placeholder="Ism familiya">
               <input type="email" id="ne_l" placeholder="Email">
@@ -338,7 +362,7 @@
                 <option value="umumiy call">Umumiy call</option>
                 <option value="copywriter">Copywriter</option>
               </select>
-              <button class="bb" id="b_addemp" onclick="addEmp()">Qo'shish</button>
+              <button class="bb" id="b_addemp" onclick="addEmp()"><span class="btn-icon" data-lucide="plus"></span> <span>Qo'shish</span></button>
             </div>
             <div class="tbl-wrap">
               <table class="tbl" style="min-width:620px;">
@@ -348,23 +372,23 @@
             </div>
           </div>
           <div class="box">
-            <div class="btitle">🌐 <span id="ip_t">Ruxsat etilgan IP manzillar</span></div>
+            <div class="btitle"><span class="title-ico" data-lucide="globe"></span> <span id="ip_t">Ruxsat etilgan IP manzillar</span></div>
             <div class="sf">
               <input type="text" id="ip_inp" placeholder="192.168.1.100" style="flex:1;">
-              <button class="bb" id="b_addip" onclick="addAllowedIP()">IP qo'shish</button>
-              <button class="bg2" id="b_myip" onclick="addMyIP()">Mening IP</button>
+              <button class="bb" id="b_addip" onclick="addAllowedIP()"><span class="btn-icon" data-lucide="plus"></span> <span>IP qo'shish</span></button>
+              <button class="bg2" id="b_myip" onclick="addMyIP()"><span class="btn-icon" data-lucide="network"></span> <span>Mening IP</span></button>
             </div>
             <p style="font-size:11.5px;color:var(--text2);margin-bottom:8px">Joriy IP: <strong id="my_ip_show" style="font-family:var(--mono)">...</strong></p>
             <div id="ip_list" style="font-size:12px;color:var(--text2)">Yuklanmoqda...</div>
           </div>
           <div class="box">
-            <div class="btitle">📍 GPS hudud</div>
+            <div class="btitle"><span class="title-ico" data-lucide="map-pin"></span> <span>GPS hudud</span></div>
             <div class="sf">
               <input type="number" id="gps_lat" placeholder="Latitude" step="0.000001">
               <input type="number" id="gps_lng" placeholder="Longitude" step="0.000001">
               <input type="number" id="gps_radius" placeholder="Radius (metr)" min="10" step="10">
-              <button class="bb" onclick="saveGPSRegion()">Saqlash</button>
-              <button class="bg2" onclick="fillCurrentGPS()">Mening joylashuvim</button>
+              <button class="bb" onclick="saveGPSRegion()"><span class="btn-icon" data-lucide="check"></span> <span>Saqlash</span></button>
+              <button class="bg2" onclick="fillCurrentGPS()"><span class="btn-icon" data-lucide="map-pin"></span> <span>Mening joylashuvim</span></button>
             </div>
             <div class="sf" style="margin-top:8px">
               <label style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text2)">
@@ -376,7 +400,7 @@
             <p style="font-size:11.5px;color:var(--text2)" id="gps_saved_info">GPS cheklov o'chirilgan</p>
           </div>
           <div class="box">
-            <div class="btitle"><span id="face_control_title">Yuz nazorati</span></div>
+            <div class="btitle"><span class="title-ico" data-lucide="scan-face"></span> <span id="face_control_title">Yuz nazorati</span></div>
             <div class="face-control-card">
               <div class="face-control-copy">
                 <strong id="face_control_label">Face aniqlash bilan ishlash</strong>
@@ -390,23 +414,23 @@
             </div>
           </div>
           <div class="box">
-            <div class="btitle">📅 <span id="hol_t">Dam olish kunlari</span></div>
+            <div class="btitle"><span class="title-ico" data-lucide="calendar-check"></span> <span id="hol_t">Dam olish kunlari</span></div>
             <div class="sf">
               <input type="date" id="hol_d">
-              <button class="bb" id="b_addh" onclick="addHol()">Qo'shish</button>
+              <button class="bb" id="b_addh" onclick="addHol()"><span class="btn-icon" data-lucide="plus"></span> <span>Qo'shish</span></button>
             </div>
             <p style="font-size:11.5px;color:var(--text2);margin-bottom:4px" id="hol_info">Standart: Du–Sha. Yakshanba avtomatik dam olish.</p>
             <p style="font-size:11.5px;color:var(--text2)" id="hol_list">Qo'shimcha dam olish kuni yo'q</p>
           </div>
           <div class="box">
-            <div class="btitle">🧳 <span id="leave_manage_title">Ish ta'tilini belgilash</span></div>
+            <div class="btitle"><span class="title-ico" data-lucide="palmtree"></span> <span id="leave_manage_title">Ish ta'tilini belgilash</span></div>
             <div class="sf">
               <select id="leave_emp" style="min-width:220px;">
                 <option value="" id="leave_emp_placeholder">Hodimni tanlang</option>
               </select>
               <input type="date" id="leave_start">
               <input type="date" id="leave_return">
-              <button class="bb" id="leave_add_btn" onclick="addEmployeeLeave()">Belgilash</button>
+              <button class="bb" id="leave_add_btn" onclick="addEmployeeLeave()"><span class="btn-icon" data-lucide="check"></span> <span>Belgilash</span></button>
             </div>
             <div class="tbl-wrap" style="margin-top:12px;">
               <table class="tbl" style="min-width:620px;">
@@ -428,7 +452,7 @@
 
         <div id="tab_kpi" class="hidden">
           <div class="box">
-            <div class="btitle">🏆 <span id="kpi_t">KPI Qoidalari</span></div>
+            <div class="btitle"><span class="title-ico" data-lucide="trophy"></span> <span id="kpi_t">KPI Qoidalari</span></div>
             <div class="kbox">
               <div style="margin-bottom:12px"><strong id="k1">Asosiy KPI</strong><br><span id="k2">Davomat bo'yicha KPI 100 ballik sistemada!</span></div>
               <div style="margin-bottom:12px"><strong id="k3">Jarimalar</strong><br><span id="k4">Kech qolish</span> — 10 ball<br><span id="k5">Kelmaslik</span> — 20 ball<br><span id="k_afk">AFK (30 daqiqadan ortiq, har daqiqa)</span> — kunlik hisobda</div>
@@ -568,58 +592,58 @@
       <span class="ehdr-brand-name">Aloqa<span>Pro</span></span>
     </div>
     <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap">
-      <span style="color:rgba(255,255,255,.6);font-size:11px;font-family:var(--mono);background:rgba(255,255,255,.07);padding:4px 8px;border-radius:6px;" id="empDate"></span>
+      <span style="color:rgba(255,255,255,.6);font-size:11px;font-family:var(--mono);background:rgba(255,255,255,.07);padding:4px 8px;border-radius:6px;display:flex;align-items:center;gap:6px;" id="empDate"></span>
       <label class="theme-toggle"><input type="checkbox" id="themeToggle3" onchange="toggleTheme()"><span class="theme-slider"></span></label>
       <div class="lsw">
         <button class="lb active" id="el_uz" onclick="setLang('uz')"><span class="flag"><svg viewBox="0 0 34 22"><rect width="34" height="7.33" fill="#1EB3E4"/><rect y="7.33" width="34" height="7.34" fill="#fff"/><rect y="14.67" width="34" height="7.33" fill="#32A84C"/><rect y="6.9" width="34" height=".8" fill="#CE2028"/><rect y="14.3" width="34" height=".8" fill="#CE2028"/><circle cx="9" cy="3.7" r="2.3" fill="#fff"/><circle cx="10.1" cy="3.7" r="2.3" fill="#1EB3E4"/></svg></span></button>
         <span class="lsep"></span>
         <button class="lb" id="el_ru" onclick="setLang('ru')"><span class="flag"><svg viewBox="0 0 34 22"><rect width="34" height="7.33" fill="#fff"/><rect y="7.33" width="34" height="7.34" fill="#1C3F94"/><rect y="14.67" width="34" height="7.33" fill="#CE2028"/></svg></span></button>
       </div>
-      <button class="xbtn" onclick="empNavTab('work')"><span class="nav-ico"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2H10a2 2 0 0 0-2 2v16"/><path d="M12 12h.01"/></svg></span></button>
-      <button class="xbtn" onclick="empNavTab('notif')"><span class="nav-ico"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-bell-ring-icon lucide-bell-ring"><path d="M10.268 21a2 2 0 0 0 3.464 0"/><path d="M22 8c0-2.3-.8-4.3-2-6"/><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"/><path d="M4 2C2.8 3.7 2 5.7 2 8"/></svg></span> <span id="empNotifBadge" class="notif-badge hidden">0</span></button>
-      <button class="xbtn" onclick="empNavTab('feedback')"><span class="nav-ico"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/><path d="M8 12h.01"/><path d="M12 12h.01"/><path d="M16 12h.01"/></svg></span></button>
-      <button class="xbtn" id="empExit" onclick="doLogout()">Chiqish</button>
+      <button class="xbtn" onclick="empNavTab('work')" title="Ish paneli"><span class="nav-ico" data-lucide="briefcase"></span></button>
+      <button class="xbtn" onclick="empNavTab('notif')" title="Bildirishnomalar"><span class="nav-ico" data-lucide="bell"></span> <span id="empNotifBadge" class="notif-badge hidden">0</span></button>
+      <button class="xbtn" onclick="empNavTab('feedback')" title="Fikr/Shikoyat"><span class="nav-ico" data-lucide="message-square"></span></button>
+      <button class="xbtn" id="empExit" onclick="doLogout()"><span class="btn-icon" data-lucide="log-out"></span> <span id="empExitTxt">Chiqish</span></button>
     </div>
   </div>
 
   <!-- Mobil uchun pastki navigatsiya -->
   <div class="emp-bottom-nav" id="empBottomNav">
-    <button class="ebn-btn active" id="ebn_work" onclick="empNavTab('work')"><span class="nav-ico"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2H10a2 2 0 0 0-2 2v16"/><path d="M12 12h.01"/></svg></span><span id="emp_work_tab_lbl">Ish</span></button>
-    <button class="ebn-btn" id="ebn_notif" onclick="empNavTab('notif')"><span class="nav-ico"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-bell-ring-icon lucide-bell-ring"><path d="M10.268 21a2 2 0 0 0 3.464 0"/><path d="M22 8c0-2.3-.8-4.3-2-6"/><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"/><path d="M4 2C2.8 3.7 2 5.7 2 8"/></svg></span><span><span id="emp_notif_tab_lbl">Xabar</span> <span id="empNotifBadge2" class="notif-badge hidden">0</span></span></button>
-    <button class="ebn-btn" id="ebn_feedback" onclick="empNavTab('feedback')"><span class="nav-ico"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/><path d="M8 12h.01"/><path d="M12 12h.01"/><path d="M16 12h.01"/></svg></span><span id="emp_feedback_tab_lbl">Fikr</span></button>
-    <button class="ebn-btn" onclick="doLogout()"><span class="nav-ico"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/><path d="M13 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h8"/></svg></span><span id="emp_logout_tab_lbl">Chiqish</span></button>
+    <button class="ebn-btn active" id="ebn_work" onclick="empNavTab('work')"><span class="nav-ico" data-lucide="briefcase"></span><span id="emp_work_tab_lbl">Ish</span></button>
+    <button class="ebn-btn" id="ebn_notif" onclick="empNavTab('notif')"><span class="nav-ico" data-lucide="bell"></span><span><span id="emp_notif_tab_lbl">Xabar</span> <span id="empNotifBadge2" class="notif-badge hidden">0</span></span></button>
+    <button class="ebn-btn" id="ebn_feedback" onclick="empNavTab('feedback')"><span class="nav-ico" data-lucide="message-square"></span><span id="emp_feedback_tab_lbl">Fikr</span></button>
+    <button class="ebn-btn" onclick="doLogout()"><span class="nav-ico" data-lucide="log-out"></span><span id="emp_logout_tab_lbl">Chiqish</span></button>
   </div>
 
   <div id="emp_tab_work">
     <div class="ebody">
       <div class="ec">
-        <h2 id="ew_t">Bugungi ish jarayoni</h2>
+        <h2 id="ew_t"><span class="card-ico" data-lucide="activity"></span> Bugungi ish jarayoni</h2>
         <div class="tags">
           <span class="tag tb" id="e_mtag">2026-04</span>
           <span class="tag tg" id="e_stag">Holat: Boshlanmagan</span>
           <span class="tag to" id="e_ltag">Kechikish: 0 daqiqa</span>
         </div>
         <div class="abtns">
-          <button class="abtn ast" id="bs" onclick="empStart()">Boshlash</button>
-          <button class="abtn alu" id="bl" onclick="empLunch()">Tushlik</button>
-          <button class="abtn apr" id="bp" onclick="empPrayer()">Namoz</button>
-          <button class="abtn aen" id="be" onclick="empEnd()">Yakunlash</button>
+          <button class="abtn ast" id="bs" onclick="empStart()"><span class="abtn-ico" data-lucide="play"></span><span>Boshlash</span></button>
+          <button class="abtn alu" id="bl" onclick="empLunch()"><span class="abtn-ico" data-lucide="utensils"></span><span>Tushlik</span></button>
+          <button class="abtn apr" id="bp" onclick="empPrayer()"><span class="abtn-ico" data-lucide="compass"></span><span>Namoz</span></button>
+          <button class="abtn aen" id="be" onclick="empEnd()"><span class="abtn-ico" data-lucide="power"></span><span>Yakunlash</span></button>
         </div>
-        <button class="aco hidden" id="bc" onclick="empContinue()">Davom ettirish</button>
+        <button class="aco hidden" id="bc" onclick="empContinue()"><span class="abtn-ico" data-lucide="play-circle"></span><span>Davom ettirish</span></button>
         <div class="tgrid">
-          <div class="tb2"><h4 id="ewl">Ish vaqti</h4><div class="tv" id="tw">00:00:00</div></div>
-          <div class="tb2"><h4 id="ell">Tushlik</h4><div class="tv" id="tl">00:00:00</div></div>
-          <div class="tb2"><h4 id="eprl">Namoz</h4><div class="tv" id="tp">00:00:00</div></div>
+          <div class="tb2"><div class="tb2-head"><span data-lucide="clock" class="timer-ico"></span><h4 id="ewl">Ish vaqti</h4></div><div class="tv" id="tw">00:00:00</div></div>
+          <div class="tb2"><div class="tb2-head"><span data-lucide="utensils" class="timer-ico"></span><h4 id="ell">Tushlik</h4></div><div class="tv" id="tl">00:00:00</div></div>
+          <div class="tb2"><div class="tb2-head"><span data-lucide="moon" class="timer-ico"></span><h4 id="eprl">Namoz</h4></div><div class="tv" id="tp">00:00:00</div></div>
         </div>
         <div class="break-tracker" id="prayerTracker" style="margin-bottom:8px;background:rgba(165,94,234,.06);border-color:rgba(165,94,234,.25)">
-          <h4 id="prayer_next_lbl">🕌 Keyingi namoz vaqti</h4>
+          <div class="bt-head"><span class="card-ico" data-lucide="compass"></span><h4 id="prayer_next_lbl">Keyingi namoz vaqti</h4></div>
           <div class="break-info" style="margin-top:6px">
             <span id="nextPrayerName">—</span>
             <span id="nextPrayerTime" style="color:var(--purple);font-family:var(--mono)">--:--</span>
           </div>
         </div>
         <div class="break-tracker" id="breakTracker">
-          <h4>☕ Tanaffus limiti (kun)</h4>
+          <div class="bt-head"><span class="card-ico" data-lucide="coffee"></span><h4>Tanaffus limiti (kun)</h4></div>
           <div class="break-bar-wrap"><div class="break-bar" id="breakBar" style="width:0%"></div></div>
           <div class="break-info">
             <span id="breakUsed">0 daq</span>
@@ -627,15 +651,15 @@
           </div>
         </div>
         <div class="afk-box" id="afkBox">
-          <h4 id="afk_lbl">⚠️ Joyida bo'lmagan vaqt</h4>
+          <div class="afk-head"><span class="card-ico" data-lucide="shield-alert"></span><h4 id="afk_lbl">Joyida bo'lmagan vaqt</h4></div>
           <div class="afk-total" id="afk_display">00:00:00</div>
           <div class="afk-count" id="afk_cnt_lbl">0 marta AFK</div>
-          <div class="afk-break-ok hidden" id="afk_break_ok">✅ Tanaffus limiti ichida</div>
+          <div class="afk-break-ok hidden" id="afk_break_ok"><span data-lucide="check-circle-2" class="mini-ico"></span> <span>Tanaffus limiti ichida</span></div>
         </div>
       </div>
 
       <div class="ec">
-        <h2 id="et_t">Bugungi ma'lumot</h2>
+        <h2 id="et_t"><span class="card-ico" data-lucide="calendar"></span> Bugungi ma'lumot</h2>
         <div class="igrid">
           <div class="ii"><h4 id="ei1">Ish boshlagan</h4><p id="i_s">-</p></div>
           <div class="ii"><h4 id="ei2">Ish tugagan</h4><p id="i_e">-</p></div>
@@ -645,17 +669,17 @@
           <div class="ii"><h4 id="ei6">Namoz tugagan</h4><p id="i_pe">-</p></div>
         </div>
         <div style="margin-top:10px;padding:12px;background:var(--bg3);border-radius:var(--radius-sm);border:1px solid var(--border)">
-          <div style="font-size:11px;color:var(--text2);margin-bottom:5px;font-weight:600" id="face_info_lbl">📷 Yuz nazorati</div>
-          <div id="face_status_inline" style="font-size:12.5px;font-weight:700;">⏳ Yuklanmoqda...</div>
+          <div style="font-size:11px;color:var(--text2);margin-bottom:5px;font-weight:600;display:flex;align-items:center;gap:6px;" id="face_info_lbl"><span data-lucide="scan-face" class="card-ico"></span> <span>Yuz nazorati</span></div>
+          <div id="face_status_inline" style="font-size:12.5px;font-weight:700;">Yuklanmoqda...</div>
           <div class="face-reg-box" id="faceRegBox" style="margin-top:8px;display:none;">
-            <h4 id="face_reg_title">🎯 Yuzni ro'yxatdan o'tkazish</h4>
+            <h4 id="face_reg_title" style="display:flex;align-items:center;gap:6px;"><span data-lucide="scan-face" class="card-ico"></span> <span>Yuzni ro'yxatdan o'tkazish</span></h4>
             <div class="face-samples" id="faceSamples"></div>
             <div class="face-quality" id="faceQuality">0/5 namuna olindi</div>
             <div class="liveness-indicator">
               <div class="liveness-dot" id="livenessDot"></div>
               <span id="livenessText">Liveness tekshirilmoqda...</span>
             </div>
-            <button class="fw-reg-btn" id="faceRegBtn" onclick="startFaceRegistration()" style="font-size:12px;padding:8px;">📸 Ro'yxatdan o'tish</button>
+            <button class="fw-reg-btn" id="faceRegBtn" onclick="startFaceRegistration()" style="font-size:12px;padding:8px;"><span class="btn-icon" data-lucide="camera"></span> <span>Ro'yxatdan o'tish</span></button>
           </div>
         </div>
         <p class="note" style="margin-top:8px" id="e_note">Yangi kun boshlanganida vaqtlar 0 ga tushadi.</p>
@@ -663,10 +687,10 @@
 
       <div class="ec efw">
         <div class="mhdr">
-          <h2 id="eh_t">Oy bo'yicha tarix</h2>
+          <h2 id="eh_t"><span class="card-ico" data-lucide="history"></span> Oy bo'yicha tarix</h2>
           <div class="mflt">
             <input type="month" id="e_month" onchange="loadHist()">
-            <button class="bg2" id="e_cm" onclick="setEmpMonth()">Joriy oy</button>
+            <button class="bg2" id="e_cm" onclick="setEmpMonth()"><span class="btn-icon" data-lucide="calendar"></span> <span>Joriy oy</span></button>
           </div>
         </div>
         <div class="tbl-wrap">
@@ -691,26 +715,26 @@
 
   <div id="emp_tab_notif" class="hidden" style="padding:16px">
     <div class="box">
-      <div class="btitle">🔔 Bildirishnomalar</div>
-      <button class="push-notif-btn" id="enablePushBtn" onclick="requestPushPermission()">🔔 Push bildirishnomalarni yoqish</button>
+      <div class="btitle"><span class="title-ico" data-lucide="bell"></span> Bildirishnomalar</div>
+      <button class="push-notif-btn" id="enablePushBtn" onclick="requestPushPermission()"><span class="btn-icon" data-lucide="bell-ring"></span> <span>Push bildirishnomalarni yoqish</span></button>
       <div id="notif_list_emp"></div>
     </div>
   </div>
 
   <div id="emp_tab_feedback" class="hidden" style="padding:16px">
     <div class="box">
-      <div class="btitle">💬 Fikr/Shikoyat yuborish</div>
+      <div class="btitle"><span class="title-ico" data-lucide="message-square"></span> Fikr/Shikoyat yuborish</div>
       <div class="sf" style="flex-direction:column;align-items:stretch">
         <select id="fb_type" style="padding:9px;border:1.5px solid var(--border2);border-radius:var(--radius-sm);background:var(--input-bg);color:var(--text);font-family:var(--font);">
-          <option value="suggestion">💡 Taklif</option>
-          <option value="complaint">⚠️ Shikoyat</option>
-          <option value="other">📝 Boshqa</option>
+          <option value="suggestion">Taklif</option>
+          <option value="complaint">Shikoyat</option>
+          <option value="other">Boshqa</option>
         </select>
         <textarea id="fb_msg" placeholder="Xabaringizni yozing..." style="padding:10px;background:var(--input-bg);border:1.5px solid var(--border2);border-radius:var(--radius-sm);color:var(--text);font-family:var(--font);font-size:13px;resize:vertical;min-height:100px;outline:none;margin-top:8px;"></textarea>
-        <button class="bb" style="margin-top:8px;width:fit-content" onclick="sendFeedback()">📤 Yuborish</button>
+        <button class="bb" style="margin-top:8px;width:fit-content" onclick="sendFeedback()"><span class="btn-icon" data-lucide="send"></span> <span>Yuborish</span></button>
       </div>
       <div style="margin-top:16px">
-        <div class="btitle">📋 Mening fikrlarim</div>
+        <div class="btitle"><span class="title-ico" data-lucide="clipboard-check"></span> Mening fikrlarim</div>
         <div id="my_feedback_list"></div>
       </div>
     </div>
@@ -719,7 +743,7 @@
 
 <div id="faceWidget" class="hidden">
   <div class="fw-title">
-    <span>📷 Yuz nazorati</span>
+    <span style="display:flex;align-items:center;gap:6px;"><span data-lucide="scan-face" class="card-ico"></span> <span>Yuz nazorati</span></span>
     <button class="fw-minimize" onclick="toggleFaceWidget()">—</button>
   </div>
   <div class="fw-video-wrap">
@@ -730,7 +754,7 @@
     <div class="fw-dot gray" id="faceDot"></div>
     <span class="fw-txt" id="faceTxt">Yuklanmoqda...</span>
   </div>
-  <div class="fw-timer hidden" id="afkTimer">⏱ AFK: <span id="afkTimerVal">00:00</span></div>
+  <div class="fw-timer hidden" id="afkTimer"><span data-lucide="clock" class="timer-ico"></span> AFK: <span id="afkTimerVal">00:00</span></div>
   <div class="fw-afk" id="afkTotalWidget">Jami AFK: 0 daq</div>
   <div class="liveness-indicator" id="livenessWidget" style="margin-top:4px">
     <div class="liveness-dot" id="livenessWidgetDot"></div>
@@ -741,19 +765,19 @@
 <div class="ov hidden" id="m_welcome">
   <div class="modal">
     <p id="mw_txt">Eslatma: "Yakunlash" tugmasini faqat ish kuni to'liq tugagandan keyin bosing!</p>
-    <button class="msingle" id="mw_ok" onclick="closeWelcome()">OK</button>
+    <button class="msingle" id="mw_ok" onclick="closeWelcome()"><span class="btn-icon" data-lucide="check"></span> OK</button>
   </div>
 </div>
 <div class="ov hidden" id="m_ep">
   <div class="modal">
-    <h3 id="mep_t" style="color:var(--accent)">Parolni o'zgartirish</h3>
+    <h3 id="mep_t" style="color:var(--accent);display:flex;align-items:center;justify-content:center;gap:8px;"><span class="modal-ico" data-lucide="lock"></span> Parolni o'zgartirish</h3>
     <input type="hidden" id="ep_id">
     <div class="iw" style="margin:14px 0">
       <input type="password" id="ep_np" placeholder="Yangi parol" style="background:var(--input-bg);color:var(--text)">
     </div>
     <div class="mbtns">
-      <button class="mok" id="mep_s" onclick="savePass()">Saqlash</button>
-      <button class="mno" id="mep_c" onclick="closeEP()">Bekor</button>
+      <button class="mok" id="mep_s" onclick="savePass()"><span class="btn-icon" data-lucide="check"></span> Saqlash</button>
+      <button class="mno" id="mep_c" onclick="closeEP()"><span class="btn-icon" data-lucide="x"></span> Bekor</button>
     </div>
   </div>
 </div>
@@ -773,7 +797,7 @@
   <div class="modal modal-wide">
     <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px;">
       <div>
-        <h3 id="work_leave_title" style="color:var(--accent);margin-bottom:6px;">Ish ta'tilidagi xodimlar</h3>
+        <h3 id="work_leave_title" style="color:var(--accent);margin-bottom:6px;display:flex;align-items:center;gap:8px;"><span class="modal-ico" data-lucide="palmtree"></span> Ish ta'tilidagi xodimlar</h3>
         <p id="work_leave_subtitle" style="margin:0;color:var(--text3);"></p>
       </div>
       <button class="mno" onclick="closeWorkLeaveModal()" id="work_leave_close">Yopish</button>
@@ -796,23 +820,23 @@
 </div>
 <div class="ov hidden afk-modal-border" id="m_afk_warn">
   <div class="modal">
-    <h3 style="color:var(--danger)" id="afk_warn_title">⚠️ Yuzingiz aniqlanmadi!</h3>
+    <h3 style="color:var(--danger);display:flex;align-items:center;justify-content:center;gap:8px;" id="afk_warn_title"><span class="modal-ico" data-lucide="shield-alert"></span> Yuzingiz aniqlanmadi!</h3>
     <p id="afk_warn_txt" style="color:var(--text2);font-weight:500;">Kamera oldida o'tiring.</p>
     <div class="countdown" id="afk_countdown">05:00</div>
     <p style="font-size:11px;color:var(--text3)" id="afk_warn_sub">5 daqiqa ichida yuz aniqlanmasa, AFK hisoblanadi</p>
-    <button class="mok" onclick="dismissAfkWarn()" id="afk_im_here">Men shu yerdaman ✋</button>
+    <button class="mok" onclick="dismissAfkWarn()" id="afk_im_here"><span class="btn-icon" data-lucide="user-check"></span> <span>Men shu yerdaman</span></button>
   </div>
 </div>
 <div class="ov hidden" id="m_auto_end">
   <div class="modal">
-    <h3 style="color:var(--success)">✅ Ish yakunlandi</h3>
+    <h3 style="color:var(--success);display:flex;align-items:center;justify-content:center;gap:8px;"><span class="modal-ico" data-lucide="check-circle-2"></span> Ish yakunlandi</h3>
     <p id="auto_end_txt" style="color:var(--text2)">Soat 18:00 bo'ldi. Tizim tomonidan ish yakunlandi.</p>
     <button class="msingle" onclick="document.getElementById('m_auto_end').classList.add('hidden')">OK</button>
   </div>
 </div>
 <div class="ov hidden" id="m_lunch_shift">
   <div class="modal">
-    <h3 style="color:var(--warn)" id="lunch_shift_title">🍽️ Abed smenasini tanlang</h3>
+    <h3 style="color:var(--warn);display:flex;align-items:center;justify-content:center;gap:8px;" id="lunch_shift_title"><span class="modal-ico" data-lucide="utensils"></span> Abed smenasini tanlang</h3>
     <p id="lunch_shift_text">Bugun abedni qaysi smenada qilasiz?</p>
     <div class="mbtns">
       <button class="mok" onclick="saveLunchShiftChoice('shift_1')" id="lunch_shift_btn_1">1-smena</button>
@@ -821,6 +845,7 @@
   </div>
 </div>
 
+<script src="assets/js/app-parts/00-lucide-icons.js"></script>
 <script src="assets/js/app-parts/01-core.js" defer></script>
 <script src="assets/js/app-parts/02-access-settings.js" defer></script>
 <script src="assets/js/app-parts/03-translations.js" defer></script>

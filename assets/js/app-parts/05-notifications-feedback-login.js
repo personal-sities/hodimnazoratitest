@@ -308,6 +308,13 @@ async function sendFeedback() {
   toast('success',t('feedback_sent_title'),t('feedback_sent_success'));
   loadMyFeedback();
 }
+function renderFeedbackBadge(type){
+  const iconName = type==='complaint' ? 'alert-circle' : type==='suggestion' ? 'sparkles' : 'file-text';
+  const label = type==='complaint' ? t('feedback_type_complaint') : type==='suggestion' ? t('feedback_type_suggestion') : t('feedback_type_other');
+  const icon = (typeof getLucideIcon==='function') ? getLucideIcon(iconName, {size:12, strokeWidth:2}) : '';
+  return `<span class="fb-type ${type}">${icon}<span>${label}</span></span>`;
+}
+
 async function loadMyFeedback() {
   if (!CU) return;
   const {data} = await sb.from('feedback').select('*').eq('employee_id',CU.id).order('created_at',{ascending:false}).limit(20);
@@ -316,7 +323,7 @@ async function loadMyFeedback() {
   c.innerHTML=data.map(fb=>`
     <div class="fb-item ${fb.status==='new'?'new-item':''}">
       <div class="fb-header">
-        <span class="fb-type ${fb.type}">${fb.type==='complaint'?'⚠️ Shikoyat':fb.type==='suggestion'?'💡 Taklif':'📝 Boshqa'}</span>
+        ${renderFeedbackBadge(fb.type)}
         <span class="fb-date">${new Date(fb.created_at).toLocaleDateString()}</span>
       </div>
       <div class="fb-msg">${fb.message}</div>
@@ -342,7 +349,7 @@ async function loadFeedbackAdmin() {
       <div class="fb-header">
         <div style="display:flex;align-items:center;gap:8px">
           <strong class="fb-name">${fb.employees?.name||fb.employee_name||'?'}</strong>
-          <span class="fb-type ${fb.type}">${fb.type==='complaint'?'⚠️ Shikoyat':fb.type==='suggestion'?'💡 Taklif':'📝 Boshqa'}</span>
+          ${renderFeedbackBadge(fb.type)}
         </div>
         <span class="fb-date">${new Date(fb.created_at).toLocaleString()}</span>
       </div>

@@ -553,7 +553,15 @@ if(box && descriptor && box._width > 0 && box._x !== null && box._y !== null){
 function updateSampleDots(){
   const c=document.getElementById('faceSamples');if(!c)return;
   c.innerHTML='';
-  for(let i=0;i<5;i++){const d=document.createElement('div');d.className='face-sample-dot'+(i<regSamples.length?' done':'');d.textContent=i<regSamples.length?'✅':'📷';c.appendChild(d);}
+  for(let i=0;i<5;i++){
+    const d=document.createElement('div');
+    d.className='face-sample-dot'+(i<regSamples.length?' done':'');
+    const isDone = i < regSamples.length;
+    d.innerHTML = isDone
+      ? (typeof getLucideIcon==='function'?getLucideIcon('check',{size:13,strokeWidth:2.5}):'✓')
+      : (typeof getLucideIcon==='function'?getLucideIcon('camera',{size:13,strokeWidth:1.8}):'•');
+    c.appendChild(d);
+  }
 }
 function updateQuality(txt){const el=document.getElementById('faceQuality');if(el)el.textContent=txt;}
 
@@ -995,7 +1003,10 @@ function updateSampleDots(){
   for(let i=0;i<5;i++){
     const d=document.createElement('div');
     d.className='face-sample-dot'+(i<regSamples.length?' done':'');
-    d.textContent=i<regSamples.length?'✅':'📷';
+    const isDone = i < regSamples.length;
+    d.innerHTML = isDone
+      ? (typeof getLucideIcon==='function'?getLucideIcon('check',{size:13,strokeWidth:2.5}):'✓')
+      : (typeof getLucideIcon==='function'?getLucideIcon('camera',{size:13,strokeWidth:1.8}):'•');
     c.appendChild(d);
   }
 }

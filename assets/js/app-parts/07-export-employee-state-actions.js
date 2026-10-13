@@ -156,14 +156,14 @@ async function empLunch(){
   lStart=tzNow();if(wStart)wAccum+=Math.floor((lStart-wStart)/1000);wStart=null;
   empState='lunch';st('i_ls',fmtHM(lStart));stopWT();pauseFaceMonitoringForBreak();updateEmpBtns();updateEmpStatusTag();startLT();saveLS();
   await savePartial();
-  toast('info',t('lunch_title'),`${t('lunch_rest_msg')} 🍽️`);
+  toast('info',t('lunch_title'),t('lunch_rest_msg'));
 }
 async function empBackLunch(){
   if(empState!=='lunch')return;
   const now=tzNow();if(lStart)lAccum+=Math.floor((now-lStart)/1000);lStart=null;
   st('i_le',fmtHM(now));empState='working';wStart=now;stopLT();resumeFaceMonitoringAfterBreak();updateEmpBtns();updateEmpStatusTag();startWT();saveLS();
   await savePartial();
-  toast('success',t('lunch_title'),`${t('work_continues')} 💼`);
+  toast('success',t('lunch_title'),t('work_continues'));
 }
 async function empPrayer(){
   if(empState==='prayer'){await empBackPrayer();return;}
@@ -191,7 +191,7 @@ async function empBackPrayer(){
   resumeFaceMonitoringAfterBreak();
   updateEmpBtns();updateEmpStatusTag();startWT();saveLS();
   await savePartial();
-  toast('success',t('prayer_btn'),`${t('work_continues')} 💼`);
+  toast('success',t('prayer_btn'),t('work_continues'));
 }
 async function empContinue(){
   if(empState!=='paused')return;

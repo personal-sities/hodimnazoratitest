@@ -58,11 +58,15 @@ applyTheme(currentTheme);
 //  TOAST
 // ============================================================
 function toast(type, title, msg, duration = 3500) {
-  const icons = { success:'✅', error:'❌', warn:'⚠️', info:'ℹ️' };
+  const iconMap = { success:'check-circle-2', error:'alert-circle', warn:'alert-triangle', info:'info' };
+  const iconHtml = typeof getLucideIcon === 'function'
+    ? getLucideIcon(iconMap[type] || 'info', 'toast-icon-svg', 18)
+    : (type === 'success' ? '✓' : type === 'error' ? '✕' : type === 'warn' ? '!' : 'i');
   const c = document.getElementById('toast-container');
+  if (!c) return;
   const d = document.createElement('div');
   d.className = `toast ${type}`;
-  d.innerHTML = `<span class="toast-icon">${icons[type]||'ℹ️'}</span><div class="toast-body"><div class="toast-title">${title}</div><div class="toast-msg">${msg||''}</div></div>`;
+  d.innerHTML = `<span class="toast-icon">${iconHtml}</span><div class="toast-body"><div class="toast-title">${title}</div><div class="toast-msg">${msg||''}</div></div>`;
   c.appendChild(d);
   setTimeout(() => {
     d.classList.add('removing');

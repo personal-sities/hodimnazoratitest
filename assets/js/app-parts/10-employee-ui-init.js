@@ -1,14 +1,45 @@
 //  EMP UI HELPERS
 // ============================================================
+function setActionBtnContent(btn, iconName, labelText){
+  if(!btn)return;
+  const icon = typeof getLucideIcon === 'function' ? getLucideIcon(iconName, 'abtn-ico', 18) : '';
+  btn.innerHTML = `${icon}<span>${labelText}</span>`;
+}
+
 function updateEmpBtns(){
   const bsE=document.getElementById('bs'),blE=document.getElementById('bl'),bpE=document.getElementById('bp'),beE=document.getElementById('be'),bcE=document.getElementById('bc');
   const dis=(b,d)=>{if(b)b.disabled=d;};
-  if(bcE)bcE.classList.toggle('hidden',empState!=='paused');
-  if(empState==='not_started'){dis(bsE,false);dis(blE,true);dis(bpE,true);dis(beE,true);if(blE){blE.textContent=t('bl');blE.onclick=empLunch;} if(bpE){bpE.textContent=t('prayer_btn');bpE.onclick=empPrayer;}}
-  else if(empState==='working'){dis(bsE,true);dis(blE,false);dis(bpE,false);dis(beE,false);if(blE){blE.textContent=t('bl');blE.onclick=empLunch;} if(bpE){bpE.textContent=t('prayer_btn');bpE.onclick=empPrayer;}}
-  else if(empState==='lunch'){dis(bsE,true);dis(blE,false);dis(bpE,true);dis(beE,true);if(blE){blE.textContent=t('bb');blE.onclick=empBackLunch;} if(bpE){bpE.textContent=t('prayer_btn');bpE.onclick=empPrayer;}}
-  else if(empState==='prayer'){dis(bsE,true);dis(blE,true);dis(bpE,false);dis(beE,true);if(bpE){bpE.textContent=t('prayer_back');bpE.onclick=empBackPrayer;}}
-  else if(empState==='paused'||empState==='ended'){dis(bsE,true);dis(blE,true);dis(bpE,true);dis(beE,true);}
+  if(bcE){
+    bcE.classList.toggle('hidden',empState!=='paused');
+    setActionBtnContent(bcE, 'play-circle', t('bc'));
+  }
+  if(bsE) setActionBtnContent(bsE, 'play', t('bs'));
+  if(beE) setActionBtnContent(beE, 'power', t('be'));
+
+  if(empState==='not_started'){
+    dis(bsE,false);dis(blE,true);dis(bpE,true);dis(beE,true);
+    if(blE){setActionBtnContent(blE, 'utensils', t('bl'));blE.onclick=empLunch;}
+    if(bpE){setActionBtnContent(bpE, 'compass', t('prayer_btn'));bpE.onclick=empPrayer;}
+  }
+  else if(empState==='working'){
+    dis(bsE,true);dis(blE,false);dis(bpE,false);dis(beE,false);
+    if(blE){setActionBtnContent(blE, 'utensils', t('bl'));blE.onclick=empLunch;}
+    if(bpE){setActionBtnContent(bpE, 'compass', t('prayer_btn'));bpE.onclick=empPrayer;}
+  }
+  else if(empState==='lunch'){
+    dis(bsE,true);dis(blE,false);dis(bpE,true);dis(beE,true);
+    if(blE){setActionBtnContent(blE, 'arrow-left', t('bb'));blE.onclick=empBackLunch;}
+    if(bpE){setActionBtnContent(bpE, 'compass', t('prayer_btn'));bpE.onclick=empPrayer;}
+  }
+  else if(empState==='prayer'){
+    dis(bsE,true);dis(blE,true);dis(bpE,false);dis(beE,true);
+    if(bpE){setActionBtnContent(bpE, 'arrow-left', t('prayer_back'));bpE.onclick=empBackPrayer;}
+  }
+  else if(empState==='paused'||empState==='ended'){
+    dis(bsE,true);dis(blE,true);dis(bpE,true);dis(beE,true);
+    if(blE)setActionBtnContent(blE, 'utensils', t('bl'));
+    if(bpE)setActionBtnContent(bpE, 'compass', t('prayer_btn'));
+  }
 }
 function updateEmpStatusTag(){
   const map={not_started:t('st0'),working:t('st1'),lunch:t('st2'),prayer:t('prayer_btn'),paused:t('paused'),ended:t('st4')};
