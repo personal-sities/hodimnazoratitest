@@ -118,7 +118,6 @@ const LUCIDE_ALIASES = {
   'leave': 'palmtree',
   'holiday': 'calendar-check',
   'dashboard': 'layout-dashboard',
-  'kpi': 'trophy',
   'barchart3': 'bar-chart-3',
   'phonecall': 'phone-call',
   'phoneincoming': 'phone-incoming',

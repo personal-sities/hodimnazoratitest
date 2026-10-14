@@ -95,7 +95,6 @@
         <button class="nbtn" id="nav_feedback" onclick="adminTab('feedback');closeSidebar()"><span class="ni" data-lucide="message-square"></span><span id="n_fb">Fikrlar</span> <span id="fbBadge" class="notif-badge hidden">0</span></button>
         <button class="nbtn" id="nav_notif" onclick="adminTab('notif');closeSidebar()"><span class="ni" data-lucide="bell"></span><span id="n_notif">Bildirishnomalar</span> <span id="notifBadgeAdmin" class="notif-badge hidden">0</span></button>
         <button class="nbtn" id="nav_settings" onclick="adminTab('settings');closeSidebar()"><span class="ni" data-lucide="settings"></span><span id="n_set">Sozlamalar</span></button>
-        <button class="nbtn" id="nav_kpi" onclick="adminTab('kpi');closeSidebar()"><span class="ni" data-lucide="trophy"></span><span id="n_kpi">KPI Qoidalar</span></button>
       </div>
       <div class="sb-bottom">
         <label class="theme-toggle" title="Mavzu"><input type="checkbox" id="themeToggle4" onchange="toggleTheme()"><span class="theme-slider"></span></label>
@@ -244,16 +243,13 @@
               <div class="ms"><h5 id="ms2">Kechikishlar</h5><div class="v" id="ml">0</div></div>
               <div class="ms"><h5 id="ms3">Kelmagan</h5><div class="v" id="ma">0</div></div>
               <div class="ms"><h5 id="ms4">Ish soati</h5><div class="v" id="mh">0</div></div>
-              <div class="ms"><h5 id="ms5">Jami KPI</h5><div class="v" id="mk" style="color:var(--success)">0</div></div>
             </div>
             <div class="tbl-wrap">
-              <table class="tbl" id="monthly_table" style="min-width:900px;">
+              <table class="tbl" id="monthly_table" style="min-width:720px;">
                 <thead><tr>
                   <th>#</th><th id="mt1">Ism familiya</th><th id="mt2">Ishlagan soat</th>
                   <th id="mt_afk">AFK vaqti</th><th id="mt3">Kechikish</th>
-                  <th id="mt_half">Yarim kun</th><th id="mt4">Kelmagan</th><th id="mt5">Jarima</th>
-                  <th id="mt6">Qo'shimcha</th><th id="mt7">KPI ball</th>
-                  <th id="mt8">KPI sum</th><th id="mt9">Boshqaruv</th>
+                  <th id="mt_half">Yarim kun</th><th id="mt4">Kelmagan</th>
                 </tr></thead>
                 <tbody id="mbody"></tbody>
               </table>
@@ -310,15 +306,15 @@
               <input type="email" id="ne_l" placeholder="Email">
               <input type="password" id="ne_p" placeholder="Parol">
               <select id="ne_k">
-                <option value="manager">Menejer (560 000 UZS)</option>
-                <option value="operator">Operator (480 000 UZS)</option>
-                <option value="intern">Ish o'rganuvchi (400 000 UZS)</option>
+                <option value="manager">Menejer</option>
+                <option value="operator">Operator</option>
+                <option value="intern">Ish o'rganuvchi</option>
               </select>
               <button class="bb" id="b_addemp" onclick="addEmp()"><span class="btn-icon" data-lucide="plus"></span> <span>Qo'shish</span></button>
             </div>
             <div class="tbl-wrap">
               <table class="tbl" style="min-width:620px;">
-                <thead><tr><th>#</th><th id="et1">Ism familiya</th><th id="et2">Login</th><th id="et3">Parol</th><th>Yuz</th><th id="et4">Lavozim (KPI)</th><th id="et5">O'chirish</th></tr></thead>
+                <thead><tr><th>#</th><th id="et1">Ism familiya</th><th id="et2">Login</th><th id="et3">Parol</th><th>Yuz</th><th id="et4">Lavozim</th><th id="et5">O'chirish</th></tr></thead>
                 <tbody id="emp_body"></tbody>
               </table>
             </div>
@@ -402,39 +398,7 @@
           </div>
         </div>
 
-        <div id="tab_kpi" class="hidden">
-          <div class="box">
-            <div class="btitle"><span class="title-ico" data-lucide="trophy"></span> <span id="kpi_t">KPI Qoidalari</span></div>
-            <div class="kbox">
-              <div style="margin-bottom:12px"><strong id="k1">Asosiy KPI</strong><br><span id="k2">Davomat bo'yicha KPI 100 ballik sistemada!</span></div>
-              <div style="margin-bottom:12px"><strong id="k3">Jarimalar</strong><br><span id="k4">Kech qolish</span> — 10 ball<br><span id="k5">Kelmaslik</span> — 20 ball<br><span id="k_afk">AFK (30 daqiqadan ortiq, har daqiqa)</span> — kunlik hisobda</div>
-              <div>
-                <strong id="k6">KPI to'lovlari</strong><br>
-                <div style="margin-top:8px">
-                  <strong id="k7">Menejer</strong><br>
-                  <div class="krow"><div class="kcol">90–100 ball</div><div>+560 000 UZS</div></div>
-                  <div class="krow"><div class="kcol">80–89 ball</div><div>+420 000 UZS</div></div>
-                  <div class="krow"><div class="kcol">70–79 ball</div><div>+280 000 UZS</div></div>
-                  <div class="krow"><div class="kcol">70 dan kam</div><div>+0 UZS</div></div>
-                </div>
-                <div style="margin-top:12px">
-                  <strong id="k_op">Operator</strong><br>
-                  <div class="krow"><div class="kcol">90–100 ball</div><div>+480 000 UZS</div></div>
-                  <div class="krow"><div class="kcol">80–89 ball</div><div>+360 000 UZS</div></div>
-                  <div class="krow"><div class="kcol">70–79 ball</div><div>+240 000 UZS</div></div>
-                  <div class="krow"><div class="kcol">70 dan kam</div><div>+0 UZS</div></div>
-                </div>
-                <div style="margin-top:12px">
-                  <strong id="k8">Ish o'rganuvchi</strong><br>
-                  <div class="krow"><div class="kcol">90–100 ball</div><div>+400 000 UZS</div></div>
-                  <div class="krow"><div class="kcol">80–89 ball</div><div>+300 000 UZS</div></div>
-                  <div class="krow"><div class="kcol">70–79 ball</div><div>+210 000 UZS</div></div>
-                  <div class="krow"><div class="kcol">70 dan kam</div><div>+0 UZS</div></div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+
       </div>
 
     </div>

@@ -4,13 +4,13 @@ function exportExcel(){
   if(!monthlyData||monthlyData.length===0){toast('warn',t('export_title'),t('export_load_monthly_first'));return;}
   if(typeof XLSX==='undefined'){toast('warn',t('export_title'),t('export_excel_wait'));return;}
   const month=document.getElementById('fmonth').value||curM();
-  const headers=['#',t('mt1'),t('mt2'),t('mt_afk'),t('mt3'),t('mt_half'),t('mt4'),t('mt5'),t('mt6'),t('mt7'),`${t('mt8')} (UZS)`];
-  const rows=monthlyData.map((d,i)=>[i+1,d.name,d.hours,d.afk,d.late,d.half,d.abs,d.penalty,'+'+d.bonus,d.ball,d.kpi]);
+  const headers=['#',t('mt1'),t('mt2'),t('mt_afk'),t('mt3'),t('mt_half'),t('mt4')];
+  const rows=monthlyData.map((d,i)=>[i+1,d.name,d.hours,d.afk,d.late,d.half,d.abs]);
   const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
   ws['!cols']=headers.map(()=>({wch:18}));
   const wb=XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb,ws,month+' '+t('report_sheet'));
-  XLSX.writeFile(wb,'AloqaPro_'+month+'_KPI.xlsx');
+  XLSX.writeFile(wb,'AloqaPro_'+month+'_Hisobot.xlsx');
   toast('success',t('export_title'),'Excel: '+t('export_downloaded'));
 }
 function exportPDF(){
@@ -24,9 +24,9 @@ function exportPDF(){
   doc.setFontSize(10);
   doc.text('Sana: '+new Date().toLocaleDateString(),14,22);
   const headers=[t('report_headers').split('|')];
-  const rows=monthlyData.map((d,i)=>[i+1,d.name,d.hours,d.afk,d.late,d.half,d.abs,d.penalty,'+'+d.bonus,d.ball,d.kpi.toLocaleString()]);
+  const rows=monthlyData.map((d,i)=>[i+1,d.name,d.hours,d.afk,d.late,d.half,d.abs]);
   doc.autoTable({head:headers,body:rows,startY:28,styles:{fontSize:9,cellPadding:2},headStyles:{fillColor:[74,140,245],textColor:[255,255,255],fontStyle:'bold'},alternateRowStyles:{fillColor:[245,248,252]},margin:{left:14,right:14}});
-  doc.save('AloqaPro_'+month+'_KPI.pdf');
+  doc.save('AloqaPro_'+month+'_Hisobot.pdf');
   toast('success',t('export_title'),'PDF: '+t('export_downloaded'));
 }
 

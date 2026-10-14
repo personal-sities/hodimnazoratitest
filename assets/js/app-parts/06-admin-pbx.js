@@ -30,8 +30,8 @@ async function checkFeedbackBadge(){
 }
 function adminTab(tab){
   currentAdminTab = tab;
-  ['main','notif','feedback','settings','kpi'].forEach(n=>{const el=document.getElementById('tab_'+n);if(el)el.classList.toggle('hidden',n!==tab);});
-  ['nav_main','nav_feedback','nav_notif','nav_settings','nav_kpi'].forEach((id,i)=>{const el=document.getElementById(id);if(el)el.classList.toggle('active',['main','feedback','notif','settings','kpi'][i]===tab);});
+  ['main','notif','feedback','settings'].forEach(n=>{const el=document.getElementById('tab_'+n);if(el)el.classList.toggle('hidden',n!==tab);});
+  ['nav_main','nav_feedback','nav_notif','nav_settings'].forEach((id,i)=>{const el=document.getElementById(id);if(el)el.classList.toggle('active',['main','feedback','notif','settings'][i]===tab);});
   st('admTitle',getAdminTabTitle(tab));
   if(tab==='settings'){loadEmpList();updateIPList();loadGPSSettingsUI();loadFaceControlSettings();}
   if(tab==='feedback')loadFeedbackAdmin();
@@ -1985,13 +1985,12 @@ async function loadDashboard(){
   let wd=0;for(let d=1;d<=dim;d++){const ds=`${y}-${String(mo).padStart(2,'0')}-${String(d).padStart(2,'0')}`;if(isWorkDay(ds))wd++;}
   const monthStart=`${month}-01`;
   const monthEnd=`${month}-${String(dim).padStart(2,'0')}`;
-  const [{data:emps,error:empErr},{data:recs,error:recErr},{data:bons,error:bonErr},leaves] = await Promise.all([
+  const [{data:emps,error:empErr},{data:recs,error:recErr},leaves] = await Promise.all([
     sb.from('employees').select('*'),
     sb.from('attendance').select('*').gte('work_date',monthStart).lte('work_date',monthEnd),
-    sb.from('kpi_bonuses').select('*').eq('month',month),
     fetchEmployeeLeavesInRange(monthStart, monthEnd)
   ]);
-  if(empErr||recErr||bonErr){toast('error','Dashboard',(empErr||recErr||bonErr).message||t('dashboard_error'));return;}
+  if(empErr||recErr){toast('error','Dashboard',(empErr||recErr).message||t('dashboard_error'));return;}
   setAmoCrmActiveEmployees((emps||[]).filter(emp=>emp.active!==false));
   const leaveDateMap=buildEmployeeLeaveDateMap(leaves, monthStart, monthEnd);
   const rows=(emps||[]).map(emp=>{
@@ -2016,17 +2015,12 @@ async function loadDashboard(){
     });
     const leaveDates=leaveDateMap.get(emp.id)||new Set();
     const abs=countAbsencesForMonth(month,cameDates,leaveDates);
-    const bon=(bons||[]).find(b=>b.employee_id===emp.id)?.bonus||0;
-    const pen=late*10+abs*20;
-    const ball=Math.min(100,Math.max(0,100-pen+bon));
-    const kpi=calcKpi(ball,emp.kpi_type||'operator');
     const expectedSec=Math.max(1,wd*TARGET_WORK_SEC_PER_DAY);
     const workPct=Math.min(100,Math.round((sec/expectedSec)*100));
-    const kpiPct=Math.max(0,Math.min(100,ball));
     const latePenalty=Math.min(20,(late*5)+Math.floor((lateMin||0)/60));
     const afkPenalty=Math.min(15,Math.round(Math.max(0,afkSec)/(5*60)));
-    const efficiency=Math.max(0,Math.min(100,Math.round((workPct*0.55)+(kpiPct*0.45)-latePenalty-afkPenalty)));
-    return {name:emp.name||'-',sec,late,lateMin,kpi,ball,came,abs,efficiency,workPct,kpiPct,latePenalty,afkPenalty};
+    const efficiency=Math.max(0,Math.min(100,Math.round(workPct-latePenalty-afkPenalty)));
+    return {name:emp.name||'-',sec,late,lateMin,came,abs,efficiency,workPct,latePenalty,afkPenalty};
   });
   renderDashboardCharts(rows,wd,(emps||[]).length,recs||[]);
 }
@@ -2196,21 +2190,19 @@ async function loadMonthly(){
   let wd=0;for(let d=1;d<=dim;d++){const ds=`${y}-${String(mo).padStart(2,'0')}-${String(d).padStart(2,'0')}`;if(isWorkDay(ds))wd++;}
   const monthStart=`${month}-01`;
   const monthEnd=`${month}-${String(dim).padStart(2,'0')}`;
-  const [{data:emps,error:empErr},{data:recs,error:recErr},{data:bons,error:bonErr},leaves] = await Promise.all([
+  const [{data:emps,error:empErr},{data:recs,error:recErr},leaves] = await Promise.all([
     sb.from('employees').select('id,name,login,kpi_type').eq('active',true).order('name'),
     sb.from('attendance').select('employee_id,work_date,start_time,end_time,work_seconds,afk_seconds,late_minutes').gte('work_date',monthStart).lte('work_date',monthEnd),
-    sb.from('kpi_bonuses').select('employee_id,bonus').eq('month',month),
     fetchEmployeeLeavesInRange(monthStart, monthEnd)
   ]);
-  if(empErr||recErr||bonErr||!emps)return;
+  if(empErr||recErr||!emps)return;
   const leaveDateMap=buildEmployeeLeaveDateMap(leaves, monthStart, monthEnd);
   const recMap=new Map();
   (recs||[]).forEach(r=>{
     if(!recMap.has(r.employee_id))recMap.set(r.employee_id,[]);
     recMap.get(r.employee_id).push(r);
   });
-  const bonusMap=new Map((bons||[]).map(b=>[b.employee_id,b.bonus||0]));
-  let tL=0,tA=0,tH=0,tK=0;
+  let tL=0,tA=0,tH=0;
   monthlyData=[];
   monthlyAttendanceSummary=[];
   const tbody=document.getElementById('mbody');
@@ -2246,13 +2238,9 @@ async function loadMonthly(){
     const leaveDates=leaveDateMap.get(emp.id)||new Set();
     const absentDates=getAbsenceDatesForMonth(month,cameDates,leaveDates);
     const abs=absentDates.length;
-    const bon=bonusMap.get(emp.id)||0;
-    const pen=late*10+abs*20;
-    const fin=Math.min(100,Math.max(0,100-pen+bon));
-    const kpi=calcKpi(fin,emp.kpi_type||'operator');
-    tL+=late;tA+=abs;tH+=sec;tK+=kpi;
+    tL+=late;tA+=abs;tH+=sec;
     const hs=formatHm(sec);
-    monthlyData.push({name:emp.name,hours:hs,afk:formatPenaltyAfk(afkSec),late,half,abs,penalty:-pen,bonus:bon,ball:fin,kpi});
+    monthlyData.push({name:emp.name,hours:hs,afk:formatPenaltyAfk(afkSec),late,half,abs});
     monthlyAttendanceSummary.push({
       employeeId:emp.id,
       employeeName:emp.name||'-',
@@ -2266,7 +2254,7 @@ async function loadMonthly(){
     });
     const tr=document.createElement('tr');
     tr.dataset.name=(emp.name||'').toLowerCase();
-    tr.innerHTML=`<td>${i+1}</td><td>${emp.name}</td><td style="font-family:var(--mono)">${hs}</td><td style="color:${afkSec>0?'var(--danger)':'var(--text2)'};">${formatPenaltyAfk(afkSec)}</td><td>${late} ${t('marta')}</td><td>${half} ${t('kun')}</td><td>${abs} ${t('kun')}</td><td style="color:var(--danger)">-${pen} ${t('ball')}</td><td style="color:var(--success)">+${bon} ${t('ball')}</td><td><strong style="font-family:var(--mono)">${fin} ${t('ball')}</strong></td><td style="color:var(--success);font-weight:700;font-family:var(--mono)">${kpi.toLocaleString()} UZS</td><td><div style="display:flex;gap:3px"><button class="bsm bsm-g" onclick="adjKpi('${emp.id}','${month}',10)">+10</button><button class="bsm bsm-r" onclick="adjKpi('${emp.id}','${month}',-10)">-10</button><button class="bsm bsm-gr" onclick="adjKpi('${emp.id}','${month}',0,true)">${t('reset')}</button></div></td>`;
+    tr.innerHTML=`<td>${i+1}</td><td>${emp.name}</td><td style="font-family:var(--mono)">${hs}</td><td style="color:${afkSec>0?'var(--danger)':'var(--text2)'};">${formatPenaltyAfk(afkSec)}</td><td>${late} ${t('marta')}</td><td>${half} ${t('kun')}</td><td>${abs} ${t('kun')}</td>`;
     tbody.appendChild(tr);
 
     if(attBody){
@@ -2277,40 +2265,15 @@ async function loadMonthly(){
       attBody.appendChild(summaryTr);
     }
   });
-  st('me',''+emps.length);st('ml',''+tL);st('ma',''+tA);st('mh',formatHm(tH));st('mk',tK.toLocaleString()+' UZS');
+  st('me',''+emps.length);st('ml',''+tL);st('ma',''+tA);st('mh',formatHm(tH));
   filterAtt();
 }
 
-function calcKpi(ball,type){
-  if(type==='senior'||type==='manager'){
-    if(ball>=90)return 560000;
-    if(ball>=80)return 420000;
-    if(ball>=70)return 280000;
-    return 0;
-  }
-  if(type==='operator'){
-    if(ball>=90)return 480000;
-    if(ball>=80)return 360000;
-    if(ball>=70)return 240000;
-    return 0;
-  }
-  // intern or junior
-  if(ball>=90)return 400000;
-  if(ball>=80)return 300000;
-  if(ball>=70)return 210000;
-  return 0;
-}
 function getEmployeeRoleLabel(type){
   if(type==='manager'||type==='senior') return t('role_manager');
   if(type==='operator') return t('role_operator');
   if(type==='intern'||type==='junior') return t('role_intern');
   return type || '-';
-}
-function getEmployeeKpiMax(type){
-  if(type==='manager'||type==='senior') return '560 000';
-  if(type==='operator') return '480 000';
-  if(type==='intern'||type==='junior') return '400 000';
-  return '480 000';
 }
 function openMonthlyAttendanceDetails(employeeId){
   const row=monthlyAttendanceSummary.find(item=>item.employeeId===employeeId);
@@ -2339,7 +2302,6 @@ function openMonthlyAttendanceDetails(employeeId){
   document.getElementById('m_month_att_detail').classList.remove('hidden');
 }
 function closeMonthlyAttendanceDetails(){document.getElementById('m_month_att_detail').classList.add('hidden');}
-async function adjKpi(eid,month,delta,reset=false){const{data:ex}=await sb.from('kpi_bonuses').select('bonus').eq('employee_id',eid).eq('month',month).maybeSingle();const bonus=reset?0:((ex?.bonus||0)+delta);await sb.from('kpi_bonuses').upsert({employee_id:eid,month,bonus},{onConflict:'employee_id,month'});loadMonthly();loadDashboard();}
 
 async function loadEmpList() {
   const { data: emps, error } = await sb
@@ -2361,7 +2323,6 @@ async function loadEmpList() {
 
   emps.forEach((emp, i) => {
     const roleLabel = getEmployeeRoleLabel(emp.kpi_type);
-    const ka = getEmployeeKpiMax(emp.kpi_type);
     const faceStatus = emp.face_registered
       ? '<span style="color:var(--success);font-size:11px">✅ Ro\'yxatda</span>'
       : '<span style="color:var(--text3);font-size:11px">❌ Yo\'q</span>';
@@ -2373,7 +2334,7 @@ async function loadEmpList() {
       <td style="font-family:var(--mono)">${emp.login}</td>
       <td style="font-family:var(--mono)">*****</td>
       <td>${faceStatus}</td>
-      <td><span class="role-badge role-${emp.kpi_type || 'operator'}">${roleLabel}</span> <span style="font-family:var(--mono);color:var(--text2);font-size:11.5px">(+${ka} UZS)</span></td>
+      <td><span class="role-badge role-${emp.kpi_type || 'operator'}">${roleLabel}</span></td>
       <td><button class="brd" onclick="delEmp('${emp.id}')">${t('delete')}</button></td>
     `;
     tbody.appendChild(tr);

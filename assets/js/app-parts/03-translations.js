@@ -1,18 +1,18 @@
 //  TRANSLATIONS
 // ============================================================
 const TR = {
-uz:{loginTitle:'Nazorat tizimiga xush kelibsiz!',loginSub:'Login va parolni kiriting!',loginBtn:'Kirish',loginPH:'Login',passPH:'Parol',loginErr:'Login yoki parol noto\'g\'ri!',loginFill:'Login va parolni kiriting!',exit:'Chiqish',today:'Bugun',nav_m:'Asosiy',nav_notif:'Bildirishnomalar',nav_fb:'Fikrlar',nav_s:'Sozlamalar',nav_k:'KPI Qoidalar',adm_m:'Boshqaruv | Asosiy',adm_s:'Boshqaruv | Sozlamalar',adm_k:'Boshqaruv | KPI',sc1:'Bugun ishda',sc2:'Kechikkan',sc3:'Kelmagan',sc4:'Sana',att_t:'Hodimlar nazorati',from_l:'Dan:',to_l:'Gacha:',b_today:'Bugun',b_monthly:'Oylik',b_cm:'Joriy oy',b_ref:'Yangilash',fsearch:'Qidirish...',o_all:'Barcha',o_came:'Keldi',o_late:'Kechikkan',o_abs:'Kelmadi',th1:'Ism familiya',th2:'Login',th4:'O\'zgartirish',th5:'Kelgan vaqti',th6:'Kechikish',th7:'Ishlagan soat',th_afk:'AFK vaqti',th8:'Status',mth_t:'Oylik hisobot',ms1:'Hodimlar',ms2:'Kechikishlar',ms3:'Kelmagan',ms4:'Ish soati',ms5:'Jami KPI',mt1:'Ism familiya',mt2:'Ishlagan soat',mt_afk:'AFK vaqti',mt3:'Kechikish',mt4:'Kelmagan',mt5:'Jarima',mt6:'Qo\'shimcha',mt7:'KPI ball',mt8:'KPI sum',mt9:'Boshqaruv',set_t:'Hodimlar boshqaruvi',b_addemp:'Qo\'shish',et1:'Ism familiya',et2:'Login',et3:'Parol',et4:'Lavozim (KPI)',et5:'O\'chirish',hol_t:'Dam olish kunlari',b_addh:'Qo\'shish',hol_info:'Standart: Du–Sha. Yakshanba avtomatik dam olish.',hol_none:'Qo\'shimcha dam olish kuni yo\'q',kpi_t:'KPI Qoidalari',k1:'Asosiy KPI',k2:'Davomat bo\'yicha KPI 100 ballik sistemada!',k3:'Jarimalar',k4:'Kech qolish',k5:'Kelmaslik',k_afk:'AFK (30 daqiqadan ortiq)',k6:'KPI to\'lovlari',k7:'Menejer',k_op:'Operator',k8:'Ish o\'rganuvchi',role_manager:'Menejer',role_operator:'Operator',role_intern:'Ish o\'rganuvchi',kpi_manager:'Menejer (+560 000 UZS)',kpi_operator:'Operator (+480 000 UZS)',kpi_intern:'Ish o\'rganuvchi (+400 000 UZS)',ew_t:'Bugungi ish jarayoni',et_t:'Bugungi ma\'lumot',eh_t:'Oy bo\'yicha tarix',st_pre:'Holat:',lt_pre:'Kechikish:',lt_u:'daqiqa',st0:'Boshlanmagan',st1:'Ishda',st2:'Tushlikda',st4:'Yakunlandi',bs:'Boshlash',bl:'Tushlik',be:'Yakunlash',bc:'Davom ettirish',bb:'Qaytish',ewl:'Ish vaqti',ell:'Tushlik',ewd:'Ish vaqti',eld:'Tushlik vaqti',e_note:'Yangi kun boshlanganida vaqtlar 0 ga tushadi.',eprl:'Namoz',prayer_next_lbl:'Keyingi namoz vaqti',prayer_btn:'Namoz',prayer_back:'Namozdan qaytish',ei1:'Ish boshlagan',ei2:'Ish tugagan',ei3:'Tushlik boshlangan',ei4:'Tushlik tugagan',ei5:'Namoz boshlangan',ei6:'Namoz tugagan',ht1:'Sana',ht2:'Boshlagan',ht3:'Tushlik bosh.',ht4:'Tushlik tug.',ht5:'Tugagan',ht6:'Kechikish',ht7:'Ish vaqti',ht8:'Tushlik',ht_afk:'AFK',ht9:'Status',eh_note:'Faqat tanlangan oy ma\'lumotlari.',el_lbl:'Kechikishlar (oy):',afk_month_lbl:'AFK (oy jami):',e_cm:'Joriy oy',mw_txt:'Eslatma: "Yakunlash" tugmasini faqat ish kuni to\'liq tugagandan keyin bosing!',mw_ok:'OK',mep_t:'Parolni o\'zgartirish',mep_s:'Saqlash',mep_c:'Bekor qilish',ep_ph:'Yangi parol',b_came:'Keldi',b_late:'Kechikkan',b_abs:'Kelmadi',b_half:'Yarim kun',b_off:'Dam olish',del_c:'Hodimni o\'chirishni tasdiqlaysizmi?',no_data:'Ma\'lumot yo\'q',daq:'daq',marta:'marta',kun:'kun',soat:'soat',daqiqa:'daqiqa',ball:'ball',hisobot:'hisobot',change:'O\'zgartirish',delete:'O\'chirish',reset:'Reset',fill_all:'Barcha maydonlarni to\'ldiring!',face_detected:'Yuz aniqlandi',face_not_detected:'Yuz aniqlanmadi',face_loading:'Yuklanmoqda...',face_unknown:'Noma\'lum yuz',afk_lbl:'Joyida bo\'lmagan vaqt',afk_cnt_lbl:'marta AFK',afk_warn_title:'Yuzingiz aniqlanmadi!',afk_warn_txt:'Kamera oldida o\'tiring. 10 daqiqadan keyin AFK vaqt hisoblanadi.',afk_warn_sub:'10 daqiqa ichida yuz aniqlanmasa, AFK hisoblanadi',afk_im_here:'Men shu yerdaman',auto_end_txt:'Soat 18:00 bo\'ldi. Tizim tomonidan ish yakunlandi.',auto_ended:'Tizim yakunladi',afk_banner:'Yuz aniqlanmadi! 10 daqiqadan keyin AFK vaqt hisoblanadi...',afk_over:'oshiqcha',kpi_sr:'Menejer (+560 000 UZS)',kpi_jr:'Ish o\'rganuvchi (+400 000 UZS)'},
-ru:{loginTitle:'Добро пожаловать!',loginSub:'Введите логин и пароль!',loginBtn:'Войти',loginPH:'Логин',passPH:'Пароль',loginErr:'Неверный логин или пароль!',loginFill:'Введите логин и пароль!',exit:'Выйти',today:'Сегодня',nav_m:'Главная',nav_notif:'Уведомления',nav_fb:'Отзывы',nav_s:'Настройки',nav_k:'Правила KPI',adm_m:'Управление | Главная',adm_s:'Управление | Настройки',adm_k:'Управление | KPI',sc1:'На работе',sc2:'Опоздали',sc3:'Не пришли',sc4:'Дата',att_t:'Контроль сотрудников',from_l:'От:',to_l:'До:',b_today:'Сегодня',b_monthly:'Месяц',b_cm:'Тек. месяц',b_ref:'Обновить',fsearch:'Поиск...',o_all:'Все',o_came:'Пришёл',o_late:'Опоздал',o_abs:'Не пришёл',th1:'ФИО',th2:'Логин',th4:'Изменить',th5:'Приход',th6:'Опоздание',th7:'Отработано',th_afk:'AFK время',th8:'Статус',mth_t:'Месячный отчёт',ms1:'Сотрудников',ms2:'Опозданий',ms3:'Пропусков',ms4:'Раб.часов',ms5:'Итого KPI',mt1:'ФИО',mt2:'Отработано',mt_afk:'AFK время',mt3:'Опоздания',mt4:'Пропуски',mt5:'Штраф',mt6:'Доп.баллы',mt7:'KPI балл',mt8:'KPI сумма',mt9:'Управление',set_t:'Управление сотрудниками',b_addemp:'Добавить',et1:'ФИО',et2:'Логин',et3:'Пароль',et4:'Должность (KPI)',et5:'Удалить',hol_t:'Выходные дни',b_addh:'Добавить',hol_info:'Стандарт: Пн–Сб. Воскресенье — выходной.',hol_none:'Доп. выходных нет',kpi_t:'Правила KPI',k1:'Основной KPI',k2:'KPI в 100-балльной системе!',k3:'Штрафы',k4:'Опоздание',k5:'Прогул',k_afk:'AFK (более 30 минут)',k6:'Выплаты KPI',k7:'Менеджер',k_op:'Оператор',k8:'Стажёр',role_manager:'Менеджер',role_operator:'Оператор',role_intern:'Стажёр',kpi_manager:'Менеджер (+560 000 UZS)',kpi_operator:'Оператор (+480 000 UZS)',kpi_intern:'Стажёр (+400 000 UZS)',ew_t:'Рабочий процесс',et_t:'Сегодня',eh_t:'История за месяц',st_pre:'Статус:',lt_pre:'Опоздание:',lt_u:'мин',st0:'Не начат',st1:'На работе',st2:'В обеде',st4:'Завершён',bs:'Начать',bl:'Обед',be:'Завершить',bc:'Продолжить',bb:'Вернуться',ewl:'Рабочее время',ell:'Время обеда',ewd:'Рабочее время',eld:'Время обеда',e_note:'При новом дне таймеры сбрасываются.',ei1:'Начало',ei2:'Конец',ei3:'Обед нач.',ei4:'Обед кон.',ht1:'Дата',ht2:'Начало',ht3:'Обед нач.',ht4:'Обед кон.',ht5:'Конец',ht6:'Опоздание',ht7:'Раб.время',ht8:'Обед',ht_afk:'AFK',ht9:'Статус',eh_note:'Данные выбранного месяца.',el_lbl:'Опозданий (месяц):',afk_month_lbl:'AFK (итого за месяц):',e_cm:'Тек. месяц',mw_txt:'Нажимайте "Завершить" только после полного окончания рабочего дня!',mw_ok:'ОК',mep_t:'Изменить пароль',mep_s:'Сохранить',mep_c:'Отмена',ep_ph:'Новый пароль',b_came:'Пришёл',b_late:'Опоздал',b_abs:'Не пришёл',b_off:'Выходной',del_c:'Удалить сотрудника?',no_data:'Нет данных',daq:'мин',marta:'раз',kun:'дн.',soat:'ч',daqiqa:'мин',ball:'балл',hisobot:'отчёт',change:'Изменить',delete:'Удалить',reset:'Сброс',fill_all:'Заполните все поля!',face_detected:'Лицо обнаружено',face_not_detected:'Лицо не обнаружено',face_loading:'Загрузка...',face_unknown:'Неизвестное лицо',afk_lbl:'Отсутствие',afk_cnt_lbl:'раз AFK',afk_warn_title:'Лицо не распознано!',afk_warn_txt:'Сядьте перед камерой. AFK начнёт считаться через 10 минут.',afk_warn_sub:'Если лицо не обнаружено в течение 10 минут — AFK',afk_im_here:'Я здесь',auto_end_txt:'18:00. Рабочий день завершён системой.',auto_ended:'Завершено системой',afk_banner:'Лицо не обнаружено! AFK начнёт считаться через 10 минут...',afk_over:'сверх лимита',kpi_sr:'Менеджер (+560 000 UZS)',kpi_jr:'Стажёр (+400 000 UZS)'}
+uz:{loginTitle:'Nazorat tizimiga xush kelibsiz!',loginSub:'Login va parolni kiriting!',loginBtn:'Kirish',loginPH:'Login',passPH:'Parol',loginErr:'Login yoki parol noto\'g\'ri!',loginFill:'Login va parolni kiriting!',exit:'Chiqish',today:'Bugun',nav_m:'Asosiy',nav_notif:'Bildirishnomalar',nav_fb:'Fikrlar',nav_s:'Sozlamalar',adm_m:'Boshqaruv | Asosiy',adm_s:'Boshqaruv | Sozlamalar',sc1:'Bugun ishda',sc2:'Kechikkan',sc3:'Kelmagan',sc4:'Sana',att_t:'Hodimlar nazorati',from_l:'Dan:',to_l:'Gacha:',b_today:'Bugun',b_monthly:'Oylik',b_cm:'Joriy oy',b_ref:'Yangilash',fsearch:'Qidirish...',o_all:'Barcha',o_came:'Keldi',o_late:'Kechikkan',o_abs:'Kelmadi',th1:'Ism familiya',th2:'Login',th4:'O\'zgartirish',th5:'Kelgan vaqti',th6:'Kechikish',th7:'Ishlagan soat',th_afk:'AFK vaqti',th8:'Status',mth_t:'Oylik hisobot',ms1:'Hodimlar',ms2:'Kechikishlar',ms3:'Kelmagan',ms4:'Ish soati',mt1:'Ism familiya',mt2:'Ishlagan soat',mt_afk:'AFK vaqti',mt3:'Kechikish',mt4:'Kelmagan',set_t:'Hodimlar boshqaruvi',b_addemp:'Qo\'shish',et1:'Ism familiya',et2:'Login',et3:'Parol',et4:'Lavozim',et5:'O\'chirish',hol_t:'Dam olish kunlari',b_addh:'Qo\'shish',hol_info:'Standart: Du–Sha. Yakshanba avtomatik dam olish.',hol_none:'Qo\'shimcha dam olish kuni yo\'q',role_manager:'Menejer',role_operator:'Operator',role_intern:'Ish o\'rganuvchi',ew_t:'Bugungi ish jarayoni',et_t:'Bugungi ma\'lumot',eh_t:'Oy bo\'yicha tarix',st_pre:'Holat:',lt_pre:'Kechikish:',lt_u:'daqiqa',st0:'Boshlanmagan',st1:'Ishda',st2:'Tushlikda',st4:'Yakunlandi',bs:'Boshlash',bl:'Tushlik',be:'Yakunlash',bc:'Davom ettirish',bb:'Qaytish',ewl:'Ish vaqti',ell:'Tushlik',ewd:'Ish vaqti',eld:'Tushlik vaqti',e_note:'Yangi kun boshlanganida vaqtlar 0 ga tushadi.',eprl:'Namoz',prayer_next_lbl:'Keyingi namoz vaqti',prayer_btn:'Namoz',prayer_back:'Namozdan qaytish',ei1:'Ish boshlagan',ei2:'Ish tugagan',ei3:'Tushlik boshlangan',ei4:'Tushlik tugagan',ei5:'Namoz boshlangan',ei6:'Namoz tugagan',ht1:'Sana',ht2:'Boshlagan',ht3:'Tushlik bosh.',ht4:'Tushlik tug.',ht5:'Tugagan',ht6:'Kechikish',ht7:'Ish vaqti',ht8:'Tushlik',ht_afk:'AFK',ht9:'Status',eh_note:'Faqat tanlangan oy ma\'lumotlari.',el_lbl:'Kechikishlar (oy):',afk_month_lbl:'AFK (oy jami):',e_cm:'Joriy oy',mw_txt:'Eslatma: "Yakunlash" tugmasini faqat ish kuni to\'liq tugagandan keyin bosing!',mw_ok:'OK',mep_t:'Parolni o\'zgartirish',mep_s:'Saqlash',mep_c:'Bekor qilish',ep_ph:'Yangi parol',b_came:'Keldi',b_late:'Kechikkan',b_abs:'Kelmadi',b_half:'Yarim kun',b_off:'Dam olish',del_c:'Hodimni o\'chirishni tasdiqlaysizmi?',no_data:'Ma\'lumot yo\'q',daq:'daq',marta:'marta',kun:'kun',soat:'soat',daqiqa:'daqiqa',ball:'ball',hisobot:'hisobot',change:'O\'zgartirish',delete:'O\'chirish',reset:'Reset',fill_all:'Barcha maydonlarni to\'ldiring!',face_detected:'Yuz aniqlandi',face_not_detected:'Yuz aniqlanmadi',face_loading:'Yuklanmoqda...',face_unknown:'Noma\'lum yuz',afk_lbl:'Joyida bo\'lmagan vaqt',afk_cnt_lbl:'marta AFK',afk_warn_title:'Yuzingiz aniqlanmadi!',afk_warn_txt:'Kamera oldida o\'tiring. 10 daqiqadan keyin AFK vaqt hisoblanadi.',afk_warn_sub:'10 daqiqa ichida yuz aniqlanmasa, AFK hisoblanadi',afk_im_here:'Men shu yerdaman',auto_end_txt:'Soat 18:00 bo\'ldi. Tizim tomonidan ish yakunlandi.',auto_ended:'Tizim yakunladi',afk_banner:'Yuz aniqlanmadi! 10 daqiqadan keyin AFK vaqt hisoblanadi...',afk_over:'oshiqcha'},
+ru:{loginTitle:'Добро пожаловать!',loginSub:'Введите логин и пароль!',loginBtn:'Войти',loginPH:'Логин',passPH:'Пароль',loginErr:'Неверный логин или пароль!',loginFill:'Введите логин и пароль!',exit:'Выйти',today:'Сегодня',nav_m:'Главная',nav_notif:'Уведомления',nav_fb:'Отзывы',nav_s:'Настройки',adm_m:'Управление | Главная',adm_s:'Управление | Настройки',sc1:'На работе',sc2:'Опоздали',sc3:'Не пришли',sc4:'Дата',att_t:'Контроль сотрудников',from_l:'От:',to_l:'До:',b_today:'Сегодня',b_monthly:'Месяц',b_cm:'Тек. месяц',b_ref:'Обновить',fsearch:'Поиск...',o_all:'Все',o_came:'Пришёл',o_late:'Опоздал',o_abs:'Не пришёл',th1:'ФИО',th2:'Логин',th4:'Изменить',th5:'Приход',th6:'Опоздание',th7:'Отработано',th_afk:'AFK время',th8:'Статус',mth_t:'Месячный отчёт',ms1:'Сотрудников',ms2:'Опозданий',ms3:'Пропусков',ms4:'Раб.часов',mt1:'ФИО',mt2:'Отработано',mt_afk:'AFK время',mt3:'Опоздания',mt4:'Пропуски',set_t:'Управление сотрудниками',b_addemp:'Добавить',et1:'ФИО',et2:'Логин',et3:'Пароль',et4:'Должность',et5:'Удалить',hol_t:'Выходные дни',b_addh:'Добавить',hol_info:'Стандарт: Пн–Сб. Воскресенье — выходной.',hol_none:'Доп. выходных нет',role_manager:'Менеджер',role_operator:'Оператор',role_intern:'Стажёр',ew_t:'Рабочий процесс',et_t:'Сегодня',eh_t:'История за месяц',st_pre:'Статус:',lt_pre:'Опоздание:',lt_u:'мин',st0:'Не начат',st1:'На работе',st2:'В обеде',st4:'Завершён',bs:'Начать',bl:'Обед',be:'Завершить',bc:'Продолжить',bb:'Вернуться',ewl:'Рабочее время',ell:'Время обеда',ewd:'Рабочее время',eld:'Время обеда',e_note:'При новом дне таймеры сбрасываются.',ei1:'Начало',ei2:'Конец',ei3:'Обед нач.',ei4:'Обед кон.',ht1:'Дата',ht2:'Начало',ht3:'Обед нач.',ht4:'Обед кон.',ht5:'Конец',ht6:'Опоздание',ht7:'Раб.время',ht8:'Обед',ht_afk:'AFK',ht9:'Статус',eh_note:'Данные выбранного месяца.',el_lbl:'Опозданий (месяц):',afk_month_lbl:'AFK (итого за месяц):',e_cm:'Тек. месяц',mw_txt:'Нажимайте "Завершить" только после полного окончания рабочего дня!',mw_ok:'ОК',mep_t:'Изменить пароль',mep_s:'Сохранить',mep_c:'Отмена',ep_ph:'Новый пароль',b_came:'Пришёл',b_late:'Опоздал',b_abs:'Не пришёл',b_off:'Выходной',del_c:'Удалить сотрудника?',no_data:'Нет данных',daq:'мин',marta:'раз',kun:'дн.',soat:'ч',daqiqa:'мин',ball:'балл',hisobot:'отчёт',change:'Изменить',delete:'Удалить',reset:'Сброс',fill_all:'Заполните все поля!',face_detected:'Лицо обнаружено',face_not_detected:'Лицо не обнаружено',face_loading:'Загрузка...',face_unknown:'Неизвестное лицо',afk_lbl:'Отсутствие',afk_cnt_lbl:'раз AFK',afk_warn_title:'Лицо не распознано!',afk_warn_txt:'Сядьте перед камерой. AFK начнёт считаться через 10 минут.',afk_warn_sub:'Если лицо не обнаружено в течение 10 минут — AFK',afk_im_here:'Я здесь',auto_end_txt:'18:00. Рабочий день завершён системой.',auto_ended:'Завершено системой',afk_banner:'Лицо не обнаружено! AFK начнёт считаться через 10 минут...',afk_over:'сверх лимита'}
 };
 TR.uz.mt_half='Yarim kun';
 TR.ru.mt_half='Полдня';
 TR.uz.auto_end_txt='Soat 18:00 bo\'ldi. Tizim tomonidan ish yakunlandi.';
 TR.ru.auto_end_txt='18:00. Рабочий день завершён системой.';
-Object.assign(TR.uz,{dash_t:'Dashboard',dash_work_t:'Davomat holati',dash_late_t:'Hodimlar samaradorligi',dash_kpi_t:'Oy bo\'yicha',dash_work_sub:'Oxirgi 7 kun ko\'rsatkichi'});
-Object.assign(TR.ru,{dash_t:'Dashboard',dash_work_t:'Статус посещаемости',dash_late_t:'Эффективность сотрудников',dash_kpi_t:'За месяц',dash_work_sub:'Показатель за последние 7 дней'});
-Object.assign(TR.uz,{eff_title:'Ish samaradorligi',eff_work_hours:'Ish soati',eff_kpi:'KPI',eff_late:'Kechikish',eff_afk:'AFK'});
-Object.assign(TR.ru,{eff_title:'Эффективность работы',eff_work_hours:'Рабочие часы',eff_kpi:'KPI',eff_late:'Опоздания',eff_afk:'AFK'});
-Object.assign(TR.ru,{dash_efficiency_hint:'По рабочим часам, KPI, опозданиям и AFK'});
+Object.assign(TR.uz,{dash_t:'Dashboard',dash_work_t:'Davomat holati',dash_late_t:'Hodimlar samaradorligi',dash_work_sub:'Oxirgi 7 kun ko\'rsatkichi'});
+Object.assign(TR.ru,{dash_t:'Dashboard',dash_work_t:'Статус посещаемости',dash_late_t:'Эффективность сотрудников',dash_work_sub:'Показатель за последние 7 дней'});
+Object.assign(TR.uz,{eff_title:'Ish samaradorligi',eff_work_hours:'Ish soati',eff_late:'Kechikish',eff_afk:'AFK'});
+Object.assign(TR.ru,{eff_title:'Эффективность работы',eff_work_hours:'Рабочие часы',eff_late:'Опоздания',eff_afk:'AFK'});
+Object.assign(TR.ru,{dash_efficiency_hint:'По рабочим часам, опозданиям и AFK'});
 
 Object.assign(TR.uz,{
   prayer_next_lbl:'Keyingi namoz vaqti',
@@ -272,7 +272,7 @@ Object.assign(TR.uz,{
   export_pdf_wait:'PDF kutubxonasi hali yuklanmadi, kuting...',
   export_downloaded:'Yuklab olindi!',
   report_sheet:'Hisobot',
-  report_title:'KPI Hisobot',
+  report_title:'Oylik hisobot',
   date_label:'Sana',
   face_registered_yes:'Ro\'yxatda',
   face_registered_no:'Yo\'q',
@@ -291,10 +291,9 @@ Object.assign(TR.uz,{
   dash_avg7:'7 kun o\'rtacha',
   dash_best_day:'Eng yaxshi kun',
   dash_efficiency_best:'Eng samarali xodim',
-  dash_efficiency_hint:'Ish soati, KPI, kechikish va AFK bo\'yicha',
+  dash_efficiency_hint:'Ish soati, kechikish va AFK bo\'yicha',
   eff_title:'Ish samaradorligi',
   eff_work_hours:'Ish soati',
-  eff_kpi:'KPI',
   eff_late:'Kechikish',
   eff_afk:'AFK'
 });
@@ -351,7 +350,7 @@ Object.assign(TR.ru,{
   export_pdf_wait:'Библиотека PDF ещё загружается, подождите...',
   export_downloaded:'Скачано!',
   report_sheet:'Отчёт',
-  report_title:'KPI Отчёт',
+  report_title:'Месячный отчёт',
   date_label:'Дата',
   face_registered_yes:'Зарегистрировано',
   face_registered_no:'Нет',
@@ -432,7 +431,7 @@ Object.assign(TR.uz,{
   face_real:'Real yuz',
   face_no_motion:'Harakat yo\'q',
   afk_total_widget:'Jami AFK: {minutes} daq',
-  report_headers:'#|Ism familiya|Ish soat|AFK|Kechikish|Yarim kun|Kelmagan|Jarima|Bonus|Ball|KPI (UZS)'
+  report_headers:'#|Ism familiya|Ish soat|AFK|Kechikish|Yarim kun|Kelmagan'
 });
 
 Object.assign(TR.ru,{
@@ -495,7 +494,7 @@ Object.assign(TR.ru,{
   face_real:'Реальное лицо',
   face_no_motion:'Нет движения',
   afk_total_widget:'AFK всего: {minutes} мин',
-  report_headers:'#|ФИО|Раб. часы|AFK|Опоздание|Полдня|Пропуск|Штраф|Бонус|Баллы|KPI (UZS)'
+  report_headers:'#|ФИО|Раб. часы|AFK|Опоздание|Полдня|Пропуск'
 });
 Object.assign(TR.uz,{
   face_control_title:'Yuz nazorati',
@@ -841,7 +840,6 @@ function getAdminTabTitle(tab){
   const titles={
     main:t('adm_m'),
     settings:t('adm_s'),
-    kpi:t('adm_k'),
     notif:t('nav_notif'),
     feedback:t('nav_fb')
   };
@@ -1019,7 +1017,6 @@ function refreshStaticLabels(){
     ['#tab_settings .box:nth-of-type(3) .btitle','pin',t('gps_region_title')],
     ['#face_control_title','camera',t('face_control_title')],
     ['#tab_settings .box:nth-of-type(5) .btitle','calendar',document.getElementById('hol_t')?.textContent||t('hol_t')],
-    ['#tab_kpi .btitle','trophy',document.getElementById('kpi_t')?.textContent||t('kpi_t')],
     ['#emp_tab_notif .btitle','bell',t('notifications_title')],
     ['#enablePushBtn','bell',lang==='uz'?'Push bildirishnomalarni yoqish':'Включить push-уведомления'],
     ['#emp_tab_feedback > .box > .btitle','message',t('send_feedback_title')],
@@ -1081,7 +1078,7 @@ function applyLang(){
   ['ll','al','el','sl'].forEach(p=>{const u=document.getElementById(p+'_uz'),r=document.getElementById(p+'_ru');if(u)u.classList.toggle('active',lang==='uz');if(r)r.classList.toggle('active',lang==='ru');});
   st('lc_t',t('loginTitle'));st('lc_s',t('loginSub'));setLoginButtonLoading(false);
   sp('inp_l',t('loginPH'));sp('inp_p',t('passPH'));
-  ['n_main','n_notif','n_fb','n_set','n_kpi'].forEach((id,i)=>{st(id,t(['nav_m','nav_notif','nav_fb','nav_s','nav_k'][i]||''));});
+  ['n_main','n_notif','n_fb','n_set'].forEach((id,i)=>{st(id,t(['nav_m','nav_notif','nav_fb','nav_s'][i]||''));});
   if(typeof refreshPbxStaticLabels==='function')refreshPbxStaticLabels();
   st('admTitle',getAdminTabTitle(currentAdminTab||'main'));
   const ae=document.getElementById('admExit');if(ae)ae.innerHTML=(typeof getLucideIcon==='function'?getLucideIcon('log-out','btn-icon',14):'')+'<span>'+t('exit')+'</span>';
@@ -1092,11 +1089,10 @@ function applyLang(){
   st('emp_logout_tab_lbl',t('emp_logout_tab_lbl'));
   updateDates();
   ['sc1','sc2','sc3','sc_leave','sc_leave_btn','sc4','att_t','from_l','to_l','b_today','b_monthly','b_cm','b_ref','o_all','o_came','o_late','o_abs',
-   'th1','th2','th4','th5','th6','th7','th_afk','th8','dash_t','dash_work_t','dash_late_t','dash_kpi_t','dash_amocrm_t','dash_amocrm_pill','mth_t','ms1','ms2','ms3','ms4','ms5',
-   'mt1','mt2','mt_afk','mt3','mt_half','mt4','mt5','mt6','mt7','mt8','mt9',
+   'th1','th2','th4','th5','th6','th7','th_afk','th8','dash_t','dash_work_t','dash_late_t','dash_amocrm_t','dash_amocrm_pill','mth_t','ms1','ms2','ms3','ms4',
+   'mt1','mt2','mt_afk','mt3','mt_half','mt4',
     'monthly_att_summary_title','mas_emp','mas_month','mas_worked_days','mas_late_count','mas_absent_days','mas_late_time','mas_actions','month_att_detail_title','month_att_detail_close',
     'set_t','b_addemp','ne_course_none','et1','et2','et_course','et3','et4','et5','hol_t','b_addh','hol_info','leave_manage_title','leave_add_btn',
-    'kpi_t','k1','k2','k3','k4','k5','k_afk','k6','k7','k_op','k8',
     'ew_t','et_t','eh_t','ewl','ell','eprl','ewd','eld','e_note','prayer_next_lbl',
     'ei1','ei2','ei3','ei4','ei5','ei6','ht1','ht2','ht3','ht4','ht5','ht6','ht7','ht8','ht_afk','ht9',
    'eh_note','el_lbl','afk_month_lbl','e_cm','mw_txt','mw_ok','mep_t','mep_s','mep_c',
@@ -1120,9 +1116,9 @@ function applyLang(){
   if(typeof updateEmpBtns==='function'){ updateEmpBtns(); }
   const ks=document.getElementById('ne_k');
   if(ks && ks.options.length>=3){
-    ks.options[0].text=t('kpi_manager');
-    ks.options[1].text=t('kpi_operator');
-    ks.options[2].text=t('kpi_intern');
+    ks.options[0].text=t('role_manager');
+    ks.options[1].text=t('role_operator');
+    ks.options[2].text=t('role_intern');
   }
   refreshStaticLabels();
   refreshAmoCrmStaticLabels();
