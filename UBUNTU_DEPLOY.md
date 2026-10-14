@@ -115,7 +115,6 @@ Talab bo'yicha: **Har 2 oyda 3 oydan eski ma'lumotlar o'chib boradi**.
   2. `notifications` (3 oydan eski bildirishnomalar)
   3. `feedback` (3 oydan eski fikr-mulohazalar)
   4. `employee_leaves` (3 oydan eski ta'tillar)
-  5. `calls` (3 oydan eski OnlinePBX qo'ng'iroqlari)
 - **Nimalar aslo o'chirilmaydi?**
   `employees` (xodimlar hisoblari), `admins` (adminlar), `face_profiles` (yuz qoliplari), `settings` (sozlamalar) doimiy saqlanadi.
 
@@ -138,14 +137,6 @@ curl -X POST http://localhost:3000/api/admin/cleanup \
 - `.env` da `ENABLE_GOOGLE_SHEETS=false` qo'yilgan.
 - Barcha ma'lumotlar 100% serverning o'zidagi ma'lumotlar bazasida saqlanadi.
 - Admin hisobotni faqat o'zi xohlagan paytda mahalliy kompyuteriga Excel (.xlsx) yoki PDF sifatida yuklab olishi mumkin.
-
----
-
-## 5. OnlinePBX va amoCRM holati
-
-- Agar kerak bo'lmasa, `.env` ichida `ENABLE_AMOCRM=false` va `ENABLE_ONLINEPBX=false` turadi.
-- Bu holatda tizim xatolik chiqarmaydi va xodimlarning ish yakunlashi (`empEnd`) to'xtab qolmaydi.
-- Yoqish kerak bo'lsa, tegishli tokenlarni `.env` ga kiritib `true` qilasiz.
 
 ---
 

@@ -145,51 +145,7 @@ CREATE TABLE IF NOT EXISTS public.face_profiles (
   UNIQUE(employee_id)
 );
 
--- 11. CALLS (OnlinePBX qo'ng'iroqlar jurnali - serverda saqlansa)
-CREATE TABLE IF NOT EXISTS public.calls (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  call_uid TEXT UNIQUE,
-  direction TEXT,
-  status TEXT,
-  started_at TIMESTAMPTZ,
-  answered_at TIMESTAMPTZ,
-  ended_at TIMESTAMPTZ,
-  from_number TEXT,
-  to_number TEXT,
-  call_duration_sec INTEGER DEFAULT 0,
-  talk_duration_sec INTEGER DEFAULT 0,
-  recording_url TEXT,
-  course_code TEXT,
-  raw_payload JSONB,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
 
-CREATE INDEX IF NOT EXISTS idx_calls_started_at ON public.calls(started_at);
-
--- 12. AMOCRM ACTIVE TASKS & VIEW
-CREATE TABLE IF NOT EXISTS public.amocrm_active_tasks (
-  id BIGSERIAL PRIMARY KEY,
-  task_id TEXT UNIQUE,
-  responsible_user_id BIGINT,
-  department_name TEXT,
-  sort_order INTEGER DEFAULT 1,
-  text TEXT,
-  complete_till TIMESTAMPTZ,
-  is_completed BOOLEAN DEFAULT false,
-  updated_at TIMESTAMPTZ DEFAULT now()
-);
-
-CREATE OR REPLACE VIEW public.amocrm_department_task_counts AS
-SELECT
-  responsible_user_id,
-  department_name,
-  COALESCE(sort_order, 100) AS sort_order,
-  COUNT(*) FILTER (WHERE NOT is_completed)::INTEGER AS active_tasks,
-  COUNT(*) FILTER (WHERE NOT is_completed AND complete_till < now())::INTEGER AS overdue_tasks,
-  COUNT(*) FILTER (WHERE NOT is_completed AND (complete_till >= now() OR complete_till IS NULL))::INTEGER AS on_time_tasks,
-  MIN(complete_till) FILTER (WHERE NOT is_completed) AS nearest_deadline
-FROM public.amocrm_active_tasks
-GROUP BY responsible_user_id, department_name, sort_order;
 
 -- 13. UPDATED_AT TRIGGER FUNKSIYASI
 CREATE OR REPLACE FUNCTION public.set_updated_at()
@@ -333,12 +289,6 @@ BEGIN
   DELETE FROM public.employee_leaves WHERE return_date < v_cutoff_date;
   GET DIAGNOSTICS cnt_leaves = ROW_COUNT;
 
-  -- Qo'ng'iroqlar (< 3 oy)
-  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='calls') THEN
-    EXECUTE 'DELETE FROM public.calls WHERE started_at < $1' USING v_cutoff_tz;
-    GET DIAGNOSTICS cnt_calls = ROW_COUNT;
-  END IF;
-
   RETURN jsonb_build_object(
     'ok', true,
     'cutoff_date', v_cutoff_date,
@@ -347,7 +297,6 @@ BEGIN
     'deleted_notifications', cnt_notifs,
     'deleted_feedback', cnt_feedback,
     'deleted_leaves', cnt_leaves,
-    'deleted_calls', cnt_calls,
     'cleaned_at', now()
   );
 END;

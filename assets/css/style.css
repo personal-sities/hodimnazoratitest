@@ -1200,81 +1200,16 @@ body.admin-view #installBanner {
 .afk-modal-border { border: 2px solid var(--danger) !important; }
 .countdown { font-size: 38px; font-weight: 900; color: var(--danger); margin: 12px 0; font-family: var(--mono); }
 
-/* amoCRM tab */
-.amocrm-summary-grid { grid-template-columns: repeat(3, 1fr); }
-.amocrm-toolbar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-bottom: 14px; }
-.amocrm-dept-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
-.amocrm-dept-card { background: var(--bg3); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px; transition: var(--transition); }
-.amocrm-dept-card:hover { transform: translateY(-2px); box-shadow: var(--shadow); }
-.amocrm-dept-name { color: var(--text); font-size: 15px; font-weight: 800; }
-.amocrm-dept-active { font-size: 36px; line-height: 1; font-weight: 900; font-family: var(--mono); color: var(--accent); margin-bottom: 4px; }
-.amocrm-dept-metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 12px 0; }
-.amocrm-dept-metric { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 10px; }
-.amocrm-dept-metric span { display: block; color: var(--text3); font-size: 10.5px; margin-bottom: 3px; font-weight: 700; }
-.amocrm-dept-metric strong { display: block; color: var(--text); font-size: 18px; font-family: var(--mono); }
 
-/* OnlinePBX */
-.pbx-icon { width: 18px; height: 18px; display: inline-flex; align-items: center; justify-content: center; flex: 0 0 18px; vertical-align: middle; }
-.pbx-icon svg { width: 18px; height: 18px; stroke: currentColor; }
-.pbx-title { display: inline-flex; align-items: center; gap: 8px; margin: 0; }
-.pbx-subtitle { color: var(--text2); font-size: 12px; margin-top: 6px; }
-.pbx-widget-head, .pbx-page-head, .pbx-table-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
-.pbx-page-head { align-items: center; }
-.pbx-head-actions { display: flex; align-items: center; justify-content: flex-end; gap: 10px; flex-wrap: wrap; }
-.pbx-summary-grid { display: grid; grid-template-columns: repeat(8, minmax(138px, 1fr)); gap: 12px; margin-bottom: 18px; }
-.pbx-stat-card {
-  --pbx-accent: var(--accent);
-  --pbx-soft: rgba(124, 58, 237, 0.10);
-  position: relative;
-  overflow: hidden;
-  box-shadow: var(--shadow);
-  background: linear-gradient(180deg, var(--pbx-soft), var(--card));
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  padding: 12px;
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  grid-template-rows: auto auto;
-  column-gap: 8px;
-  row-gap: 7px;
-  align-items: center;
-}
-.pbx-stat-card::after { content: ''; position: absolute; left: 12px; right: 12px; bottom: 8px; height: 3px; border-radius: 999px; background: var(--pbx-accent); opacity: .9; }
-.pbx-stat-card[data-tone="incoming"] { --pbx-accent: var(--success); --pbx-soft: rgba(16, 185, 129, 0.10); }
-.pbx-stat-card[data-tone="outgoing"] { --pbx-accent: var(--accent2); --pbx-soft: rgba(6, 182, 212, 0.10); }
-.pbx-stat-card[data-tone="outside-work"] { --pbx-accent: var(--warn); --pbx-soft: rgba(245, 158, 11, 0.12); }
-.pbx-stat-card[data-tone="missed"] { --pbx-accent: var(--danger); --pbx-soft: rgba(244, 63, 94, 0.10); }
-.pbx-stat-card[data-tone="not-called"] { --pbx-accent: var(--warn); --pbx-soft: rgba(245, 158, 11, 0.12); }
-.pbx-stat-card .pbx-icon { color: var(--pbx-accent); margin: 0; grid-column: 1; grid-row: 1; }
-.pbx-stat-card small { grid-column: 2; grid-row: 1; color: var(--text3); font-size: 11px; font-weight: 800; text-transform: uppercase; }
-.pbx-stat-card strong { display: block; grid-column: 1 / -1; grid-row: 2; margin-top: 2px; padding-bottom: 8px; font-size: 24px; font-family: var(--mono); font-weight: 900; }
-.pbx-course-chart-box, .pbx-responsibles-box { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 22px; box-shadow: var(--shadow); margin-bottom: 22px; }
-.pbx-calendar-toggle { width: 38px; height: 38px; display: inline-flex; align-items: center; justify-content: center; border: 1.5px solid var(--border2); border-radius: var(--radius-sm); background: var(--card); color: var(--accent); cursor: pointer; transition: var(--transition); }
-.pbx-calendar-popover { display: none; position: absolute; right: 0; top: calc(100% + 10px); width: min(360px, calc(100vw - 48px)); padding: 12px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--card); box-shadow: var(--shadow-lg); z-index: 2600; }
-.pbx-date-picker.open .pbx-calendar-popover { display: grid; gap: 10px; }
-.pbx-course-chart { min-height: 268px; display: grid; grid-template-columns: repeat(6, minmax(112px, 1fr)); gap: 12px; align-items: end; margin-top: 14px; padding: 16px 12px 14px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--card2); overflow-x: auto; }
-.pbx-course-bar { min-width: 112px; height: 236px; display: grid; grid-template-rows: 24px 1fr 34px; gap: 8px; align-items: end; text-align: center; color: var(--text3); }
-.pbx-course-track { height: 100%; display: flex; align-items: flex-end; justify-content: center; }
-.pbx-course-track span { display: block; width: 56%; border-radius: 10px 10px 3px 3px; background: linear-gradient(180deg, var(--accent), var(--accent2)); box-shadow: 0 8px 18px rgba(124, 58, 237, 0.18); }
-.pbx-hour-chart { height: 200px; display: grid; grid-template-columns: repeat(24, minmax(38px, 1fr)); gap: 6px; align-items: end; margin-top: 14px; padding: 10px 6px 0; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--card2); overflow-x: auto; }
-.pbx-hour-bar { min-width: 38px; height: 170px; display: grid; grid-template-rows: 20px 1fr 22px; gap: 5px; align-items: end; text-align: center; color: var(--text3); font-size: 10px; font-family: var(--mono); }
-.pbx-hour-track { height: 100%; display: flex; align-items: flex-end; justify-content: center; }
-.pbx-hour-track span { display: block; width: 72%; border-radius: 8px 8px 2px 2px; background: linear-gradient(180deg, var(--accent), var(--accent2)); }
-.pbx-responsibles-grid { display: grid; grid-template-columns: repeat(6, minmax(150px, 1fr)); gap: 12px; margin-top: 14px; }
-.pbx-responsible-card { border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--card2); padding: 13px; display: grid; gap: 10px; }
 
 /* ============================================================
    RESPONSIVE DESIGN
 ============================================================ */
-@media(max-width: 1320px){
-  .pbx-summary-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-}
 @media(max-width: 992px){
   .scards { grid-template-columns: repeat(2, 1fr); }
   .mst { grid-template-columns: repeat(3, 1fr); }
   .dash-grid { grid-template-columns: 1fr; }
   .dash-eff-grid { grid-template-columns: 1fr; }
-  .amocrm-dept-grid { grid-template-columns: repeat(2, 1fr); }
 }
 @media(max-width: 768px){
   /* Employee bottom nav */
@@ -1346,7 +1281,6 @@ body.admin-view #installBanner {
   .drange input { flex: 1; min-width: 120px; }
   .box { padding: 16px 14px; }
   .notif-send-row { flex-direction: column; }
-  .amocrm-dept-grid { grid-template-columns: 1fr; }
   #faceWidget { width: 155px; bottom: 10px; right: 10px; }
 }
 

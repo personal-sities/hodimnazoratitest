@@ -44,9 +44,7 @@ const TABLES = [
   'kpi_bonuses',
   'attendance',
   'notifications',
-  'feedback',
-  'calls',
-  'amocrm_active_tasks'
+  'feedback'
 ];
 
 async function main() {

@@ -159,8 +159,6 @@ function sendEnv(res) {
     SUPABASE_URL: process.env.SUPABASE_URL || 'https://hdbhdddekjjjtwtyocfa.supabase.co',
     SUPABASE_ANON_KEY: process.env.SUPABASE_ANON_KEY || 'sb_publishable_CZUB0mOSzmmCvviNzWykzw_B3_0-5bE',
     FUNCTIONS_BASE: process.env.FUNCTIONS_BASE || '/api/functions/v1',
-    ENABLE_AMOCRM: parseBool(process.env.ENABLE_AMOCRM),
-    ENABLE_ONLINEPBX: parseBool(process.env.ENABLE_ONLINEPBX),
     ENABLE_GOOGLE_SHEETS: false
   };
   const content = `window.ALOQA_CONFIG = ${JSON.stringify(config, null, 2)};\n`;
@@ -174,35 +172,6 @@ function sendEnv(res) {
 // Edge functions handler
 async function handleFunction(req, res, name) {
   const body = await readJson(req);
-
-  // OnlinePBX so'rovi
-  if (name === 'onlinepbx') {
-    const isEnabled = parseBool(process.env.ENABLE_ONLINEPBX);
-    if (!isEnabled) {
-      return sendJson(res, 200, {
-        ok: true,
-        source: 'disabled',
-        filters: body,
-        stats: {
-          total: 0, incoming: 0, outgoing: 0, internal: 0,
-          outsideWork: 0, missed: 0, answered: 0, totalDuration: 0,
-          averageDuration: 0, notCalledBack: 0, notReached: 0,
-          withQualityScore: 0, unknown: 0, callback: 0
-        },
-        pagination: {
-          limit: body.limit || 100,
-          offset: body.offset || 0,
-          returned: 0,
-          totalFiltered: 0,
-          hasNext: false,
-          hasPrev: false
-        },
-        calls: []
-      });
-    }
-
-    return handleOnlinePbxProxy(res, body);
-  }
 
   // create-employee
   if (name === 'create-employee') {
@@ -220,22 +189,6 @@ async function handleFunction(req, res, name) {
   }
 
   return sendJson(res, 404, { ok: false, error: `Noma'lum funksiya: ${name}` });
-}
-
-async function handleOnlinePbxProxy(res, body) {
-  return sendJson(res, 200, {
-    ok: true,
-    source: 'local_proxy',
-    filters: body,
-    stats: {
-      total: 0, incoming: 0, outgoing: 0, internal: 0,
-      outsideWork: 0, missed: 0, answered: 0, totalDuration: 0,
-      averageDuration: 0, notCalledBack: 0, notReached: 0,
-      withQualityScore: 0, unknown: 0, callback: 0
-    },
-    pagination: { limit: body.limit || 100, offset: body.offset || 0, returned: 0, totalFiltered: 0, hasNext: false, hasPrev: false },
-    calls: []
-  });
 }
 
 async function handleCreateEmployee(res, body) {

@@ -6,8 +6,7 @@ let notifPollIv = null;
 let seenNotifIds = new Set(JSON.parse(localStorage.getItem('aloqa_seen_notif_ids')||'[]'));
 let employeeNotifRealtime = null;
 let adminRealtime = null;
-let amoCrmTaskRealtime = null;
-let amoCrmRefreshTimer = null;
+
 let faceControlPollTimer = null;
 let todayLunchShift = null;
 
@@ -74,7 +73,6 @@ function stopRealtimeSubscriptions(){
   employeeNotifRealtime = removeRealtimeChannel(employeeNotifRealtime);
   adminRealtime = removeRealtimeChannel(adminRealtime);
   stopFaceControlPolling();
-  stopAmoCrmTaskPage();
 }
 function subscribeEmployeeRealtime(){
   if(!CU||CU.role!=='employee')return;
@@ -523,15 +521,11 @@ const CARD_ANIMATION_SELECTOR=[
   '.scard',
   '.box',
   '.dash-card',
-  '.dash-amocrm-stat',
-  '.dash-amocrm-bar-item',
   '.dash-eff-card',
   '.ec',
   '.ii',
   '.fb-item',
   '.notif-item',
-  '.amocrm-dept-card',
-  '.amocrm-task-card',
   '.modal'
 ].join(',');
 function shouldReduceMotion(){

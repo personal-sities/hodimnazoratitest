@@ -76,24 +76,16 @@ async function restoreLS(){
   if(!autoEndDone&&['working','lunch','paused','prayer'].includes(empState)){
     const autoEndAt=getTodayAutoEndDate();
     if(tzNow()>=autoEndAt){
-      let canAutoFinish=false;
-      try{
-        canAutoFinish=await canFinishWorkByAmoCrmTasks({auto:true});
-      }catch(e){
-        console.warn('auto-end restore task check:', e.message||e);
-      }
-      if(canAutoFinish){
-        if(empState==='working'&&wStart)wAccum+=Math.max(0,Math.floor((autoEndAt-wStart)/1000));
-        if(empState==='lunch'&&lStart)lAccum+=Math.max(0,Math.floor((autoEndAt-lStart)/1000));
-        if(empState==='prayer'&&prayerStart)prayerAccum+=Math.max(0,Math.floor((autoEndAt-prayerStart)/1000));
-        wStart=null;lStart=null;prayerStart=null;empState='ended';autoEndDone=true;
-        ss.state='ended';ss.wAccum=wAccum;ss.lAccum=lAccum;ss.prayerAccum=prayerAccum;
-        ss.wStartISO=null;ss.lStartISO=null;ss.prayerStartISO=null;ss.afkStartISO=null;
-        ss.i_e=ss.i_e&&ss.i_e!=='-'?ss.i_e:fmtHM(autoEndAt);
-        ss.autoEndDone=true;ss.lastSavedISO=tzNow().toISOString();
-        localStorage.setItem('aloqa_emp_state',JSON.stringify(ss));
-        pendingAutoEndSave=true;
-      }
+      if(empState==='working'&&wStart)wAccum+=Math.max(0,Math.floor((autoEndAt-wStart)/1000));
+      if(empState==='lunch'&&lStart)lAccum+=Math.max(0,Math.floor((autoEndAt-lStart)/1000));
+      if(empState==='prayer'&&prayerStart)prayerAccum+=Math.max(0,Math.floor((autoEndAt-prayerStart)/1000));
+      wStart=null;lStart=null;prayerStart=null;empState='ended';autoEndDone=true;
+      ss.state='ended';ss.wAccum=wAccum;ss.lAccum=lAccum;ss.prayerAccum=prayerAccum;
+      ss.wStartISO=null;ss.lStartISO=null;ss.prayerStartISO=null;ss.afkStartISO=null;
+      ss.i_e=ss.i_e&&ss.i_e!=='-'?ss.i_e:fmtHM(autoEndAt);
+      ss.autoEndDone=true;ss.lastSavedISO=tzNow().toISOString();
+      localStorage.setItem('aloqa_emp_state',JSON.stringify(ss));
+      pendingAutoEndSave=true;
     }
   }
   if(ss.afkStartISO&&empState==='working'){currentAfkStart=new Date(ss.afkStartISO);isAfk=true;const elapsed=Math.floor((tzNow()-currentAfkStart)/1000);if(elapsed>0){afkSeconds+=elapsed;breakSeconds+=elapsed;}currentAfkStart=null;isAfk=false;}
@@ -235,14 +227,7 @@ function syncWorkWhileAway({saveRemote=false}={}){
 }
 async function empEnd(auto=false){
   if(!['working','lunch','paused','prayer'].includes(empState))return;
-  if (!(window.ALOQA_CONFIG && window.ALOQA_CONFIG.ENABLE_AMOCRM === false)) {
-    try{
-      const canFinish=await canFinishWorkByAmoCrmTasks({auto});
-      if(!canFinish)return;
-    }catch(e){
-      console.warn('finish task check:', e.message||e);
-    }
-  }
+
   const now=tzNow();
   if(empState==='working'&&wStart)wAccum+=Math.floor((now-wStart)/1000);
   if(empState==='lunch'&&lStart)lAccum+=Math.floor((now-lStart)/1000);
