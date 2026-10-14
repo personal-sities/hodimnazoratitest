@@ -24,10 +24,6 @@
 
 <div id="toast-container"></div>
 
-<div id="afkBanner"><span class="banner-ico" data-lucide="shield-alert"></span> <span id="afkBannerTxt">Yuz aniqlanmadi! AFK vaqt hisoblanmoqda...</span></div>
-<div id="autoEndBanner"><span class="banner-ico" data-lucide="check-circle-2"></span> <span id="autoEndTxt">Ish vaqti tugadi. Tizim tomonidan yakunlandi (18:00)</span></div>
-<div id="breakBanner"><span class="banner-ico" data-lucide="coffee"></span> <span id="breakBannerTxt">Tanaffus vaqtingiz: 0:00 / 30 daqiqa</span></div>
-
 <div id="installBanner">
   <p><span class="banner-ico" data-lucide="smartphone"></span> AloqaPro ni o'rnatish</p>
   <div class="install-btns">
@@ -96,8 +92,6 @@
       </div>
       <div class="sb-nav">
         <button class="nbtn active" id="nav_main" onclick="adminTab('main');closeSidebar()"><span class="ni" data-lucide="layout-dashboard"></span><span id="n_main">Asosiy</span></button>
-        <button class="nbtn" id="nav_pbx" onclick="adminTab('pbx');closeSidebar()"><span class="ni" data-lucide="phone-call"></span><span id="n_pbx">Qo'ng'iroqlar</span></button>
-        <button class="nbtn" id="nav_amocrm" onclick="adminTab('amocrm');closeSidebar()"><span class="ni" data-lucide="clipboard-check"></span><span id="n_amocrm">amoCRM vazifalari</span></button>
         <button class="nbtn" id="nav_feedback" onclick="adminTab('feedback');closeSidebar()"><span class="ni" data-lucide="message-square"></span><span id="n_fb">Fikrlar</span> <span id="fbBadge" class="notif-badge hidden">0</span></button>
         <button class="nbtn" id="nav_notif" onclick="adminTab('notif');closeSidebar()"><span class="ni" data-lucide="bell"></span><span id="n_notif">Bildirishnomalar</span> <span id="notifBadgeAdmin" class="notif-badge hidden">0</span></button>
         <button class="nbtn" id="nav_settings" onclick="adminTab('settings');closeSidebar()"><span class="ni" data-lucide="settings"></span><span id="n_set">Sozlamalar</span></button>
@@ -167,17 +161,6 @@
               <span style="font-size:11px;color:var(--text3);font-family:var(--mono)" id="dash_month">-</span>
             </div>
             <div class="dash-grid">
-              <div class="dash-card dash-amocrm-card">
-                <div class="dash-head">
-                  <h4 id="dash_amocrm_t" style="margin:0">amoCRM task diagrammasi</h4>
-                  <span class="dash-pill" id="dash_amocrm_pill">Bo'limlar bo'yicha</span>
-                </div>
-                <div class="dash-amocrm-summary" id="dash_amocrm_summary"></div>
-                <div class="dash-amocrm-chart" id="dash_amocrm_chart">
-                  <div class="dash-empty">Yuklanmoqda...</div>
-                </div>
-                <div class="dash-amocrm-legend" id="dash_amocrm_legend"></div>
-              </div>
               <div class="dash-card">
                 <div class="dash-head">
                   <h4 id="dash_work_t" style="margin:0">Davomat holati</h4>
@@ -207,28 +190,6 @@
                   <div class="dash-line-labels" id="dash_work_labels"></div>
                 </div>
               </div>
-              <div class="dash-card dash-bar-card">
-                <div class="dash-head">
-                  <h4 id="dash_late_t" style="margin:0">Hodimlar samaradorligi</h4>
-                  <span style="font-size:11px;color:var(--text3)" id="dash_kpi_t">Oy bo'yicha</span>
-                </div>
-                <div id="dash_late" class="dash-eff-grid">Yuklanmoqda...</div>
-                <div id="dash_kpi" class="dash-empty" style="padding-top:12px"></div>
-              </div>
-            </div>
-          </div>
-
-          <div class="box pbx-dashboard-widget pbx-dashboard-course-widget">
-            <div class="pbx-widget-head">
-              <span class="btitle pbx-title" id="dash_pbx_course_title"><span data-pbx-icon="BarChart3"></span> Kurs kesimidagi qo'ng'iroqlar</span>
-              <div class="pbx-chart-head-actions">
-                <div class="pbx-chart-metric-tabs" id="dash_pbx_course_metric_buttons"></div>
-                <span id="dash_pbx_course_chart_note" class="pbx-result-count">-</span>
-                <button class="xbtn pbx-detail-btn" onclick="adminTab('pbx')"><span data-pbx-icon="BarChart3"></span><span id="dash_pbx_detail_txt">Batafsil</span></button>
-              </div>
-            </div>
-            <div class="pbx-course-chart pbx-dashboard-course-chart" id="dash_pbx_course_chart">
-              <div class="pbx-loading">Yuklanmoqda...</div>
             </div>
           </div>
           <div class="box">
@@ -349,24 +310,15 @@
               <input type="email" id="ne_l" placeholder="Email">
               <input type="password" id="ne_p" placeholder="Parol">
               <select id="ne_k">
-                <option value="senior">Eski hodim (560 000 UZS)</option>
-                <option value="junior">Yangi hodim (400 000 UZS)</option>
-              </select>
-              <select id="ne_course">
-                <option value="" id="ne_course_none">Kurs mas'ulligi yo'q</option>
-                <option value="1-kurs">1-kurs</option>
-                <option value="2-kurs">2-kurs</option>
-                <option value="3-kurs">3-kurs</option>
-                <option value="4-kurs">4-kurs</option>
-                <option value="5-kurs">5-kurs</option>
-                <option value="umumiy call">Umumiy call</option>
-                <option value="copywriter">Copywriter</option>
+                <option value="manager">Menejer (560 000 UZS)</option>
+                <option value="operator">Operator (480 000 UZS)</option>
+                <option value="intern">Ish o'rganuvchi (400 000 UZS)</option>
               </select>
               <button class="bb" id="b_addemp" onclick="addEmp()"><span class="btn-icon" data-lucide="plus"></span> <span>Qo'shish</span></button>
             </div>
             <div class="tbl-wrap">
               <table class="tbl" style="min-width:620px;">
-                <thead><tr><th>#</th><th id="et1">Ism familiya</th><th id="et2">Login</th><th id="et_course">Kurs mas'ulligi</th><th id="et3">Parol</th><th>Yuz</th><th id="et4">KPI summasi</th><th id="et5">O'chirish</th></tr></thead>
+                <thead><tr><th>#</th><th id="et1">Ism familiya</th><th id="et2">Login</th><th id="et3">Parol</th><th>Yuz</th><th id="et4">Lavozim (KPI)</th><th id="et5">O'chirish</th></tr></thead>
                 <tbody id="emp_body"></tbody>
               </table>
             </div>
@@ -457,125 +409,29 @@
               <div style="margin-bottom:12px"><strong id="k1">Asosiy KPI</strong><br><span id="k2">Davomat bo'yicha KPI 100 ballik sistemada!</span></div>
               <div style="margin-bottom:12px"><strong id="k3">Jarimalar</strong><br><span id="k4">Kech qolish</span> — 10 ball<br><span id="k5">Kelmaslik</span> — 20 ball<br><span id="k_afk">AFK (30 daqiqadan ortiq, har daqiqa)</span> — kunlik hisobda</div>
               <div>
-                <strong id="k6">KPI to'lovlari</strong><br><strong id="k7">Eski hodimlar</strong><br>
-                <div class="krow"><div class="kcol">90–100 ball</div><div>+560 000 UZS</div></div>
-                <div class="krow"><div class="kcol">80–89 ball</div><div>+420 000 UZS</div></div>
-                <div class="krow"><div class="kcol">70–79 ball</div><div>+280 000 UZS</div></div>
-                <div class="krow"><div class="kcol">70 dan kam</div><div>+0 UZS</div></div><br>
-                <strong id="k8">Yangi hodimlar</strong><br>
-                <div class="krow"><div class="kcol">90–100 ball</div><div>+400 000 UZS</div></div>
-                <div class="krow"><div class="kcol">80–89 ball</div><div>+300 000 UZS</div></div>
-                <div class="krow"><div class="kcol">70–79 ball</div><div>+210 000 UZS</div></div>
-                <div class="krow"><div class="kcol">70 dan kam</div><div>+0 UZS</div></div>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div id="tab_amocrm" class="hidden">
-          <div id="amocrm_error" class="amocrm-error hidden"></div>
-          <div class="scards amocrm-summary-grid">
-            <div class="scard amocrm-summary-card"><h4 id="amocrm_card_active">Jami faol vazifalar</h4><div class="snum" id="amocrm_total_active">-</div></div>
-            <div class="scard amocrm-summary-card"><h4 id="amocrm_card_overdue">Muddati o'tgan</h4><div class="snum" id="amocrm_total_overdue">-</div></div>
-            <div class="scard amocrm-summary-card"><h4 id="amocrm_card_on_time_active">Hali muddati o'tmagan</h4><div class="snum" id="amocrm_total_on_time_active">-</div></div>
-          </div>
-          <div class="box">
-            <div class="amocrm-toolbar">
-              <span class="btitle" id="amocrm_stats_title" style="margin:0">Bo'limlar bo'yicha amoCRM tasklari</span>
-              <button class="bb" id="amocrm_refresh_btn" onclick="loadAmoCrmDepartmentCounts()">Yangilash</button>
-            </div>
-            <div id="amocrm_table_note" class="amocrm-table-note"></div>
-            <div id="amocrm_department_grid" class="amocrm-dept-grid"></div>
-            <div id="amocrm_empty" class="amocrm-empty hidden">amoCRM task ma'lumotlari topilmadi</div>
-            <div id="amocrm_last_updated" style="color:var(--text3);font-family:var(--mono);font-size:12px;margin-top:12px;">-</div>
-          </div>
-        </div>
-
-        <div id="tab_pbx" class="hidden">
-          <div class="box pbx-page-head">
-            <div>
-              <div class="btitle pbx-title" id="pbx_page_title"><span data-pbx-icon="PhoneCall"></span> PBX qo'ng'iroqlari</div>
-              <p class="pbx-subtitle" id="pbx_page_subtitle">OnlinePBX ma'lumotlari faqat Supabase Edge Function orqali yuklanadi.</p>
-            </div>
-            <div class="pbx-head-actions">
-              <div class="pbx-date-picker" id="pbx_date_picker">
-                <button type="button" class="pbx-calendar-toggle" id="pbx_date_trigger" onclick="togglePbxCalendar()" aria-label="Sana filtri" aria-expanded="false">
-                  <span data-pbx-icon="Calendar"></span>
-                </button>
-                <div class="pbx-calendar-popover" id="pbx_calendar_popover">
-                  <div class="pbx-range-title">
-                    <strong id="pbx_range_text">Bugungi kun</strong>
-                    <span id="pbx_range_hint">Sana tanlang</span>
-                  </div>
-                  <div class="pbx-range-presets">
-                    <button type="button" onclick="setPbxDatePreset('today')">Bugun</button>
-                    <button type="button" onclick="setPbxDatePreset('last_week')">Oxirgi hafta</button>
-                    <button type="button" onclick="setPbxDatePreset('previous_week')">Oldingi hafta</button>
-                    <button type="button" onclick="setPbxDatePreset('current_month')">Joriy oy</button>
-                    <button type="button" onclick="setPbxDatePreset('last_month')">Oxirgi oy</button>
-                  </div>
-                  <div class="pbx-calendar" id="pbx_calendar">
-                    <div class="pbx-calendar-head">
-                      <button type="button" class="pbx-cal-nav" onclick="movePbxCalendar(-1)" aria-label="Oldingi oy"><span data-pbx-icon="ChevronLeft"></span></button>
-                      <strong id="pbx_calendar_title">-</strong>
-                      <button type="button" class="pbx-cal-nav" onclick="movePbxCalendar(1)" aria-label="Keyingi oy"><span data-pbx-icon="ChevronRight"></span></button>
-                    </div>
-                    <div class="pbx-weekdays">
-                      <span>Du</span><span>Se</span><span>Ch</span><span>Pa</span><span>Ju</span><span>Sh</span><span>Ya</span>
-                    </div>
-                    <div class="pbx-calendar-grid" id="pbx_calendar_grid"></div>
-                  </div>
-                  <div class="pbx-filter-actions">
-                    <button class="bb" id="pbx_apply_btn" onclick="applyPbxFilters()"><span data-pbx-icon="Search"></span> Qidirish</button>
-                    <button class="bg2" id="pbx_clear_btn" onclick="clearPbxFilters()"><span data-pbx-icon="RotateCcw"></span> Tozalash</button>
-                  </div>
+                <strong id="k6">KPI to'lovlari</strong><br>
+                <div style="margin-top:8px">
+                  <strong id="k7">Menejer</strong><br>
+                  <div class="krow"><div class="kcol">90–100 ball</div><div>+560 000 UZS</div></div>
+                  <div class="krow"><div class="kcol">80–89 ball</div><div>+420 000 UZS</div></div>
+                  <div class="krow"><div class="kcol">70–79 ball</div><div>+280 000 UZS</div></div>
+                  <div class="krow"><div class="kcol">70 dan kam</div><div>+0 UZS</div></div>
                 </div>
-                <input type="hidden" id="pbx_date_from">
-                <input type="hidden" id="pbx_date_to">
-                <input type="hidden" id="pbx_phone">
-                <input type="hidden" id="pbx_course" value="all">
-                <input type="hidden" id="pbx_direction" value="all">
-                <input type="hidden" id="pbx_status" value="all">
+                <div style="margin-top:12px">
+                  <strong id="k_op">Operator</strong><br>
+                  <div class="krow"><div class="kcol">90–100 ball</div><div>+480 000 UZS</div></div>
+                  <div class="krow"><div class="kcol">80–89 ball</div><div>+360 000 UZS</div></div>
+                  <div class="krow"><div class="kcol">70–79 ball</div><div>+240 000 UZS</div></div>
+                  <div class="krow"><div class="kcol">70 dan kam</div><div>+0 UZS</div></div>
+                </div>
+                <div style="margin-top:12px">
+                  <strong id="k8">Ish o'rganuvchi</strong><br>
+                  <div class="krow"><div class="kcol">90–100 ball</div><div>+400 000 UZS</div></div>
+                  <div class="krow"><div class="kcol">80–89 ball</div><div>+300 000 UZS</div></div>
+                  <div class="krow"><div class="kcol">70–79 ball</div><div>+210 000 UZS</div></div>
+                  <div class="krow"><div class="kcol">70 dan kam</div><div>+0 UZS</div></div>
+                </div>
               </div>
-              <span class="dash-pill" id="pbx_loaded_at">Bugungi ko'rinish</span>
-            </div>
-          </div>
-
-          <div class="box pbx-responsibles-box">
-            <div class="pbx-table-head">
-              <span class="btitle pbx-title" id="pbx_responsibles_title"><span data-pbx-icon="Headphones"></span> Kurs mas'ullari</span>
-              <span id="pbx_result_count" class="pbx-result-count">amoCRM mas'ulliklari</span>
-            </div>
-            <div class="pbx-responsibles-grid" id="pbx_responsibles_grid"></div>
-          </div>
-
-          <div class="pbx-summary-grid">
-            <div class="pbx-stat-card" data-tone="total"><span data-pbx-icon="Phone"></span><small>Barchasi</small><strong id="pbx_stat_total">-</strong></div>
-            <div class="pbx-stat-card" data-tone="incoming"><span data-pbx-icon="PhoneIncoming"></span><small>Kiruvchi</small><strong id="pbx_stat_incoming">-</strong></div>
-            <div class="pbx-stat-card" data-tone="outgoing"><span data-pbx-icon="PhoneOutgoing"></span><small>Chiquvchi</small><strong id="pbx_stat_outgoing">-</strong></div>
-            <div class="pbx-stat-card" data-tone="outside-work"><span data-pbx-icon="Clock"></span><small>Ishdan tashqari qo'ng'iroqlar</small><strong id="pbx_stat_outside_work">-</strong></div>
-            <div class="pbx-stat-card" data-tone="missed"><span data-pbx-icon="PhoneMissed"></span><small>Yetib bormagan</small><strong id="pbx_stat_missed">-</strong></div>
-            <div class="pbx-stat-card" data-tone="not-called"><span data-pbx-icon="RotateCcw"></span><small>Qayta qo'ng'iroq qilinmagan</small><strong id="pbx_stat_not_called_back">-</strong></div>
-            <div class="pbx-stat-card" data-tone="unknown"><span data-pbx-icon="HelpCircle"></span><small>Aniqlanmadi</small><strong id="pbx_stat_unknown">-</strong></div>
-            <div class="pbx-stat-card" data-tone="quality"><span data-pbx-icon="Headphones"></span><small>Baholangan</small><strong id="pbx_stat_with_quality_score">-</strong></div>
-          </div>
-
-          <div id="pbx_status_message" class="pbx-state-message hidden"></div>
-
-          <div class="box pbx-course-chart-box">
-            <div class="pbx-table-head">
-              <span class="btitle pbx-title" id="pbx_course_chart_title"><span data-pbx-icon="BarChart3"></span> Kurs kesimidagi qo'ng'iroqlar</span>
-              <div class="pbx-chart-head-actions">
-                <div class="pbx-chart-metric-tabs" id="pbx_course_metric_buttons"></div>
-                <span id="pbx_course_chart_note" class="pbx-result-count">-</span>
-              </div>
-            </div>
-            <div class="pbx-course-chart" id="pbx_course_chart"></div>
-            <div class="pbx-hour-section">
-              <div class="pbx-table-head">
-                <span class="btitle pbx-title" id="pbx_hour_chart_title"><span data-pbx-icon="Clock"></span> Soat bo'yicha qo'ng'iroqlar</span>
-                <span id="pbx_hour_chart_note" class="pbx-result-count">-</span>
-              </div>
-              <div class="pbx-hour-chart" id="pbx_hour_chart"></div>
             </div>
           </div>
         </div>
@@ -586,6 +442,9 @@
 </div>
 
 <div id="employeePage">
+  <div id="afkBanner"><span class="banner-ico" data-lucide="shield-alert"></span> <span id="afkBannerTxt">Yuz aniqlanmadi! AFK vaqt hisoblanmoqda...</span></div>
+  <div id="autoEndBanner"><span class="banner-ico" data-lucide="check-circle-2"></span> <span id="autoEndTxt">Ish vaqti tugadi. Tizim tomonidan yakunlandi (18:00)</span></div>
+  <div id="breakBanner"><span class="banner-ico" data-lucide="coffee"></span> <span id="breakBannerTxt">Tanaffus vaqtingiz: 0:00 / 30 daqiqa</span></div>
   <div class="ehdr">
     <div class="ehdr-brand">
       <img src="images/logo2.png" alt="" style="width:30px;height:30px;object-fit:contain;" onerror="this.style.display='none'">

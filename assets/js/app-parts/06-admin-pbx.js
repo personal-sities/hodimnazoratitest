@@ -30,19 +30,12 @@ async function checkFeedbackBadge(){
 }
 function adminTab(tab){
   currentAdminTab = tab;
-  ['main','notif','feedback','settings','kpi','amocrm','pbx'].forEach(n=>{const el=document.getElementById('tab_'+n);if(el)el.classList.toggle('hidden',n!==tab);});
-  ['nav_main','nav_amocrm','nav_feedback','nav_notif','nav_settings','nav_kpi','nav_pbx'].forEach((id,i)=>{const el=document.getElementById(id);if(el)el.classList.toggle('active',['main','amocrm','feedback','notif','settings','kpi','pbx'][i]===tab);});
-  if(tab==='pbx') loadPbxStats();
+  ['main','notif','feedback','settings','kpi'].forEach(n=>{const el=document.getElementById('tab_'+n);if(el)el.classList.toggle('hidden',n!==tab);});
+  ['nav_main','nav_feedback','nav_notif','nav_settings','nav_kpi'].forEach((id,i)=>{const el=document.getElementById(id);if(el)el.classList.toggle('active',['main','feedback','notif','settings','kpi'][i]===tab);});
   st('admTitle',getAdminTabTitle(tab));
-  if(tab!=='amocrm' && tab!=='main')stopAmoCrmTaskPage();
-  if(tab==='main'){
-    subscribeAmoCrmTaskRealtime();
-    startAmoCrmRefreshInterval();
-  }
   if(tab==='settings'){loadEmpList();updateIPList();loadGPSSettingsUI();loadFaceControlSettings();}
   if(tab==='feedback')loadFeedbackAdmin();
   if(tab==='notif'){loadNotificationsAdmin();loadNotifEmpSelect();}
-  if(tab==='amocrm')startAmoCrmTaskPage();
   animateCurrentView();
 }
 function setToday(){const today=todayISO();document.getElementById('fd_from').value=today;document.getElementById('fd_to').value=today;loadAtt();}
@@ -1988,8 +1981,6 @@ async function loadDashboard(){
   if(chart)chart.innerHTML='';
   if(stats)stats.innerHTML=`<div class="dash-mini-stat"><strong>...</strong><span>${t('loading')}</span></div>`;
   if(labels)labels.innerHTML='';
-  ['dash_late','dash_kpi'].forEach(id=>{const el=document.getElementById(id);if(el)el.innerHTML=`<div class="dash-empty">${t('loading')}</div>`;});
-  setMainAmoCrmDiagramLoading();
   const[y,mo]=month.split('-').map(Number);const dim=new Date(y,mo,0).getDate();
   let wd=0;for(let d=1;d<=dim;d++){const ds=`${y}-${String(mo).padStart(2,'0')}-${String(d).padStart(2,'0')}`;if(isWorkDay(ds))wd++;}
   const monthStart=`${month}-01`;
@@ -2002,8 +1993,6 @@ async function loadDashboard(){
   ]);
   if(empErr||recErr||bonErr){toast('error','Dashboard',(empErr||recErr||bonErr).message||t('dashboard_error'));return;}
   setAmoCrmActiveEmployees((emps||[]).filter(emp=>emp.active!==false));
-  loadMainAmoCrmDiagram({showLoading:false, employees:amoCrmActiveEmployees});
-  loadDashboardPbxWidget();
   const leaveDateMap=buildEmployeeLeaveDateMap(leaves, monthStart, monthEnd);
   const rows=(emps||[]).map(emp=>{
     const er=(recs||[]).filter(r=>r.employee_id===emp.id);
@@ -2030,7 +2019,7 @@ async function loadDashboard(){
     const bon=(bons||[]).find(b=>b.employee_id===emp.id)?.bonus||0;
     const pen=late*10+abs*20;
     const ball=Math.min(100,Math.max(0,100-pen+bon));
-    const kpi=calcKpi(ball,emp.kpi_type||'senior');
+    const kpi=calcKpi(ball,emp.kpi_type||'operator');
     const expectedSec=Math.max(1,wd*TARGET_WORK_SEC_PER_DAY);
     const workPct=Math.min(100,Math.round((sec/expectedSec)*100));
     const kpiPct=Math.max(0,Math.min(100,ball));
@@ -2260,7 +2249,7 @@ async function loadMonthly(){
     const bon=bonusMap.get(emp.id)||0;
     const pen=late*10+abs*20;
     const fin=Math.min(100,Math.max(0,100-pen+bon));
-    const kpi=calcKpi(fin,emp.kpi_type||'senior');
+    const kpi=calcKpi(fin,emp.kpi_type||'operator');
     tL+=late;tA+=abs;tH+=sec;tK+=kpi;
     const hs=formatHm(sec);
     monthlyData.push({name:emp.name,hours:hs,afk:formatPenaltyAfk(afkSec),late,half,abs,penalty:-pen,bonus:bon,ball:fin,kpi});
@@ -2292,7 +2281,37 @@ async function loadMonthly(){
   filterAtt();
 }
 
-function calcKpi(ball,type){if(type==='senior'){if(ball>=90)return 560000;if(ball>=80)return 420000;if(ball>=70)return 280000;return 0;}if(ball>=90)return 400000;if(ball>=80)return 300000;if(ball>=70)return 210000;return 0;}
+function calcKpi(ball,type){
+  if(type==='senior'||type==='manager'){
+    if(ball>=90)return 560000;
+    if(ball>=80)return 420000;
+    if(ball>=70)return 280000;
+    return 0;
+  }
+  if(type==='operator'){
+    if(ball>=90)return 480000;
+    if(ball>=80)return 360000;
+    if(ball>=70)return 240000;
+    return 0;
+  }
+  // intern or junior
+  if(ball>=90)return 400000;
+  if(ball>=80)return 300000;
+  if(ball>=70)return 210000;
+  return 0;
+}
+function getEmployeeRoleLabel(type){
+  if(type==='manager'||type==='senior') return t('role_manager');
+  if(type==='operator') return t('role_operator');
+  if(type==='intern'||type==='junior') return t('role_intern');
+  return type || '-';
+}
+function getEmployeeKpiMax(type){
+  if(type==='manager'||type==='senior') return '560 000';
+  if(type==='operator') return '480 000';
+  if(type==='intern'||type==='junior') return '400 000';
+  return '480 000';
+}
 function openMonthlyAttendanceDetails(employeeId){
   const row=monthlyAttendanceSummary.find(item=>item.employeeId===employeeId);
   if(!row)return;
@@ -2341,10 +2360,8 @@ async function loadEmpList() {
   if (leaveSelect) leaveSelect.innerHTML = `<option value="">${t('leave_emp_placeholder')}</option>`;
 
   emps.forEach((emp, i) => {
-    const ka = emp.kpi_type === 'junior' ? '400 000' : '560 000';
-    const courseKey = getEmployeeCourseResponsibilityKey(emp);
-    const courseLabel = courseKey ? getCourseLabel(courseKey) : t('course_none');
-    const courseClass = courseKey ? 'course-badge' : 'course-badge empty';
+    const roleLabel = getEmployeeRoleLabel(emp.kpi_type);
+    const ka = getEmployeeKpiMax(emp.kpi_type);
     const faceStatus = emp.face_registered
       ? '<span style="color:var(--success);font-size:11px">✅ Ro\'yxatda</span>'
       : '<span style="color:var(--text3);font-size:11px">❌ Yo\'q</span>';
@@ -2354,10 +2371,9 @@ async function loadEmpList() {
       <td>${i + 1}</td>
       <td>${emp.name}</td>
       <td style="font-family:var(--mono)">${emp.login}</td>
-      <td><span class="${courseClass}">${courseLabel}</span></td>
       <td style="font-family:var(--mono)">*****</td>
       <td>${faceStatus}</td>
-      <td style="font-family:var(--mono)">+${ka} UZS</td>
+      <td><span class="role-badge role-${emp.kpi_type || 'operator'}">${roleLabel}</span> <span style="font-family:var(--mono);color:var(--text2);font-size:11.5px">(+${ka} UZS)</span></td>
       <td><button class="brd" onclick="delEmp('${emp.id}')">${t('delete')}</button></td>
     `;
     tbody.appendChild(tr);
@@ -2368,7 +2384,7 @@ async function loadEmpList() {
       leaveSelect.appendChild(opt);
     }
   });
-  Array.from(tbody.querySelectorAll('tr td:nth-child(6) span')).forEach(el=>{
+  Array.from(tbody.querySelectorAll('tr td:nth-child(5) span')).forEach(el=>{
     if(/Ro'yxatda|Зарегистрировано|registered/i.test(el.textContent)) el.textContent=`✅ ${t('face_registered_yes')}`;
     else el.textContent=`❌ ${t('face_registered_no')}`;
   });
@@ -2495,7 +2511,6 @@ async function addEmp() {
     const courseSelect = document.getElementById('ne_course');
     if (courseSelect) courseSelect.value = '';
 
-    loadMainAmoCrmDiagram({showLoading:false, employees:emps||amoCrmActiveEmployees});
     toast('success', t('employee_title'), t('employee_added'));
   } catch (e) {
     console.error('addEmp CATCH ERROR:', e);

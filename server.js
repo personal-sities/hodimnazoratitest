@@ -242,7 +242,7 @@ async function handleCreateEmployee(res, body) {
   const name = String(body.name || '').trim();
   const email = String(body.email || '').trim().toLowerCase();
   const password = String(body.password || '').trim();
-  const kpiType = body.kpi_type || 'junior';
+  const kpiType = body.kpi_type || 'operator';
 
   if (!name || !email || !password) {
     return sendJson(res, 400, { ok: false, error: 'Ism, email va parol kiritilishi shart' });

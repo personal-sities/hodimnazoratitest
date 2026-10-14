@@ -570,11 +570,19 @@ function animateCurrentView(){
 
 function showPage(p){
   stopRealtimeSubscriptions();
+  document.body.classList.toggle('admin-view', p==='admin');
+  document.body.classList.toggle('employee-view', p==='employee');
   document.getElementById('loginPage').style.display=p==='login'?'flex':'none';
   document.getElementById('adminPage').style.display=p==='admin'?'block':'none';
   document.getElementById('employeePage').style.display=p==='employee'?'block':'none';
   document.getElementById('ipBlockPage').style.display='none';
   document.getElementById('faceWidget').classList.toggle('hidden',p!=='employee'||!faceControlEnabled);
+  if(p!=='employee'){
+    ['afkBanner','autoEndBanner','breakBanner','installBanner'].forEach(id=>{
+      const el=document.getElementById(id);
+      if(el){el.style.display='none';el.classList.remove('active');}
+    });
+  }
   if(p==='admin')initAdmin();
   if(p==='employee')initEmp();
   applyLang();
