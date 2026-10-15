@@ -145,9 +145,12 @@ function getLucideIcon(name, extraClassOrOptions = '', size = null) {
   }
   const resolved = resolveLucideName(name);
   const paths = LUCIDE_SVGS[resolved] || LUCIDE_SVGS['help-circle'] || '<circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/>';
-  const sizeAttr = size ? `width="${size}" height="${size}"` : '';
+  const defaultSize = (extraClass.includes('sm') || extraClass.includes('mini')) ? 14 : 18;
+  const finalSize = size || defaultSize;
+  const sizeAttr = `width="${finalSize}" height="${finalSize}"`;
+  const styleAttr = `style="width:${finalSize}px;height:${finalSize}px;min-width:${finalSize}px;min-height:${finalSize}px;max-width:${finalSize}px;max-height:${finalSize}px;flex-shrink:0;display:inline-block;vertical-align:middle;"`;
   const cls = ['lucide', `lucide-${resolved}`, extraClass].filter(Boolean).join(' ');
-  return `<svg xmlns="http://www.w3.org/2000/svg" ${sizeAttr} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${strokeWidth}" stroke-linecap="round" stroke-linejoin="round" class="${cls}" aria-hidden="true">${paths}</svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" ${sizeAttr} ${styleAttr} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${strokeWidth}" stroke-linecap="round" stroke-linejoin="round" class="${cls}" aria-hidden="true">${paths}</svg>`;
 }
 
 function hydrateLucideIcons(root = document) {
@@ -155,9 +158,31 @@ function hydrateLucideIcons(root = document) {
   root.querySelectorAll('[data-lucide]').forEach(el => {
     const iconName = el.getAttribute('data-lucide');
     if (!iconName) return;
-    const size = el.getAttribute('data-size') || null;
+    let size = el.getAttribute('data-size') || null;
     const cls = el.getAttribute('data-class') || '';
-    el.innerHTML = getLucideIcon(iconName, cls, size);
+    if (!size) {
+      if (el.classList.contains('mini-ico')) size = 12;
+      else if (el.classList.contains('hdr-date-ico')) size = 13;
+      else if (el.classList.contains('timer-ico')) size = 14;
+      else if (el.classList.contains('btn-icon')) size = 15;
+      else if (el.classList.contains('card-ico')) size = 16;
+      else if (el.classList.contains('eye-ico') || el.classList.contains('abtn-ico')) size = 17;
+      else if (el.classList.contains('title-ico') || el.classList.contains('banner-ico') || el.classList.contains('ni') || el.classList.contains('nav-ico')) size = 18;
+      else if (el.classList.contains('scard-icon')) size = 20;
+      else if (el.classList.contains('modal-ico')) size = 22;
+      else if (el.classList.contains('ip-icon')) size = 28;
+      else size = 18;
+    }
+    const finalSize = Number(size) || 18;
+    el.style.width = finalSize + 'px';
+    el.style.height = finalSize + 'px';
+    el.style.minWidth = finalSize + 'px';
+    el.style.minHeight = finalSize + 'px';
+    el.style.display = 'inline-flex';
+    el.style.alignItems = 'center';
+    el.style.justifyContent = 'center';
+    el.style.flexShrink = '0';
+    el.innerHTML = getLucideIcon(iconName, cls, finalSize);
   });
 }
 

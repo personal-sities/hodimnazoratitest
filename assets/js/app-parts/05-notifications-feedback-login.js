@@ -592,6 +592,7 @@ function empNavTab(tab){
   ['work','notif','feedback'].forEach(t2=>{const b=document.getElementById('ebn_'+t2);if(b)b.classList.toggle('active',t2===tab);});
   if(tab==='notif')loadNotificationsEmp();
   if(tab==='feedback')loadMyFeedback();
+  if(typeof hydrateLucideIcons === 'function') hydrateLucideIcons(document.getElementById('emp_tab_'+tab));
   animateCurrentView();
 }
 

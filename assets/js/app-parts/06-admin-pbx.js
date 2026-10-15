@@ -26,6 +26,7 @@ function adminTab(tab){
   if(tab==='settings'){loadEmpList();updateIPList();loadGPSSettingsUI();loadFaceControlSettings();}
   if(tab==='feedback')loadFeedbackAdmin();
   if(tab==='notif'){loadNotificationsAdmin();loadNotifEmpSelect();}
+  if(typeof hydrateLucideIcons === 'function') hydrateLucideIcons(document.getElementById('tab_' + tab));
   animateCurrentView();
 }
 function setToday(){const today=todayISO();document.getElementById('fd_from').value=today;document.getElementById('fd_to').value=today;loadAtt();}
@@ -257,9 +258,10 @@ function renderDashboardCharts(rows,workDays,empCount,recs=[]){
 async function canFinishWorkByAmoCrmTasks(){return true;}
 
 async function loadDashboard(){
+  const chart=document.getElementById('dash_work_chart');
+  if(!chart)return;
   const month=document.getElementById('fmonth')?.value||curM();
   st('dash_month',month);
-  const chart=document.getElementById('dash_work_chart');
   const stats=document.getElementById('dash_work_stats');
   const labels=document.getElementById('dash_work_labels');
   if(chart)chart.innerHTML='';

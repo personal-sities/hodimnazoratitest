@@ -782,7 +782,8 @@ function setLang(l){lang=l;localStorage.setItem('aloqa_lang',l);applyLang();rere
 function st(id,v){const e=document.getElementById(id);if(e&&v!==undefined)e.textContent=v;}
 function sp(id,v){const e=document.getElementById(id);if(e)e.placeholder=v;}
 function iconSvg(name, cls=''){
-  if(typeof getLucideIcon === 'function') return getLucideIcon(name, cls);
+  const size = cls.includes('sm') ? 14 : 18;
+  if(typeof getLucideIcon === 'function') return getLucideIcon(name, cls, size);
   const c = cls ? ` class="${cls}"` : '';
   const icons = {
     bell:'<path d="M10.268 21a2 2 0 0 0 3.464 0"/><path d="M22 8c0-2.3-.8-4.3-2-6"/><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"/><path d="M4 2C2.8 3.7 2 5.7 2 8"/>',
@@ -800,7 +801,7 @@ function iconSvg(name, cls=''){
     alert:'<path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><path d="M12 9v4"/><path d="M12 17h.01"/>',
     layers:'<path d="m12 3 9 4.5-9 4.5-9-4.5 9-4.5Z"/><path d="m3 12 9 4.5 9-4.5"/><path d="m3 16.5 9 4.5 9-4.5"/>'
   };
-  return `<span class="ui-icon${cls ? ` ${cls}` : ''}" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"${c}>${icons[name]||icons.message}</svg></span>`;
+  return `<span class="ui-icon${cls ? ` ${cls}` : ''}" style="width:${size}px;height:${size}px;min-width:${size}px;min-height:${size}px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" style="width:${size}px;height:${size}px;flex-shrink:0;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"${c}>${icons[name]||icons.message}</svg></span>`;
 }
 function iconLabel(icon, text, cls=''){
   return `${iconSvg(icon, cls)}<span>${text}</span>`;
@@ -924,52 +925,6 @@ function normalizeDynamicTranslations(root=document){
   });
 }
 
-function refreshStaticLabels(){
-  st('face_info_lbl', t('face_info_lbl'));
-  st('face_reg_title', t('face_reg_title'));
-  st('face_widget_title', t('face_widget_title'));
-  const widgetTitle = document.querySelector('#faceWidget .fw-title span');
-  if(widgetTitle)widgetTitle.textContent = t('face_widget_title');
-  st('dash_monthly_pill', t('dash_last7'));
-  st('dash_attendance_label', t('dash_attendance_label'));
-  st('dash_work_sub', t('dash_last7_sub'));
-  st('notif_box_title', t('notif_box_title'));
-  st('ns_title', t('notif_send_form_title'));
-  st('ns_all', t('notif_send_all'));
-  st('ns_send_btn', t('notif_send_btn'));
-  st('notif_sent_title', t('notif_sent_title'));
-  st('lunch_shift_title', t('lunch_shift_title'));
-  st('lunch_shift_text', t('lunch_shift_text'));
-  st('lunch_shift_btn_1', t('lunch_shift_btn_1'));
-  st('lunch_shift_btn_2', t('lunch_shift_btn_2'));
-  sp('ns_title_inp', t('notif_send_title_ph'));
-  sp('ns_body', t('notif_send_body_ph'));
-
-  const regBtn = document.getElementById('faceRegBtn');
-  if(regBtn){
-    const looksBusy = /\/5/.test(regBtn.textContent || '');
-    const looksDone = /Royxatdan|зарегистр/i.test(regBtn.textContent || '');
-    if(!looksBusy){
-      regBtn.textContent = looksDone ? t('face_reg_done') : t('face_reg_btn');
-    }
-  }
-
-  const faceTxt = document.getElementById('faceTxt');
-  if(faceTxt && (!faceTxt.textContent || /Yuklanmoqda|Загрузка/.test(faceTxt.textContent))){
-    faceTxt.textContent = t('face_loading');
-  }
-
-  const faceStatus = document.getElementById('face_status_inline');
-  if(faceStatus && (!faceStatus.textContent || /Yuklanmoqda|Загрузка/.test(faceStatus.textContent))){
-    faceStatus.textContent = t('face_loading');
-  }
-
-  const quality = document.getElementById('faceQuality');
-  if(quality && (!quality.textContent || /^0\/5|образцов: 0\/5/i.test(quality.textContent))){
-    updateQuality(tf('face_samples_count', { current: 0 }));
-  }
-}
-
 function normalizeDynamicTranslations(root=document){
   if(!root)return;
   root.querySelectorAll('.fb-type.complaint').forEach(el=>el.innerHTML=feedbackTypeMarkup('complaint'));
@@ -989,18 +944,28 @@ function normalizeDynamicTranslations(root=document){
 }
 
 function refreshStaticLabels(){
-  setIconHTML('face_info_lbl', 'camera', t('face_info_lbl').replace(/^[^\s]+\s*/, ''));
-  st('face_reg_title', t('face_reg_title'));
-  setIconHTML('face_widget_title', 'camera', t('face_widget_title').replace(/^[^\s]+\s*/, ''));
+  const fil = document.getElementById('face_info_lbl');
+  if(fil){
+    const ico = (typeof getLucideIcon === 'function') ? getLucideIcon('scan-face', 'card-ico', 16) : iconSvg('camera', 'sm');
+    fil.innerHTML = `<span class="card-ico">${ico}</span> <span>${t('face_info_lbl')}</span>`;
+  }
+  const frt = document.getElementById('face_reg_title');
+  if(frt){
+    const ico = (typeof getLucideIcon === 'function') ? getLucideIcon('scan-face', 'card-ico', 16) : iconSvg('camera', 'sm');
+    frt.innerHTML = `<span class="card-ico">${ico}</span> <span>${t('face_reg_title')}</span>`;
+  }
   const widgetTitle = document.querySelector('#faceWidget .fw-title span');
-  if(widgetTitle)widgetTitle.innerHTML = iconLabel('camera', t('face_widget_title').replace(/^[^\s]+\s*/, ''));
+  if(widgetTitle){
+    const ico = (typeof getLucideIcon === 'function') ? getLucideIcon('scan-face', 'card-ico', 16) : iconSvg('camera', 'sm');
+    widgetTitle.innerHTML = `<span class="card-ico">${ico}</span> <span>${t('face_widget_title')}</span>`;
+  }
   st('dash_monthly_pill', t('dash_monthly_pill'));
   st('ip_t', t('ip_t'));
-  setIconHTML('notif_box_title', 'bell', t('notif_box_title').replace(/^[^\s]+\s*/, ''));
+  st('nbt_txt', t('notif_box_title'));
   st('ns_title', t('notif_send_form_title'));
   st('ns_all', t('notif_send_all'));
-  setIconHTML('ns_send_btn', 'send', t('notif_send_btn').replace(/^[^\s]+\s*/, ''));
-  setIconHTML('notif_sent_title', 'clipboard', t('notif_sent_title').replace(/^[^\s]+\s*/, ''));
+  st('ns_send_txt', t('notif_send_btn'));
+  st('nst_txt', t('notif_sent_title'));
   st('lunch_shift_title', t('lunch_shift_title'));
   st('lunch_shift_text', t('lunch_shift_text'));
   st('lunch_shift_btn_1', t('lunch_shift_btn_1'));
@@ -1011,43 +976,56 @@ function refreshStaticLabels(){
   setFeedbackFilterOptions();
 
   const titleMap = [
-    ['#feedback_admin_title','message',t('feedback_admin_title')],
-    ['#tab_settings .box:nth-of-type(1) .btitle','settings',document.getElementById('set_t')?.textContent||t('set_t')],
-    ['#tab_settings .box:nth-of-type(2) .btitle','globe',document.getElementById('ip_t')?.textContent||t('ip_t')],
-    ['#tab_settings .box:nth-of-type(3) .btitle','pin',t('gps_region_title')],
-    ['#face_control_title','camera',t('face_control_title')],
-    ['#tab_settings .box:nth-of-type(5) .btitle','calendar',document.getElementById('hol_t')?.textContent||t('hol_t')],
-    ['#emp_tab_notif .btitle','bell',t('notifications_title')],
-    ['#enablePushBtn','bell',lang==='uz'?'Push bildirishnomalarni yoqish':'Включить push-уведомления'],
-    ['#emp_tab_feedback > .box > .btitle','message',t('send_feedback_title')],
-    ['#emp_tab_feedback .box div[style*="margin-top:16px"] .btitle','clipboard',t('my_feedback_title')]
+    ['#notif_box_title', 'bell', t('notif_box_title'), 'nbt_txt'],
+    ['#notif_sent_title', 'clipboard-check', t('notif_sent_title'), 'nst_txt'],
+    ['#feedback_admin_title', 'message-square', t('feedback_admin_title')],
+    ['#set_box_users', 'users', t('set_t'), 'set_t'],
+    ['#set_box_ip', 'globe', t('ip_t'), 'ip_t'],
+    ['#set_box_gps', 'map-pin', t('gps_region_title'), 'gps_t'],
+    ['#set_box_face', 'scan-face', t('face_control_title'), 'face_control_title'],
+    ['#set_box_hol', 'calendar-check', t('hol_t'), 'hol_t'],
+    ['#set_box_leave', 'palmtree', t('leave_manage_title'), 'leave_manage_title'],
+    ['#emp_tab_notif .btitle', 'bell', t('notifications_title')],
+    ['#enablePushBtn', 'bell-ring', lang==='uz'?'Push bildirishnomalarni yoqish':'Включить push-уведомления'],
+    ['#emp_tab_feedback > .box > .btitle', 'message-square', t('send_feedback_title')],
+    ['#emp_tab_feedback .box div[style*="margin-top:16px"] .btitle', 'clipboard-check', t('my_feedback_title')]
   ];
-  titleMap.forEach(([selector, icon, text])=>{
+  titleMap.forEach(([selector, icon, text, spanId])=>{
     const el = document.querySelector(selector);
-    if(el && text) el.innerHTML = `<span class="icon-label">${iconLabel(icon, text)}</span>`;
+    if(el && text) {
+      const isBtn = el.tagName === 'BUTTON' || el.classList.contains('push-notif-btn');
+      const icoCls = isBtn ? 'btn-icon' : 'title-ico';
+      const icoSize = isBtn ? 15 : 18;
+      const iconHtml = (typeof getLucideIcon === 'function')
+        ? `<span class="${icoCls}" style="width:${icoSize}px;height:${icoSize}px;min-width:${icoSize}px;min-height:${icoSize}px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;">${getLucideIcon(icon, '', icoSize)}</span>`
+        : iconSvg(icon, isBtn ? 'sm' : '');
+      const idAttr = spanId ? ` id="${spanId}"` : '';
+      el.innerHTML = `${iconHtml} <span${idAttr}>${text}</span>`;
+    }
   });
+  st('face_control_title', t('face_control_title'));
 
   const regBtn = document.getElementById('faceRegBtn');
   if(regBtn){
     const looksBusy = /\/5/.test(regBtn.textContent || '');
-    const looksDone = /Royxatdan|Р·Р°СЂРµРіРёСЃС‚СЂ/i.test(regBtn.textContent || '');
+    const looksDone = /Royxatdan|Зарегистри/i.test(regBtn.textContent || '');
     if(!looksBusy){
       regBtn.textContent = looksDone ? t('face_reg_done') : t('face_reg_btn');
     }
   }
 
   const faceTxt = document.getElementById('faceTxt');
-  if(faceTxt && (!faceTxt.textContent || /Yuklanmoqda|Р—Р°РіСЂСѓР·РєР°/.test(faceTxt.textContent))){
+  if(faceTxt && (!faceTxt.textContent || /Yuklanmoqda|Загрузка/.test(faceTxt.textContent))){
     faceTxt.textContent = t('face_loading');
   }
 
   const faceStatus = document.getElementById('face_status_inline');
-  if(faceStatus && (!faceStatus.textContent || /Yuklanmoqda|Р—Р°РіСЂСѓР·РєР°/.test(faceStatus.textContent))){
+  if(faceStatus && (!faceStatus.textContent || /Yuklanmoqda|Загрузка/.test(faceStatus.textContent))){
     faceStatus.textContent = t('face_loading');
   }
 
   const quality = document.getElementById('faceQuality');
-  if(quality && (!quality.textContent || /^0\/5|РѕР±СЂР°Р·С†РѕРІ: 0\/5/i.test(quality.textContent))){
+  if(quality && (!quality.textContent || /^0\/5|образцов: 0\/5/i.test(quality.textContent))){
     updateQuality(tf('face_samples_count', { current: 0 }));
   }
   const liveText=document.getElementById('livenessText');
@@ -1056,14 +1034,20 @@ function refreshStaticLabels(){
   if(liveWidget && (!liveWidget.textContent || /liveness/i.test(liveWidget.textContent)))liveWidget.textContent=t('face_liveness_idle');
   const breakTitle=document.querySelector('#breakTracker h4');
   if(breakTitle)breakTitle.textContent=t('break_limit_day');
-  const addIpBtn=document.getElementById('b_addip');
-  if(addIpBtn)addIpBtn.textContent=t('ip_add_btn');
-  const myIpBtn=document.getElementById('b_myip');
-  if(myIpBtn)myIpBtn.textContent=t('ip_my_btn');
-  const gpsSaveBtn=document.querySelector('#tab_settings .box:nth-of-type(3) .bb');
-  if(gpsSaveBtn)gpsSaveBtn.textContent=t('gps_save');
-  const gpsMyBtn=document.querySelector('#tab_settings .box:nth-of-type(3) .bg2');
-  if(gpsMyBtn)gpsMyBtn.textContent=t('gps_my_location');
+  const updateBtnLabel = (btnId, textVal) => {
+    const btn = document.getElementById(btnId);
+    if (!btn) return;
+    const txtSpan = btn.querySelector('span:not(.btn-icon):not(.abtn-ico)') || btn.querySelector('span:last-child');
+    if (txtSpan && btn.querySelector('.btn-icon, .abtn-ico')) {
+      txtSpan.textContent = textVal;
+    } else {
+      btn.textContent = textVal;
+    }
+  };
+  updateBtnLabel('b_addip', t('ip_add_btn'));
+  updateBtnLabel('b_myip', t('ip_my_btn'));
+  updateBtnLabel('b_gps_save', t('gps_save'));
+  updateBtnLabel('b_gps_my', t('gps_my_location'));
   const gpsSaved=document.getElementById('gps_saved_info');
   if(gpsSaved && gpsSaved.textContent===t('gps_disabled'))gpsSaved.textContent=t('gps_disabled');
   updateFaceControlSettingsUI();
@@ -1083,21 +1067,67 @@ function applyLang(){
   st('admTitle',getAdminTabTitle(currentAdminTab||'main'));
   const ae=document.getElementById('admExit');if(ae)ae.innerHTML=(typeof getLucideIcon==='function'?getLucideIcon('log-out','btn-icon',14):'')+'<span>'+t('exit')+'</span>';
   const ee=document.getElementById('empExit');if(ee)ee.innerHTML=(typeof getLucideIcon==='function'?getLucideIcon('log-out','btn-icon',14):'')+'<span>'+t('exit')+'</span>';
+  st('sbExitTxt', t('exit'));
   st('emp_work_tab_lbl',t('emp_work_tab_lbl'));
   st('emp_notif_tab_lbl',t('emp_notif_tab_lbl'));
   st('emp_feedback_tab_lbl',t('emp_feedback_tab_lbl'));
   st('emp_logout_tab_lbl',t('emp_logout_tab_lbl'));
   updateDates();
-  ['sc1','sc2','sc3','sc_leave','sc_leave_btn','sc4','att_t','from_l','to_l','b_today','b_monthly','b_cm','b_ref','o_all','o_came','o_late','o_abs',
+  ['sc1','sc2','sc3','sc_leave','sc4','att_t','from_l','to_l','o_all','o_came','o_late','o_abs',
    'th1','th2','th4','th5','th6','th7','th_afk','th8','dash_t','dash_work_t','dash_late_t','dash_amocrm_t','dash_amocrm_pill','mth_t','ms1','ms2','ms3','ms4',
    'mt1','mt2','mt_afk','mt3','mt_half','mt4',
     'monthly_att_summary_title','mas_emp','mas_month','mas_worked_days','mas_late_count','mas_absent_days','mas_late_time','mas_actions','month_att_detail_title','month_att_detail_close',
-    'set_t','b_addemp','ne_course_none','et1','et2','et_course','et3','et4','et5','hol_t','b_addh','hol_info','leave_manage_title','leave_add_btn',
-    'ew_t','et_t','eh_t','ewl','ell','eprl','ewd','eld','e_note','prayer_next_lbl',
+    'set_t','ne_course_none','et1','et2','et_course','et3','et4','et5','hol_t','hol_info','leave_manage_title',
+    'ewl','ell','eprl','ewd','eld','e_note','prayer_next_lbl',
     'ei1','ei2','ei3','ei4','ei5','ei6','ht1','ht2','ht3','ht4','ht5','ht6','ht7','ht8','ht_afk','ht9',
-   'eh_note','el_lbl','afk_month_lbl','e_cm','mw_txt','mw_ok','mep_t','mep_s','mep_c',
-   'afk_lbl','afk_warn_title','afk_warn_txt','afk_warn_sub','afk_im_here','auto_end_txt','dash_attendance_label'
+   'eh_note','el_lbl','afk_month_lbl','mw_txt',
+   'afk_lbl','afk_warn_title','afk_warn_txt','afk_warn_sub','auto_end_txt','dash_attendance_label'
   ].forEach(k=>st(k,t(k)));
+
+  const updateBtnText = (btnId, iconName, textKey, icoSize = 15) => {
+    const btn = document.getElementById(btnId);
+    if (!btn) return;
+    const txtSpan = btn.querySelector('span:not(.btn-icon):not(.abtn-ico)') || btn.querySelector('span:last-child');
+    if (txtSpan && btn.querySelector('.btn-icon, .abtn-ico')) {
+      txtSpan.textContent = t(textKey);
+    } else {
+      const ico = typeof getLucideIcon === 'function' ? getLucideIcon(iconName, '', icoSize) : '';
+      btn.innerHTML = `<span class="btn-icon">${ico}</span> <span>${t(textKey)}</span>`;
+    }
+  };
+  const updateHeadingText = (headingId, iconName, textKey, icoSize = 16) => {
+    const h = document.getElementById(headingId);
+    if (!h) return;
+    const txtSpan = h.querySelector('span:not(.card-ico)') || h.querySelector('span:last-child');
+    if (txtSpan && h.querySelector('.card-ico')) {
+      txtSpan.textContent = t(textKey);
+    } else {
+      const ico = typeof getLucideIcon === 'function' ? getLucideIcon(iconName, '', icoSize) : '';
+      h.innerHTML = `<span class="card-ico">${ico}</span> <span>${t(textKey)}</span>`;
+    }
+  };
+
+  updateHeadingText('ew_t', 'activity', 'ew_t');
+  updateHeadingText('et_t', 'calendar', 'et_t');
+  updateHeadingText('eh_t', 'history', 'eh_t');
+  updateBtnText('sc_leave_btn', 'palmtree', 'sc_leave_btn');
+  updateBtnText('b_today', 'calendar-check', 'b_today');
+  updateBtnText('b_monthly', 'calendar-days', 'b_monthly');
+  updateBtnText('b_cm', 'calendar', 'b_cm');
+  updateBtnText('b_ref', 'refresh-cw', 'b_ref');
+  updateBtnText('b_addemp', 'plus', 'b_addemp');
+  updateBtnText('b_addip', 'plus', 'ip_add_btn');
+  updateBtnText('b_myip', 'network', 'ip_my_btn');
+  updateBtnText('b_gps_save', 'check', 'gps_save');
+  updateBtnText('b_gps_my', 'map-pin', 'gps_my_location');
+  updateBtnText('b_addh', 'plus', 'b_addh');
+  updateBtnText('leave_add_btn', 'check', 'leave_add_btn');
+  updateBtnText('e_cm', 'calendar', 'e_cm');
+  updateBtnText('mw_ok', 'check', 'mw_ok');
+  updateBtnText('mep_s', 'check', 'mep_s');
+  updateBtnText('mep_c', 'x', 'mep_c');
+  updateBtnText('afk_im_here', 'user-check', 'afk_im_here');
+  updateBtnText('ns_send_btn', 'send', 'notif_send_btn');
   st('dash_work_sub', t('dash_last7_sub'));
   st('afkBannerTxt', t('afk_banner'));
   st('work_leave_title', t('employees_on_work_leave'));
