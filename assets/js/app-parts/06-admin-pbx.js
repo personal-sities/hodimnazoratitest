@@ -788,16 +788,21 @@ async function addEmp() {
     // Xodimning tanlangan lavozimi (selectedRole) va operator raqamini saqlash
     try {
       const empId = result.employee_id || result.employee?.id || result.id;
-      const updateData = { kpi_type: selectedRole };
+      const updateData = {};
       if (op) {
         updateData.operator_number = op;
         updateData.pbx_extension = op;
       }
-      if (empId) {
-        await sb.from('employees').update(updateData).eq('id', empId);
-      } else {
-        await sb.from('employees').update(updateData).eq('login', email);
-      }
+      try {
+        const { error: roleErr } = await (empId 
+          ? sb.from('employees').update({ kpi_type: selectedRole, ...updateData }).eq('id', empId)
+          : sb.from('employees').update({ kpi_type: selectedRole, ...updateData }).eq('login', email));
+        if (roleErr && roleErr.message && roleErr.message.includes('employees_kpi_type_check')) {
+          await (empId
+            ? sb.from('employees').update({ kpi_type: edgeKpiType, ...updateData }).eq('id', empId)
+            : sb.from('employees').update({ kpi_type: edgeKpiType, ...updateData }).eq('login', email));
+        }
+      } catch (_) {}
     } catch (upErr) {
       console.warn('Xodim lavozimi va operatorini yangilashda ogohlantirish:', upErr);
     }
@@ -909,14 +914,19 @@ async function saveEmployeeRole() {
       .update({ kpi_type: newRole })
       .eq('id', empId);
 
-    if (error) throw new Error(error.message);
+    if (error) {
+      if (error.message && error.message.includes('employees_kpi_type_check')) {
+        throw new Error("Supabase bazasida cheklov mavjud: SQL Editor'da 'ALTER TABLE employees DROP CONSTRAINT employees_kpi_type_check;' buyrug'ini bajaring.");
+      }
+      throw new Error(error.message);
+    }
 
     closeEditRoleModal();
     toast('success', t('employee_title') || 'Xodim', 'Lavozim muvaffaqiyatli saqlandi');
     await loadEmpList();
   } catch (err) {
     console.error('saveEmployeeRole error:', err);
-    toast('error', t('error_title'), err.message || 'Xatolik yuz berdi');
+    toast('error', t('error_title'), err.message || 'Xatolik yuz berdi', 6000);
   }
 }
 function addHol(){const d=document.getElementById('hol_d').value;if(!d)return;const h=JSON.parse(localStorage.getItem('aloqa_hols')||'[]');if(!h.includes(d))h.push(d);localStorage.setItem('aloqa_hols',JSON.stringify(h));document.getElementById('hol_d').value='';updateHolList();}
