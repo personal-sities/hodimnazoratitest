@@ -184,7 +184,7 @@ function renderPbxOperatorsTable(operators) {
 
     const safeName = (op.employee_name || '—').replace(/'/g, "\\'");
     const opBadge = op.operator_number && op.operator_number !== '—'
-      ? `<span class="badge bsm bg" style="font-family:var(--mono);">📞 ${op.operator_number}</span>`
+      ? `<span class="badge bsm bg" style="font-family:var(--mono);display:inline-flex;align-items:center;gap:4px;">${getLucideIcon('phone', '', 12)} ${op.operator_number}</span>`
       : `<span class="badge bsm bgr">—</span>`;
 
     const empNameHtml = op.employee_id
@@ -269,25 +269,27 @@ function renderPbxCallsTable(calls) {
 
     const isAnswered = c.status === 'answered';
     const statusBadge = isAnswered
-      ? `<span class="badge bsm bg">🟢 ${t('pbx_stat_answered') || 'Gaplashilgan'}</span>`
-      : `<span class="badge bsm br">🔴 ${t('pbx_stat_missed') || 'Propushnniy'}</span>`;
+      ? `<span class="badge bsm bg" style="display:inline-flex;align-items:center;gap:4px;">${getLucideIcon('check-circle', '', 12)} ${t('pbx_stat_answered') || 'Gaplashilgan'}</span>`
+      : `<span class="badge bsm br" style="display:inline-flex;align-items:center;gap:4px;">${getLucideIcon('phone-missed', '', 12)} ${t('pbx_stat_missed') || 'Propushnniy'}</span>`;
 
     const talkStr = isAnswered
       ? fmtPbxSeconds(c.talk_time || c.duration || 0)
       : '<span style="color:var(--text3);">0s</span>';
 
     const recHtml = c.record_url
-      ? `<button class="bsm bg2" onclick="playPbxAudio('${escapePbxHtml(c.record_url)}')" title="Yozuvni tinglash" style="display:inline-flex;align-items:center;gap:4px;">▶️ ${t('pbx_th_record') || 'Yozuv'}</button>`
+      ? `<button class="bsm bg2" onclick="playPbxAudio('${escapePbxHtml(c.record_url)}')" title="Yozuvni tinglash" style="display:inline-flex;align-items:center;gap:4px;">${getLucideIcon('play', '', 12)} ${t('pbx_th_record') || 'Yozuv'}</button>`
       : '<span style="color:var(--text3);font-size:11px;">—</span>';
 
-    const dirIco = c.direction === 'out' ? '↗️ Chiquvchi' : '↙️ Kiruvchi';
+    const dirIco = c.direction === 'out'
+      ? `<span style="display:inline-flex;align-items:center;gap:3px;color:var(--primary);">${getLucideIcon('arrow-up-right', '', 13)} Chiquvchi</span>`
+      : `<span style="display:inline-flex;align-items:center;gap:3px;color:var(--text2);">${getLucideIcon('arrow-down-left', '', 13)} Kiruvchi</span>`;
 
     tr.innerHTML = `
       <td>${idx + 1}</td>
       <td style="font-family:var(--mono);font-size:11.5px;">${timeStr}</td>
       <td style="font-family:var(--mono);font-weight:600;">${c.caller || 'Noma\'lum'}</td>
       <td style="font-family:var(--mono);font-size:12px;color:var(--text2);">${c.callee || '—'}</td>
-      <td><span class="badge bsm bgr" style="font-family:var(--mono);">📞 ${c.operator_number || '—'}</span></td>
+      <td><span class="badge bsm bgr" style="font-family:var(--mono);display:inline-flex;align-items:center;gap:4px;">${getLucideIcon('phone', '', 12)} ${c.operator_number || '—'}</span></td>
       <td><strong>${escapePbxHtml(c.employee_name || '—')}</strong></td>
       <td>${statusBadge}</td>
       <td style="font-family:var(--mono);">${talkStr}</td>

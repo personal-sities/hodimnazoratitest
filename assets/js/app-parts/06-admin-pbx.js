@@ -373,7 +373,7 @@ async function loadAtt() {
         bt = t('b_half');
       } else if (status === 'auto_ended') {
         bc2 = 'bg';
-        bt = `⚙️ ${t('auto_label')}`;
+        bt = `<span style="display:inline-flex;align-items:center;gap:3px;">${getLucideIcon('settings', '', 12)} ${t('auto_label')}</span>`;
       } else if (status === 'work_leave') {
         bc2 = 'bauto';
         bt = t('on_work_leave');
@@ -626,14 +626,14 @@ async function loadEmpList() {
   emps.forEach((emp, i) => {
     const roleLabel = getEmployeeRoleLabel(emp.kpi_type);
     const faceStatus = emp.face_registered
-      ? '<span style="color:var(--success);font-size:11px">✅ Ro\'yxatda</span>'
-      : '<span style="color:var(--text3);font-size:11px">❌ Yo\'q</span>';
+      ? `<span style="color:var(--success);font-size:11.5px;display:inline-flex;align-items:center;gap:4px;">${getLucideIcon('check-circle', '', 13)} ${t('face_registered_yes') || "Ro'yxatda"}</span>`
+      : `<span style="color:var(--text3);font-size:11.5px;display:inline-flex;align-items:center;gap:4px;">${getLucideIcon('x-circle', '', 13)} ${t('face_registered_no') || "Yo'q"}</span>`;
 
     const safeName = (emp.name || '').replace(/'/g, "\\'");
     const safeOp = (emp.operator_number || '').replace(/'/g, "\\'");
     const opDisplay = emp.operator_number
-      ? `<span class="badge bsm bg" style="font-family:var(--mono);cursor:pointer;display:inline-flex;align-items:center;gap:4px;" onclick="openEditOperatorModal('${emp.id}','${safeName}','${safeOp}')" title="Operator raqamini tahrirlash">📞 ${emp.operator_number} ✏️</span>`
-      : `<span class="badge bsm bgr" style="cursor:pointer;" onclick="openEditOperatorModal('${emp.id}','${safeName}','')" title="Operator raqami biriktirish">+ ${t('assign_op') || 'Biriktirish'}</span>`;
+      ? `<span class="badge bsm bg" style="font-family:var(--mono);cursor:pointer;display:inline-flex;align-items:center;gap:4px;" onclick="openEditOperatorModal('${emp.id}','${safeName}','${safeOp}')" title="Operator raqamini tahrirlash">${getLucideIcon('phone', '', 12)} ${emp.operator_number} ${getLucideIcon('pencil', '', 11)}</span>`
+      : `<span class="badge bsm bgr" style="cursor:pointer;display:inline-flex;align-items:center;gap:4px;" onclick="openEditOperatorModal('${emp.id}','${safeName}','')" title="Operator raqami biriktirish">${getLucideIcon('plus', '', 11)} ${t('assign_op') || 'Biriktirish'}</span>`;
 
     const tr = document.createElement('tr');
     tr.innerHTML = `
@@ -643,7 +643,7 @@ async function loadEmpList() {
       <td style="font-family:var(--mono)">*****</td>
       <td>${faceStatus}</td>
       <td>${opDisplay}</td>
-      <td><span class="role-badge role-${emp.kpi_type || 'operator'}" style="cursor:pointer;" onclick="openEditRoleModal('${emp.id}','${safeName}','${emp.kpi_type || 'operator'}')" title="Lavozimni o'zgartirish">${roleLabel} ✏️</span></td>
+      <td><span class="role-badge role-${emp.kpi_type || 'operator'}" style="cursor:pointer;display:inline-flex;align-items:center;gap:4px;" onclick="openEditRoleModal('${emp.id}','${safeName}','${emp.kpi_type || 'operator'}')" title="Lavozimni o'zgartirish">${roleLabel} ${getLucideIcon('pencil', '', 11)}</span></td>
       <td><button class="brd" onclick="delEmp('${emp.id}')">${t('delete')}</button></td>
     `;
     tbody.appendChild(tr);
@@ -653,10 +653,6 @@ async function loadEmpList() {
       opt.textContent = emp.name || emp.login || '-';
       leaveSelect.appendChild(opt);
     }
-  });
-  Array.from(tbody.querySelectorAll('tr td:nth-child(5) span')).forEach(el=>{
-    if(/Ro'yxatda|Зарегистрировано|registered/i.test(el.textContent)) el.textContent=`✅ ${t('face_registered_yes')}`;
-    else el.textContent=`❌ ${t('face_registered_no')}`;
   });
   await loadEmployeeLeaveAdminList();
   return emps;

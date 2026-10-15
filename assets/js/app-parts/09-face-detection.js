@@ -161,7 +161,7 @@ async function startFaceDetection(){
   const modelsOk=await loadFaceModels();
   if(!modelsOk){setStatus(t('face_model_error'));setFaceDot('gray',t('face_model_error'));toast('error',t('face_title'),t('face_model_error'));return;}
   const camOk=await startCamera();
-  if(!camOk){setStatus('⚠️ Kamera ruxsati yoq');setFaceDot('gray','Kamera yoq');const frb=document.getElementById('faceRegBox');if(frb)frb.style.display='none';return;}
+  if(!camOk){setStatus('Kamera ruxsati yoq');setFaceDot('gray','Kamera yoq');const frb=document.getElementById('faceRegBox');if(frb)frb.style.display='none';return;}
   const frb=document.getElementById('faceRegBox');
   if(frb)frb.style.display='none';
   setStatus(t('face_ready'));
@@ -255,13 +255,13 @@ async function runFaceCheck(){
       } else {
         // Hali tasdiqlash jarayonida — faqat UI yangilanadi, AFK tozalanmaydi
         const statusEl=document.getElementById('face_status_inline');
-        if(statusEl)statusEl.textContent=`🔄 Tasdiqlanyapdi... (${faceHitCount}/${STABLE_HIT_REQUIRED})`;
-        setFaceDot('yellow',`Tasdiqlanyapdi ${faceHitCount}/${STABLE_HIT_REQUIRED}`);
+        if(statusEl)statusEl.textContent=`Tasdiqlanmoqda... (${faceHitCount}/${STABLE_HIT_REQUIRED})`;
+        setFaceDot('yellow',`Tasdiqlanmoqda ${faceHitCount}/${STABLE_HIT_REQUIRED}`);
         scheduleFaceCheck(FACE_RETRY_INTERVAL);
       }
 
     } else {
-  // ✅ Yuz topilmadi
+  // Yuz topilmadi
   faceHitCount = Math.max(0, faceHitCount - 1);
   faceMissCount++;
   faceUnknownCount=0;
@@ -272,9 +272,9 @@ async function runFaceCheck(){
     livenessScore=Math.max(0,livenessScore-0.05);
     onFaceMissed();
   }else{
-    setFaceDot('yellow','Yuz qidirilyapti...');
+    setFaceDot('yellow','Yuz qidirilmoqda...');
     const statusEl=document.getElementById('face_status_inline');
-    if(statusEl)statusEl.textContent='🔎 Yuz qidirilyapti...';
+    if(statusEl)statusEl.textContent='Yuz qidirilmoqda...';
     scheduleFaceCheck(FACE_RETRY_INTERVAL);
   }
 }
@@ -323,9 +323,9 @@ function onFaceStablyDetected(reason){
   resetFaceLossState();
   const statusEl=document.getElementById('face_status_inline');
   const name=CU?.name||'';
-  let txt='✅ Tanildi: '+name;
+  let txt='Tanildi: '+name;
   if(statusEl)statusEl.textContent=txt;
-  setFaceDot('green','✅ '+name);
+  setFaceDot('green', name);
   // AFK sessiyani tugatish — faqat to'g'ri yuz bo'lsa
   if(isAfk)endAfkSession();
   afkPending=false;
@@ -494,7 +494,7 @@ function startFaceRegistration(){
   if(regCapturing)return;
   if(!faceApiLoaded){toast('warn',t('face_title'),t('face_model_wait'));return;}
   regCapturing=true;regSamples=[];updateSampleDots();
-  const btn=document.getElementById('faceRegBtn');if(btn)btn.textContent='📸 0/5 tushirilmoqda...';
+  const btn=document.getElementById('faceRegBtn');if(btn)btn.innerHTML=(typeof getLucideIcon==='function'?getLucideIcon('camera','',13)+' ':'') + '0/5 tushirilmoqda...';
   captureNextSample();
 }
 
@@ -526,10 +526,10 @@ if(box && descriptor && box._width > 0 && box._x !== null && box._y !== null){
 
       regSamples.push(Array.from(descriptor));
       updateSampleDots();
-      updateQuality(regSamples.length+'/5 ✅');
+      updateQuality(regSamples.length+'/5 ' + (typeof getLucideIcon==='function'?getLucideIcon('check',{size:12}):'✓'));
 
       const btn=document.getElementById('faceRegBtn');
-      if(btn)btn.textContent='📸 '+regSamples.length+'/5...';
+      if(btn)btn.innerHTML=(typeof getLucideIcon==='function'?getLucideIcon('camera','',13)+' ':'') + regSamples.length+'/5...';
 
       if(regSamples.length>=5){
         await saveFaceProfile();

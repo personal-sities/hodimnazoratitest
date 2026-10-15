@@ -186,10 +186,10 @@ function checkScheduledNotifs() {
   const key = todayISO();
   if (!sentToday[key]) sentToday[key] = {};
   const S = sentToday[key];
-  if (h===9&&m===0&&!S.s9){S.s9=true;showAppNotification('AloqaPro',lang==='uz'?'Ishingiz boshlandi! Samarali kun tilaymiz 💼':'Рабочий день начался! Удачного дня 💼');saveNotifToDB('work_start',lang==='uz'?'Ish boshlandi':'Начало работы',lang==='uz'?'Ishingiz boshlandi! Samarali kun tilaymiz':'Рабочий день начался!');}
+  if (h===9&&m===0&&!S.s9){S.s9=true;showAppNotification('AloqaPro',lang==='uz'?'Ishingiz boshlandi! Samarali kun tilaymiz':'Рабочий день начался! Удачного дня');saveNotifToDB('work_start',lang==='uz'?'Ish boshlandi':'Начало работы',lang==='uz'?'Ishingiz boshlandi! Samarali kun tilaymiz':'Рабочий день начался!');}
   if (h===11&&m===40&&!S.s11){
     S.s11=true;
-    showAppNotification('AloqaPro',lang==='uz'?'Abed smenasini tanlang 🍽️':'Выберите обеденную смену 🍽️');
+    showAppNotification('AloqaPro',lang==='uz'?'Abed smenasini tanlang':'Выберите обеденную смену');
     saveNotifToDB(
       'lunch_shift_prompt',
       lang==='uz'?'Abed smenasini tanlang':'Выберите обеденную смену',
@@ -201,16 +201,16 @@ function checkScheduledNotifs() {
   if (((h===17 && m>=55) || (h===18 && m<30)) && !S.s1755 && ['working','paused','lunch','prayer'].includes(empState)){
     S.s1755 = true;
     const remTitle = 'AloqaPro';
-    const remMsg = lang==='uz' ? 'Ishni yakunlashni unutmang ⏰' : 'Не забудьте завершить работу ⏰';
+    const remMsg = lang==='uz' ? 'Ishni yakunlashni unutmang' : 'Не забудьте завершить работу';
     showAppNotification(remTitle, remMsg);
     toast('info', remTitle, remMsg, 12000);
     saveNotifToDB('work_end_reminder', t('work_end_reminder_title') || remTitle, remMsg);
   }
   const breakSec=todayBreakSec();
-  if(breakSec>=600&&breakSec<660&&!S.b10){S.b10=true;showAppNotification('AloqaPro','⚠️ '+(lang==='uz'?'10 daqiqa tanaffus':'10 минут перерыва'));}
-  if(breakSec>=1200&&breakSec<1260&&!S.b20){S.b20=true;showAppNotification('AloqaPro','⚠️ '+(lang==='uz'?'20 daqiqa tanaffus — 10 daqiqa qoldi!':'20 минут перерыва — осталось 10 минут!'));}
-  if(breakSec>=1500&&breakSec<1560&&!S.b25){S.b25=true;showAppNotification('AloqaPro','🔴 '+(lang==='uz'?'25 daqiqa tanaffus! 5 daqiqa qoldi!':'25 минут перерыва! Осталось 5 минут!'));}
-  if(breakSec>=1800&&!S.b30){S.b30=true;showAppNotification('AloqaPro','🚨 '+(lang==='uz'?'30 daqiqa tanaffus tugadi! AFK hisoblanmoqda!':'30 минут перерыва истекло! AFK!'));}
+  if(breakSec>=600&&breakSec<660&&!S.b10){S.b10=true;showAppNotification('AloqaPro',(lang==='uz'?'10 daqiqa tanaffus':'10 минут перерыва'));}
+  if(breakSec>=1200&&breakSec<1260&&!S.b20){S.b20=true;showAppNotification('AloqaPro',(lang==='uz'?'20 daqiqa tanaffus — 10 daqiqa qoldi!':'20 минут перерыва — осталось 10 минут!'));}
+  if(breakSec>=1500&&breakSec<1560&&!S.b25){S.b25=true;showAppNotification('AloqaPro',(lang==='uz'?'25 daqiqa tanaffus! 5 daqiqa qoldi!':'25 минут перерыва! Осталось 5 минут!'));}
+  if(breakSec>=1800&&!S.b30){S.b30=true;showAppNotification('AloqaPro',(lang==='uz'?'30 daqiqa tanaffus tugadi! AFK hisoblanmoqda!':'30 минут перерыва истекло! AFK!'));}
   if (!todayLunchShift && h >= 11 && (h < 14 || (h === 14 && m === 0))) ensureLunchShiftPrompt();
 }
 async function saveNotifToDB(type,title,body){if(!CU)return;try{await sb.from('notifications').insert({employee_id:CU.id,title,body,type});}catch(e){console.warn('saveNotifToDB:',e);}loadNotificationsEmp(false);}

@@ -77,7 +77,7 @@ async function loadHist(){
     else if(status==='kechikkan')bdg=`<span class="badge by">${t('b_late')}</span>`;
     else if(status==='yarim_kun')bdg=`<span class="badge bauto">${t('b_half')}</span>`;
     else bdg=`<span class="badge br">${t('b_abs')}</span>`;
-    if(r.auto_ended)bdg+=` <span class="badge bauto" style="font-size:10px">⚙️ ${t('auto_label')}</span>`;
+    if(r.auto_ended)bdg+=` <span class="badge bauto" style="font-size:10px;display:inline-flex;align-items:center;gap:3px;">${getLucideIcon('settings', '', 11)} ${t('auto_label')}</span>`;
     const tr=document.createElement('tr');
     tr.innerHTML=`<td>${i+1}</td><td style="font-family:var(--mono)">${r.work_date}</td><td style="font-family:var(--mono)">${r.start_time?r.start_time.substring(0,5):'-'}</td><td>${r.lunch_start?r.lunch_start.substring(0,5):'-'}</td><td>${r.lunch_end?r.lunch_end.substring(0,5):'-'}</td><td>${r.end_time?r.end_time.substring(0,5):'-'}</td><td>${r.late_minutes?r.late_minutes+' '+t('daq'):'-'}</td><td style="font-family:var(--mono)">${wh} ${t('soat')} ${wm} ${t('daqiqa')}</td><td>${lh} ${t('soat')} ${lm2} ${t('daqiqa')}</td><td style="color:${afkMin>0?'var(--danger)':'inherit'};font-family:var(--mono)">${afkMin>0?afkMin+' '+t('daq'):'—'}</td><td>${bdg}</td>`;
     tbody.appendChild(tr);
