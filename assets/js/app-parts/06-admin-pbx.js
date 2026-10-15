@@ -618,6 +618,16 @@ async function loadEmpList() {
     emps = data;
   }
 
+  // Mahalliy keshdagi operator raqamlarini birlashtirish (agar bazada ustun hali qo'shilmagan bo'lsa)
+  try {
+    const localOps = JSON.parse(localStorage.getItem('aloqa_operator_numbers') || '{}');
+    (emps || []).forEach(emp => {
+      if (!emp.operator_number && localOps[emp.id]) {
+        emp.operator_number = localOps[emp.id];
+      }
+    });
+  } catch (_) {}
+
   const tbody = document.getElementById('emp_body');
   const leaveSelect = document.getElementById('leave_emp');
   tbody.innerHTML = '';
@@ -841,27 +851,51 @@ async function saveEmployeeOperator() {
   }
 
   try {
-    // 1. To'g'ridan-to'g'ri Supabase REST API orqali xodimning operator raqamini yangilaymiz
-    const { error: sbErr } = await sb
-      .from('employees')
-      .update({
-        operator_number: opNum || null,
-        pbx_extension: opNum || null
-      })
-      .eq('id', empId);
+    // 1. Mahalliy xotiraga saqlash (Bazada operator_number ustuni hali qo'shilmagan bo'lsa ham darhol ishlaydi)
+    try {
+      const localOps = JSON.parse(localStorage.getItem('aloqa_operator_numbers') || '{}');
+      if (opNum) localOps[empId] = opNum;
+      else delete localOps[empId];
+      localStorage.setItem('aloqa_operator_numbers', JSON.stringify(localOps));
+    } catch (_) {}
 
-    if (sbErr) {
-      throw new Error(sbErr.message || 'Operator raqamini saqlashda xatolik');
+    // 2. Supabase REST API orqali xodimning operator raqamini yangilaymiz
+    let savedToRemote = false;
+    let schemaMissing = false;
+
+    try {
+      const { error: sbErr } = await sb
+        .from('employees')
+        .update({
+          operator_number: opNum || null,
+          pbx_extension: opNum || null
+        })
+        .eq('id', empId);
+
+      if (!sbErr) {
+        savedToRemote = true;
+      } else if (sbErr.message && (sbErr.message.includes('operator_number') || sbErr.message.includes('schema cache'))) {
+        schemaMissing = true;
+        console.warn('Supabase schema cache: operator_number column missing. Stored locally.', sbErr.message);
+      } else {
+        throw new Error(sbErr.message || 'Operator raqamini saqlashda xatolik');
+      }
+    } catch (apiErr) {
+      if (apiErr.message && (apiErr.message.includes('operator_number') || apiErr.message.includes('schema cache'))) {
+        schemaMissing = true;
+      } else {
+        throw apiErr;
+      }
     }
 
-    // 2. Agar avvalgi qo'ng'iroqlarda ushbu operator bo'lsa, ularni ham xodimga biriktirish
+    // 3. Agar avvalgi qo'ng'iroqlarda ushbu operator bo'lsa, ularni ham xodimga biriktirish
     if (opNum) {
       try {
         await sb.from('calls').update({ employee_id: empId }).eq('operator_number', opNum).is('employee_id', null);
       } catch (_) {}
     }
 
-    // 3. Agar lokal backend server (/api/functions/v1) ishlab turgan bo'lsa, unga ham sinxronlash
+    // 4. Agar lokal backend server (/api/functions/v1) ishlab turgan bo'lsa, unga ham sinxronlash
     try {
       const { data: sessData } = await sb.auth.getSession();
       const token = sessData?.session?.access_token;
@@ -876,7 +910,15 @@ async function saveEmployeeOperator() {
     } catch (_) {}
 
     closeEditOperatorModal();
-    toast('success', t('edit_op_title') || 'Operator', t('edit_op_success') || 'Operator raqami saqlandi');
+
+    if (savedToRemote) {
+      toast('success', t('edit_op_title') || 'Operator', t('edit_op_success') || 'Operator raqami saqlandi');
+    } else if (schemaMissing) {
+      toast('info', t('edit_op_title') || 'Operator', "Operator raqami saqlandi. Bazada doimiy saqlash uchun Supabase'da operator_number ustunini qo'shing.", 7000);
+    } else {
+      toast('success', t('edit_op_title') || 'Operator', t('edit_op_success') || 'Operator raqami saqlandi');
+    }
+
     await loadEmpList();
     if (typeof loadPbxDashboard === 'function') loadPbxDashboard();
   } catch (err) {

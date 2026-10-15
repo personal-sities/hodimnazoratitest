@@ -102,7 +102,23 @@ async function loadPbxOperatorFilterOptions() {
   const currentVal = sel.value || 'all';
 
   try {
-    const { data: emps } = await sb.from('employees').select('id,name,operator_number').eq('active', true).order('name');
+    let emps = null;
+    const res = await sb.from('employees').select('id,name,operator_number').eq('active', true).order('name');
+    if (!res.error && res.data) emps = res.data;
+    if (!emps) {
+      const fallback = await sb.from('employees').select('id,name').eq('active', true).order('name');
+      emps = fallback.data || [];
+    }
+
+    try {
+      const localOps = JSON.parse(localStorage.getItem('aloqa_operator_numbers') || '{}');
+      (emps || []).forEach(emp => {
+        if (!emp.operator_number && localOps[emp.id]) {
+          emp.operator_number = localOps[emp.id];
+        }
+      });
+    } catch (_) {}
+
     sel.innerHTML = `<option value="all">${t('pbx_filter_all_ops') || 'Barcha operatorlar'}</option>`;
     const added = new Set();
     (emps || []).forEach(emp => {
@@ -369,7 +385,23 @@ async function loadPbxTestOperatorOptions() {
   const sel = document.getElementById('pbx_test_op');
   if (!sel) return;
   try {
-    const { data: emps } = await sb.from('employees').select('id,name,operator_number').eq('active', true).order('name');
+    let emps = null;
+    const res = await sb.from('employees').select('id,name,operator_number').eq('active', true).order('name');
+    if (!res.error && res.data) emps = res.data;
+    if (!emps) {
+      const fallback = await sb.from('employees').select('id,name').eq('active', true).order('name');
+      emps = fallback.data || [];
+    }
+
+    try {
+      const localOps = JSON.parse(localStorage.getItem('aloqa_operator_numbers') || '{}');
+      (emps || []).forEach(emp => {
+        if (!emp.operator_number && localOps[emp.id]) {
+          emp.operator_number = localOps[emp.id];
+        }
+      });
+    } catch (_) {}
+
     sel.innerHTML = '';
     let hasAny = false;
     (emps || []).forEach(emp => {
