@@ -827,22 +827,45 @@ async function saveEmployeeOperator() {
   const empId = document.getElementById('edit_op_emp_id').value;
   const opNum = document.getElementById('edit_op_number').value.trim();
 
+  if (!empId) {
+    toast('warn', t('edit_op_title') || 'Operator', 'Xodim tanlanmagan');
+    return;
+  }
+
   try {
-    const { data: sessData } = await sb.auth.getSession();
-    const token = sessData?.session?.access_token;
+    // 1. To'g'ridan-to'g'ri Supabase REST API orqali xodimning operator raqamini yangilaymiz
+    const { error: sbErr } = await sb
+      .from('employees')
+      .update({
+        operator_number: opNum || null,
+        pbx_extension: opNum || null
+      })
+      .eq('id', empId);
 
-    const res = await fetch(`${FUNCTIONS_BASE}/update-employee-operator`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-      },
-      body: JSON.stringify({ employee_id: empId, operator_number: opNum || null })
-    });
+    if (sbErr) {
+      throw new Error(sbErr.message || 'Operator raqamini saqlashda xatolik');
+    }
 
+    // 2. Agar avvalgi qo'ng'iroqlarda ushbu operator bo'lsa, ularni ham xodimga biriktirish
+    if (opNum) {
+      try {
+        await sb.from('calls').update({ employee_id: empId }).eq('operator_number', opNum).is('employee_id', null);
+      } catch (_) {}
+    }
+
+    // 3. Agar lokal backend server (/api/functions/v1) ishlab turgan bo'lsa, unga ham sinxronlash
     try {
-      await sb.from('employees').update({ operator_number: opNum || null, pbx_extension: opNum || null }).eq('id', empId);
-    } catch (e) {}
+      const { data: sessData } = await sb.auth.getSession();
+      const token = sessData?.session?.access_token;
+      fetch('/api/functions/v1/update-employee-operator', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify({ employee_id: empId, operator_number: opNum || null })
+      }).catch(() => {});
+    } catch (_) {}
 
     closeEditOperatorModal();
     toast('success', t('edit_op_title') || 'Operator', t('edit_op_success') || 'Operator raqami saqlandi');
