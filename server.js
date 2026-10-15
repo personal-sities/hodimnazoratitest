@@ -299,7 +299,9 @@ async function handleCreateEmployee(res, body) {
   const name = String(body.name || '').trim();
   const email = String(body.email || '').trim().toLowerCase();
   const password = String(body.password || '').trim();
-  const kpiType = (body.kpi_type === 'senior' || body.kpi_type === 'junior') ? body.kpi_type : 'junior';
+  const validRoles = ['manager', 'operator', 'sales_operator', 'intern', 'senior', 'junior'];
+  const rawRole = String(body.role || body.kpi_type || 'operator').toLowerCase();
+  const kpiType = validRoles.includes(rawRole) ? rawRole : 'operator';
   const operatorNumber = String(body.operator_number || body.pbx_extension || '').trim() || null;
 
   if (!name || !email || !password) {

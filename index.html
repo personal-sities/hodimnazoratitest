@@ -496,8 +496,15 @@
               <input type="text" id="ne_n" placeholder="Ism familiya">
               <input type="email" id="ne_l" placeholder="Email">
               <input type="password" id="ne_p" placeholder="Parol">
-              <input type="text" id="ne_op" placeholder="Operator raqami (masalan: 100)" style="max-width:200px;">
-              <input type="hidden" id="ne_k" value="junior">
+              <input type="text" id="ne_op" placeholder="Operator raqami (masalan: 100)" style="max-width:180px;">
+              <select id="ne_k" style="padding:9px;border:1.5px solid var(--border2);border-radius:var(--radius-sm);background:var(--input-bg);color:var(--text);font-family:var(--font);font-size:13px;">
+                <option value="manager">Menejer</option>
+                <option value="operator" selected>Operator</option>
+                <option value="sales_operator">Sotuv operatori</option>
+                <option value="intern">Ish o'rganuvchi</option>
+                <option value="senior">Senior</option>
+                <option value="junior">Junior</option>
+              </select>
               <button class="bb" id="b_addemp" onclick="addEmp()"><span class="btn-icon" data-lucide="plus"></span> <span>Qo'shish</span></button>
             </div>
             <div class="tbl-wrap">
@@ -887,6 +894,32 @@
   </div>
 </div>
 
+<div class="ov hidden" id="m_edit_role">
+  <div class="modal">
+    <h3 style="color:var(--accent);display:flex;align-items:center;justify-content:center;gap:8px;">
+      <span class="modal-ico" data-lucide="award"></span> <span>Lavozimni belgilash</span>
+    </h3>
+    <p style="color:var(--text2);font-size:12px;margin:4px 0 12px 0;text-align:center;">
+      Xodim: <strong id="edit_role_emp_name" style="color:var(--text)">—</strong>
+    </p>
+    <input type="hidden" id="edit_role_emp_id">
+    <div class="iw" style="margin:14px 0">
+      <select id="edit_role_select" style="width:100%;padding:10px;border:1.5px solid var(--border2);border-radius:var(--radius-sm);background:var(--input-bg);color:var(--text);font-family:var(--font);font-size:14px;">
+        <option value="manager">Menejer</option>
+        <option value="operator">Operator</option>
+        <option value="sales_operator">Sotuv operatori</option>
+        <option value="intern">Ish o'rganuvchi</option>
+        <option value="senior">Senior</option>
+        <option value="junior">Junior</option>
+      </select>
+    </div>
+    <div class="mbtns">
+      <button class="mok" onclick="saveEmployeeRole()"><span class="btn-icon" data-lucide="check"></span> Saqlash</button>
+      <button class="mno" onclick="closeEditRoleModal()"><span class="btn-icon" data-lucide="x"></span> Bekor</button>
+    </div>
+  </div>
+</div>
+
 <div class="ov hidden" id="m_pbx_webhook">
   <div class="modal modal-wide" style="max-width:580px;">
     <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:14px;">
@@ -939,17 +972,17 @@
   </div>
 </div>
 
-<script src="assets/js/app-parts/00-lucide-icons.js?v=2.3"></script>
-<script src="assets/js/app-parts/01-core.js?v=2.3" defer></script>
-<script src="assets/js/app-parts/02-access-settings.js?v=2.3" defer></script>
-<script src="assets/js/app-parts/03-translations.js?v=2.3" defer></script>
-<script src="assets/js/app-parts/04-time-attendance-utils.js?v=2.3" defer></script>
-<script src="assets/js/app-parts/05-notifications-feedback-login.js?v=2.3" defer></script>
-<script src="assets/js/app-parts/06-admin-pbx.js?v=2.3" defer></script>
-<script src="assets/js/app-parts/06-onlinepbx.js?v=2.3" defer></script>
-<script src="assets/js/app-parts/07-export-employee-state-actions.js?v=2.3" defer></script>
-<script src="assets/js/app-parts/08-timers-prayer-autoend.js?v=2.3" defer></script>
-<script src="assets/js/app-parts/09-face-detection.js?v=2.3" defer></script>
-<script src="assets/js/app-parts/10-employee-ui-init.js?v=2.3" defer></script>
+<script src="assets/js/app-parts/00-lucide-icons.js?v=2.4"></script>
+<script src="assets/js/app-parts/01-core.js?v=2.4" defer></script>
+<script src="assets/js/app-parts/02-access-settings.js?v=2.4" defer></script>
+<script src="assets/js/app-parts/03-translations.js?v=2.4" defer></script>
+<script src="assets/js/app-parts/04-time-attendance-utils.js?v=2.4" defer></script>
+<script src="assets/js/app-parts/05-notifications-feedback-login.js?v=2.4" defer></script>
+<script src="assets/js/app-parts/06-admin-pbx.js?v=2.4" defer></script>
+<script src="assets/js/app-parts/06-onlinepbx.js?v=2.4" defer></script>
+<script src="assets/js/app-parts/07-export-employee-state-actions.js?v=2.4" defer></script>
+<script src="assets/js/app-parts/08-timers-prayer-autoend.js?v=2.4" defer></script>
+<script src="assets/js/app-parts/09-face-detection.js?v=2.4" defer></script>
+<script src="assets/js/app-parts/10-employee-ui-init.js?v=2.4" defer></script>
 </body>
 </html>

@@ -1596,20 +1596,35 @@ body.admin-view #installBanner {
   font-weight: 600;
   letter-spacing: 0.2px;
 }
-.role-badge.role-manager, .role-badge.role-senior {
+.role-badge.role-manager {
   background: rgba(132, 72, 255, 0.12);
   color: #8448ff;
   border: 1px solid rgba(132, 72, 255, 0.24);
+}
+.role-badge.role-senior {
+  background: rgba(99, 102, 241, 0.12);
+  color: #6366f1;
+  border: 1px solid rgba(99, 102, 241, 0.24);
 }
 .role-badge.role-operator {
   background: rgba(16, 185, 129, 0.12);
   color: #059669;
   border: 1px solid rgba(16, 185, 129, 0.24);
 }
-.role-badge.role-intern, .role-badge.role-junior {
+.role-badge.role-sales_operator {
+  background: rgba(8, 145, 178, 0.12);
+  color: #0891b2;
+  border: 1px solid rgba(8, 145, 178, 0.24);
+}
+.role-badge.role-intern {
   background: rgba(245, 158, 11, 0.12);
   color: #d97706;
   border: 1px solid rgba(245, 158, 11, 0.24);
+}
+.role-badge.role-junior {
+  background: rgba(2, 132, 199, 0.12);
+  color: #0284c7;
+  border: 1px solid rgba(2, 132, 199, 0.24);
 }
 
 /* OnlinePBX Styles */

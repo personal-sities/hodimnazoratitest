@@ -556,11 +556,14 @@ async function loadMonthly(){
 }
 
 function getEmployeeRoleLabel(type){
-  if(type==='manager'||type==='senior') return t('role_manager') || 'Menejer';
-  if(type==='operator') return t('role_operator') || 'Operator';
-  if(type==='intern') return t('role_intern') || 'Ish o\'rganuvchi';
-  if(type==='junior') return t('role_employee') || 'Hodim';
-  return type || t('role_employee') || 'Hodim';
+  const tKey = String(type || '').toLowerCase();
+  if(tKey==='manager') return t('role_manager') || 'Menejer';
+  if(tKey==='operator') return t('role_operator') || 'Operator';
+  if(tKey==='sales_operator') return t('role_sales_operator') || 'Sotuv operatori';
+  if(tKey==='intern') return t('role_intern') || 'Ish o\'rganuvchi';
+  if(tKey==='senior') return 'Senior';
+  if(tKey==='junior') return 'Junior';
+  return type || 'Xodim';
 }
 function openMonthlyAttendanceDetails(employeeId){
   const row=monthlyAttendanceSummary.find(item=>item.employeeId===employeeId);
@@ -640,7 +643,7 @@ async function loadEmpList() {
       <td style="font-family:var(--mono)">*****</td>
       <td>${faceStatus}</td>
       <td>${opDisplay}</td>
-      <td><span class="role-badge role-${emp.kpi_type || 'operator'}">${roleLabel}</span></td>
+      <td><span class="role-badge role-${emp.kpi_type || 'operator'}" style="cursor:pointer;" onclick="openEditRoleModal('${emp.id}','${safeName}','${emp.kpi_type || 'operator'}')" title="Lavozimni o'zgartirish">${roleLabel} ✏️</span></td>
       <td><button class="brd" onclick="delEmp('${emp.id}')">${t('delete')}</button></td>
     `;
     tbody.appendChild(tr);
@@ -702,7 +705,7 @@ async function addEmp() {
   const nm = document.getElementById('ne_n').value.trim();
   const email = document.getElementById('ne_l').value.trim().toLowerCase();
   const ps = document.getElementById('ne_p').value.trim();
-  const kp = (document.getElementById('ne_k')?.value || 'junior').trim().toLowerCase();
+  const selectedRole = (document.getElementById('ne_k')?.value || 'operator').trim();
   const op = (document.getElementById('ne_op')?.value || '').trim();
 
   if (!nm || !email || !ps) {
@@ -711,8 +714,8 @@ async function addEmp() {
   }
 
   // Supabase edge function 'junior' yoki 'senior' qabul qiladi.
-  // Foydalanuvchi talabiga ko'ra KPI belgilash shart emas, shu bois standart xavfsiz qiymat: 'junior'
-  const kpiType = (kp === 'senior' || kp === 'junior') ? kp : 'junior';
+  // Edge function xatolik bermasligi uchun mos xavfsiz qiymat beriladi, so'ngra haqiqiy lavozim saqlanadi.
+  const edgeKpiType = (selectedRole === 'senior') ? 'senior' : 'junior';
 
   try {
     const { data: userData, error: userErr } = await sb.auth.getUser();
@@ -733,7 +736,8 @@ async function addEmp() {
       name: nm,
       email,
       password: ps,
-      kpi_type: kpiType,
+      kpi_type: edgeKpiType,
+      role: selectedRole,
       operator_number: op || null
     };
 
@@ -781,18 +785,21 @@ async function addEmp() {
       return;
     }
 
-    // Operator raqami kiritilgan bo'lsa, uni xodim profiliga kafolatli saqlash
-    if (op) {
-      try {
-        const empId = result.employee_id || result.employee?.id || result.id;
-        if (empId) {
-          await sb.from('employees').update({ operator_number: op, pbx_extension: op }).eq('id', empId);
-        } else {
-          await sb.from('employees').update({ operator_number: op, pbx_extension: op }).eq('login', email);
-        }
-      } catch (opErr) {
-        console.warn('Operator raqamini yangilashda ogohlantirish:', opErr);
+    // Xodimning tanlangan lavozimi (selectedRole) va operator raqamini saqlash
+    try {
+      const empId = result.employee_id || result.employee?.id || result.id;
+      const updateData = { kpi_type: selectedRole };
+      if (op) {
+        updateData.operator_number = op;
+        updateData.pbx_extension = op;
       }
+      if (empId) {
+        await sb.from('employees').update(updateData).eq('id', empId);
+      } else {
+        await sb.from('employees').update(updateData).eq('login', email);
+      }
+    } catch (upErr) {
+      console.warn('Xodim lavozimi va operatorini yangilashda ogohlantirish:', upErr);
     }
 
     document.getElementById('ne_n').value = '';
@@ -873,6 +880,42 @@ async function saveEmployeeOperator() {
     if (typeof loadPbxDashboard === 'function') loadPbxDashboard();
   } catch (err) {
     console.error('saveEmployeeOperator error:', err);
+    toast('error', t('error_title'), err.message || 'Xatolik yuz berdi');
+  }
+}
+
+function openEditRoleModal(id, name, currentRole) {
+  const modal = document.getElementById('m_edit_role');
+  if (!modal) return;
+  document.getElementById('edit_role_emp_id').value = id;
+  document.getElementById('edit_role_emp_name').textContent = name;
+  document.getElementById('edit_role_select').value = currentRole || 'operator';
+  modal.classList.remove('hidden');
+}
+
+function closeEditRoleModal() {
+  const modal = document.getElementById('m_edit_role');
+  if (modal) modal.classList.add('hidden');
+}
+
+async function saveEmployeeRole() {
+  const empId = document.getElementById('edit_role_emp_id').value;
+  const newRole = document.getElementById('edit_role_select').value;
+  if (!empId) return;
+
+  try {
+    const { error } = await sb
+      .from('employees')
+      .update({ kpi_type: newRole })
+      .eq('id', empId);
+
+    if (error) throw new Error(error.message);
+
+    closeEditRoleModal();
+    toast('success', t('employee_title') || 'Xodim', 'Lavozim muvaffaqiyatli saqlandi');
+    await loadEmpList();
+  } catch (err) {
+    console.error('saveEmployeeRole error:', err);
     toast('error', t('error_title'), err.message || 'Xatolik yuz berdi');
   }
 }

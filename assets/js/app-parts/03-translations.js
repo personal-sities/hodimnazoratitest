@@ -20,6 +20,18 @@ TR.uz.work_end_reminder_msg='Ishni yakunlashni unutmang ⏰';
 TR.ru.work_end_reminder_msg='Не забудьте завершить работу ⏰';
 TR.uz.role_employee='Hodim';
 TR.ru.role_employee='Сотрудник';
+TR.uz.role_manager='Menejer';
+TR.ru.role_manager='Менеджер';
+TR.uz.role_operator='Operator';
+TR.ru.role_operator='Оператор';
+TR.uz.role_sales_operator='Sotuv operatori';
+TR.ru.role_sales_operator='Оператор продаж';
+TR.uz.role_intern='Ish o\'rganuvchi';
+TR.ru.role_intern='Стажёр';
+TR.uz.role_senior='Senior';
+TR.ru.role_senior='Senior';
+TR.uz.role_junior='Junior';
+TR.ru.role_junior='Junior';
 Object.assign(TR.uz,{dash_t:'Dashboard',dash_work_t:'Davomat holati',dash_late_t:'Hodimlar samaradorligi',dash_work_sub:'Oxirgi 7 kun ko\'rsatkichi'});
 Object.assign(TR.ru,{dash_t:'Dashboard',dash_work_t:'Статус посещаемости',dash_late_t:'Эффективность сотрудников',dash_work_sub:'Показатель за последние 7 дней'});
 Object.assign(TR.uz,{eff_title:'Ish samaradorligi',eff_work_hours:'Ish soati',eff_late:'Kechikish',eff_afk:'AFK'});
@@ -1282,10 +1294,22 @@ function applyLang(){
   sp('ep_np',t('ep_ph'));sp('fsearch',t('fsearch'));
   if(typeof updateEmpBtns==='function'){ updateEmpBtns(); }
   const ks=document.getElementById('ne_k');
-  if(ks && ks.tagName==='SELECT' && ks.options && ks.options.length>=3){
+  if(ks && ks.tagName==='SELECT' && ks.options && ks.options.length>=6){
     ks.options[0].text=t('role_manager');
     ks.options[1].text=t('role_operator');
-    ks.options[2].text=t('role_intern');
+    ks.options[2].text=t('role_sales_operator');
+    ks.options[3].text=t('role_intern');
+    ks.options[4].text=t('role_senior');
+    ks.options[5].text=t('role_junior');
+  }
+  const editRoleSel=document.getElementById('edit_role_select');
+  if(editRoleSel && editRoleSel.options && editRoleSel.options.length>=6){
+    editRoleSel.options[0].text=t('role_manager');
+    editRoleSel.options[1].text=t('role_operator');
+    editRoleSel.options[2].text=t('role_sales_operator');
+    editRoleSel.options[3].text=t('role_intern');
+    editRoleSel.options[4].text=t('role_senior');
+    editRoleSel.options[5].text=t('role_junior');
   }
   refreshStaticLabels();
   refreshAmoCrmStaticLabels();
