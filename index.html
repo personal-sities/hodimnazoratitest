@@ -162,20 +162,10 @@
       </div>
       <div class="sb-nav">
         <button class="nbtn active" id="nav_main" onclick="adminTab('main');closeSidebar()"><span class="ni" data-lucide="layout-dashboard"></span><span id="n_main">Asosiy</span></button>
+        <button class="nbtn" id="nav_pbx" onclick="adminTab('pbx');closeSidebar()"><span class="ni" data-lucide="phone-call"></span><span id="n_pbx">OnlinePBX</span></button>
         <button class="nbtn" id="nav_feedback" onclick="adminTab('feedback');closeSidebar()"><span class="ni" data-lucide="message-square"></span><span id="n_fb">Fikrlar</span> <span id="fbBadge" class="notif-badge hidden">0</span></button>
         <button class="nbtn" id="nav_notif" onclick="adminTab('notif');closeSidebar()"><span class="ni" data-lucide="bell"></span><span id="n_notif">Bildirishnomalar</span> <span id="notifBadgeAdmin" class="notif-badge hidden">0</span></button>
         <button class="nbtn" id="nav_settings" onclick="adminTab('settings');closeSidebar()"><span class="ni" data-lucide="settings"></span><span id="n_set">Sozlamalar</span></button>
-      </div>
-      <div class="sb-bottom">
-        <div class="sb-bottom-row">
-          <label class="theme-toggle" title="Mavzu"><input type="checkbox" id="themeToggle4" onchange="toggleTheme()"><span class="theme-slider"></span></label>
-          <div class="lsw">
-            <button class="lb active" id="sl_uz" onclick="setLang('uz')"><span class="flag"><svg viewBox="0 0 34 22"><rect width="34" height="7.33" fill="#1EB3E4"/><rect y="7.33" width="34" height="7.34" fill="#fff"/><rect y="14.67" width="34" height="7.33" fill="#32A84C"/><rect y="6.9" width="34" height=".8" fill="#CE2028"/><rect y="14.3" width="34" height=".8" fill="#CE2028"/><circle cx="9" cy="3.7" r="2.3" fill="#fff"/><circle cx="10.1" cy="3.7" r="2.3" fill="#1EB3E4"/></svg></span></button>
-            <span class="lsep"></span>
-            <button class="lb" id="sl_ru" onclick="setLang('ru')"><span class="flag"><svg viewBox="0 0 34 22"><rect width="34" height="7.33" fill="#fff"/><rect y="7.33" width="34" height="7.34" fill="#1C3F94"/><rect y="14.67" width="34" height="7.33" fill="#CE2028"/></svg></span></button>
-          </div>
-        </div>
-        <button class="xbtn sb-logout-btn" onclick="doLogout()"><span class="btn-icon" data-lucide="log-out"></span> <span id="sbExitTxt">Chiqish</span></button>
       </div>
     </div>
     <div class="mcol">
@@ -292,6 +282,166 @@
           </div>
         </div>
 
+        <div id="tab_pbx" class="hidden">
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:18px;">
+            <div>
+              <h2 id="pbx_header_title" style="margin:0;font-size:18px;font-weight:800;display:flex;align-items:center;gap:8px;color:var(--text)">
+                <span data-lucide="phone-call" style="color:var(--accent);width:22px;height:22px;"></span>
+                OnlinePBX Qo'ng'iroqlar va Operatorlar nazorati
+              </h2>
+              <p style="margin:4px 0 0 0;font-size:12px;color:var(--text3);" id="pbx_header_sub">
+                Jonli webhook orqali har bir operatorning qabul qilgan va o'tkazib yuborgan qo'ng'iroqlari
+              </p>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+              <button class="bg2" onclick="openPbxWebhookModal()" title="Webhook sozlamalari">
+                <span class="btn-icon" data-lucide="link"></span>
+                <span id="pbx_webhook_info_btn_text">Webhook sozlamalari</span>
+              </button>
+              <button class="btn-export" onclick="exportPbxExcel()" title="Excel hisobotini yuklab olish">
+                <span class="btn-icon" data-lucide="file-spreadsheet"></span>
+                <span id="b_export_pbx_excel">Скачать в Excel</span>
+              </button>
+              <button class="bb" onclick="loadPbxDashboard()" title="Yangilash">
+                <span class="btn-icon" data-lucide="refresh-cw"></span>
+                <span id="pbx_refresh_btn_text">Yangilash</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Sanalar bo'yicha tezkor filtrlar paneli -->
+          <div class="box" style="padding:14px 18px;margin-bottom:18px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+              <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                <div class="drange" style="margin:0;">
+                  <label id="pbx_from_l">Dan:</label>
+                  <input type="date" id="pbx_date_from" onchange="onPbxDateChange()">
+                  <label id="pbx_to_l">Gacha:</label>
+                  <input type="date" id="pbx_date_to" onchange="onPbxDateChange()">
+                </div>
+                <button class="bg2 pbx-preset-btn active" id="pbx_preset_today" onclick="setPbxDatePreset('today')">
+                  <span class="btn-icon" data-lucide="calendar-check"></span>
+                  <span id="pbx_filter_btn_today">Bugun</span>
+                </button>
+                <button class="bg2 pbx-preset-btn" id="pbx_preset_yesterday" onclick="setPbxDatePreset('yesterday')">
+                  <span class="btn-icon" data-lucide="calendar"></span>
+                  <span id="pbx_filter_btn_yesterday">Kecha</span>
+                </button>
+                <button class="bg2 pbx-preset-btn" id="pbx_preset_month" onclick="setPbxDatePreset('month')">
+                  <span class="btn-icon" data-lucide="calendar-days"></span>
+                  <span id="pbx_filter_btn_month">Joriy oy</span>
+                </button>
+              </div>
+
+              <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;flex:1;justify-content:flex-end;">
+                <select id="pbx_filter_operator" onchange="onPbxFilterChange()" style="font-size:12px;padding:7px 10px;border:1.5px solid var(--border2);border-radius:var(--radius-sm);background:var(--input-bg);color:var(--text);min-width:160px;">
+                  <option value="all" id="pbx_opt_all">Barcha operatorlar</option>
+                </select>
+                <select id="pbx_filter_status" onchange="onPbxFilterChange()" style="font-size:12px;padding:7px 10px;border:1.5px solid var(--border2);border-radius:var(--radius-sm);background:var(--input-bg);color:var(--text);min-width:150px;">
+                  <option value="all" id="pbx_st_all">Barcha holatlar</option>
+                  <option value="answered" id="pbx_st_ans">Faqat gaplashilgan</option>
+                  <option value="missed" id="pbx_st_mis">Faqat propushnniy</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <!-- 4 Ta KPI Kartasi -->
+          <div class="scards">
+            <div class="scard scard-blue">
+              <div class="scard-top">
+                <h4 id="pbx_card_total_title">Jami qo'ng'iroqlar</h4>
+                <div class="scard-icon" data-lucide="phone"></div>
+              </div>
+              <div class="snum" id="pbx_stat_total">0</div>
+            </div>
+            <div class="scard scard-work">
+              <div class="scard-top">
+                <h4 id="pbx_card_answered_title">Gaplashilgan</h4>
+                <div class="scard-icon" data-lucide="phone-incoming"></div>
+              </div>
+              <div class="snum" id="pbx_stat_answered">0 (0%)</div>
+            </div>
+            <div class="scard scard-absent">
+              <div class="scard-top">
+                <h4 id="pbx_card_missed_title">O'tkazib yuborilgan (Propushnniy)</h4>
+                <div class="scard-icon" data-lucide="phone-missed"></div>
+              </div>
+              <div class="snum" id="pbx_stat_missed">0</div>
+            </div>
+            <div class="scard scard-leave">
+              <div class="scard-top">
+                <h4 id="pbx_card_duration_title">Suhbat vaqti (Jami / O'rtacha)</h4>
+                <div class="scard-icon" data-lucide="clock"></div>
+              </div>
+              <div class="snum" id="pbx_stat_duration" style="font-size:19px;">0s / 0s</div>
+            </div>
+          </div>
+
+          <!-- Operatorlar bo'yicha umumiy reyting jadvali -->
+          <div class="box">
+            <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:14px;">
+              <span class="btitle" id="pbx_operators_box_title" style="margin:0;">
+                <span data-lucide="users-2" style="width:18px;height:18px;color:var(--accent);"></span>
+                Operatorlar bo'yicha hisobot
+              </span>
+            </div>
+            <div class="tbl-wrap">
+              <table class="tbl" style="min-width:760px;">
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th id="pbx_th_op">Operator</th>
+                    <th id="pbx_th_emp">Mas'ul xodim</th>
+                    <th id="pbx_th_total">Jami</th>
+                    <th id="pbx_th_answered">Gaplashilgan</th>
+                    <th id="pbx_th_missed">Propushnniy</th>
+                    <th id="pbx_th_percent">Qabul foizi</th>
+                    <th id="pbx_th_talk_time">Jami suhbat</th>
+                    <th id="pbx_th_avg">O'rtacha vaqt</th>
+                  </tr>
+                </thead>
+                <tbody id="pbx_operators_body">
+                  <tr><td colspan="9" style="text-align:center;padding:24px;color:var(--text3);">Yuklanmoqda...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Qo'ng'iroqlar jurnali (Calls log) -->
+          <div class="box">
+            <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:14px;">
+              <span class="btitle" id="pbx_logs_box_title" style="margin:0;">
+                <span data-lucide="list-filter" style="width:18px;height:18px;color:var(--accent);"></span>
+                Qo'ng'iroqlar jurnali
+              </span>
+              <div style="display:flex;align-items:center;gap:8px;">
+                <input type="text" id="pbx_search_input" placeholder="Mijoz yoki operator qidirish..." oninput="filterPbxCallsLocally()" style="min-width:240px;font-size:12px;padding:6px 10px;border:1.5px solid var(--border2);border-radius:var(--radius-sm);background:var(--input-bg);color:var(--text);">
+              </div>
+            </div>
+            <div class="tbl-wrap">
+              <table class="tbl" style="min-width:820px;">
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th id="pbx_log_th_date">Vaqt / Sana</th>
+                    <th id="pbx_log_th_caller">Mijoz raqami</th>
+                    <th id="pbx_log_th_callee">Liniya</th>
+                    <th id="pbx_log_th_op">Operator</th>
+                    <th id="pbx_log_th_emp">Mas'ul xodim</th>
+                    <th id="pbx_log_th_status">Holat</th>
+                    <th id="pbx_log_th_duration">Suhbat davomiyligi</th>
+                    <th id="pbx_log_th_rec">Yozuv</th>
+                  </tr>
+                </thead>
+                <tbody id="pbx_calls_body">
+                  <tr><td colspan="9" style="text-align:center;padding:24px;color:var(--text3);">Yuklanmoqda...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
         <div id="tab_notif" class="hidden">
           <div class="box">
             <div class="btitle" id="notif_box_title"><span class="title-ico" data-lucide="bell" style="width:18px;height:18px;min-width:18px;min-height:18px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;"></span> <span id="nbt_txt">Bildirishnoma yuborish</span></div>
@@ -346,16 +496,13 @@
               <input type="text" id="ne_n" placeholder="Ism familiya">
               <input type="email" id="ne_l" placeholder="Email">
               <input type="password" id="ne_p" placeholder="Parol">
-              <select id="ne_k">
-                <option value="manager">Menejer</option>
-                <option value="operator">Operator</option>
-                <option value="intern">Ish o'rganuvchi</option>
-              </select>
+              <input type="text" id="ne_op" placeholder="Operator raqami (masalan: 100)" style="max-width:200px;">
+              <input type="hidden" id="ne_k" value="junior">
               <button class="bb" id="b_addemp" onclick="addEmp()"><span class="btn-icon" data-lucide="plus"></span> <span>Qo'shish</span></button>
             </div>
             <div class="tbl-wrap">
-              <table class="tbl" style="min-width:620px;">
-                <thead><tr><th>#</th><th id="et1">Ism familiya</th><th id="et2">Login</th><th id="et3">Parol</th><th>Yuz</th><th id="et4">Lavozim</th><th id="et5">O'chirish</th></tr></thead>
+              <table class="tbl" style="min-width:680px;">
+                <thead><tr><th>#</th><th id="et1">Ism familiya</th><th id="et2">Login</th><th id="et3">Parol</th><th>Yuz</th><th id="et_op">Operator</th><th id="et4">Lavozim</th><th id="et5">O'chirish</th></tr></thead>
                 <tbody id="emp_body"></tbody>
               </table>
             </div>
@@ -448,14 +595,26 @@
 
 <div id="employeePage">
   <div id="afkBanner"><span class="banner-ico" data-lucide="shield-alert"></span> <span id="afkBannerTxt">Yuz aniqlanmadi! AFK vaqt hisoblanmoqda...</span></div>
-  <div id="autoEndBanner"><span class="banner-ico" data-lucide="check-circle-2"></span> <span id="autoEndTxt">Ish vaqti tugadi. Tizim tomonidan yakunlandi (18:00)</span></div>
+  <div id="autoEndBanner"><span class="banner-ico" data-lucide="check-circle-2"></span> <span id="autoEndTxt">Ish vaqti tugadi. Tizim tomonidan yakunlandi (18:30)</span></div>
   <div id="breakBanner"><span class="banner-ico" data-lucide="coffee"></span> <span id="breakBannerTxt">Tanaffus vaqtingiz: 0:00 / 30 daqiqa</span></div>
   <div class="ehdr">
-    <div class="ehdr-brand">
-      <img src="images/logo2.png" alt="" style="width:30px;height:30px;object-fit:contain;" onerror="this.style.display='none'">
-      <span class="ehdr-brand-name">Aloqa<span>Pro</span></span>
+    <div class="ehdr-left">
+      <div class="ehdr-brand">
+        <img src="images/logo2.png" alt="" style="width:30px;height:30px;object-fit:contain;" onerror="this.style.display='none'">
+        <span class="ehdr-brand-name">Aloqa<span>Pro</span></span>
+      </div>
+      <div class="ehdr-sep"></div>
+      <div class="ehdr-user" id="ehdrUserBadge" title="Hodim profili">
+        <div class="ehdr-avatar" id="ehdrAvatar">
+          <span class="ehdr-avatar-txt" id="ehdrUserInitials"><span data-lucide="user" class="ehdr-user-ico"></span></span>
+        </div>
+        <div class="ehdr-user-info">
+          <div class="ehdr-user-name" id="ehdrUserName">—</div>
+          <div class="ehdr-user-sub" id="ehdrUserSub">Hodim</div>
+        </div>
+      </div>
     </div>
-    <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap">
+    <div class="ehdr-right">
       <span style="color:rgba(255,255,255,.6);font-size:11px;font-family:var(--mono);background:rgba(255,255,255,.07);padding:4px 8px;border-radius:6px;display:flex;align-items:center;gap:6px;" id="empDate"></span>
       <label class="theme-toggle"><input type="checkbox" id="themeToggle3" onchange="toggleTheme()"><span class="theme-slider"></span></label>
       <div class="lsw">
@@ -694,7 +853,7 @@
 <div class="ov hidden" id="m_auto_end">
   <div class="modal">
     <h3 style="color:var(--success);display:flex;align-items:center;justify-content:center;gap:8px;"><span class="modal-ico" data-lucide="check-circle-2"></span> Ish yakunlandi</h3>
-    <p id="auto_end_txt" style="color:var(--text2)">Soat 18:00 bo'ldi. Tizim tomonidan ish yakunlandi.</p>
+    <p id="auto_end_txt" style="color:var(--text2)">Soat 18:30 bo'ldi. Tizim tomonidan ish yakunlandi.</p>
     <button class="msingle" onclick="document.getElementById('m_auto_end').classList.add('hidden')">OK</button>
   </div>
 </div>
@@ -709,16 +868,88 @@
   </div>
 </div>
 
-<script src="assets/js/app-parts/00-lucide-icons.js?v=2.1"></script>
-<script src="assets/js/app-parts/01-core.js?v=2.1" defer></script>
-<script src="assets/js/app-parts/02-access-settings.js?v=2.1" defer></script>
-<script src="assets/js/app-parts/03-translations.js?v=2.1" defer></script>
-<script src="assets/js/app-parts/04-time-attendance-utils.js?v=2.1" defer></script>
-<script src="assets/js/app-parts/05-notifications-feedback-login.js?v=2.1" defer></script>
-<script src="assets/js/app-parts/06-admin-pbx.js?v=2.1" defer></script>
-<script src="assets/js/app-parts/07-export-employee-state-actions.js?v=2.1" defer></script>
-<script src="assets/js/app-parts/08-timers-prayer-autoend.js?v=2.1" defer></script>
-<script src="assets/js/app-parts/09-face-detection.js?v=2.1" defer></script>
-<script src="assets/js/app-parts/10-employee-ui-init.js?v=2.1" defer></script>
+<div class="ov hidden" id="m_edit_operator">
+  <div class="modal">
+    <h3 id="edit_op_title" style="color:var(--accent);display:flex;align-items:center;justify-content:center;gap:8px;">
+      <span class="modal-ico" data-lucide="phone"></span> <span>Operator raqamini belgilash</span>
+    </h3>
+    <p id="edit_op_subtitle" style="color:var(--text2);font-size:12px;margin:4px 0 12px 0;text-align:center;">
+      Xodim: <strong id="edit_op_emp_name" style="color:var(--text)">—</strong>
+    </p>
+    <input type="hidden" id="edit_op_emp_id">
+    <div class="iw" style="margin:14px 0">
+      <input type="text" id="edit_op_number" placeholder="Operator raqami (masalan: 100)" style="background:var(--input-bg);color:var(--text);font-family:var(--mono);text-align:center;font-size:15px;letter-spacing:1px;">
+    </div>
+    <div class="mbtns">
+      <button class="mok" id="edit_op_save" onclick="saveEmployeeOperator()"><span class="btn-icon" data-lucide="check"></span> Saqlash</button>
+      <button class="mno" id="edit_op_cancel" onclick="closeEditOperatorModal()"><span class="btn-icon" data-lucide="x"></span> Bekor</button>
+    </div>
+  </div>
+</div>
+
+<div class="ov hidden" id="m_pbx_webhook">
+  <div class="modal modal-wide" style="max-width:580px;">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:14px;">
+      <h3 style="color:var(--accent);display:flex;align-items:center;gap:8px;margin:0;">
+        <span class="modal-ico" data-lucide="webhook"></span> <span>OnlinePBX Webhook sozlamalari</span>
+      </h3>
+      <button class="mno" onclick="closePbxWebhookModal()" style="padding:4px 10px;">✕</button>
+    </div>
+
+    <div style="font-size:12.5px;color:var(--text2);line-height:1.6;margin-bottom:16px;">
+      <p style="margin:0 0 8px 0;">
+        OnlinePBX kabinetingizda <strong>Интеграция / Webhook</strong> bo'limiga kiring va quyidagi manzilni kiriting:
+      </p>
+      <div style="display:flex;gap:8px;margin-bottom:8px;">
+        <input type="text" id="pbx_webhook_url_display" readonly style="flex:1;background:var(--bg3);font-family:var(--mono);font-size:12px;padding:8px 10px;border:1.5px solid var(--border2);border-radius:var(--radius-sm);color:var(--accent);font-weight:600;">
+        <button class="bb" onclick="copyPbxWebhookUrl()"><span class="btn-icon" data-lucide="copy"></span> <span>Nusxalash</span></button>
+      </div>
+      <p style="font-size:11.5px;color:var(--text3);margin:0;">
+        Hodisalar: <strong>Qo'ng'iroq yakunlanganda (call_end / hangup / CDR)</strong> webhook yuboriladi. AloqaPro tizimi avtomatik ravishda qo'ng'iroqni operator raqamiga qarab mas'ul xodimga biriktiradi.
+      </p>
+    </div>
+
+    <div style="border-top:1px solid var(--border);padding-top:14px;">
+      <h4 style="font-size:13px;margin:0 0 10px 0;display:flex;align-items:center;gap:6px;color:var(--text);">
+        <span data-lucide="sparkles" style="width:16px;height:16px;color:var(--accent);"></span>
+        <span>Sinov qo'ng'irog'ini yuborish (Test Call)</span>
+      </h4>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+        <div>
+          <label style="font-size:11px;color:var(--text3);display:block;margin-bottom:4px;">Operator:</label>
+          <select id="pbx_test_op" style="width:100%;font-size:12px;padding:7px;border:1.5px solid var(--border2);border-radius:var(--radius-sm);background:var(--input-bg);color:var(--text);"></select>
+        </div>
+        <div>
+          <label style="font-size:11px;color:var(--text3);display:block;margin-bottom:4px;">Holat:</label>
+          <select id="pbx_test_status" style="width:100%;font-size:12px;padding:7px;border:1.5px solid var(--border2);border-radius:var(--radius-sm);background:var(--input-bg);color:var(--text);">
+            <option value="answered">Gaplashilgan (Answered)</option>
+            <option value="missed">Propushnniy (Missed / Busy)</option>
+          </select>
+        </div>
+      </div>
+      <div style="display:flex;gap:10px;align-items:center;justify-content:space-between;">
+        <div style="flex:1;">
+          <input type="number" id="pbx_test_talk" placeholder="Suhbat vaqti (soniya)" value="65" style="width:100%;font-size:12px;padding:7px;border:1.5px solid var(--border2);border-radius:var(--radius-sm);background:var(--input-bg);color:var(--text);">
+        </div>
+        <button class="bb" id="btn_send_test_call" onclick="sendTestPbxCall()" style="white-space:nowrap;">
+          <span class="btn-icon" data-lucide="send"></span> <span>Sinovni jo'natish</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="assets/js/app-parts/00-lucide-icons.js?v=2.2"></script>
+<script src="assets/js/app-parts/01-core.js?v=2.2" defer></script>
+<script src="assets/js/app-parts/02-access-settings.js?v=2.2" defer></script>
+<script src="assets/js/app-parts/03-translations.js?v=2.2" defer></script>
+<script src="assets/js/app-parts/04-time-attendance-utils.js?v=2.2" defer></script>
+<script src="assets/js/app-parts/05-notifications-feedback-login.js?v=2.2" defer></script>
+<script src="assets/js/app-parts/06-admin-pbx.js?v=2.2" defer></script>
+<script src="assets/js/app-parts/06-onlinepbx.js?v=2.2" defer></script>
+<script src="assets/js/app-parts/07-export-employee-state-actions.js?v=2.2" defer></script>
+<script src="assets/js/app-parts/08-timers-prayer-autoend.js?v=2.2" defer></script>
+<script src="assets/js/app-parts/09-face-detection.js?v=2.2" defer></script>
+<script src="assets/js/app-parts/10-employee-ui-init.js?v=2.2" defer></script>
 </body>
 </html>

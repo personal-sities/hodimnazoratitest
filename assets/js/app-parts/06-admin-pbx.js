@@ -20,12 +20,13 @@ async function checkFeedbackBadge(){
 }
 function adminTab(tab){
   currentAdminTab = tab;
-  ['main','notif','feedback','settings'].forEach(n=>{const el=document.getElementById('tab_'+n);if(el)el.classList.toggle('hidden',n!==tab);});
-  ['nav_main','nav_feedback','nav_notif','nav_settings'].forEach((id,i)=>{const el=document.getElementById(id);if(el)el.classList.toggle('active',['main','feedback','notif','settings'][i]===tab);});
+  ['main','notif','feedback','settings','pbx'].forEach(n=>{const el=document.getElementById('tab_'+n);if(el)el.classList.toggle('hidden',n!==tab);});
+  ['nav_main','nav_feedback','nav_notif','nav_settings','nav_pbx'].forEach((id)=>{const el=document.getElementById(id);if(el)el.classList.toggle('active',id==='nav_'+tab);});
   st('admTitle',getAdminTabTitle(tab));
   if(tab==='settings'){loadEmpList();updateIPList();loadGPSSettingsUI();loadFaceControlSettings();}
   if(tab==='feedback')loadFeedbackAdmin();
   if(tab==='notif'){loadNotificationsAdmin();loadNotifEmpSelect();}
+  if(tab==='pbx'){if(typeof loadPbxDashboard==='function')loadPbxDashboard();}
   if(typeof hydrateLucideIcons === 'function') hydrateLucideIcons(document.getElementById('tab_' + tab));
   animateCurrentView();
 }
@@ -555,10 +556,11 @@ async function loadMonthly(){
 }
 
 function getEmployeeRoleLabel(type){
-  if(type==='manager'||type==='senior') return t('role_manager');
-  if(type==='operator') return t('role_operator');
-  if(type==='intern'||type==='junior') return t('role_intern');
-  return type || '-';
+  if(type==='manager'||type==='senior') return t('role_manager') || 'Menejer';
+  if(type==='operator') return t('role_operator') || 'Operator';
+  if(type==='intern') return t('role_intern') || 'Ish o\'rganuvchi';
+  if(type==='junior') return t('role_employee') || 'Hodim';
+  return type || t('role_employee') || 'Hodim';
 }
 function openMonthlyAttendanceDetails(employeeId){
   const row=monthlyAttendanceSummary.find(item=>item.employeeId===employeeId);
@@ -589,15 +591,28 @@ function openMonthlyAttendanceDetails(employeeId){
 function closeMonthlyAttendanceDetails(){document.getElementById('m_month_att_detail').classList.add('hidden');}
 
 async function loadEmpList() {
-  const { data: emps, error } = await sb
-    .from('employees')
-    .select('id,name,login,kpi_type,face_registered')
-    .eq('active', true)
-    .order('name');
+  let emps = null;
+  try {
+    const res = await sb
+      .from('employees')
+      .select('id,name,login,kpi_type,face_registered,operator_number')
+      .eq('active', true)
+      .order('name');
+    if (!res.error && res.data) emps = res.data;
+  } catch (e) {}
 
-  if (error || !emps) {
-    toast('error', t('error_title'), error?.message || t('employees_load_error'));
-    return [];
+  if (!emps) {
+    const { data, error } = await sb
+      .from('employees')
+      .select('id,name,login,kpi_type,face_registered')
+      .eq('active', true)
+      .order('name');
+
+    if (error || !data) {
+      toast('error', t('error_title'), error?.message || t('employees_load_error'));
+      return [];
+    }
+    emps = data;
   }
 
   const tbody = document.getElementById('emp_body');
@@ -611,6 +626,12 @@ async function loadEmpList() {
       ? '<span style="color:var(--success);font-size:11px">✅ Ro\'yxatda</span>'
       : '<span style="color:var(--text3);font-size:11px">❌ Yo\'q</span>';
 
+    const safeName = (emp.name || '').replace(/'/g, "\\'");
+    const safeOp = (emp.operator_number || '').replace(/'/g, "\\'");
+    const opDisplay = emp.operator_number
+      ? `<span class="badge bsm bg" style="font-family:var(--mono);cursor:pointer;display:inline-flex;align-items:center;gap:4px;" onclick="openEditOperatorModal('${emp.id}','${safeName}','${safeOp}')" title="Operator raqamini tahrirlash">📞 ${emp.operator_number} ✏️</span>`
+      : `<span class="badge bsm bgr" style="cursor:pointer;" onclick="openEditOperatorModal('${emp.id}','${safeName}','')" title="Operator raqami biriktirish">+ ${t('assign_op') || 'Biriktirish'}</span>`;
+
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td>${i + 1}</td>
@@ -618,6 +639,7 @@ async function loadEmpList() {
       <td style="font-family:var(--mono)">${emp.login}</td>
       <td style="font-family:var(--mono)">*****</td>
       <td>${faceStatus}</td>
+      <td>${opDisplay}</td>
       <td><span class="role-badge role-${emp.kpi_type || 'operator'}">${roleLabel}</span></td>
       <td><button class="brd" onclick="delEmp('${emp.id}')">${t('delete')}</button></td>
     `;
@@ -680,12 +702,17 @@ async function addEmp() {
   const nm = document.getElementById('ne_n').value.trim();
   const email = document.getElementById('ne_l').value.trim().toLowerCase();
   const ps = document.getElementById('ne_p').value.trim();
-  const kp = document.getElementById('ne_k').value;
+  const kp = (document.getElementById('ne_k')?.value || 'junior').trim().toLowerCase();
+  const op = (document.getElementById('ne_op')?.value || '').trim();
 
   if (!nm || !email || !ps) {
     toast('warn', t('error_title'), t('fill_required_short'));
     return;
   }
+
+  // Supabase edge function 'junior' yoki 'senior' qabul qiladi.
+  // Foydalanuvchi talabiga ko'ra KPI belgilash shart emas, shu bois standart xavfsiz qiymat: 'junior'
+  const kpiType = (kp === 'senior' || kp === 'junior') ? kp : 'junior';
 
   try {
     const { data: userData, error: userErr } = await sb.auth.getUser();
@@ -706,10 +733,12 @@ async function addEmp() {
       name: nm,
       email,
       password: ps,
-      kpi_type: kp
+      kpi_type: kpiType,
+      operator_number: op || null
     };
 
-    const res = await fetch(`${FUNCTIONS_BASE}/create-employee`, {
+    let targetUrl = `${FUNCTIONS_BASE}/create-employee`;
+    let res = await fetch(targetUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -718,8 +747,7 @@ async function addEmp() {
       body: JSON.stringify(payload)
     });
 
-    const raw = await res.text();
-
+    let raw = await res.text();
     let result = {};
     try {
       result = raw ? JSON.parse(raw) : {};
@@ -727,20 +755,102 @@ async function addEmp() {
       result = { error: raw || 'Noma’lum xato' };
     }
 
+    // Agar server.js yoki endpoint orqali xatolik bo'lsa va to'g'ridan-to'g'ri Supabase URL ga ulanish imkoni bo'lsa fallback qilish
+    if (!res.ok && targetUrl !== `${SUPABASE_URL}/functions/v1/create-employee` && (res.status === 404 || res.status === 502 || (result.error && result.error.includes('SUPABASE_SERVICE_ROLE_KEY')))) {
+      try {
+        const fallbackRes = await fetch(`${SUPABASE_URL}/functions/v1/create-employee`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify(payload)
+        });
+        const fallbackRaw = await fallbackRes.text();
+        if (fallbackRes.ok) {
+          res = fallbackRes;
+          try { result = fallbackRaw ? JSON.parse(fallbackRaw) : {}; } catch { result = {}; }
+        }
+      } catch (fbErr) {
+        console.warn('Fallback create-employee xatosi:', fbErr);
+      }
+    }
+
     if (!res.ok) {
       toast('error', t('error_title'), result.error || result.message || t('employee_add_error'));
       return;
     }
 
+    // Operator raqami kiritilgan bo'lsa, uni xodim profiliga kafolatli saqlash
+    if (op) {
+      try {
+        const empId = result.employee_id || result.employee?.id || result.id;
+        if (empId) {
+          await sb.from('employees').update({ operator_number: op, pbx_extension: op }).eq('id', empId);
+        } else {
+          await sb.from('employees').update({ operator_number: op, pbx_extension: op }).eq('login', email);
+        }
+      } catch (opErr) {
+        console.warn('Operator raqamini yangilashda ogohlantirish:', opErr);
+      }
+    }
+
     document.getElementById('ne_n').value = '';
     document.getElementById('ne_l').value = '';
     document.getElementById('ne_p').value = '';
+    if (document.getElementById('ne_op')) document.getElementById('ne_op').value = '';
     await loadEmpList();
+    if (typeof loadPbxDashboard === 'function' && currentAdminTab === 'pbx') loadPbxDashboard();
 
     toast('success', t('employee_title'), t('employee_added'));
   } catch (e) {
     console.error('addEmp CATCH ERROR:', e);
     toast('error', t('error_title'), e.message || t('system_error'));
+  }
+}
+
+function openEditOperatorModal(id, name, currentOp) {
+  const modal = document.getElementById('m_edit_operator');
+  if (!modal) return;
+  document.getElementById('edit_op_emp_id').value = id;
+  document.getElementById('edit_op_emp_name').textContent = name;
+  document.getElementById('edit_op_number').value = currentOp || '';
+  modal.classList.remove('hidden');
+}
+
+function closeEditOperatorModal() {
+  const modal = document.getElementById('m_edit_operator');
+  if (modal) modal.classList.add('hidden');
+}
+
+async function saveEmployeeOperator() {
+  const empId = document.getElementById('edit_op_emp_id').value;
+  const opNum = document.getElementById('edit_op_number').value.trim();
+
+  try {
+    const { data: sessData } = await sb.auth.getSession();
+    const token = sessData?.session?.access_token;
+
+    const res = await fetch(`${FUNCTIONS_BASE}/update-employee-operator`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+      },
+      body: JSON.stringify({ employee_id: empId, operator_number: opNum || null })
+    });
+
+    try {
+      await sb.from('employees').update({ operator_number: opNum || null, pbx_extension: opNum || null }).eq('id', empId);
+    } catch (e) {}
+
+    closeEditOperatorModal();
+    toast('success', t('edit_op_title') || 'Operator', t('edit_op_success') || 'Operator raqami saqlandi');
+    await loadEmpList();
+    if (typeof loadPbxDashboard === 'function') loadPbxDashboard();
+  } catch (err) {
+    console.error('saveEmployeeOperator error:', err);
+    toast('error', t('error_title'), err.message || 'Xatolik yuz berdi');
   }
 }
 function addHol(){const d=document.getElementById('hol_d').value;if(!d)return;const h=JSON.parse(localStorage.getItem('aloqa_hols')||'[]');if(!h.includes(d))h.push(d);localStorage.setItem('aloqa_hols',JSON.stringify(h));document.getElementById('hol_d').value='';updateHolList();}

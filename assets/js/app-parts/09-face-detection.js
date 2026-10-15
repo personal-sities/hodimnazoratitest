@@ -983,18 +983,6 @@ async function captureNextSample(){
   }
 }
 
-function getPrayerSchedule(){
-  const geo = prayerGeo || { lat: 41.3111, lng: 69.2797 };
-  const now = tzNow();
-  const raw = calcSolar(now, geo.lat, geo.lng);
-  return [
-    { key:'fajr', name: lang==='uz' ? 'Bomdod' : 'Фаджр', time: minutesToHM(raw.fajr) },
-    { key:'dhuhr', name: lang==='uz' ? 'Peshin' : 'Зухр', time: minutesToHM(raw.dhuhr) },
-    { key:'asr', name: lang==='uz' ? 'Asr' : 'Аср', time: minutesToHM(raw.asr) },
-    { key:'maghrib', name: lang==='uz' ? 'Shom' : 'Магриб', time: minutesToHM(raw.maghrib) },
-    { key:'isha', name: lang==='uz' ? 'Xufton' : 'Иша', time: minutesToHM(raw.isha) }
-  ];
-}
 
 function updateSampleDots(){
   const c=document.getElementById('faceSamples');

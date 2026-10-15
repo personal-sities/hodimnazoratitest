@@ -22,7 +22,7 @@ const FACE_LOSS_WARNING_DELAY_SEC = 120;
 const AFK_GRACE_SEC       = 600;
 const BREAK_LIMIT_SEC     = 1800;
 const AUTO_END_HOUR       = 18;
-const AUTO_END_MIN        = 0;
+const AUTO_END_MIN        = 30;
 const AUTO_END_TASK_WARNING_INTERVAL_MS = 5 * 60 * 1000;
 const LATE_AFTER_MINUTES  = WORKDAY_START_MINUTES;
 const HALF_DAY_START_MINUTES = 11 * 60;
@@ -38,7 +38,7 @@ const ABSENCE_START_KEY = 'aloqa_absence_start_date';
 let currentTheme = localStorage.getItem('aloqa_theme') || 'light';
 function applyTheme(th) {
   document.documentElement.setAttribute('data-theme', th);
-  ['themeToggle','themeToggle2','themeToggle3','themeToggle4'].forEach(id => {
+  ['themeToggle','themeToggle2','themeToggle3'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.checked = th === 'light';
   });
@@ -47,7 +47,7 @@ function applyTheme(th) {
 }
 function toggleTheme() {
   applyTheme(currentTheme === 'dark' ? 'light' : 'dark');
-  ['themeToggle','themeToggle2','themeToggle3','themeToggle4'].forEach(id => {
+  ['themeToggle','themeToggle2','themeToggle3'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.checked = currentTheme === 'light';
   });

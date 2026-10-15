@@ -100,9 +100,66 @@ async function restoreLS(){
 }
 
 // ============================================================
+//  EMPLOYEE HEADER USER INFO
+// ============================================================
+function renderEmployeeHeaderInfo(){
+  try {
+    if(!CU){
+      try{
+        const cached = localStorage.getItem('aloqa_u');
+        if(cached) CU = JSON.parse(cached);
+      }catch(e){}
+    }
+    if(!CU) return;
+
+    const nameEl = document.getElementById('ehdrUserName');
+    const subEl = document.getElementById('ehdrUserSub');
+    const initsEl = document.getElementById('ehdrUserInitials');
+
+    const fullName = (CU.name || CU.login || '').trim();
+    if(nameEl){
+      nameEl.textContent = fullName || 'Hodim';
+      nameEl.title = fullName || '';
+    }
+
+    if(initsEl){
+      if(fullName){
+        const parts = fullName.split(/\s+/).filter(Boolean);
+        let inits = '';
+        if(parts.length >= 2){
+          inits = (parts[0][0] + parts[1][0]).toUpperCase();
+        } else if(parts.length === 1){
+          inits = parts[0].substring(0, 2).toUpperCase();
+        }
+        initsEl.textContent = inits || 'H';
+      } else {
+        initsEl.innerHTML = typeof getLucideIcon === 'function' ? getLucideIcon('user', 'ehdr-user-ico', 16) : 'H';
+      }
+    }
+
+    if(subEl){
+      if(CU.operator_number){
+        subEl.textContent = `${t('operator_label') || 'Operator'} #${CU.operator_number}`;
+      } else if(CU.kpi_type){
+        subEl.textContent = typeof getEmployeeRoleLabel === 'function' ? getEmployeeRoleLabel(CU.kpi_type) : (CU.kpi_type === 'junior' ? (t('employee') || 'Hodim') : CU.kpi_type);
+      } else {
+        subEl.textContent = t('employee') || 'Hodim';
+      }
+    }
+
+    if(window.lucide && typeof lucide.createIcons === 'function'){
+      lucide.createIcons();
+    }
+  } catch(err){
+    console.warn('renderEmployeeHeaderInfo error:', err);
+  }
+}
+
+// ============================================================
 //  EMPLOYEE INIT
 // ============================================================
 async function initEmp(){
+  renderEmployeeHeaderInfo();
   await restoreLS();setEmpMonth();loadHist();updateDates();
   document.getElementById('m_welcome').classList.remove('hidden');
   const mt=document.getElementById('e_mtag');if(mt)mt.textContent=curM();
@@ -114,7 +171,7 @@ async function initEmp(){
     saveAtt(true).catch(e=>console.warn('auto-end restore save:',e.message||e));
   }
   loadTodayLunchPlan().then(()=>ensureLunchShiftPrompt());
-  if(Notification.permission==='granted'){scheduleReminders();}
+  scheduleReminders();
   subscribeEmployeeRealtime();
   loadNotificationsEmp(false);
   empNavTab('work');
@@ -194,12 +251,18 @@ async function empContinue(){
   await savePartial();
 }
 function pauseWorkForPlatformExit({saveRemote=false}={}){
-  if(!CU||CU.role!=='employee'||empState!=='working')return false;
+  if(!CU||CU.role!=='employee'||!['working','lunch','prayer'].includes(empState))return false;
   const now=tzNow();
-  if(wStart)wAccum+=Math.floor((now-wStart)/1000);
+  if(empState==='working'&&wStart)wAccum+=Math.floor((now-wStart)/1000);
+  if(empState==='lunch'&&lStart)lAccum+=Math.floor((now-lStart)/1000);
+  if(empState==='prayer'&&prayerStart)prayerAccum+=Math.floor((now-prayerStart)/1000);
   wStart=null;
+  lStart=null;
+  prayerStart=null;
   empState='paused';
   stopWT();
+  stopLT();
+  stopPT();
   setTV(wAccum,'tw');
   if(isAfk)endAfkSession();
   afkPending=false;

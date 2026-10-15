@@ -30,7 +30,7 @@ CREATE TABLE IF NOT EXISTS public.employees (
   UNIQUE(user_id)
 );
 
--- Agar oldingi bazada responsible_course yo'q bo'lsa qo'shish
+-- Agar oldingi bazada responsible_course yoki operator_number yo'q bo'lsa qo'shish
 DO $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='employees' AND column_name='responsible_course') THEN
@@ -38,6 +38,12 @@ BEGIN
   END IF;
   IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='employees' AND column_name='kpi_type') THEN
     ALTER TABLE public.employees ADD COLUMN kpi_type TEXT DEFAULT 'junior';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='employees' AND column_name='operator_number') THEN
+    ALTER TABLE public.employees ADD COLUMN operator_number TEXT;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='employees' AND column_name='pbx_extension') THEN
+    ALTER TABLE public.employees ADD COLUMN pbx_extension TEXT;
   END IF;
 END $$;
 
@@ -145,7 +151,31 @@ CREATE TABLE IF NOT EXISTS public.face_profiles (
   UNIQUE(employee_id)
 );
 
+-- 11. CALLS (OnlinePBX qo'ng'iroqlar tarixi)
+CREATE TABLE IF NOT EXISTS public.calls (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  call_id TEXT UNIQUE,
+  caller TEXT,
+  callee TEXT,
+  operator_number TEXT,
+  employee_id UUID REFERENCES public.employees(id) ON DELETE SET NULL,
+  direction TEXT DEFAULT 'in',
+  status TEXT NOT NULL,
+  duration INTEGER NOT NULL DEFAULT 0,
+  talk_time INTEGER NOT NULL DEFAULT 0,
+  record_url TEXT,
+  raw_data JSONB,
+  call_date DATE NOT NULL DEFAULT CURRENT_DATE,
+  started_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
 
+CREATE INDEX IF NOT EXISTS idx_calls_call_date ON public.calls(call_date);
+CREATE INDEX IF NOT EXISTS idx_calls_operator_number ON public.calls(operator_number);
+CREATE INDEX IF NOT EXISTS idx_calls_employee_id ON public.calls(employee_id);
+CREATE INDEX IF NOT EXISTS idx_calls_status ON public.calls(status);
+CREATE INDEX IF NOT EXISTS idx_calls_started_at ON public.calls(started_at);
 
 -- 13. UPDATED_AT TRIGGER FUNKSIYASI
 CREATE OR REPLACE FUNCTION public.set_updated_at()
@@ -289,6 +319,12 @@ BEGIN
   DELETE FROM public.employee_leaves WHERE return_date < v_cutoff_date;
   GET DIAGNOSTICS cnt_leaves = ROW_COUNT;
 
+  -- Qo'ng'iroqlar (< 3 oy)
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='calls') THEN
+    DELETE FROM public.calls WHERE started_at < v_cutoff_tz;
+    GET DIAGNOSTICS cnt_calls = ROW_COUNT;
+  END IF;
+
   RETURN jsonb_build_object(
     'ok', true,
     'cutoff_date', v_cutoff_date,
@@ -297,6 +333,7 @@ BEGIN
     'deleted_notifications', cnt_notifs,
     'deleted_feedback', cnt_feedback,
     'deleted_leaves', cnt_leaves,
+    'deleted_calls', cnt_calls,
     'cleaned_at', now()
   );
 END;

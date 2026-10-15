@@ -6,8 +6,20 @@ ru:{loginTitle:'Добро пожаловать!',loginSub:'Введите ло�
 };
 TR.uz.mt_half='Yarim kun';
 TR.ru.mt_half='Полдня';
-TR.uz.auto_end_txt='Soat 18:00 bo\'ldi. Tizim tomonidan ish yakunlandi.';
-TR.ru.auto_end_txt='18:00. Рабочий день завершён системой.';
+TR.uz.employee='Hodim';
+TR.ru.employee='Сотрудник';
+TR.uz.operator_label='Operator';
+TR.ru.operator_label='Оператор';
+TR.uz.paused='Pauzada';
+TR.ru.paused='На паузе';
+TR.uz.auto_end_txt='Soat 18:30 bo\'ldi. Tizim tomonidan ish yakunlandi.';
+TR.ru.auto_end_txt='18:30. Рабочий день завершён системой.';
+TR.uz.work_end_reminder_title='Ishni yakunlash eslatmasi';
+TR.ru.work_end_reminder_title='Напоминание о завершении работы';
+TR.uz.work_end_reminder_msg='Ishni yakunlashni unutmang ⏰';
+TR.ru.work_end_reminder_msg='Не забудьте завершить работу ⏰';
+TR.uz.role_employee='Hodim';
+TR.ru.role_employee='Сотрудник';
 Object.assign(TR.uz,{dash_t:'Dashboard',dash_work_t:'Davomat holati',dash_late_t:'Hodimlar samaradorligi',dash_work_sub:'Oxirgi 7 kun ko\'rsatkichi'});
 Object.assign(TR.ru,{dash_t:'Dashboard',dash_work_t:'Статус посещаемости',dash_late_t:'Эффективность сотрудников',dash_work_sub:'Показатель за последние 7 дней'});
 Object.assign(TR.uz,{eff_title:'Ish samaradorligi',eff_work_hours:'Ish soati',eff_late:'Kechikish',eff_afk:'AFK'});
@@ -775,6 +787,92 @@ Object.assign(TR.en,{
   et_course:'Course responsibility',
   course_none:'-'
 });
+Object.assign(TR.uz,{
+  nav_pbx:'OnlinePBX',
+  adm_pbx:'Boshqaruv | OnlinePBX Nazorati',
+  pbx_header_title:'OnlinePBX Qo\'ng\'iroqlar va Operatorlar nazorati',
+  pbx_stat_total:'Jami qo\'ng\'iroqlar',
+  pbx_stat_answered:'Gaplashilgan',
+  pbx_stat_missed:'O\'tkazib yuborilgan (Propushnniy)',
+  pbx_stat_duration:'Suhbat vaqti (Jami / O\'rtacha)',
+  pbx_stat_talk_time:'Umumiy suhbat vaqti',
+  pbx_stat_avg_talk:'O\'rtacha suhbat vaqti',
+  pbx_operators_table_title:'Operatorlar bo\'yicha hisobot',
+  pbx_logs_table_title:'Qo\'ng\'iroqlar jurnali',
+  pbx_th_op:'Operator',
+  pbx_th_emp:'Mas\'ul xodim',
+  pbx_th_total:'Jami',
+  pbx_th_answered:'Gaplashilgan',
+  pbx_th_missed:'Propushnniy',
+  pbx_th_percent:'Qabul foizi',
+  pbx_th_talk_time:'Jami suhbat',
+  pbx_th_avg:'O\'rtacha vaqt',
+  pbx_th_date:'Vaqt / Sana',
+  pbx_th_caller:'Mijoz raqami',
+  pbx_th_callee:'Liniya',
+  pbx_th_status:'Holat',
+  pbx_th_duration:'Suhbat davomiyligi',
+  pbx_th_record:'Yozuv',
+  pbx_filter_all_ops:'Barcha operatorlar',
+  pbx_filter_all_status:'Barcha holatlar',
+  pbx_filter_answered:'Faqat gaplashilgan',
+  pbx_filter_missed:'Faqat propushnniy',
+  pbx_webhook_guide:'Webhook sozlamalari',
+  pbx_search_ph:'Mijoz yoki operator qidirish...',
+  b_yesterday:'Kecha',
+  export_excel_btn:'Excelga yuklash',
+  ne_op_ph:'Operator raqami (masalan: 100)',
+  et_op:'Operator',
+  assign_op:'Biriktirish',
+  edit_op_title:'Operator raqamini belgilash',
+  edit_op_subtitle:'Ushbu xodimga OnlinePBX ichki operator raqamini biriktiring',
+  edit_op_save:'Saqlash',
+  edit_op_cancel:'Bekor qilish',
+  edit_op_success:'Operator raqami muvaffaqiyatli saqlandi'
+});
+Object.assign(TR.ru,{
+  nav_pbx:'OnlinePBX',
+  adm_pbx:'Управление | OnlinePBX Контроль',
+  pbx_header_title:'OnlinePBX Звонки и Мониторинг Операторов',
+  pbx_stat_total:'Всего звонков',
+  pbx_stat_answered:'Отвечено (Разговоров)',
+  pbx_stat_missed:'Пропущено',
+  pbx_stat_duration:'Время разговоров (Всего / Среднее)',
+  pbx_stat_talk_time:'Общее время разговора',
+  pbx_stat_avg_talk:'Среднее время разговора',
+  pbx_operators_table_title:'Отчёт по операторам',
+  pbx_logs_table_title:'Журнал звонков',
+  pbx_th_op:'Оператор',
+  pbx_th_emp:'Ответственный сотрудник',
+  pbx_th_total:'Всего',
+  pbx_th_answered:'Отвечено',
+  pbx_th_missed:'Пропущено',
+  pbx_th_percent:'% Ответа',
+  pbx_th_talk_time:'Всего разговоров',
+  pbx_th_avg:'Среднее время',
+  pbx_th_date:'Время / Дата',
+  pbx_th_caller:'Номер клиента',
+  pbx_th_callee:'Линия',
+  pbx_th_status:'Статус',
+  pbx_th_duration:'Длительность разговора',
+  pbx_th_record:'Запись',
+  pbx_filter_all_ops:'Все операторы',
+  pbx_filter_all_status:'Все статусы',
+  pbx_filter_answered:'Только отвеченные',
+  pbx_filter_missed:'Только пропущенные',
+  pbx_webhook_guide:'Настройки Webhook',
+  pbx_search_ph:'Поиск по номеру или оператору...',
+  b_yesterday:'Вчера',
+  export_excel_btn:'Скачать в Excel',
+  ne_op_ph:'Номер оператора (например: 100)',
+  et_op:'Оператор',
+  assign_op:'Назначить',
+  edit_op_title:'Назначить номер оператора',
+  edit_op_subtitle:'Привяжите внутренний номер OnlinePBX к этому сотруднику',
+  edit_op_save:'Сохранить',
+  edit_op_cancel:'Отмена',
+  edit_op_success:'Номер оператора успешно сохранён'
+});
 let lang = localStorage.getItem('aloqa_lang') || 'uz';
 const t = k => ((TR[lang] && TR[lang][k]) ?? TR.uz[k] ?? k);
 const tf = (key, params={}) => Object.entries(params).reduce((acc,[name,value]) => acc.replaceAll(`{${name}}`, value), t(key));
@@ -842,9 +940,49 @@ function getAdminTabTitle(tab){
     main:t('adm_m'),
     settings:t('adm_s'),
     notif:t('nav_notif'),
-    feedback:t('nav_fb')
+    feedback:t('nav_fb'),
+    pbx:t('adm_pbx') || 'Boshqaruv | OnlinePBX Nazorati'
   };
   return titles[tab] || titles.main;
+}
+function refreshPbxStaticLabels(){
+  const map = {
+    pbx_header_title: t('pbx_header_title'),
+    pbx_card_total_title: t('pbx_stat_total'),
+    pbx_card_answered_title: t('pbx_stat_answered'),
+    pbx_card_missed_title: t('pbx_stat_missed'),
+    pbx_card_duration_title: t('pbx_stat_duration'),
+    pbx_filter_btn_today: t('b_today'),
+    pbx_filter_btn_yesterday: t('b_yesterday'),
+    pbx_filter_btn_month: t('dash_monthly_pill'),
+    pbx_refresh_btn_text: t('b_ref'),
+    pbx_webhook_info_btn_text: t('pbx_webhook_guide'),
+    pbx_operators_box_title: t('pbx_operators_table_title'),
+    pbx_logs_box_title: t('pbx_logs_table_title'),
+    pbx_th_op: t('pbx_th_op'),
+    pbx_th_emp: t('pbx_th_emp'),
+    pbx_th_total: t('pbx_th_total'),
+    pbx_th_answered: t('pbx_th_answered'),
+    pbx_th_missed: t('pbx_th_missed'),
+    pbx_th_percent: t('pbx_th_percent'),
+    pbx_th_talk_time: t('pbx_th_talk_time'),
+    pbx_th_avg: t('pbx_th_avg'),
+    pbx_log_th_date: t('pbx_th_date'),
+    pbx_log_th_caller: t('pbx_th_caller'),
+    pbx_log_th_callee: t('pbx_th_callee'),
+    pbx_log_th_op: t('pbx_th_op'),
+    pbx_log_th_emp: t('pbx_th_emp'),
+    pbx_log_th_status: t('pbx_th_status'),
+    pbx_log_th_duration: t('pbx_th_duration'),
+    pbx_log_th_rec: t('pbx_th_record'),
+    et_op: t('et_op'),
+    b_export_pbx_excel: t('export_excel_btn')
+  };
+  Object.entries(map).forEach(([id, value]) => st(id, value));
+  sp('ne_op', t('ne_op_ph'));
+  sp('pbx_search_input', t('pbx_search_ph'));
+  const tab = document.getElementById('tab_pbx');
+  if(tab && !tab.classList.contains('hidden')) st('admTitle', t('adm_pbx'));
 }
 function refreshAmoCrmStaticLabels(){
   [
@@ -1059,15 +1197,14 @@ function refreshStaticLabels(){
 }
 
 function applyLang(){
-  ['ll','al','el','sl'].forEach(p=>{const u=document.getElementById(p+'_uz'),r=document.getElementById(p+'_ru');if(u)u.classList.toggle('active',lang==='uz');if(r)r.classList.toggle('active',lang==='ru');});
+  ['ll','al','el'].forEach(p=>{const u=document.getElementById(p+'_uz'),r=document.getElementById(p+'_ru');if(u)u.classList.toggle('active',lang==='uz');if(r)r.classList.toggle('active',lang==='ru');});
   st('lc_t',t('loginTitle'));st('lc_s',t('loginSub'));setLoginButtonLoading(false);
   sp('inp_l',t('loginPH'));sp('inp_p',t('passPH'));
-  ['n_main','n_notif','n_fb','n_set'].forEach((id,i)=>{st(id,t(['nav_m','nav_notif','nav_fb','nav_s'][i]||''));});
+  ['n_main','n_notif','n_fb','n_set','n_pbx'].forEach((id,i)=>{st(id,t(['nav_m','nav_notif','nav_fb','nav_s','nav_pbx'][i]||''));});
   if(typeof refreshPbxStaticLabels==='function')refreshPbxStaticLabels();
   st('admTitle',getAdminTabTitle(currentAdminTab||'main'));
   const ae=document.getElementById('admExit');if(ae)ae.innerHTML=(typeof getLucideIcon==='function'?getLucideIcon('log-out','btn-icon',14):'')+'<span>'+t('exit')+'</span>';
   const ee=document.getElementById('empExit');if(ee)ee.innerHTML=(typeof getLucideIcon==='function'?getLucideIcon('log-out','btn-icon',14):'')+'<span>'+t('exit')+'</span>';
-  st('sbExitTxt', t('exit'));
   st('emp_work_tab_lbl',t('emp_work_tab_lbl'));
   st('emp_notif_tab_lbl',t('emp_notif_tab_lbl'));
   st('emp_feedback_tab_lbl',t('emp_feedback_tab_lbl'));
@@ -1145,7 +1282,7 @@ function applyLang(){
   sp('ep_np',t('ep_ph'));sp('fsearch',t('fsearch'));
   if(typeof updateEmpBtns==='function'){ updateEmpBtns(); }
   const ks=document.getElementById('ne_k');
-  if(ks && ks.options.length>=3){
+  if(ks && ks.tagName==='SELECT' && ks.options && ks.options.length>=3){
     ks.options[0].text=t('role_manager');
     ks.options[1].text=t('role_operator');
     ks.options[2].text=t('role_intern');
@@ -1161,6 +1298,7 @@ function applyLang(){
   }catch(_){}
   updateHolList();updateEmpStatusTag();
   if(typeof hydrateLucideIcons==='function') hydrateLucideIcons();
+  if(typeof renderEmployeeHeaderInfo==='function') renderEmployeeHeaderInfo();
 }
 
 function rerenderLocalizedViews(){

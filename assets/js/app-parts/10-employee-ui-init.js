@@ -35,7 +35,12 @@ function updateEmpBtns(){
     dis(bsE,true);dis(blE,true);dis(bpE,false);dis(beE,true);
     if(bpE){setActionBtnContent(bpE, 'arrow-left', t('prayer_back'));bpE.onclick=empBackPrayer;}
   }
-  else if(empState==='paused'||empState==='ended'){
+  else if(empState==='paused'){
+    dis(bsE,true);dis(blE,true);dis(bpE,true);dis(beE,false);
+    if(blE)setActionBtnContent(blE, 'utensils', t('bl'));
+    if(bpE)setActionBtnContent(bpE, 'compass', t('prayer_btn'));
+  }
+  else if(empState==='ended'){
     dis(bsE,true);dis(blE,true);dis(bpE,true);dis(beE,true);
     if(blE)setActionBtnContent(blE, 'utensils', t('bl'));
     if(bpE)setActionBtnContent(bpE, 'compass', t('prayer_btn'));
@@ -85,6 +90,15 @@ async function loadHist(){
 // ============================================================
 (async function(){
   applyTheme(localStorage.getItem('aloqa_theme')||'light');
+  try{
+    const cached = localStorage.getItem('aloqa_u');
+    if(cached){
+      CU = JSON.parse(cached);
+      if(CU && CU.role==='employee' && typeof renderEmployeeHeaderInfo==='function'){
+        renderEmployeeHeaderInfo();
+      }
+    }
+  }catch(e){}
   userPublicIP=await getUserIP();
   const myIPEl=document.getElementById('ipb_val');if(myIPEl)myIPEl.textContent=userPublicIP||'—';
 
@@ -101,6 +115,7 @@ async function loadHist(){
           const access=await checkRegionAccess('employee');
           if(!access.ok){showIPBlock(access.value, access.title, access.message);return;}
           CU = {...emp, role:'employee'};
+          if(typeof renderEmployeeHeaderInfo==='function')renderEmployeeHeaderInfo();
         }
       }
     }
@@ -172,28 +187,4 @@ async function loadHist(){
     }
   });
 
-async function initPrayerGeo(){
-  prayerGeo = TASHKENT_GEO;
-  return prayerGeo;
-}
-
-function getPrayerSchedule(){
-  return prayerTimesState.list.length ? prayerTimesState.list : buildFallbackPrayerState().list;
-}
-
-async function updatePrayerInfo(){
-  const state = await fetchPrayerSchedule();
-  const next = state.next || state.list[0];
-  const npn = document.getElementById('nextPrayerName');
-  const npt = document.getElementById('nextPrayerTime');
-  if (npn) npn.textContent = next ? next.name : '—';
-  if (npt) npt.textContent = next ? next.time : '--:--';
-}
-
-async function startPrayerClock(){
-  await initPrayerGeo();
-  await updatePrayerInfo();
-  if (prayerClockIv) clearInterval(prayerClockIv);
-  prayerClockIv = setInterval(()=>{ updatePrayerInfo().catch(()=>{}); }, 60000);
-}
 })();

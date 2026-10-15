@@ -172,7 +172,7 @@ async function requestPushPermission() {
 function scheduleReminders() {
   checkScheduledNotifs();
   if (remindersInterval) return;
-  remindersInterval = setInterval(() => { checkScheduledNotifs(); }, 60000);
+  remindersInterval = setInterval(() => { checkScheduledNotifs(); }, 20000);
 }
 function startNotificationPolling() {
   if (notifPollIv) return;
@@ -197,7 +197,15 @@ function checkScheduledNotifs() {
     );
     ensureLunchShiftPrompt();
   }
-  if (h===17&&m===50&&!S.s17){S.s17=true;showAppNotification('AloqaPro',lang==='uz'?'Ish vaqtingiz yakunlanyabdi! Vazifalarni yakunlang ⏰':'Рабочий день заканчивается! Завершите задачи ⏰');saveNotifToDB('work_end_soon','Ish tugayabdi','Ish vaqtingiz yakunlanyabdi, vazifalarni yakunlang');}
+  // 17:55 da "ishni yakunlashni unutmang" uvidomleniyasi
+  if (((h===17 && m>=55) || (h===18 && m<30)) && !S.s1755 && ['working','paused','lunch','prayer'].includes(empState)){
+    S.s1755 = true;
+    const remTitle = 'AloqaPro';
+    const remMsg = lang==='uz' ? 'Ishni yakunlashni unutmang ⏰' : 'Не забудьте завершить работу ⏰';
+    showAppNotification(remTitle, remMsg);
+    toast('info', remTitle, remMsg, 12000);
+    saveNotifToDB('work_end_reminder', t('work_end_reminder_title') || remTitle, remMsg);
+  }
   const breakSec=todayBreakSec();
   if(breakSec>=600&&breakSec<660&&!S.b10){S.b10=true;showAppNotification('AloqaPro','⚠️ '+(lang==='uz'?'10 daqiqa tanaffus':'10 минут перерыва'));}
   if(breakSec>=1200&&breakSec<1260&&!S.b20){S.b20=true;showAppNotification('AloqaPro','⚠️ '+(lang==='uz'?'20 daqiqa tanaffus — 10 daqiqa qoldi!':'20 минут перерыва — осталось 10 минут!'));}
@@ -478,6 +486,7 @@ async function doLogin(){
 
       CU = {...emp, role:'employee'};
       localStorage.setItem('aloqa_u', JSON.stringify(CU));
+      if(typeof renderEmployeeHeaderInfo==='function')renderEmployeeHeaderInfo();
 
       loginInFlight = false;
       setLoginButtonLoading(false);
@@ -498,9 +507,11 @@ async function doLogin(){
   setLoginButtonLoading(false);
 }
 async function doLogout(){
-  const pausedForExit=pauseWorkForPlatformExit();
-  if(pausedForExit){
-    try{await savePartial();}catch(e){console.warn('logout pause save:',e.message||e);}
+  if(CU && CU.role==='employee'){
+    try{
+      pauseWorkForPlatformExit();
+      await savePartial();
+    }catch(e){console.warn('logout pause save:',e.message||e);}
   }
   stopAll();
   stopFaceDetection();
@@ -578,7 +589,10 @@ function showPage(p){
     });
   }
   if(p==='admin')initAdmin();
-  if(p==='employee')initEmp();
+  if(p==='employee'){
+    if(typeof renderEmployeeHeaderInfo==='function')renderEmployeeHeaderInfo();
+    initEmp();
+  }
   applyLang();
   animateCurrentView();
 }

@@ -37,6 +37,70 @@ try {
   // pg o'rnatilmagan bo'lsa ogohlantirishsiz o'tadi
 }
 
+let sharedPool = null;
+function getDbPool() {
+  if (!sharedPool && process.env.DATABASE_URL && pg) {
+    try {
+      sharedPool = new pg.Pool({
+        connectionString: process.env.DATABASE_URL,
+        max: 10,
+        idleTimeoutMillis: 30000
+      });
+      sharedPool.on('error', (err) => {
+        console.error('[PostgreSQL Pool xatosi]:', err.message);
+      });
+    } catch (e) {
+      console.error('[getDbPool]:', e.message);
+    }
+  }
+  return sharedPool;
+}
+
+async function ensureDatabaseSchema() {
+  const pool = getDbPool();
+  if (!pool) return;
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS public.calls (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        call_id TEXT UNIQUE,
+        caller TEXT,
+        callee TEXT,
+        operator_number TEXT,
+        employee_id UUID REFERENCES public.employees(id) ON DELETE SET NULL,
+        direction TEXT DEFAULT 'in',
+        status TEXT NOT NULL,
+        duration INTEGER NOT NULL DEFAULT 0,
+        talk_time INTEGER NOT NULL DEFAULT 0,
+        record_url TEXT,
+        raw_data JSONB,
+        call_date DATE NOT NULL DEFAULT CURRENT_DATE,
+        started_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+      );
+      CREATE INDEX IF NOT EXISTS idx_calls_call_date ON public.calls(call_date);
+      CREATE INDEX IF NOT EXISTS idx_calls_operator_number ON public.calls(operator_number);
+      CREATE INDEX IF NOT EXISTS idx_calls_employee_id ON public.calls(employee_id);
+      CREATE INDEX IF NOT EXISTS idx_calls_status ON public.calls(status);
+      CREATE INDEX IF NOT EXISTS idx_calls_started_at ON public.calls(started_at);
+
+      DO $$
+      BEGIN
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='employees' AND column_name='operator_number') THEN
+          ALTER TABLE public.employees ADD COLUMN operator_number TEXT;
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='employees' AND column_name='pbx_extension') THEN
+          ALTER TABLE public.employees ADD COLUMN pbx_extension TEXT;
+        END IF;
+      END $$;
+    `);
+    console.log('[Database]: Schema tekshirildi (calls jadvali va operator_number faol).');
+  } catch (err) {
+    console.warn('[Database]: Schema tekshirishda ogohlantirish:', err.message);
+  }
+}
+
 // 2. HTTP SERVER
 const server = http.createServer(async (req, res) => {
   try {
@@ -71,6 +135,35 @@ const server = http.createServer(async (req, res) => {
         ok: false,
         error: "Google Sheets integratsiyasi to'xtatilgan. Barcha ma'lumotlar faqat serverda saqlanadi."
       });
+    }
+
+    // OnlinePBX Webhook (POST & GET, JSON & x-www-form-urlencoded)
+    if (
+      pathname === '/api/onlinepbx/webhook' ||
+      pathname === '/webhook/onlinepbx' ||
+      pathname === '/api/functions/v1/onlinepbx-webhook'
+    ) {
+      return handleOnlinePbxWebhook(req, res, reqUrl);
+    }
+
+    // OnlinePBX Statistikalar API
+    if (pathname === '/api/pbx/stats' && req.method === 'GET') {
+      return handlePbxStats(req, res, reqUrl);
+    }
+
+    // OnlinePBX Qo'ng'iroqlar jurnali API
+    if (pathname === '/api/pbx/calls' && req.method === 'GET') {
+      return handlePbxCalls(req, res, reqUrl);
+    }
+
+    // OnlinePBX Test / Sinov API
+    if (pathname === '/api/onlinepbx/test' && req.method === 'POST') {
+      return handleTestPbxWebhook(req, res);
+    }
+
+    // Namoz vaqtlari API (Rasmiy ishonchli manbalardan)
+    if (pathname === '/api/prayer-times' && req.method === 'GET') {
+      return handlePrayerTimes(req, res, reqUrl);
     }
 
     // Edge Functions marshrutlari
@@ -109,8 +202,14 @@ if (require.main === module) {
     console.log(`  Tozalash siyosati: Har ${process.env.RETENTION_INTERVAL_MONTHS || 2} oyda, 3 oydan eski ma'lumotlar o'chiriladi`);
     console.log(`====================================================`);
 
+    // Ma'lumotlar bazasi sxemasini tekshirish va yangilash
+    ensureDatabaseSchema();
+
     // Tozalash vazifasini ishga tushirish
     initRetentionScheduler();
+
+    // 18:30 avtomatik yakunlash va 17:55 eslatma rejalashtiruvchisi
+    initAutoEndScheduler();
   });
 
   // Toza to'xtatish (graceful shutdown)
@@ -188,6 +287,11 @@ async function handleFunction(req, res, name) {
     return handleResetEmployeePassword(res, body);
   }
 
+  // update-employee-operator
+  if (name === 'update-employee-operator') {
+    return handleUpdateEmployeeOperator(res, body);
+  }
+
   return sendJson(res, 404, { ok: false, error: `Noma'lum funksiya: ${name}` });
 }
 
@@ -195,7 +299,8 @@ async function handleCreateEmployee(res, body) {
   const name = String(body.name || '').trim();
   const email = String(body.email || '').trim().toLowerCase();
   const password = String(body.password || '').trim();
-  const kpiType = body.kpi_type || 'operator';
+  const kpiType = (body.kpi_type === 'senior' || body.kpi_type === 'junior') ? body.kpi_type : 'junior';
+  const operatorNumber = String(body.operator_number || body.pbx_extension || '').trim() || null;
 
   if (!name || !email || !password) {
     return sendJson(res, 400, { ok: false, error: 'Ism, email va parol kiritilishi shart' });
@@ -236,6 +341,8 @@ async function handleCreateEmployee(res, body) {
           name,
           login: email,
           kpi_type: kpiType,
+          operator_number: operatorNumber,
+          pbx_extension: operatorNumber,
           active: true,
           face_registered: false
         })
@@ -253,19 +360,24 @@ async function handleCreateEmployee(res, body) {
   }
 
   // 2. Mahalliy PostgreSQL mavjud bo'lsa
-  if (process.env.DATABASE_URL && pg) {
-    const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
+  const pool = getDbPool();
+  if (pool) {
     try {
       const query = `
-        INSERT INTO public.employees (user_id, name, login, kpi_type, active, face_registered)
-        VALUES (gen_random_uuid(), $1, $2, $3, true, false)
-        RETURNING id, name, login, kpi_type;
+        INSERT INTO public.employees (user_id, name, login, kpi_type, operator_number, pbx_extension, active, face_registered)
+        VALUES (gen_random_uuid(), $1, $2, $3, $4, $4, true, false)
+        RETURNING id, name, login, kpi_type, operator_number;
       `;
-      const result = await pool.query(query, [name, email, kpiType]);
-      await pool.end();
-      return sendJson(res, 200, { ok: true, employee_id: result.rows[0]?.id, employee: result.rows[0] });
+      const result = await pool.query(query, [name, email, kpiType, operatorNumber]);
+      const newEmpId = result.rows[0]?.id;
+      if (newEmpId && operatorNumber) {
+        await pool.query(
+          'UPDATE public.calls SET employee_id = $1 WHERE operator_number = $2 AND employee_id IS NULL',
+          [newEmpId, operatorNumber]
+        ).catch(() => {});
+      }
+      return sendJson(res, 200, { ok: true, employee_id: newEmpId, employee: result.rows[0] });
     } catch (dbErr) {
-      await pool.end().catch(() => {});
       console.error('handleCreateEmployee DB xatosi:', dbErr);
       return sendJson(res, 400, { ok: false, error: dbErr.message });
     }
@@ -362,6 +474,686 @@ async function handleResetEmployeePassword(res, body) {
   }
 
   return sendJson(res, 400, { ok: false, error: 'SUPABASE_SERVICE_ROLE_KEY sozlanmagan' });
+}
+
+// ============================================================
+//  ONLINEPBX INTEGRATSIYASI VA QO'NG'IROQLAR MONITORINGI
+// ============================================================
+
+const CALLS_DATA_FILE = path.join(ROOT, 'data', 'calls.json');
+
+function readLocalCalls() {
+  try {
+    if (fs.existsSync(CALLS_DATA_FILE)) {
+      const txt = fs.readFileSync(CALLS_DATA_FILE, 'utf8');
+      return JSON.parse(txt) || [];
+    }
+  } catch (e) {}
+  return [];
+}
+
+function writeLocalCalls(calls) {
+  try {
+    const dataDir = path.join(ROOT, 'data');
+    if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
+    const trimmed = (calls || []).slice(-5000);
+    fs.writeFileSync(CALLS_DATA_FILE, JSON.stringify(trimmed, null, 2), 'utf8');
+  } catch (e) {
+    console.warn('[writeLocalCalls xatosi]:', e.message);
+  }
+}
+
+function readRawBody(req) {
+  return new Promise((resolve) => {
+    let body = '';
+    req.on('data', chunk => { body += chunk; });
+    req.on('end', () => resolve(body || ''));
+    req.on('error', () => resolve(''));
+  });
+}
+
+async function readParsedBody(req, reqUrl) {
+  const raw = await readRawBody(req);
+  let parsed = {};
+  if (raw && raw.trim()) {
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      try {
+        const searchParams = new URLSearchParams(raw);
+        parsed = Object.fromEntries(searchParams.entries());
+      } catch {
+        parsed = {};
+      }
+    }
+  }
+  if (reqUrl && reqUrl.searchParams) {
+    for (const [k, v] of reqUrl.searchParams.entries()) {
+      if (parsed[k] === undefined) parsed[k] = v;
+    }
+  }
+  return { parsed, raw };
+}
+
+async function saveCallRecord(call) {
+  const pool = getDbPool();
+  if (pool) {
+    try {
+      const query = `
+        INSERT INTO public.calls (
+          call_id, caller, callee, operator_number, employee_id, direction, status,
+          duration, talk_time, record_url, raw_data, call_date, started_at
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+        ON CONFLICT (call_id) DO UPDATE SET
+          caller = COALESCE(NULLIF(EXCLUDED.caller, ''), public.calls.caller),
+          callee = COALESCE(NULLIF(EXCLUDED.callee, ''), public.calls.callee),
+          operator_number = COALESCE(NULLIF(EXCLUDED.operator_number, ''), public.calls.operator_number),
+          employee_id = COALESCE(EXCLUDED.employee_id, public.calls.employee_id),
+          direction = COALESCE(EXCLUDED.direction, public.calls.direction),
+          status = EXCLUDED.status,
+          duration = GREATEST(public.calls.duration, EXCLUDED.duration),
+          talk_time = GREATEST(public.calls.talk_time, EXCLUDED.talk_time),
+          record_url = COALESCE(EXCLUDED.record_url, public.calls.record_url),
+          raw_data = EXCLUDED.raw_data,
+          updated_at = now()
+        RETURNING *;
+      `;
+      const res = await pool.query(query, [
+        call.call_id,
+        call.caller,
+        call.callee,
+        call.operator_number,
+        call.employee_id,
+        call.direction,
+        call.status,
+        call.duration,
+        call.talk_time,
+        call.record_url,
+        JSON.stringify(call.raw_data || {}),
+        call.call_date,
+        call.started_at
+      ]);
+      if (res.rows && res.rows[0]) {
+        call = { ...call, ...res.rows[0] };
+      }
+    } catch (dbErr) {
+      console.error('[saveCallRecord DB xatosi]:', dbErr.message);
+    }
+  }
+
+  try {
+    const list = readLocalCalls();
+    const idx = list.findIndex(c => c.call_id === call.call_id);
+    if (idx >= 0) {
+      list[idx] = { ...list[idx], ...call, updated_at: new Date().toISOString() };
+    } else {
+      list.push({ ...call, created_at: new Date().toISOString() });
+    }
+    writeLocalCalls(list);
+  } catch (e) {}
+
+  return call;
+}
+
+async function getCallsStats(from, to) {
+  const pool = getDbPool();
+  if (pool) {
+    try {
+      const statsQuery = `
+        SELECT
+          c.operator_number,
+          e.id AS employee_id,
+          e.name AS employee_name,
+          COUNT(c.id)::int AS total_calls,
+          COUNT(c.id) FILTER (WHERE c.status = 'answered')::int AS answered_calls,
+          COUNT(c.id) FILTER (WHERE c.status = 'missed')::int AS missed_calls,
+          COALESCE(SUM(c.talk_time), 0)::int AS total_talk_seconds,
+          CASE
+            WHEN COUNT(c.id) FILTER (WHERE c.status = 'answered') > 0
+            THEN ROUND(COALESCE(SUM(c.talk_time), 0) / COUNT(c.id) FILTER (WHERE c.status = 'answered'))::int
+            ELSE 0
+          END AS avg_talk_seconds
+        FROM public.calls c
+        LEFT JOIN public.employees e
+          ON c.employee_id = e.id OR c.operator_number = e.operator_number OR c.operator_number = e.pbx_extension
+        WHERE c.call_date BETWEEN $1 AND $2
+        GROUP BY c.operator_number, e.id, e.name
+        ORDER BY total_calls DESC;
+      `;
+      const statsRes = await pool.query(statsQuery, [from, to]);
+
+      const empQuery = `
+        SELECT id, name, operator_number, pbx_extension
+        FROM public.employees
+        WHERE active = true AND (operator_number IS NOT NULL OR pbx_extension IS NOT NULL);
+      `;
+      const empRes = await pool.query(empQuery).catch(() => ({ rows: [] }));
+
+      const opMap = new Map();
+      (statsRes.rows || []).forEach(r => {
+        const opKey = r.operator_number || 'other';
+        opMap.set(opKey, {
+          operator_number: r.operator_number || '—',
+          employee_id: r.employee_id,
+          employee_name: r.employee_name || 'Biriktirilmagan',
+          total_calls: Number(r.total_calls) || 0,
+          answered_calls: Number(r.answered_calls) || 0,
+          missed_calls: Number(r.missed_calls) || 0,
+          answered_percent: r.total_calls > 0 ? Math.round((r.answered_calls / r.total_calls) * 100 * 10) / 10 : 0,
+          total_talk_seconds: Number(r.total_talk_seconds) || 0,
+          avg_talk_seconds: Number(r.avg_talk_seconds) || 0
+        });
+      });
+
+      (empRes.rows || []).forEach(emp => {
+        const opNum = emp.operator_number || emp.pbx_extension;
+        if (opNum && !opMap.has(opNum)) {
+          opMap.set(opNum, {
+            operator_number: opNum,
+            employee_id: emp.id,
+            employee_name: emp.name,
+            total_calls: 0,
+            answered_calls: 0,
+            missed_calls: 0,
+            answered_percent: 0,
+            total_talk_seconds: 0,
+            avg_talk_seconds: 0
+          });
+        }
+      });
+
+      const operators = Array.from(opMap.values()).sort((a, b) => b.total_calls - a.total_calls);
+
+      const totalCalls = operators.reduce((s, x) => s + x.total_calls, 0);
+      const answeredCalls = operators.reduce((s, x) => s + x.answered_calls, 0);
+      const missedCalls = operators.reduce((s, x) => s + x.missed_calls, 0);
+      const totalTalkSec = operators.reduce((s, x) => s + x.total_talk_seconds, 0);
+      const avgTalkSec = answeredCalls > 0 ? Math.round(totalTalkSec / answeredCalls) : 0;
+      const answeredPercent = totalCalls > 0 ? Math.round((answeredCalls / totalCalls) * 100 * 10) / 10 : 0;
+
+      return {
+        ok: true,
+        from,
+        to,
+        summary: {
+          total_calls: totalCalls,
+          answered_calls: answeredCalls,
+          missed_calls: missedCalls,
+          answered_percent: answeredPercent,
+          total_talk_seconds: totalTalkSec,
+          avg_talk_seconds: avgTalkSec
+        },
+        operators
+      };
+    } catch (err) {
+      console.error('[getCallsStats DB xatosi]:', err.message);
+    }
+  }
+
+  // Fallback: local calls.json dan
+  const calls = readLocalCalls().filter(c => {
+    const cd = c.call_date || (c.started_at ? c.started_at.split('T')[0] : '');
+    return (!from || cd >= from) && (!to || cd <= to);
+  });
+  const opMap = new Map();
+  calls.forEach(c => {
+    const op = c.operator_number || 'other';
+    if (!opMap.has(op)) {
+      opMap.set(op, {
+        operator_number: op,
+        employee_id: c.employee_id || null,
+        employee_name: c.employee_name || 'Biriktirilmagan',
+        total_calls: 0,
+        answered_calls: 0,
+        missed_calls: 0,
+        total_talk_seconds: 0
+      });
+    }
+    const item = opMap.get(op);
+    item.total_calls++;
+    if (c.status === 'answered') {
+      item.answered_calls++;
+      item.total_talk_seconds += (c.talk_time || 0);
+    } else {
+      item.missed_calls++;
+    }
+  });
+
+  const operators = Array.from(opMap.values()).map(x => ({
+    ...x,
+    answered_percent: x.total_calls > 0 ? Math.round((x.answered_calls / x.total_calls) * 100 * 10) / 10 : 0,
+    avg_talk_seconds: x.answered_calls > 0 ? Math.round(x.total_talk_seconds / x.answered_calls) : 0
+  })).sort((a, b) => b.total_calls - a.total_calls);
+
+  const totalCalls = calls.length;
+  const answeredCalls = calls.filter(c => c.status === 'answered').length;
+  const missedCalls = calls.filter(c => c.status === 'missed').length;
+  const totalTalkSec = calls.reduce((s, c) => s + (c.talk_time || 0), 0);
+  const avgTalkSec = answeredCalls > 0 ? Math.round(totalTalkSec / answeredCalls) : 0;
+
+  return {
+    ok: true,
+    from,
+    to,
+    summary: {
+      total_calls: totalCalls,
+      answered_calls: answeredCalls,
+      missed_calls: missedCalls,
+      answered_percent: totalCalls > 0 ? Math.round((answeredCalls / totalCalls) * 100 * 10) / 10 : 0,
+      total_talk_seconds: totalTalkSec,
+      avg_talk_seconds: avgTalkSec
+    },
+    operators
+  };
+}
+
+async function getCallsList(from, to, operator, status, limit = 50) {
+  limit = Math.min(200, Math.max(1, parseInt(limit, 10) || 50));
+  const pool = getDbPool();
+  if (pool) {
+    try {
+      let query = `
+        SELECT
+          c.id,
+          c.call_id,
+          c.caller,
+          c.callee,
+          c.operator_number,
+          COALESCE(e.name, '—') AS employee_name,
+          c.direction,
+          c.status,
+          c.duration,
+          c.talk_time,
+          c.record_url,
+          c.call_date,
+          c.started_at
+        FROM public.calls c
+        LEFT JOIN public.employees e
+          ON c.employee_id = e.id OR c.operator_number = e.operator_number OR c.operator_number = e.pbx_extension
+        WHERE 1=1
+      `;
+      const params = [];
+      if (from) {
+        params.push(from);
+        query += ` AND c.call_date >= $${params.length}`;
+      }
+      if (to) {
+        params.push(to);
+        query += ` AND c.call_date <= $${params.length}`;
+      }
+      if (operator && operator !== 'all') {
+        params.push(operator);
+        query += ` AND c.operator_number = $${params.length}`;
+      }
+      if (status && status !== 'all') {
+        params.push(status);
+        query += ` AND c.status = $${params.length}`;
+      }
+      params.push(limit);
+      query += ` ORDER BY c.started_at DESC LIMIT $${params.length}`;
+
+      const res = await pool.query(query, params);
+      return { ok: true, calls: res.rows || [] };
+    } catch (err) {
+      console.error('[getCallsList DB xatosi]:', err.message);
+    }
+  }
+
+  let calls = readLocalCalls();
+  if (from) calls = calls.filter(c => (c.call_date || '').substring(0, 10) >= from);
+  if (to) calls = calls.filter(c => (c.call_date || '').substring(0, 10) <= to);
+  if (operator && operator !== 'all') calls = calls.filter(c => c.operator_number === operator);
+  if (status && status !== 'all') calls = calls.filter(c => c.status === status);
+  calls.sort((a, b) => new Date(b.started_at || 0) - new Date(a.started_at || 0));
+  return { ok: true, calls: calls.slice(0, limit) };
+}
+
+async function handleOnlinePbxWebhook(req, res, reqUrl) {
+  try {
+    const { parsed } = await readParsedBody(req, reqUrl);
+    console.log('[OnlinePBX Webhook qabul qilindi]:', JSON.stringify(parsed));
+
+    const callId = String(
+      parsed.uuid || parsed.call_id || parsed.id || parsed.callId || parsed.session_id ||
+      `call_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`
+    ).trim();
+
+    const caller = String(parsed.caller || parsed.phone || parsed.from || parsed.caller_id || parsed.num || parsed.client || '').trim();
+    const callee = String(parsed.callee || parsed.called || parsed.to || parsed.destination || parsed.line || '').trim();
+
+    let rawOp = String(
+      parsed.user || parsed.extension || parsed.operator || parsed.ext || parsed.agent ||
+      parsed.accountcode || parsed.dstchannel || parsed.srcchannel || parsed.peer || ''
+    ).trim();
+    const opMatch = rawOp.match(/(?:SIP\/|PJSIP\/)?(\d{2,5})/i);
+    const operatorNumber = opMatch ? opMatch[1] : (rawOp || null);
+
+    const rawDir = String(parsed.direction || parsed.call_type || (parsed.inbound ? 'in' : '') || 'in').toLowerCase();
+    const direction = rawDir.includes('out') ? 'out' : (rawDir.includes('int') ? 'internal' : 'in');
+
+    const duration = Math.max(0, parseInt(parsed.duration || parsed.call_duration || parsed.total_duration || 0, 10) || 0);
+    const talkTime = Math.max(0, parseInt(parsed.billsec || parsed.dialog_duration || parsed.talk_time || parsed.conversation_duration || 0, 10) || 0);
+
+    const rawStatus = String(parsed.status || parsed.disposition || parsed.call_status || parsed.event || '').toUpperCase();
+    let status = 'missed';
+    if (
+      rawStatus.includes('ANSWER') ||
+      rawStatus.includes('CONNECT') ||
+      rawStatus.includes('TALK') ||
+      rawStatus.includes('SUCCESS') ||
+      talkTime > 0
+    ) {
+      status = 'answered';
+    } else if (
+      rawStatus.includes('NOANSWER') ||
+      rawStatus.includes('MISSED') ||
+      rawStatus.includes('BUSY') ||
+      rawStatus.includes('CANCEL') ||
+      rawStatus.includes('FAIL')
+    ) {
+      status = 'missed';
+    } else {
+      status = talkTime > 0 ? 'answered' : 'missed';
+    }
+
+    const recordUrl = String(parsed.recording || parsed.record || parsed.download_url || parsed.link || parsed.record_url || parsed.audio || '').trim() || null;
+
+    let startedAt = new Date();
+    const dateStr = parsed.date || parsed.start_time || parsed.call_start || parsed.call_date || parsed.time;
+    if (dateStr) {
+      const parsedDate = new Date(dateStr);
+      if (!isNaN(parsedDate.getTime())) startedAt = parsedDate;
+    }
+    const callDate = startedAt.toISOString().split('T')[0];
+
+    let employeeId = null;
+    let employeeName = null;
+    if (operatorNumber) {
+      const pool = getDbPool();
+      if (pool) {
+        try {
+          const empRes = await pool.query(
+            'SELECT id, name FROM public.employees WHERE operator_number = $1 OR pbx_extension = $1 LIMIT 1',
+            [operatorNumber]
+          );
+          if (empRes.rows.length > 0) {
+            employeeId = empRes.rows[0].id;
+            employeeName = empRes.rows[0].name;
+          }
+        } catch (e) {}
+      }
+      if (!employeeId && process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
+        try {
+          const empFetch = await fetch(
+            `${process.env.SUPABASE_URL}/rest/v1/employees?or=(operator_number.eq.${encodeURIComponent(operatorNumber)},pbx_extension.eq.${encodeURIComponent(operatorNumber)})&select=id,name&limit=1`,
+            {
+              headers: {
+                'apikey': process.env.SUPABASE_SERVICE_ROLE_KEY,
+                'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`
+              }
+            }
+          );
+          const emps = await empFetch.json();
+          if (Array.isArray(emps) && emps.length > 0) {
+            employeeId = emps[0].id;
+            employeeName = emps[0].name;
+          }
+        } catch (e) {}
+      }
+    }
+
+    const saved = await saveCallRecord({
+      call_id: callId,
+      caller,
+      callee,
+      operator_number: operatorNumber,
+      employee_id: employeeId,
+      employee_name: employeeName,
+      direction,
+      status,
+      duration,
+      talk_time: talkTime,
+      record_url: recordUrl,
+      raw_data: parsed,
+      call_date: callDate,
+      started_at: startedAt.toISOString()
+    });
+
+    console.log(`[OnlinePBX Webhook muvaffaqiyatli saqlandi]: ID=${callId}, Op=${operatorNumber || '—'}, Xodim=${employeeName || '—'}, Holat=${status}, Suhbat=${talkTime}s`);
+    return sendJson(res, 200, {
+      ok: true,
+      call_id: callId,
+      operator: operatorNumber,
+      employee: employeeName,
+      status,
+      talk_time: talkTime
+    });
+  } catch (error) {
+    console.error('[handleOnlinePbxWebhook xatosi]:', error);
+    return sendJson(res, 200, { ok: false, error: error.message });
+  }
+}
+
+async function handlePbxStats(req, res, reqUrl) {
+  try {
+    const today = new Date().toISOString().split('T')[0];
+    const from = reqUrl.searchParams.get('from') || today;
+    const to = reqUrl.searchParams.get('to') || today;
+    const result = await getCallsStats(from, to);
+    return sendJson(res, 200, result);
+  } catch (e) {
+    console.error('[handlePbxStats error]:', e);
+    return sendJson(res, 500, { ok: false, error: e.message });
+  }
+}
+
+async function handlePbxCalls(req, res, reqUrl) {
+  try {
+    const today = new Date().toISOString().split('T')[0];
+    const from = reqUrl.searchParams.get('from') || today;
+    const to = reqUrl.searchParams.get('to') || today;
+    const operator = reqUrl.searchParams.get('operator') || 'all';
+    const status = reqUrl.searchParams.get('status') || 'all';
+    const limit = reqUrl.searchParams.get('limit') || 50;
+    const result = await getCallsList(from, to, operator, status, limit);
+    return sendJson(res, 200, result);
+  } catch (e) {
+    console.error('[handlePbxCalls error]:', e);
+    return sendJson(res, 500, { ok: false, error: e.message });
+  }
+}
+
+async function handleTestPbxWebhook(req, res) {
+  const body = await readJson(req);
+  const operator = String(body.operator || body.operator_number || '100').trim();
+  const status = body.status === 'missed' ? 'missed' : 'answered';
+  const talkTime = status === 'answered' ? (parseInt(body.talk_time, 10) || Math.floor(Math.random() * 180) + 30) : 0;
+  const duration = talkTime + Math.floor(Math.random() * 15) + 5;
+  const caller = String(body.caller || `+99890${Math.floor(1000000 + Math.random() * 9000000)}`);
+  const callee = String(body.callee || '+998712000000');
+
+  const testPayload = {
+    uuid: `test_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+    caller,
+    callee,
+    user: operator,
+    status: status === 'answered' ? 'ANSWER' : 'NOANSWER',
+    duration,
+    billsec: talkTime,
+    date: new Date().toISOString()
+  };
+
+  const mockReq = {
+    method: 'POST',
+    on: (evt, cb) => {
+      if (evt === 'data') cb(JSON.stringify(testPayload));
+      if (evt === 'end') cb();
+    }
+  };
+  return handleOnlinePbxWebhook(mockReq, res, new URL('http://localhost/api/onlinepbx/webhook'));
+}
+
+// ============================================================
+//  PRAYER TIMES API (Namoz vaqtlari - Ishonchli manbalardan)
+// ============================================================
+let prayerTimesMemoryCache = { date: '', data: null };
+
+async function fetchJsonWithTimeout(url, timeoutMs = 4500) {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, {
+      signal: controller.signal,
+      headers: {
+        'Accept': 'application/json',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AloqaPro/2.1'
+      }
+    });
+    clearTimeout(id);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } catch (err) {
+    clearTimeout(id);
+    throw err;
+  }
+}
+
+async function handlePrayerTimes(req, res, reqUrl) {
+  const today = todayISO();
+  const region = reqUrl.searchParams.get('region') || 'toshkent-shahri';
+
+  if (prayerTimesMemoryCache.date === today && prayerTimesMemoryCache.data) {
+    return sendJson(res, 200, prayerTimesMemoryCache.data);
+  }
+
+  // 1-manba: namoz-vaqti.uz (O'zbekiston Musulmonlar idorasi rasmiy taqvimi)
+  try {
+    const pUrl = `https://www.namoz-vaqti.uz/index.php?region=${encodeURIComponent(region)}&period=today&format=json`;
+    const json = await fetchJsonWithTimeout(pUrl, 4500);
+    const times = json?.today?.times;
+    if (times && times.bomdod && times.peshin && times.asr && times.shom && times.xufton) {
+      const payload = {
+        ok: true,
+        source: 'namoz-vaqti.uz (O‘zbekiston Musulmonlar idorasi)',
+        region: json?.meta?.region?.name || 'Toshkent shahri',
+        date: today,
+        times: {
+          fajr: times.bomdod,
+          sunrise: times.quyosh,
+          dhuhr: times.peshin,
+          asr: times.asr,
+          maghrib: times.shom,
+          isha: times.xufton
+        }
+      };
+      prayerTimesMemoryCache = { date: today, data: payload };
+      return sendJson(res, 200, payload);
+    }
+  } catch (err1) {
+    console.warn('[Prayer API 1 xatosi (namoz-vaqti.uz)]:', err1.message);
+  }
+
+  // 2-manba: Aladhan API (Xalqaro eng ishonchli 99.9% uptime islomiy API / Hanafi)
+  try {
+    const aUrl = 'https://api.aladhan.com/v1/timingsByCity?city=Tashkent&country=Uzbekistan&method=3&school=1';
+    const json = await fetchJsonWithTimeout(aUrl, 4500);
+    const timings = json?.data?.timings;
+    if (timings && timings.Fajr && timings.Dhuhr && timings.Asr && timings.Maghrib && timings.Isha) {
+      const payload = {
+        ok: true,
+        source: 'api.aladhan.com (Muslim World League / Hanafi)',
+        region: 'Toshkent shahri',
+        date: today,
+        times: {
+          fajr: timings.Fajr.substring(0, 5),
+          sunrise: timings.Sunrise.substring(0, 5),
+          dhuhr: timings.Dhuhr.substring(0, 5),
+          asr: timings.Asr.substring(0, 5),
+          maghrib: timings.Maghrib.substring(0, 5),
+          isha: timings.Isha.substring(0, 5)
+        }
+      };
+      prayerTimesMemoryCache = { date: today, data: payload };
+      return sendJson(res, 200, payload);
+    }
+  } catch (err2) {
+    console.warn('[Prayer API 2 xatosi (aladhan.com)]:', err2.message);
+  }
+
+  // Zaxira: Oxirgi muvaffaqiyatli kesh yoki standart Toshkent taqvimi
+  if (prayerTimesMemoryCache.data) {
+    return sendJson(res, 200, prayerTimesMemoryCache.data);
+  }
+
+  return sendJson(res, 200, {
+    ok: true,
+    source: 'Toshkent taqvimi (Standart)',
+    region: 'Toshkent shahri',
+    date: today,
+    times: {
+      fajr: '05:16',
+      sunrise: '06:35',
+      dhuhr: '12:09',
+      asr: '15:59',
+      maghrib: '17:46',
+      isha: '19:01'
+    }
+  });
+}
+
+async function handleUpdateEmployeeOperator(res, body) {
+  const employeeId = body.employee_id || body.id;
+  const operatorNumber = String(body.operator_number || body.pbx_extension || '').trim() || null;
+  if (!employeeId) {
+    return sendJson(res, 400, { ok: false, error: 'employee_id berilmadi' });
+  }
+
+  let updated = false;
+
+  const pool = getDbPool();
+  if (pool) {
+    try {
+      await pool.query(
+        'UPDATE public.employees SET operator_number = $1, pbx_extension = $1 WHERE id = $2',
+        [operatorNumber, employeeId]
+      );
+      if (operatorNumber) {
+        await pool.query(
+          'UPDATE public.calls SET employee_id = $1 WHERE operator_number = $2 AND employee_id IS NULL',
+          [employeeId, operatorNumber]
+        ).catch(() => {});
+      }
+      updated = true;
+    } catch (dbErr) {
+      console.error('[handleUpdateEmployeeOperator DB xatosi]:', dbErr.message);
+    }
+  }
+
+  if (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    try {
+      const patchRes = await fetch(`${process.env.SUPABASE_URL}/rest/v1/employees?id=eq.${encodeURIComponent(employeeId)}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': process.env.SUPABASE_SERVICE_ROLE_KEY,
+          'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`
+        },
+        body: JSON.stringify({
+          operator_number: operatorNumber,
+          pbx_extension: operatorNumber
+        })
+      });
+      if (patchRes.ok) updated = true;
+    } catch (supErr) {
+      console.error('[handleUpdateEmployeeOperator Supabase xatosi]:', supErr.message);
+    }
+  }
+
+  return sendJson(res, 200, {
+    ok: true,
+    employee_id: employeeId,
+    operator_number: operatorNumber
+  });
 }
 
 // Himoyalangan ichki fayllar ro'yxati (hech qachon brauzerga berilmaydi)
@@ -662,7 +1454,161 @@ function initRetentionScheduler() {
   }
 }
 
+// ============================================================
+//  18:30 AUTO-END & 17:55 REMINDER SCHEDULER (Server-Side)
+// ============================================================
+let serverSentRemindersToday = {};
+let serverAutoEndDoneToday = {};
+
+async function runServerScheduledChecks() {
+  try {
+    const now = new Date();
+    // Toshkent vaqti
+    const dStr = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Tashkent' }); // YYYY-MM-DD
+    const tStr = now.toLocaleTimeString('en-GB', { timeZone: 'Asia/Tashkent', hour12: false }); // HH:MM:SS
+    const [h, m] = tStr.split(':').map(Number);
+    const pool = getDbPool();
+
+    // 1. 17:55 da "Ishni yakunlashni unutmang ⏰" eslatmasi
+    if (((h === 17 && m >= 55) || (h === 18 && m < 30)) && !serverSentRemindersToday[dStr]) {
+      serverSentRemindersToday[dStr] = true;
+      const title = 'AloqaPro | Eslatma';
+      const body = 'Ishni yakunlashni unutmang ⏰';
+
+      if (pool) {
+        try {
+          const res = await pool.query(`
+            SELECT DISTINCT a.employee_id 
+            FROM public.attendance a
+            WHERE a.work_date = $1 AND a.start_time IS NOT NULL AND a.end_time IS NULL
+          `, [dStr]);
+
+          if (res.rows && res.rows.length > 0) {
+            for (const row of res.rows) {
+              await pool.query(`
+                INSERT INTO public.notifications (employee_id, title, body, type, created_at)
+                VALUES ($1, $2, $3, 'work_end_reminder', now())
+              `, [row.employee_id, title, body]);
+            }
+            console.log(`[AutoEnd Scheduler]: ${res.rows.length} ta xodimga 17:55 ishni yakunlash eslatmasi yuborildi.`);
+          }
+        } catch (dbErr) {
+          console.warn('[AutoEnd Scheduler] 17:55 eslatma xatosi:', dbErr.message);
+        }
+      } else if (process.env.SUPABASE_URL && (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY)) {
+        try {
+          const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
+          const attRes = await fetch(`${process.env.SUPABASE_URL}/rest/v1/attendance?work_date=eq.${dStr}&end_time=is.null&start_time=not.is.null&select=employee_id`, {
+            headers: { 'apikey': key, 'Authorization': `Bearer ${key}` }
+          });
+          if (attRes.ok) {
+            const attRows = await attRes.json();
+            const uniqueEmpIds = Array.from(new Set((attRows || []).map(r => r.employee_id).filter(Boolean)));
+            if (uniqueEmpIds.length > 0) {
+              const notifPayload = uniqueEmpIds.map(empId => ({
+                employee_id: empId,
+                title,
+                body,
+                type: 'work_end_reminder'
+              }));
+              await fetch(`${process.env.SUPABASE_URL}/rest/v1/notifications`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'apikey': key,
+                  'Authorization': `Bearer ${key}`
+                },
+                body: JSON.stringify(notifPayload)
+              });
+              console.log(`[AutoEnd Scheduler - Supabase]: ${uniqueEmpIds.length} ta xodimga 17:55 eslatmasi yuborildi.`);
+            }
+          }
+        } catch (supErr) {
+          console.warn('[AutoEnd Scheduler - Supabase] 17:55 eslatma xatosi:', supErr.message);
+        }
+      }
+    }
+
+    // 2. 18:30 da barcha xodimlarda ishni avtomatik yakunlash
+    if ((h > 18 || (h === 18 && m >= 30)) && !serverAutoEndDoneToday[dStr]) {
+      serverAutoEndDoneToday[dStr] = true;
+      console.log(`[AutoEnd Scheduler]: Soat 18:30 dan o'tdi (${dStr} ${tStr}). Barcha xodimlar ishi avtomatik yakunlanmoqda...`);
+
+      if (pool) {
+        try {
+          const res = await pool.query(`
+            SELECT id, employee_id, start_time, work_seconds, lunch_seconds, late_minutes
+            FROM public.attendance
+            WHERE work_date = $1 AND start_time IS NOT NULL AND end_time IS NULL
+          `, [dStr]);
+
+          if (res.rows && res.rows.length > 0) {
+            for (const r of res.rows) {
+              let finalWorkSec = Number(r.work_seconds) || 0;
+              if (r.start_time) {
+                const [sh, sm] = String(r.start_time).split(':').map(Number);
+                const startSec = (sh * 3600) + (sm * 60);
+                const endSec = (18 * 3600) + (30 * 60); // 18:30:00
+                const lunchSec = Number(r.lunch_seconds) || 0;
+                const calcSec = Math.max(0, endSec - startSec - lunchSec);
+                if (calcSec > finalWorkSec) {
+                  finalWorkSec = calcSec;
+                }
+              }
+
+              await pool.query(`
+                UPDATE public.attendance
+                SET end_time = '18:30:00',
+                    work_seconds = $2,
+                    auto_ended = true,
+                    updated_at = now()
+                WHERE id = $1
+              `, [r.id, finalWorkSec]);
+            }
+            console.log(`[AutoEnd Scheduler]: ${res.rows.length} ta xodimning davomati 18:30 holatiga muvaffaqiyatli yakunlandi.`);
+          }
+        } catch (dbErr) {
+          console.warn('[AutoEnd Scheduler] 18:30 auto-end DB xatosi:', dbErr.message);
+        }
+      } else if (process.env.SUPABASE_URL && (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY)) {
+        try {
+          const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
+          const patchRes = await fetch(`${process.env.SUPABASE_URL}/rest/v1/attendance?work_date=eq.${dStr}&end_time=is.null&start_time=not.is.null`, {
+            method: 'PATCH',
+            headers: {
+              'Content-Type': 'application/json',
+              'apikey': key,
+              'Authorization': `Bearer ${key}`
+            },
+            body: JSON.stringify({
+              end_time: '18:30:00',
+              auto_ended: true
+            })
+          });
+          if (patchRes.ok) {
+            console.log(`[AutoEnd Scheduler - Supabase]: 18:30 avtomatik yakunlash muvaffaqiyatli yuborildi.`);
+          }
+        } catch (supErr) {
+          console.warn('[AutoEnd Scheduler - Supabase] 18:30 xatosi:', supErr.message);
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('[runServerScheduledChecks] xatolik:', err.message);
+  }
+}
+
+function initAutoEndScheduler() {
+  const timer = setInterval(runServerScheduledChecks, 20000);
+  if (timer && typeof timer.unref === 'function') {
+    timer.unref();
+  }
+  setTimeout(runServerScheduledChecks, 2000);
+}
+
 module.exports = {
   server,
-  runRetentionCleanup
+  runRetentionCleanup,
+  initAutoEndScheduler,
+  runServerScheduledChecks
 };

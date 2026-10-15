@@ -515,56 +515,7 @@ svg[class*="lucide-"] {
 }
 .nbtn .ni { color: inherit; }
 
-/* Sidebar bottom footer */
-.sb-bottom {
-  margin-top: auto;
-  flex-shrink: 0;
-  padding: 14px 14px 16px;
-  border-top: 1px solid var(--border);
-  background: var(--sidebar-bg);
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-.sb-bottom-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  width: 100%;
-}
-.sb-bottom .lsw {
-  display: inline-flex;
-  width: fit-content;
-  flex-shrink: 0;
-}
-.sb-bottom .theme-toggle {
-  flex-shrink: 0;
-}
-.sb-bottom .xbtn,
-.sb-logout-btn {
-  width: 100%;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 9px 12px;
-  font-size: 13px;
-  font-weight: 700;
-  border-radius: var(--radius-sm);
-  background: var(--bg3);
-  color: var(--text2);
-  border: 1px solid var(--border);
-  cursor: pointer;
-  transition: var(--transition);
-}
-.sb-bottom .xbtn:hover,
-.sb-logout-btn:hover {
-  background: rgba(244, 63, 94, 0.12);
-  color: var(--danger);
-  border-color: rgba(244, 63, 94, 0.28);
-  transform: translateY(-1px);
-}
+
 .sb-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 199; backdrop-filter: blur(3px); }
 .sb-overlay.open { display: block; }
 .hamburger { display: none; flex-direction: column; gap: 5px; background: none; border: none; cursor: pointer; padding: 5px; flex-shrink: 0; }
@@ -953,20 +904,116 @@ body.admin-view #installBanner {
 ============================================================ */
 .ehdr {
   background: var(--header);
-  padding: 16px 24px;
+  padding: 12px 24px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 16px;
   border-bottom: 1px solid var(--border);
   position: sticky;
   top: 0;
   z-index: 120;
   backdrop-filter: blur(12px);
 }
-.ehdr-brand { display: flex; align-items: center; gap: 10px; }
+.ehdr-left {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+}
+.ehdr-brand { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
 .ehdr-brand-name { color: var(--text); font-size: 16px; font-weight: 800; letter-spacing: -.2px; }
 .ehdr-brand-name span { color: var(--accent); }
+
+.ehdr-sep {
+  width: 1px;
+  height: 24px;
+  background: var(--border);
+  flex-shrink: 0;
+}
+
+.ehdr-user {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 4px 12px 4px 5px;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  transition: all .2s ease;
+}
+.ehdr-user:hover {
+  background: var(--card);
+  border-color: var(--accent);
+}
+
+.ehdr-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent) 0%, #4338ca 100%);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .5px;
+  flex-shrink: 0;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.12);
+}
+.ehdr-avatar-txt {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+.ehdr-user-ico {
+  width: 16px;
+  height: 16px;
+}
+.ehdr-user-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  justify-content: center;
+}
+.ehdr-user-name {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.25;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 180px;
+}
+.ehdr-user-sub {
+  font-size: 11px;
+  color: var(--text3);
+  font-weight: 500;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 180px;
+}
+
+.ehdr-right {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+}
+
+/* Employee bottom nav - hidden by default on desktop */
+.emp-bottom-nav {
+  display: none !important;
+}
 
 .ebody {
   display: grid;
@@ -1445,7 +1492,7 @@ body.admin-view #installBanner {
 @media(max-width: 768px){
   /* Employee bottom nav */
   .emp-bottom-nav {
-    display: flex;
+    display: flex !important;
     position: fixed;
     bottom: 0;
     left: 0;
@@ -1477,9 +1524,17 @@ body.admin-view #installBanner {
   #employeePage { padding-bottom: 74px; }
 
   /* Mobile header */
-  .ehdr { padding: 12px 14px; }
+  .ehdr { padding: 10px 12px; gap: 8px; }
+  .ehdr-left { gap: 8px; }
+  .ehdr-sep { height: 20px; }
+  .ehdr-user { padding: 3px 8px 3px 4px; gap: 7px; }
+  .ehdr-avatar { width: 28px; height: 28px; font-size: 11px; }
+  .ehdr-user-name { font-size: 12.5px; max-width: 120px; }
+  .ehdr-user-sub { font-size: 10px; max-width: 120px; }
+  .ehdr > div:last-child { gap: 6px; }
   .ehdr > div:last-child .xbtn:not(#empExit) { display: none; }
-  .ehdr .lsw, .ehdr .theme-toggle { display: none; }
+  .ehdr #empDate { display: none; }
+  .ehdr #empExitTxt { display: none; }
 
   /* Employee body */
   .ebody { grid-template-columns: 1fr; gap: 14px; padding: 14px 10px; }
@@ -1497,11 +1552,11 @@ body.admin-view #installBanner {
   .sidebar { position: fixed; left: 0; top: 0; bottom: 0; z-index: 200; width: 240px; transform: translateX(-100%); }
   .sidebar.open { transform: translateX(0); }
   .hamburger { display: flex; }
-  .tophdr { padding: 12px 14px; }
+  .tophdr { padding: 10px 12px; gap: 8px; }
   .tophdr h1 { font-size: 14px; }
   .hdr-date { display: none; }
-  .hdr-r .lsw, .hdr-r .theme-toggle { display: none; }
-  .sb-bottom { display: flex !important; flex-direction: column; padding: 14px 16px; border-top: 1px solid var(--border); gap: 12px; }
+  .hdr-r { gap: 6px; }
+  .hdr-r #admExitTxt { display: none; }
   .pbody { padding: 14px 10px; }
   .scards { grid-template-columns: 1fr 1fr; gap: 10px; }
   .snum { font-size: 24px; }
@@ -1516,6 +1571,9 @@ body.admin-view #installBanner {
 }
 
 @media(max-width: 480px){
+  .ehdr-brand-name { display: none; }
+  .ehdr-user-sub { display: none; }
+  .ehdr-user-name { max-width: 105px; font-size: 12px; }
   .scards { grid-template-columns: 1fr 1fr; gap: 8px; }
   .scard { padding: 12px 12px; }
   .scard h4 { font-size: 10px; }
@@ -1553,4 +1611,18 @@ body.admin-view #installBanner {
   color: #d97706;
   border: 1px solid rgba(245, 158, 11, 0.24);
 }
+
+/* OnlinePBX Styles */
+.scard-blue .scard-icon { background: rgba(30, 179, 228, 0.12); color: var(--accent); }
+.scard-blue .snum { color: var(--accent); }
+
+.pbx-preset-btn.active {
+  background: var(--accent) !important;
+  color: #fff !important;
+  border-color: var(--accent) !important;
+}
+.pbx-preset-btn {
+  transition: all .2s ease;
+}
+
 
