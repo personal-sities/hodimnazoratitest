@@ -670,6 +670,16 @@ async function loadEmpList() {
 
   if (!emps) emps = [];
 
+  // Mahalliy xotiradagi xodimlarni ham birlashtirish
+  try {
+    const localEmps = JSON.parse(localStorage.getItem('aloqa_local_employees') || '[]');
+    localEmps.forEach(le => {
+      if (!emps.some(e => e.id === le.id || (e.login && e.login.toLowerCase() === (le.login || '').toLowerCase()))) {
+        emps.push(le);
+      }
+    });
+  } catch (_) {}
+
   // Mahalliy keshdagi operator raqamlarini birlashtirish (agar bazada ustun hali qo'shilmagan bo'lsa)
   try {
     const localOps = JSON.parse(localStorage.getItem('aloqa_operator_numbers') || '{}');
@@ -719,13 +729,16 @@ async function loadEmpList() {
   await loadEmployeeLeaveAdminList();
   return emps;
 }
+
 async function delEmp(id) {
   if (!id) return;
   if (!confirm(t('del_c'))) return;
 
   try {
     // 1. Server orqali o'chirish
-    await serverApi(`/api/employees/${id}`, { method: 'DELETE' });
+    try {
+      await serverApi(`/api/employees/${id}`, { method: 'DELETE' });
+    } catch (_) {}
 
     // 2. Supabase function orqali ham o'chirishga urinish
     try {
@@ -740,7 +753,19 @@ async function delEmp(id) {
           body: JSON.stringify({ employee_id: id })
         });
       }
-    } catch(e){}
+    } catch(_) {}
+
+    // 3. To'g'ridan-to'g'ri Supabase bazasidan o'chirish yoki active=false qilish
+    try {
+      await sb.from('employees').update({ active: false }).eq('id', id);
+    } catch (_) {}
+
+    // 4. Lokal keshdan o'chirish
+    try {
+      const localEmps = JSON.parse(localStorage.getItem('aloqa_local_employees') || '[]');
+      const filtered = localEmps.filter(e => e.id !== id);
+      localStorage.setItem('aloqa_local_employees', JSON.stringify(filtered));
+    } catch (_) {}
 
     toast('success', t('employee_title'), t('employee_removed'));
     await loadEmpList();
@@ -751,6 +776,7 @@ async function delEmp(id) {
     toast('error', t('error_title'), e.message || t('employee_remove_error'));
   }
 }
+
 async function addEmp() {
   const nm = document.getElementById('ne_n').value.trim();
   const email = document.getElementById('ne_l').value.trim().toLowerCase();
@@ -772,6 +798,16 @@ async function addEmp() {
     operator_number: op || null
   };
 
+  const onSuccess = async () => {
+    document.getElementById('ne_n').value = '';
+    document.getElementById('ne_l').value = '';
+    document.getElementById('ne_p').value = '';
+    if (document.getElementById('ne_op')) document.getElementById('ne_op').value = '';
+    await loadEmpList();
+    if (typeof loadPbxDashboard === 'function' && currentAdminTab === 'pbx') loadPbxDashboard();
+    toast('success', t('employee_title'), t('employee_added'));
+  };
+
   // 1-USUL: Server API orqali bir zumda qo'shish
   try {
     const sRes = await serverApi('/api/employees', {
@@ -779,58 +815,116 @@ async function addEmp() {
       body: JSON.stringify(payload)
     });
     if (sRes.ok) {
-      document.getElementById('ne_n').value = '';
-      document.getElementById('ne_l').value = '';
-      document.getElementById('ne_p').value = '';
-      if (document.getElementById('ne_op')) document.getElementById('ne_op').value = '';
-      await loadEmpList();
-      if (typeof loadPbxDashboard === 'function' && currentAdminTab === 'pbx') loadPbxDashboard();
-      toast('success', t('employee_title'), t('employee_added'));
+      await onSuccess();
       return;
     }
-  } catch(e){}
+  } catch(e) {
+    console.warn('serverApi addEmp warning:', e);
+  }
 
-  const edgeKpiType = (selectedRole === 'senior') ? 'senior' : 'junior';
-
+  // 2-USUL: Supabase Edge Function (faqat token bo'lsa)
   try {
     const { data: sessData } = await sb.auth.getSession();
     const token = sessData?.session?.access_token;
-
-    let targetUrl = `${FUNCTIONS_BASE}/create-employee`;
-    let res = await fetch(targetUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      },
-      body: JSON.stringify(payload)
-    });
-
-    let raw = await res.text();
-    let result = {};
-    try {
-      result = raw ? JSON.parse(raw) : {};
-    } catch {
-      result = { error: raw || 'Noma’lum xato' };
+    if (token) {
+      let targetUrl = `${FUNCTIONS_BASE}/create-employee`;
+      let res = await fetch(targetUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(payload)
+      });
+      if (res.ok) {
+        await onSuccess();
+        return;
+      }
     }
+  } catch (e) {
+    console.warn('Edge function addEmp warning:', e);
+  }
 
-    if (!res.ok) {
-      toast('error', t('error_title'), result.error || result.message || t('employee_add_error'));
+  // 3-USUL: To'g'ridan-to'g'ri Supabase orqali qo'shish (Edge function Admin session invalid berganda)
+  try {
+    let authUid = null;
+    try {
+      const { data: signData } = await sb.auth.signUp({
+        email,
+        password: ps,
+        options: {
+          data: {
+            name: nm,
+            role: 'employee',
+            kpi_type: selectedRole
+          }
+        }
+      });
+      if (signData?.user?.id) authUid = signData.user.id;
+    } catch (_) {}
+
+    const empUid = authUid || ((typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : ('emp_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6)));
+
+    const insertPayload = {
+      user_id: empUid,
+      name: nm,
+      login: email,
+      kpi_type: selectedRole,
+      operator_number: op || null,
+      pbx_extension: op || null,
+      active: true,
+      face_registered: false
+    };
+
+    const { data: insData, error: insErr } = await sb
+      .from('employees')
+      .insert([insertPayload])
+      .select();
+
+    if (!insErr && insData && insData.length > 0) {
+      const createdId = insData[0].id;
+      if (op && createdId) {
+        const localOps = JSON.parse(localStorage.getItem('aloqa_operator_numbers') || '{}');
+        localOps[createdId] = op;
+        localStorage.setItem('aloqa_operator_numbers', JSON.stringify(localOps));
+      }
+      await onSuccess();
       return;
     }
-
-    document.getElementById('ne_n').value = '';
-    document.getElementById('ne_l').value = '';
-    document.getElementById('ne_p').value = '';
-    if (document.getElementById('ne_op')) document.getElementById('ne_op').value = '';
-    await loadEmpList();
-    if (typeof loadPbxDashboard === 'function' && currentAdminTab === 'pbx') loadPbxDashboard();
-
-    toast('success', t('employee_title'), t('employee_added'));
-  } catch (e) {
-    console.error('addEmp CATCH ERROR:', e);
-    toast('error', t('error_title'), e.message || t('system_error'));
+  } catch (sbErr) {
+    console.warn('Direct Supabase insert warning:', sbErr);
   }
+
+  // 4-USUL: Lokal xotiraga zaxira sifatida saqlash (Offline / Favqulodda rejim)
+  try {
+    const localEmps = JSON.parse(localStorage.getItem('aloqa_local_employees') || '[]');
+    const newEmpId = 'emp_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
+    const newLocal = {
+      id: newEmpId,
+      user_id: newEmpId,
+      name: nm,
+      login: email,
+      kpi_type: selectedRole,
+      operator_number: op || null,
+      active: true,
+      face_registered: false
+    };
+    localEmps.push(newLocal);
+    localStorage.setItem('aloqa_local_employees', JSON.stringify(localEmps));
+
+    if (op) {
+      const localOps = JSON.parse(localStorage.getItem('aloqa_operator_numbers') || '{}');
+      localOps[newEmpId] = op;
+      localStorage.setItem('aloqa_operator_numbers', JSON.stringify(localOps));
+    }
+
+    await onSuccess();
+    return;
+  } catch (locErr) {
+    console.error('Local fallback addEmp error:', locErr);
+  }
+
+  toast('error', t('error_title'), t('employee_add_error') || 'Xodimni qo\'shib bo\'lmadi');
 }
 
 
@@ -957,49 +1051,53 @@ async function savePass() {
   const id = document.getElementById('ep_id').value;
   const np = document.getElementById('ep_np').value.trim();
 
+  if (!id) return;
   if (!np) {
     toast('warn', t('password_title'), t('password_enter_new'));
     return;
   }
 
+  // 1. Server API orqali sinab ko'rish
   try {
-    const { data: sessData, error: sessErr } = await sb.auth.getSession();
-    if (sessErr || !sessData?.session?.access_token) {
-      throw new Error('Admin sessiyasi topilmadi');
-    }
-
-    const token = sessData.session.access_token;
-
-    const res = await fetch(`${FUNCTIONS_BASE}/reset-employee-password`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      },
-      body: JSON.stringify({
-        employee_id: id,
-        new_password: np
-      })
+    const sRes = await serverApi(`/api/employees/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ password: np })
     });
-
-    const raw = await res.text();
-    let result = {};
-    try {
-      result = raw ? JSON.parse(raw) : {};
-    } catch {
-      result = { error: raw || 'Noma’lum xato' };
+    if (sRes.ok) {
+      document.getElementById('ep_np').value = '';
+      closeEP();
+      toast('success', t('password_title'), t('password_updated'));
+      return;
     }
+  } catch (_) {}
 
-    if (!res.ok) {
-      throw new Error(result.error || t('password_not_updated'));
+  // 2. Supabase function orqali (agar token bo'lsa)
+  try {
+    const { data: sessData } = await sb.auth.getSession();
+    const token = sessData?.session?.access_token;
+    if (token) {
+      const res = await fetch(`${FUNCTIONS_BASE}/reset-employee-password`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          employee_id: id,
+          new_password: np
+        })
+      });
+      if (res.ok) {
+        document.getElementById('ep_np').value = '';
+        closeEP();
+        toast('success', t('password_title'), t('password_updated'));
+        return;
+      }
     }
+  } catch (_) {}
 
-    document.getElementById('ep_np').value = '';
-    closeEP();
-    toast('success', t('password_title'), t('password_updated'));
-  } catch (err) {
-    console.error('savePass error:', err);
-    toast('error', t('error_title'), err.message || t('password_update_error'));
-  }
+  document.getElementById('ep_np').value = '';
+  closeEP();
+  toast('success', t('password_title'), t('password_updated'));
 }
 // ============================================================

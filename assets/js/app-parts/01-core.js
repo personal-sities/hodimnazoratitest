@@ -10,20 +10,45 @@ const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
 // ============================================================
 //  SERVER API HELPER (Serverdagi ma'lumotlar bazasi bilan tezkor ishlash)
 // ============================================================
+function resolveApiUrl(endpoint) {
+  if (endpoint.startsWith('http://') || endpoint.startsWith('https://')) return endpoint;
+  const clean = endpoint.startsWith('/') ? endpoint : ('/' + endpoint);
+  const loc = window.location;
+  if (!loc || loc.protocol === 'file:' || (loc.port && loc.port !== '3000' && (loc.hostname === 'localhost' || loc.hostname === '127.0.0.1'))) {
+    return 'http://localhost:3000' + clean;
+  }
+  return clean;
+}
+
 async function serverApi(endpoint, options = {}) {
   try {
-    const url = endpoint.startsWith('http') ? endpoint : endpoint;
+    let url = resolveApiUrl(endpoint);
     const headers = {
       'Content-Type': 'application/json',
       ...(options.headers || {})
     };
     const ctrl = new AbortController();
     const timeout = setTimeout(() => ctrl.abort(), options.timeoutMs || 8000);
-    const res = await fetch(url, {
-      ...options,
-      headers,
-      signal: ctrl.signal
-    });
+    let res = null;
+    try {
+      res = await fetch(url, {
+        ...options,
+        headers,
+        signal: ctrl.signal
+      });
+    } catch (fetchErr) {
+      if (!endpoint.startsWith('http')) {
+        const altUrl = url.startsWith('http://localhost:3000')
+          ? (endpoint.startsWith('/') ? endpoint : '/' + endpoint)
+          : ('http://localhost:3000' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint));
+        if (altUrl !== url) {
+          try {
+            res = await fetch(altUrl, { ...options, headers, signal: ctrl.signal });
+          } catch (_) {}
+        }
+      }
+      if (!res) throw fetchErr;
+    }
     clearTimeout(timeout);
     if (!res.ok) {
       let errTxt = await res.text().catch(() => '');
