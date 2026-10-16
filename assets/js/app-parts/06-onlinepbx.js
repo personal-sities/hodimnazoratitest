@@ -93,7 +93,16 @@ function onPbxFilterChange() {
   const stEl = document.getElementById('pbx_filter_status');
   pbxFilterOperator = opEl?.value || 'all';
   pbxFilterStatus = stEl?.value || 'all';
+  fetchAndRenderPbxStats();
   fetchAndRenderPbxCalls();
+}
+
+function selectPbxOperator(opNum) {
+  const sel = document.getElementById('pbx_filter_operator');
+  if (sel) {
+    sel.value = (sel.value === opNum) ? 'all' : opNum;
+    onPbxFilterChange();
+  }
 }
 
 async function loadPbxOperatorFilterOptions() {
@@ -102,12 +111,19 @@ async function loadPbxOperatorFilterOptions() {
   const currentVal = sel.value || 'all';
 
   try {
-    let emps = null;
-    const res = await sb.from('employees').select('id,name,operator_number').eq('active', true).order('name');
-    if (!res.error && res.data) emps = res.data;
-    if (!emps) {
-      const fallback = await sb.from('employees').select('id,name').eq('active', true).order('name');
-      emps = fallback.data || [];
+    let emps = [];
+    try {
+      const sRes = await serverApi('/api/employees?active_only=true');
+      if (sRes.ok && Array.isArray(sRes.data)) {
+        emps = sRes.data;
+      }
+    } catch (_) {}
+
+    if (!emps.length) {
+      try {
+        const res = await sb.from('employees').select('id,name,operator_number,pbx_extension').eq('active', true).order('name');
+        if (!res.error && res.data) emps = res.data;
+      } catch (_) {}
     }
 
     try {
@@ -122,16 +138,37 @@ async function loadPbxOperatorFilterOptions() {
     sel.innerHTML = `<option value="all">${t('pbx_filter_all_ops') || 'Barcha operatorlar'}</option>`;
     const added = new Set();
     (emps || []).forEach(emp => {
-      if (emp.operator_number && !added.has(emp.operator_number)) {
-        added.add(emp.operator_number);
+      const opNum = String(emp.operator_number || emp.pbx_extension || '').trim();
+      if (opNum && !added.has(opNum)) {
+        added.add(opNum);
         const opt = document.createElement('option');
-        opt.value = emp.operator_number;
-        opt.textContent = `${emp.operator_number} — ${emp.name}`;
+        opt.value = opNum;
+        opt.textContent = `${opNum} — ${emp.name}`;
         sel.appendChild(opt);
       }
     });
-    sel.value = currentVal;
-  } catch (e) {}
+
+    // Keshdagi qo'shimcha operatorlar
+    (pbxStatsCache?.operators || []).forEach(op => {
+      const opNum = String(op.operator_number || '').trim();
+      if (opNum && opNum !== '—' && opNum !== 'other' && !added.has(opNum)) {
+        added.add(opNum);
+        const opt = document.createElement('option');
+        opt.value = opNum;
+        opt.textContent = `${opNum} — ${op.employee_name || 'Operator'}`;
+        sel.appendChild(opt);
+      }
+    });
+
+    if (currentVal && (currentVal === 'all' || added.has(currentVal))) {
+      sel.value = currentVal;
+    } else {
+      sel.value = 'all';
+      pbxFilterOperator = 'all';
+    }
+  } catch (e) {
+    console.warn('loadPbxOperatorFilterOptions error:', e);
+  }
 }
 
 async function fetchAndRenderPbxStats(isBackground = false) {
@@ -147,7 +184,8 @@ async function fetchAndRenderPbxStats(isBackground = false) {
   }
 
   try {
-    const res = await fetch(`/api/pbx/stats?from=${encodeURIComponent(pbxDateFrom)}&to=${encodeURIComponent(pbxDateTo)}`);
+    const url = `/api/pbx/stats?from=${encodeURIComponent(pbxDateFrom)}&to=${encodeURIComponent(pbxDateTo)}&operator=${encodeURIComponent(pbxFilterOperator)}&status=${encodeURIComponent(pbxFilterStatus)}`;
+    const res = await fetch(url);
     if (!res.ok) throw new Error('Stats API xatosi');
     const data = await res.json();
     pbxStatsCache = data;
@@ -196,12 +234,17 @@ function renderPbxOperatorsTable(operators) {
   if (!tbody) return;
   tbody.innerHTML = '';
 
-  if (!operators || operators.length === 0) {
+  let list = operators || [];
+  if (pbxFilterOperator && pbxFilterOperator !== 'all') {
+    list = list.filter(op => String(op.operator_number || '').trim() === String(pbxFilterOperator).trim());
+  }
+
+  if (!list || list.length === 0) {
     tbody.innerHTML = `<tr><td colspan="10" style="text-align:center;padding:24px;color:var(--text3);">${t('no_data') || 'Ma\'lumot yo\'q'}</td></tr>`;
     return;
   }
 
-  operators.forEach((op, idx) => {
+  list.forEach((op, idx) => {
     const tr = document.createElement('tr');
     const pct = op.answered_percent || 0;
     const pctColor = pct >= 80 ? 'var(--success)' : (pct >= 50 ? 'var(--warn)' : 'var(--danger)');
@@ -210,9 +253,9 @@ function renderPbxOperatorsTable(operators) {
     const totalTalkStr = fmtPbxSeconds(op.total_talk_seconds || 0);
     const avgTalkStr = fmtPbxSeconds(op.avg_talk_seconds || 0);
 
-    const safeName = (op.employee_name || '—').replace(/'/g, "\\'");
+    const isCurrentOpSelected = (pbxFilterOperator === op.operator_number);
     const opBadge = op.operator_number && op.operator_number !== '—'
-      ? `<span class="badge bsm bg" style="font-family:var(--mono);display:inline-flex;align-items:center;gap:4px;">${getLucideIcon('phone', '', 12)} ${op.operator_number}</span>`
+      ? `<span class="badge bsm ${isCurrentOpSelected ? 'bb' : 'bg'}" style="font-family:var(--mono);display:inline-flex;align-items:center;gap:4px;cursor:pointer;" onclick="selectPbxOperator('${op.operator_number}')" title="Faqat shu operatorni filtrlash">${getLucideIcon('phone', '', 12)} ${op.operator_number}</span>`
       : `<span class="badge bsm bgr">—</span>`;
 
     const empNameHtml = op.employee_id

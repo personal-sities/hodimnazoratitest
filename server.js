@@ -804,11 +804,11 @@ async function saveCallRecord(call) {
   return call;
 }
 
-async function getCallsStats(from, to) {
+async function getCallsStats(from, to, operator = 'all', status = 'all') {
   const pool = getDbPool();
   if (pool) {
     try {
-      const statsQuery = `
+      let statsQuery = `
         SELECT
           c.operator_number,
           e.id AS employee_id,
@@ -828,10 +828,18 @@ async function getCallsStats(from, to) {
         LEFT JOIN public.employees e
           ON c.employee_id = e.id OR c.operator_number = e.operator_number OR c.operator_number = e.pbx_extension
         WHERE c.call_date BETWEEN $1 AND $2
-        GROUP BY c.operator_number, e.id, e.name
-        ORDER BY total_calls DESC;
       `;
-      const statsRes = await pool.query(statsQuery, [from, to]);
+      const params = [from, to];
+      if (operator && operator !== 'all') {
+        params.push(operator);
+        statsQuery += ` AND c.operator_number = $${params.length}`;
+      }
+      if (status && status !== 'all') {
+        params.push(status);
+        statsQuery += ` AND c.status = $${params.length}`;
+      }
+      statsQuery += ` GROUP BY c.operator_number, e.id, e.name ORDER BY total_calls DESC;`;
+      const statsRes = await pool.query(statsQuery, params);
 
       const empQuery = `
         SELECT id, name, operator_number, pbx_extension
@@ -858,26 +866,31 @@ async function getCallsStats(from, to) {
         });
       });
 
-      (empRes.rows || []).forEach(emp => {
-        const opNum = emp.operator_number || emp.pbx_extension;
-        if (opNum && !opMap.has(opNum)) {
-          opMap.set(opNum, {
-            operator_number: opNum,
-            employee_id: emp.id,
-            employee_name: emp.name,
-            total_calls: 0,
-            answered_calls: 0,
-            missed_calls: 0,
-            answered_percent: 0,
-            total_talk_seconds: 0,
-            avg_talk_seconds: 0,
-            avg_rating: null,
-            rated_calls_count: 0
-          });
-        }
-      });
+      if (!operator || operator === 'all') {
+        (empRes.rows || []).forEach(emp => {
+          const opNum = emp.operator_number || emp.pbx_extension;
+          if (opNum && !opMap.has(opNum)) {
+            opMap.set(opNum, {
+              operator_number: opNum,
+              employee_id: emp.id,
+              employee_name: emp.name,
+              total_calls: 0,
+              answered_calls: 0,
+              missed_calls: 0,
+              answered_percent: 0,
+              total_talk_seconds: 0,
+              avg_talk_seconds: 0,
+              avg_rating: null,
+              rated_calls_count: 0
+            });
+          }
+        });
+      }
 
-      const operators = Array.from(opMap.values()).sort((a, b) => b.total_calls - a.total_calls);
+      let operators = Array.from(opMap.values()).sort((a, b) => b.total_calls - a.total_calls);
+      if (operator && operator !== 'all') {
+        operators = operators.filter(o => o.operator_number === operator);
+      }
 
       const totalCalls = operators.reduce((s, x) => s + x.total_calls, 0);
       const answeredCalls = operators.reduce((s, x) => s + x.answered_calls, 0);
@@ -894,6 +907,8 @@ async function getCallsStats(from, to) {
         ok: true,
         from,
         to,
+        operator,
+        status,
         summary: {
           total_calls: totalCalls,
           answered_calls: answeredCalls,
@@ -915,17 +930,20 @@ async function getCallsStats(from, to) {
   const allEmployees = readJsonData('employees.json', []);
   const activeEmpsWithOp = allEmployees.filter(e => e.active !== false && (e.operator_number || e.pbx_extension));
 
-  const calls = readLocalCalls().filter(c => {
+  let calls = readLocalCalls().filter(c => {
     const cd = c.call_date || (c.started_at ? c.started_at.split('T')[0] : '');
-    return (!from || cd >= from) && (!to || cd <= to);
+    const dateMatch = (!from || cd >= from) && (!to || cd <= to);
+    const opMatch = (!operator || operator === 'all' || String(c.operator_number || '').trim() === String(operator).trim());
+    const statusMatch = (!status || status === 'all' || c.status === status);
+    return dateMatch && opMatch && statusMatch;
   });
 
   const opMap = new Map();
 
-  // 1. Avval biriktirilgan barcha faol operatorlarni (100, 102...) xaritaga qo'shamiz
+  // 1. Biriktirilgan faol operatorlarni xaritaga qo'shamiz
   activeEmpsWithOp.forEach(emp => {
     const op = String(emp.operator_number || emp.pbx_extension).trim();
-    if (op) {
+    if (op && (!operator || operator === 'all' || op === operator)) {
       opMap.set(op, {
         operator_number: op,
         employee_id: emp.id,
@@ -973,7 +991,7 @@ async function getCallsStats(from, to) {
     }
   });
 
-  const operators = Array.from(opMap.values()).map(x => ({
+  let operators = Array.from(opMap.values()).map(x => ({
     operator_number: x.operator_number,
     employee_id: x.employee_id,
     employee_name: x.employee_name,
@@ -986,6 +1004,10 @@ async function getCallsStats(from, to) {
     avg_rating: x.rated_calls_count > 0 ? Math.round((x.total_rating_sum / x.rated_calls_count) * 10) / 10 : null,
     rated_calls_count: x.rated_calls_count
   })).sort((a, b) => b.total_calls - a.total_calls);
+
+  if (operator && operator !== 'all') {
+    operators = operators.filter(o => o.operator_number === operator);
+  }
 
   const totalCalls = calls.length;
   const answeredCalls = calls.filter(c => c.status === 'answered').length;
@@ -1001,6 +1023,8 @@ async function getCallsStats(from, to) {
     ok: true,
     from,
     to,
+    operator,
+    status,
     summary: {
       total_calls: totalCalls,
       answered_calls: answeredCalls,
@@ -1254,7 +1278,9 @@ async function handlePbxStats(req, res, reqUrl) {
     const today = new Date().toISOString().split('T')[0];
     const from = reqUrl.searchParams.get('from') || today;
     const to = reqUrl.searchParams.get('to') || today;
-    const result = await getCallsStats(from, to);
+    const operator = reqUrl.searchParams.get('operator') || 'all';
+    const status = reqUrl.searchParams.get('status') || 'all';
+    const result = await getCallsStats(from, to, operator, status);
     return sendJson(res, 200, result);
   } catch (e) {
     console.error('[handlePbxStats error]:', e);
@@ -2105,8 +2131,42 @@ async function handleGetAttendance(req, res, reqUrl) {
   const pool = getDbPool();
   if (pool) {
     try {
+      // Kunlik ko'rinish (from === to va employeeId ko'rsatilmagan): Barcha faol xodimlar LEFT JOIN qilinadi
+      if (from && to && from === to && !employeeId) {
+        const dailyQuery = `
+          SELECT
+            e.id AS employee_id,
+            e.name AS employee_name,
+            e.login AS employee_login,
+            e.operator_number,
+            COALESCE(a.work_date, $1::date) AS work_date,
+            a.start_time,
+            a.end_time,
+            a.lunch_start,
+            a.lunch_end,
+            COALESCE(a.late_minutes, 0)::int AS late_minutes,
+            COALESCE(a.work_seconds, 0)::int AS worked_seconds,
+            COALESCE(a.work_seconds, 0)::int AS work_seconds,
+            COALESCE(a.afk_seconds, 0)::int AS afk_seconds,
+            COALESCE(a.afk_count, 0)::int AS afk_count,
+            COALESCE(a.status, 'kelmadi') AS status,
+            COALESCE(a.auto_ended, false) AS auto_ended
+          FROM public.employees e
+          LEFT JOIN public.attendance a
+            ON a.employee_id = e.id AND a.work_date = $1::date
+          WHERE e.active = true
+          ORDER BY e.name ASC;
+        `;
+        const dbRes = await pool.query(dailyQuery, [from]);
+        return sendJson(res, 200, { ok: true, data: dbRes.rows || [] });
+      }
+
       let query = `
-        SELECT a.*, e.name AS employee_name, e.login AS employee_login, e.operator_number
+        SELECT a.*,
+          e.name AS employee_name,
+          e.login AS employee_login,
+          e.operator_number,
+          COALESCE(a.work_seconds, 0)::int AS worked_seconds
         FROM public.attendance a
         LEFT JOIN public.employees e ON a.employee_id = e.id
         WHERE 1=1
@@ -2137,10 +2197,64 @@ async function handleGetAttendance(req, res, reqUrl) {
     }
   }
 
-  // Fallback: local attendance.json
-  let list = readJsonData('attendance.json', []);
+  // Fallback: local attendance.json va employees.json
   const emps = readJsonData('employees.json', []);
+  const activeEmps = emps.filter(e => e.active !== false);
   const empMap = new Map(emps.map(e => [e.id, e]));
+  let list = readJsonData('attendance.json', []);
+
+  // Kunlik ko'rinish (from === to va employeeId ko'rsatilmagan): Barcha faol xodimlar ko'rsatiladi
+  if (from && to && from === to && !employeeId) {
+    const dayList = list.filter(r => r.work_date === from);
+    const dayMap = new Map(dayList.map(r => [r.employee_id, r]));
+
+    const result = activeEmps.map(e => {
+      const rec = dayMap.get(e.id);
+      if (rec) {
+        return {
+          ...rec,
+          employee_id: e.id,
+          employee_name: rec.employee_name || e.name || '—',
+          employee_login: rec.employee_login || e.login || '',
+          operator_number: rec.operator_number || e.operator_number || null,
+          work_date: from,
+          start_time: rec.start_time || null,
+          end_time: rec.end_time || null,
+          lunch_start: rec.lunch_start || null,
+          lunch_end: rec.lunch_end || null,
+          late_minutes: Number(rec.late_minutes) || 0,
+          worked_seconds: Number(rec.work_seconds || rec.worked_seconds) || 0,
+          work_seconds: Number(rec.work_seconds || rec.worked_seconds) || 0,
+          afk_seconds: Number(rec.afk_seconds) || 0,
+          afk_count: Number(rec.afk_count) || 0,
+          status: rec.status || 'kelmadi',
+          auto_ended: Boolean(rec.auto_ended)
+        };
+      }
+      return {
+        id: `att_abs_${e.id}_${from}`,
+        employee_id: e.id,
+        employee_name: e.name || '—',
+        employee_login: e.login || '',
+        operator_number: e.operator_number || null,
+        work_date: from,
+        start_time: null,
+        end_time: null,
+        lunch_start: null,
+        lunch_end: null,
+        late_minutes: 0,
+        worked_seconds: 0,
+        work_seconds: 0,
+        afk_seconds: 0,
+        afk_count: 0,
+        status: 'kelmadi',
+        auto_ended: false
+      };
+    });
+
+    result.sort((a, b) => String(a.employee_name || '').localeCompare(String(b.employee_name || '')));
+    return sendJson(res, 200, { ok: true, data: result });
+  }
 
   if (employeeId) list = list.filter(r => r.employee_id === employeeId);
   if (month) list = list.filter(r => String(r.work_date || '').startsWith(month));
@@ -2153,7 +2267,9 @@ async function handleGetAttendance(req, res, reqUrl) {
       ...r,
       employee_name: r.employee_name || e.name || '—',
       employee_login: r.employee_login || e.login || '',
-      operator_number: r.operator_number || e.operator_number || null
+      operator_number: r.operator_number || e.operator_number || null,
+      worked_seconds: Number(r.work_seconds || r.worked_seconds) || 0,
+      work_seconds: Number(r.work_seconds || r.worked_seconds) || 0
     };
   });
 
@@ -2176,7 +2292,8 @@ async function handleSaveAttendance(req, res) {
     end_time: body.end_time || null,
     lunch_start: body.lunch_start || null,
     lunch_end: body.lunch_end || null,
-    work_seconds: Number(body.work_seconds) || 0,
+    work_seconds: Number(body.work_seconds || body.worked_seconds) || 0,
+    worked_seconds: Number(body.work_seconds || body.worked_seconds) || 0,
     lunch_seconds: Number(body.lunch_seconds) || 0,
     afk_seconds: Number(body.afk_seconds) || 0,
     afk_count: Number(body.afk_count) || 0,
@@ -2185,6 +2302,14 @@ async function handleSaveAttendance(req, res) {
     auto_ended: Boolean(body.auto_ended),
     updated_at: new Date().toISOString()
   };
+
+  const emps = readJsonData('employees.json', []);
+  const emp = emps.find(e => e.id === employeeId);
+  if (emp) {
+    payload.employee_name = emp.name || '';
+    payload.employee_login = emp.login || '';
+    payload.operator_number = emp.operator_number || emp.pbx_extension || null;
+  }
 
   // 1. PostgreSQL ga yozish
   const pool = getDbPool();
@@ -2684,5 +2809,8 @@ module.exports = {
   server,
   runRetentionCleanup,
   initAutoEndScheduler,
-  runServerScheduledChecks
+  runServerScheduledChecks,
+  getCallsStats,
+  getCallsList,
+  handleGetAttendance
 };

@@ -349,12 +349,6 @@ async function loadAtt() {
     const sRes = await serverApi(`/api/attendance?from=${dateFrom}&to=${dateTo}`);
     if (sRes.ok && Array.isArray(sRes.data)) {
       data = sRes.data;
-      if (search) {
-        data = data.filter(r => (r.employee_name || '').toLowerCase().includes(search) || (r.employee_login || '').toLowerCase().includes(search));
-      }
-      if (statusFilter) {
-        data = data.filter(r => r.status === statusFilter);
-      }
     }
   } catch(e){}
 
@@ -366,8 +360,8 @@ async function loadAtt() {
         sb.rpc('admin_attendance_range', {
           p_from: dateFrom,
           p_to: dateTo,
-          p_search: search,
-          p_status: statusFilter
+          p_search: '',
+          p_status: ''
         }),
         fetchEmployeeLeavesInRange(dateFrom, dateTo)
       ]);
@@ -392,7 +386,7 @@ async function loadAtt() {
       if(isEmployeeOnLeaveDate(row.employee_id, dateFrom, leaveDateMap))status='work_leave';
       let arr = row.start_time ? row.start_time.substring(0, 5) : '-';
       let lm = row.late_minutes || 0;
-      let hrs = row.worked_seconds ? secToHMS(row.worked_seconds) : '-';
+      let hrs = (row.worked_seconds || row.work_seconds) ? secToHMS(row.worked_seconds || row.work_seconds) : '-';
       let afkSec = row.afk_seconds || 0;
 
       if (status === 'keldi' || status === 'auto_ended' || status === 'yarim_kun') w++;
@@ -424,6 +418,7 @@ async function loadAtt() {
 
       const tr = document.createElement('tr');
       tr.dataset.name = (row.employee_name || '').toLowerCase();
+      tr.dataset.login = (row.employee_login || '').toLowerCase();
       tr.dataset.st = status;
 
       tr.innerHTML = `
@@ -457,7 +452,7 @@ async function loadAtt() {
         };
       }
 
-      grouped[id].totalSec += row.worked_seconds || 0;
+      grouped[id].totalSec += (row.worked_seconds || row.work_seconds || 0);
       grouped[id].totalAfk += row.afk_seconds || 0;
       grouped[id].totalLate += row.late_minutes || 0;
 
@@ -473,6 +468,7 @@ async function loadAtt() {
 
       const tr = document.createElement('tr');
       tr.dataset.name = (emp.employee_name || '').toLowerCase();
+      tr.dataset.login = (emp.employee_login || '').toLowerCase();
       tr.dataset.st = 'keldi';
 
       tr.innerHTML = `
@@ -495,17 +491,19 @@ async function loadAtt() {
   st('sl', '' + l);
   st('sa', '' + a);
   st('sd', dateFrom === dateTo ? fmtD(new Date(dateFrom + 'T12:00:00')) : dateFrom + ' → ' + dateTo);
+  filterAtt();
 }
 function filterAtt(){
-  const q=document.getElementById('fsearch').value.toLowerCase();
-  const s=document.getElementById('fstatus').value;
+  const q = (document.getElementById('fsearch')?.value || '').toLowerCase().trim();
+  const s = document.getElementById('fstatus')?.value || '';
   document.querySelectorAll('#att_body tr').forEach(tr=>{
-    const matchesName=(tr.dataset.name||'').includes(q);
-    const matchesStatus=mVisible?true:(!s||tr.dataset.st===s);
-    tr.style.display=(matchesName&&matchesStatus)?'':'none';
+    const matchesName = (tr.dataset.name||'').includes(q) || (tr.dataset.login||'').includes(q);
+    const matchesStatus = mVisible ? true : (!s || tr.dataset.st === s);
+    tr.style.display = (matchesName && matchesStatus) ? '' : 'none';
   });
   document.querySelectorAll('#mbody tr').forEach(tr=>{
-    tr.style.display=((tr.dataset.name||'').includes(q))?'':'none';
+    const matchesName = (tr.dataset.name||'').includes(q) || (tr.dataset.login||'').includes(q);
+    tr.style.display = matchesName ? '' : 'none';
   });
 }
 
