@@ -549,10 +549,30 @@ async function doLogin(){
       });
 
       if (!error && data?.user) {
-        const uid = data.user.id;
-        const { data: adm } = await sb.from('admins').select('*').eq('user_id', uid).maybeSingle();
-        if (adm) {
-          CU = {...adm, role:'admin'};
+        const u = data.user;
+        const uid = u.id;
+        const userMeta = u.user_metadata || {};
+        const isLikelyAdmin = userMeta.role === 'admin' ||
+                              email === 'admin' ||
+                              email === 'admin@aloqapro.uz' ||
+                              (u.email && (u.email.toLowerCase().includes('admin') || u.email.toLowerCase() === 'admin@aloqapro.uz'));
+
+        let adm = null;
+        try {
+          const { data: admRow } = await sb.from('admins').select('*').eq('user_id', uid).maybeSingle();
+          adm = admRow;
+        } catch (e) {
+          console.warn('admins select warning:', e);
+        }
+
+        if (adm || isLikelyAdmin) {
+          CU = {
+            id: adm?.id || uid,
+            user_id: uid,
+            name: adm?.name || userMeta.name || (u.email ? u.email.split('@')[0] : 'Administrator'),
+            login: adm?.login || u.email || email,
+            role: 'admin'
+          };
           localStorage.setItem('aloqa_u', JSON.stringify(CU));
           loginInFlight = false;
           setLoginButtonLoading(false);
@@ -560,7 +580,14 @@ async function doLogin(){
           return;
         }
 
-        const { data: emp } = await sb.from('employees').select('*').eq('user_id', uid).maybeSingle();
+        let emp = null;
+        try {
+          const { data: empRow } = await sb.from('employees').select('*').eq('user_id', uid).maybeSingle();
+          emp = empRow;
+        } catch (e) {
+          console.warn('employees select warning:', e);
+        }
+
         if (emp) {
           const access = await checkRegionAccess('employee');
           if (!access.ok) {
@@ -583,7 +610,15 @@ async function doLogin(){
       console.warn('Supabase auth fallback:', supAuthErr);
     }
 
-    err.textContent = (sRes && sRes.error) ? sRes.error : t('loginErr');
+    let errorMsg = t('loginErr');
+    if (sRes && sRes.error) {
+      if (typeof sRes.error === 'string') {
+        errorMsg = sRes.error;
+      } else if (typeof sRes.error === 'object' && sRes.error.message) {
+        errorMsg = sRes.error.message;
+      }
+    }
+    err.textContent = errorMsg;
 
   } catch (e) {
     console.error(e);

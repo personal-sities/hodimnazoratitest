@@ -26,7 +26,11 @@ async function serverApi(endpoint, options = {}) {
     });
     clearTimeout(timeout);
     if (!res.ok) {
-      const errTxt = await res.text().catch(() => '');
+      let errTxt = await res.text().catch(() => '');
+      try {
+        const parsed = JSON.parse(errTxt);
+        if (parsed && parsed.error) errTxt = parsed.error;
+      } catch (_) {}
       return { ok: false, status: res.status, error: errTxt };
     }
     const json = await res.json().catch(() => ({}));

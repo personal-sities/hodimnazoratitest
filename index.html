@@ -146,8 +146,8 @@ html.user-logged-in #loginPage {
   <div class="login-card">
     <h2 id="lc_t">Nazorat tizimiga xush kelibsiz!</h2>
     <p id="lc_s">Login va parolni kiriting!</p>
-    <form id="loginForm" onsubmit="event.preventDefault(); doLogin();">
-      <div class="iw"><input type="email" id="inp_l" placeholder="Email" autocomplete="username"></div>
+    <form id="loginForm" novalidate onsubmit="event.preventDefault(); doLogin();">
+      <div class="iw"><input type="text" id="inp_l" placeholder="Login yoki email" autocomplete="username"></div>
       <div class="iw">
         <input type="password" id="inp_p" placeholder="Parol" autocomplete="current-password">
         <button class="eye" onclick="toggleEye()" type="button" aria-label="Parolni ko'rsatish">
