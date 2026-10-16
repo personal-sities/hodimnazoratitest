@@ -56,7 +56,17 @@ async function loadHist(){
   if(!CU)return;
   const m=document.getElementById('e_month').value||curM();
   const[y,mo]=m.split('-').map(Number);const dim=new Date(y,mo,0).getDate();
-  const{data:recs}=await sb.from('attendance').select('*').eq('employee_id',CU.id).gte('work_date',`${m}-01`).lte('work_date',`${m}-${String(dim).padStart(2,'0')}`).order('work_date');
+  let recs = null;
+  try {
+    const sRes = await serverApi(`/api/attendance?employee_id=${CU.id}&month=${m}`);
+    if (sRes.ok && Array.isArray(sRes.data)) recs = sRes.data;
+  }catch(e){}
+  if (!recs) {
+    try {
+      const res = await sb.from('attendance').select('*').eq('employee_id',CU.id).gte('work_date',`${m}-01`).lte('work_date',`${m}-${String(dim).padStart(2,'0')}`).order('work_date');
+      recs = res.data;
+    }catch(e){}
+  }
   const tbody=document.getElementById('hbody');tbody.innerHTML='';
   let lc=0,totalAfkSec=0;
   if(!recs||recs.length===0){tbody.innerHTML=`<tr><td colspan="11" style="text-align:center;color:var(--text3);padding:20px">${t('no_data')}</td></tr>`;st('e_lc','0');st('e_afk_total','0 '+t('daqiqa'));return;}
@@ -86,51 +96,59 @@ async function loadHist(){
 }
 
 // ============================================================
-//  INIT
+//  INIT (F5 DA SILLIQ VA TEZKOR QAYTA YUKLASH)
 // ============================================================
 (async function(){
   applyTheme(localStorage.getItem('aloqa_theme')||'light');
+
+  // 1. Keshdagi sessiyani tekshirib, DARHOL o'z sahifasini ochish (kutishsiz va login oynasini ko'rsatmasdan)
   try{
     const cached = localStorage.getItem('aloqa_u');
     if(cached){
       CU = JSON.parse(cached);
-      if(CU && CU.role==='employee' && typeof renderEmployeeHeaderInfo==='function'){
-        renderEmployeeHeaderInfo();
+      if(CU && (CU.role === 'admin' || CU.role === 'employee')){
+        showPage(CU.role === 'admin' ? 'admin' : 'employee');
       }
     }
-  }catch(e){}
-  userPublicIP=await getUserIP();
-  const myIPEl=document.getElementById('ipb_val');if(myIPEl)myIPEl.textContent=userPublicIP||'—';
+  }catch(e){
+    console.warn('cached user parse error:', e);
+  }
 
+  // 2. IP va joylashuvni fon rejimida tezkor aniqlash
+  getUserIP().then(ip => {
+    userPublicIP = ip;
+    const myIPEl=document.getElementById('ipb_val');
+    if(myIPEl) myIPEl.textContent = ip || '—';
+  }).catch(()=>{});
+
+  // 3. Agar foydalanuvchi bo'lmasa, login oynasini ko'rsatish
+  if (!CU) {
+    showPage('login');
+  }
+
+  // 4. Fon rejimida sessiyani yangilash (foydalanuvchini chiqarib yubormagan holda)
   try{
-    const { data: sessionData } = await sb.auth.getSession();
-    const uid = sessionData?.session?.user?.id;
-    if(uid){
-      const { data: adm } = await sb.from('admins').select('*').eq('user_id', uid).maybeSingle();
-      if(adm){
-        CU = {...adm, role:'admin'};
-      }else{
-        const { data: emp } = await sb.from('employees').select('*').eq('user_id', uid).maybeSingle();
-        if(emp){
-          const access=await checkRegionAccess('employee');
-          if(!access.ok){showIPBlock(access.value, access.title, access.message);return;}
-          CU = {...emp, role:'employee'};
-          if(typeof renderEmployeeHeaderInfo==='function')renderEmployeeHeaderInfo();
+    if (CU && CU.role === 'employee') {
+      const sEmps = await serverApi(`/api/employees?active_only=true`);
+      if (sEmps.ok && Array.isArray(sEmps.data)) {
+        const found = sEmps.data.find(e => e.id === CU.id || e.login === CU.login);
+        if (found) {
+          CU = { ...CU, ...found, role: 'employee' };
+          localStorage.setItem('aloqa_u', JSON.stringify(CU));
+          if(typeof renderEmployeeHeaderInfo==='function') renderEmployeeHeaderInfo();
         }
       }
     }
   }catch(e){
-    console.warn('session restore error:',e);
-    CU = null;
+    console.warn('background session refresh:', e);
   }
-  if(CU)localStorage.setItem('aloqa_u', JSON.stringify(CU));
-  else localStorage.removeItem('aloqa_u');
 
-  showPage(CU?(CU.role==='admin'?'admin':'employee'):'login');
+  // 5. Auth holat o'zgarishi: Faqat foydalanuvchi O'ZI "Chiqish" tugmasini bosganda ishlaydi
   sb.auth.onAuthStateChange((event) => {
-    if(event==='SIGNED_OUT'){
+    if(event==='SIGNED_OUT' && window._manualLogoutInitiated){
       CU = null;
       localStorage.removeItem('aloqa_u');
+      localStorage.removeItem('aloqa_emp_state');
       stopRealtimeSubscriptions();
       showPage('login');
     }

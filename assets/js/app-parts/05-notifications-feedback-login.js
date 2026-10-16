@@ -27,6 +27,14 @@ async function loadTodayLunchPlan(){
   }
   if (!CU || CU.role !== 'employee') return todayLunchShift;
   try{
+    const sRes = await serverApi(`/api/lunch-plans?employee_id=${CU.id}&work_date=${todayISO()}`);
+    if(sRes.ok && sRes.data?.shift){
+      todayLunchShift = sRes.data.shift;
+      saveLunchPlanLocal(sRes.data.shift);
+      return todayLunchShift;
+    }
+  }catch(e){}
+  try{
     const { data } = await sb
       .from('lunch_plans')
       .select('shift')
@@ -52,8 +60,8 @@ async function saveLunchShiftChoice(shift) {
   if (!CU) return;
   try{
     const payload = { employee_id: CU.id, work_date: todayISO(), shift };
-    const { error } = await sb.from('lunch_plans').upsert(payload, { onConflict: 'employee_id,work_date' });
-    if (error) throw error;
+    await serverApi('/api/lunch-plans', { method: 'POST', body: JSON.stringify(payload) });
+    try { await sb.from('lunch_plans').upsert(payload, { onConflict: 'employee_id,work_date' }); } catch(e){}
     todayLunchShift = shift;
     saveLunchPlanLocal(shift);
     document.getElementById('m_lunch_shift').classList.add('hidden');
@@ -213,7 +221,15 @@ function checkScheduledNotifs() {
   if(breakSec>=1800&&!S.b30){S.b30=true;showAppNotification('AloqaPro',(lang==='uz'?'30 daqiqa tanaffus tugadi! AFK hisoblanmoqda!':'30 минут перерыва истекло! AFK!'));}
   if (!todayLunchShift && h >= 11 && (h < 14 || (h === 14 && m === 0))) ensureLunchShiftPrompt();
 }
-async function saveNotifToDB(type,title,body){if(!CU)return;try{await sb.from('notifications').insert({employee_id:CU.id,title,body,type});}catch(e){console.warn('saveNotifToDB:',e);}loadNotificationsEmp(false);}
+async function saveNotifToDB(type,title,body){
+  if(!CU)return;
+  const payload = {employee_id:CU.id,title,body,type};
+  try{
+    await serverApi('/api/notifications', { method:'POST', body: JSON.stringify(payload) });
+    try{ await sb.from('notifications').insert(payload); }catch(e){}
+  }catch(e){console.warn('saveNotifToDB:',e);}
+  loadNotificationsEmp(false);
+}
 async function adminSendNotif() {
   const btn = document.querySelector('#tab_notif .bb');
   if (btn) btn.disabled = true;
@@ -228,15 +244,20 @@ async function adminSendNotif() {
   try{
     let targets = [];
     if (empId === 'all') {
-      const {data:emps} = await sb.from('employees').select('id');
-      targets = (emps||[]).map(e=>e.id);
+      const sEmps = await serverApi('/api/employees');
+      if (sEmps.ok && sEmps.data) {
+        targets = sEmps.data.map(e=>e.id);
+      } else {
+        const {data:emps} = await sb.from('employees').select('id');
+        targets = (emps||[]).map(e=>e.id);
+      }
     } else {
       targets = [empId];
     }
     const inserts = targets.map(eid => ({employee_id:eid, title, body, type:'admin'}));
     if (inserts.length > 0) {
-      const {error} = await sb.from('notifications').insert(inserts);
-      if(error) { console.error('Notif insert error:',error.message); toast('error',t('error_title'),error.message); if(btn)btn.disabled=false; return; }
+      await serverApi('/api/notifications', { method:'POST', body: JSON.stringify(inserts) });
+      try{ await sb.from('notifications').insert(inserts); }catch(e){}
     }
     if (notifChannel) notifChannel.postMessage({type:'new-notification', title, body});
     document.getElementById('ns_title_inp').value = '';
@@ -252,7 +273,17 @@ async function adminSendNotif() {
 }
 async function loadNotificationsEmp(notifyNew = true) {
   if (!CU) return;
-  const {data} = await sb.from('notifications').select('*').eq('employee_id',CU.id).order('sent_at',{ascending:false}).limit(30);
+  let data = null;
+  try {
+    const sRes = await serverApi(`/api/notifications?employee_id=${CU.id}&limit=30`);
+    if (sRes.ok && Array.isArray(sRes.data)) data = sRes.data;
+  } catch(e){}
+  if (!data) {
+    try {
+      const res = await sb.from('notifications').select('*').eq('employee_id',CU.id).order('sent_at',{ascending:false}).limit(30);
+      data = res.data;
+    } catch(e){}
+  }
   const c = document.getElementById('notif_list_emp'); if (!c) return;
   const unread = (data||[]).filter(n=>!n.is_read).length;
   const badge = document.getElementById('empNotifBadge');
@@ -284,13 +315,24 @@ async function loadNotificationsEmp(notifyNew = true) {
   normalizeDynamicTranslations(c);
 }
 async function loadNotificationsAdmin() {
-  const {data} = await sb.from('notifications').select('*,employees(name)').order('sent_at',{ascending:false}).limit(50);
+  let data = null;
+  try {
+    const sRes = await serverApi('/api/notifications?limit=50');
+    if (sRes.ok && Array.isArray(sRes.data)) data = sRes.data;
+  } catch(e){}
+  if (!data) {
+    try {
+      const res = await sb.from('notifications').select('*,employees(name)').order('sent_at',{ascending:false}).limit(50);
+      data = res.data;
+    } catch(e){}
+  }
   const c = document.getElementById('notif_list_admin'); if (!c) return;
   if (!data||data.length===0){c.innerHTML=emptyText('notifications_empty');return;}
-  c.innerHTML=data.map(n=>`<div class="notif-item"><div class="notif-body"><div class="notif-title">${n.title} <span style="color:var(--text3);font-size:11px">→ ${n.employees?.name||'?'}</span></div><div class="notif-msg">${n.body}</div><div class="notif-time">${new Date(n.sent_at).toLocaleString()}</div></div></div>`).join('');
+  c.innerHTML=data.map(n=>`<div class="notif-item"><div class="notif-body"><div class="notif-title">${n.title} <span style="color:var(--text3);font-size:11px">→ ${n.employee_name||n.employees?.name||'?'}</span></div><div class="notif-msg">${n.body}</div><div class="notif-time">${new Date(n.sent_at).toLocaleString()}</div></div></div>`).join('');
 }
 async function markNotifRead(id) {
-  await sb.from('notifications').update({is_read:true}).eq('id',id);
+  try { await serverApi(`/api/notifications/${id}`, { method: 'PATCH' }); } catch(e){}
+  try { await sb.from('notifications').update({is_read:true}).eq('id',id); } catch(e){}
   loadNotificationsEmp(false);
 }
 if (notifChannel) {
@@ -309,7 +351,11 @@ async function sendFeedback() {
   const type = document.getElementById('fb_type').value;
   const msg = document.getElementById('fb_msg').value.trim();
   if (!msg) { toast('warn',t('error_title'),t('feedback_write_message')); return; }
-  await sb.from('feedback').insert({ employee_id:CU.id, employee_name:CU.name, type, message:msg });
+  const payload = { employee_id:CU.id, employee_name:CU.name, type, message:msg };
+  try{
+    await serverApi('/api/feedback', { method: 'POST', body: JSON.stringify(payload) });
+    try { await sb.from('feedback').insert(payload); } catch(e){}
+  }catch(e){console.warn('sendFeedback error:',e);}
   document.getElementById('fb_msg').value = '';
   toast('success',t('feedback_sent_title'),t('feedback_sent_success'));
   loadMyFeedback();
@@ -323,7 +369,17 @@ function renderFeedbackBadge(type){
 
 async function loadMyFeedback() {
   if (!CU) return;
-  const {data} = await sb.from('feedback').select('*').eq('employee_id',CU.id).order('created_at',{ascending:false}).limit(20);
+  let data = null;
+  try {
+    const sRes = await serverApi(`/api/feedback?employee_id=${CU.id}`);
+    if (sRes.ok && Array.isArray(sRes.data)) data = sRes.data;
+  } catch(e){}
+  if (!data) {
+    try {
+      const res = await sb.from('feedback').select('*').eq('employee_id',CU.id).order('created_at',{ascending:false}).limit(20);
+      data = res.data;
+    } catch(e){}
+  }
   const c = document.getElementById('my_feedback_list'); if (!c) return;
   if (!data||data.length===0){c.innerHTML=emptyText('feedback_none_sent');return;}
   c.innerHTML=data.map(fb=>`
@@ -339,12 +395,22 @@ async function loadMyFeedback() {
 }
 async function loadFeedbackAdmin() {
   const filter = document.getElementById('fb_filter')?.value || '';
-  let q = sb.from('feedback').select('*,employees(name)').order('created_at',{ascending:false}).limit(50);
-  if (filter==='new') q=q.eq('status','new');
-  else if(filter==='replied') q=q.eq('status','replied');
-  else if(filter==='complaint') q=q.eq('type','complaint');
-  else if(filter==='suggestion') q=q.eq('type','suggestion');
-  const {data} = await q;
+  let data = null;
+  try {
+    const sRes = await serverApi(`/api/feedback${filter ? `?filter=${filter}` : ''}`);
+    if (sRes.ok && Array.isArray(sRes.data)) data = sRes.data;
+  } catch(e){}
+  if (!data) {
+    try {
+      let q = sb.from('feedback').select('*,employees(name)').order('created_at',{ascending:false}).limit(50);
+      if (filter==='new') q=q.eq('status','new');
+      else if(filter==='replied') q=q.eq('status','replied');
+      else if(filter==='complaint') q=q.eq('type','complaint');
+      else if(filter==='suggestion') q=q.eq('type','suggestion');
+      const res = await q;
+      data = res.data;
+    } catch(e){}
+  }
   const c = document.getElementById('feedback_list_admin'); if (!c) return;
   const newCount = (data||[]).filter(f=>f.status==='new').length;
   const badge = document.getElementById('fbBadge');
@@ -370,12 +436,18 @@ async function loadFeedbackAdmin() {
 async function replyFeedback(id) {
   const ta = document.getElementById('reply_'+id);
   if (!ta || !ta.value.trim()) { toast('warn',t('error_title'),t('reply_write_required')); return; }
-  const {data:fb} = await sb.from('feedback').update({admin_reply:ta.value.trim(),status:'replied',replied_at:new Date().toISOString()}).eq('id',id).select().single();
-  if (fb) {
-    try{ await sb.from('notifications').insert({employee_id:fb.employee_id,title:t('admin_replied_title'),body:ta.value.trim(),type:'admin'}); }catch(e){}
-    toast('success',t('reply_title'),t('reply_sent_success'));
-    loadFeedbackAdmin();
-  }
+  const replyText = ta.value.trim();
+  try {
+    await serverApi(`/api/feedback/${id}`, { method: 'PATCH', body: JSON.stringify({ admin_reply: replyText }) });
+  } catch(e){}
+  try {
+    const {data:fb} = await sb.from('feedback').update({admin_reply:replyText,status:'replied',replied_at:new Date().toISOString()}).eq('id',id).select().single();
+    if (fb) {
+      try{ await sb.from('notifications').insert({employee_id:fb.employee_id,title:t('admin_replied_title'),body:replyText,type:'admin'}); }catch(e){}
+    }
+  } catch(e){}
+  toast('success',t('reply_title'),t('reply_sent_success'));
+  loadFeedbackAdmin();
 }
 
 // ============================================================
@@ -432,71 +504,86 @@ async function doLogin(){
   loginInFlight = true;
 
   try {
-    // 🔐 AUTH LOGIN
-    const { data, error } = await sb.auth.signInWithPassword({
-      email,
-      password: ps
+    // 1-USUL: Server orqali bir zumda to'g'ridan-to'g'ri tezkor kirish
+    const sRes = await serverApi('/api/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ email, password: ps })
     });
 
-    if (error || !data?.user) {
-      err.textContent = t('loginErr');
-      loginInFlight = false;
-      setLoginButtonLoading(false);
-      return;
-    }
-
-    const uid = data.user.id;
-
-    // 🔍 ADMIN TEKSHIRISH
-    const { data: adm } = await sb
-      .from('admins')
-      .select('*')
-      .eq('user_id', uid)
-      .maybeSingle();
-
-    if (adm) {
-      CU = {...adm, role:'admin'};
-      localStorage.setItem('aloqa_u', JSON.stringify(CU));
-
-      loginInFlight = false;
-      setLoginButtonLoading(false);
-
-      showPage('admin');
-      return;
-    }
-
-    // 🔍 EMPLOYEE TEKSHIRISH
-    const { data: emp } = await sb
-      .from('employees')
-      .select('*')
-      .eq('user_id', uid)
-      .maybeSingle();
-
-    if (emp) {
-      const access = await checkRegionAccess('employee');
-
-      if (!access.ok) {
+    if (sRes.ok && sRes.user) {
+      const u = sRes.user;
+      if (u.role === 'admin') {
+        CU = { ...u, role: 'admin' };
+        localStorage.setItem('aloqa_u', JSON.stringify(CU));
         loginInFlight = false;
         setLoginButtonLoading(false);
-        showIPBlock(access.value, access.title, access.message);
-
-        await sb.auth.signOut();
+        showPage('admin');
         return;
       }
 
-      CU = {...emp, role:'employee'};
-      localStorage.setItem('aloqa_u', JSON.stringify(CU));
-      if(typeof renderEmployeeHeaderInfo==='function')renderEmployeeHeaderInfo();
+      if (u.role === 'employee') {
+        const access = await checkRegionAccess('employee');
+        if (!access.ok) {
+          loginInFlight = false;
+          setLoginButtonLoading(false);
+          showIPBlock(access.value, access.title, access.message);
+          return;
+        }
 
-      loginInFlight = false;
-      setLoginButtonLoading(false);
+        CU = { ...u, role: 'employee' };
+        localStorage.setItem('aloqa_u', JSON.stringify(CU));
+        if(typeof renderEmployeeHeaderInfo==='function')renderEmployeeHeaderInfo();
 
-      showPage('employee');
-      return;
+        loginInFlight = false;
+        setLoginButtonLoading(false);
+        showPage('employee');
+        return;
+      }
     }
 
-    err.textContent = t('user_not_linked');
-    await sb.auth.signOut();
+    // 2-USUL: Supabase Auth fallback
+    try {
+      const { data, error } = await sb.auth.signInWithPassword({
+        email,
+        password: ps
+      });
+
+      if (!error && data?.user) {
+        const uid = data.user.id;
+        const { data: adm } = await sb.from('admins').select('*').eq('user_id', uid).maybeSingle();
+        if (adm) {
+          CU = {...adm, role:'admin'};
+          localStorage.setItem('aloqa_u', JSON.stringify(CU));
+          loginInFlight = false;
+          setLoginButtonLoading(false);
+          showPage('admin');
+          return;
+        }
+
+        const { data: emp } = await sb.from('employees').select('*').eq('user_id', uid).maybeSingle();
+        if (emp) {
+          const access = await checkRegionAccess('employee');
+          if (!access.ok) {
+            loginInFlight = false;
+            setLoginButtonLoading(false);
+            showIPBlock(access.value, access.title, access.message);
+            await sb.auth.signOut().catch(()=>{});
+            return;
+          }
+          CU = {...emp, role:'employee'};
+          localStorage.setItem('aloqa_u', JSON.stringify(CU));
+          if(typeof renderEmployeeHeaderInfo==='function')renderEmployeeHeaderInfo();
+          loginInFlight = false;
+          setLoginButtonLoading(false);
+          showPage('employee');
+          return;
+        }
+      }
+    } catch(supAuthErr) {
+      console.warn('Supabase auth fallback:', supAuthErr);
+    }
+
+    err.textContent = (sRes && sRes.error) ? sRes.error : t('loginErr');
 
   } catch (e) {
     console.error(e);
@@ -507,6 +594,7 @@ async function doLogin(){
   setLoginButtonLoading(false);
 }
 async function doLogout(){
+  window._manualLogoutInitiated = true;
   if(CU && CU.role==='employee'){
     try{
       pauseWorkForPlatformExit();
@@ -517,10 +605,11 @@ async function doLogout(){
   stopFaceDetection();
   stopRealtimeSubscriptions();
 
-  await sb.auth.signOut(); // 🔐 muhim
+  try { await sb.auth.signOut(); } catch(e){}
 
   CU = null;
   localStorage.removeItem('aloqa_u');
+  localStorage.removeItem('aloqa_emp_state');
 
   showPage('login');
 }
@@ -575,6 +664,7 @@ function animateCurrentView(){
 
 function showPage(p){
   stopRealtimeSubscriptions();
+  document.documentElement.classList.toggle('user-logged-in', p === 'admin' || p === 'employee');
   document.body.classList.toggle('admin-view', p==='admin');
   document.body.classList.toggle('employee-view', p==='employee');
   document.getElementById('loginPage').style.display=p==='login'?'flex':'none';

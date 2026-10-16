@@ -272,12 +272,31 @@ async function loadDashboard(){
   let wd=0;for(let d=1;d<=dim;d++){const ds=`${y}-${String(mo).padStart(2,'0')}-${String(d).padStart(2,'0')}`;if(isWorkDay(ds))wd++;}
   const monthStart=`${month}-01`;
   const monthEnd=`${month}-${String(dim).padStart(2,'0')}`;
-  const [{data:emps,error:empErr},{data:recs,error:recErr},leaves] = await Promise.all([
-    sb.from('employees').select('*'),
-    sb.from('attendance').select('*').gte('work_date',monthStart).lte('work_date',monthEnd),
-    fetchEmployeeLeavesInRange(monthStart, monthEnd)
-  ]);
-  if(empErr||recErr){toast('error','Dashboard',(empErr||recErr).message||t('dashboard_error'));return;}
+
+  let emps = null, recs = null;
+  try {
+    const [sEmps, sAtt] = await Promise.all([
+      serverApi('/api/employees'),
+      serverApi(`/api/attendance?from=${monthStart}&to=${monthEnd}`)
+    ]);
+    if (sEmps.ok && Array.isArray(sEmps.data)) emps = sEmps.data;
+    if (sAtt.ok && Array.isArray(sAtt.data)) recs = sAtt.data;
+  } catch(e){}
+
+  if (!emps || !recs) {
+    try {
+      const [{data:eData},{data:rData}] = await Promise.all([
+        sb.from('employees').select('*'),
+        sb.from('attendance').select('*').gte('work_date',monthStart).lte('work_date',monthEnd)
+      ]);
+      if (!emps) emps = eData;
+      if (!recs) recs = rData;
+    } catch(e){}
+  }
+
+  if (!emps) emps = [];
+  if (!recs) recs = [];
+  const leaves = await fetchEmployeeLeavesInRange(monthStart, monthEnd).catch(()=>[]);
   const leaveDateMap=buildEmployeeLeaveDateMap(leaves, monthStart, monthEnd);
   const rows=(emps||[]).map(emp=>{
     const er=(recs||[]).filter(r=>r.employee_id===emp.id);
@@ -320,24 +339,46 @@ async function loadAtt() {
   setAttendanceTableMode(false);
   const dateFrom = document.getElementById('fd_from').value || todayISO();
   const dateTo = document.getElementById('fd_to').value || todayISO();
-  const search = document.getElementById('fsearch').value || '';
+  const search = (document.getElementById('fsearch').value || '').toLowerCase();
   const statusFilter = document.getElementById('fstatus').value || '';
 
-  const [{ data, error }, leaves] = await Promise.all([
-    sb.rpc('admin_attendance_range', {
-      p_from: dateFrom,
-      p_to: dateTo,
-      p_search: search,
-      p_status: statusFilter
-    }),
-    fetchEmployeeLeavesInRange(dateFrom, dateTo)
-  ]);
+  let data = null;
 
-  if (error) {
-    console.error('loadAtt rpc error:', error);
-    toast('error', t('error_title'), error.message || t('attendance_load_error'));
-    return;
+  // 1-USUL: Server API orqali tezkor yuklash (10ms)
+  try {
+    const sRes = await serverApi(`/api/attendance?from=${dateFrom}&to=${dateTo}`);
+    if (sRes.ok && Array.isArray(sRes.data)) {
+      data = sRes.data;
+      if (search) {
+        data = data.filter(r => (r.employee_name || '').toLowerCase().includes(search) || (r.employee_login || '').toLowerCase().includes(search));
+      }
+      if (statusFilter) {
+        data = data.filter(r => r.status === statusFilter);
+      }
+    }
+  } catch(e){}
+
+  // 2-USUL: Supabase RPC fallback
+  let leaves = [];
+  if (!data) {
+    try {
+      const [{ data: rpcData, error }, lvs] = await Promise.all([
+        sb.rpc('admin_attendance_range', {
+          p_from: dateFrom,
+          p_to: dateTo,
+          p_search: search,
+          p_status: statusFilter
+        }),
+        fetchEmployeeLeavesInRange(dateFrom, dateTo)
+      ]);
+      if (!error && rpcData) data = rpcData;
+      if (lvs) leaves = lvs;
+    } catch (e) {
+      console.warn('loadAtt fallback:', e);
+    }
   }
+
+  if (!data) data = [];
 
   const tbody = document.getElementById('att_body');
   tbody.innerHTML = '';
@@ -476,12 +517,30 @@ async function loadMonthly(){
   let wd=0;for(let d=1;d<=dim;d++){const ds=`${y}-${String(mo).padStart(2,'0')}-${String(d).padStart(2,'0')}`;if(isWorkDay(ds))wd++;}
   const monthStart=`${month}-01`;
   const monthEnd=`${month}-${String(dim).padStart(2,'0')}`;
-  const [{data:emps,error:empErr},{data:recs,error:recErr},leaves] = await Promise.all([
-    sb.from('employees').select('id,name,login,kpi_type').eq('active',true).order('name'),
-    sb.from('attendance').select('employee_id,work_date,start_time,end_time,work_seconds,afk_seconds,late_minutes').gte('work_date',monthStart).lte('work_date',monthEnd),
-    fetchEmployeeLeavesInRange(monthStart, monthEnd)
-  ]);
-  if(empErr||recErr||!emps)return;
+
+  let emps = null, recs = null;
+  try {
+    const [sEmps, sAtt] = await Promise.all([
+      serverApi('/api/employees?active_only=true'),
+      serverApi(`/api/attendance?month=${month}`)
+    ]);
+    if (sEmps.ok && Array.isArray(sEmps.data)) emps = sEmps.data;
+    if (sAtt.ok && Array.isArray(sAtt.data)) recs = sAtt.data;
+  } catch(e){}
+
+  if (!emps || !recs) {
+    try {
+      const [{data:eData},{data:rData}] = await Promise.all([
+        sb.from('employees').select('id,name,login,kpi_type').eq('active',true).order('name'),
+        sb.from('attendance').select('employee_id,work_date,start_time,end_time,work_seconds,afk_seconds,late_minutes').gte('work_date',monthStart).lte('work_date',monthEnd)
+      ]);
+      if (!emps) emps = eData;
+      if (!recs) recs = rData;
+    } catch(e){}
+  }
+
+  if (!emps) return;
+  const leaves = await fetchEmployeeLeavesInRange(monthStart, monthEnd).catch(()=>[]);
   const leaveDateMap=buildEmployeeLeaveDateMap(leaves, monthStart, monthEnd);
   const recMap=new Map();
   (recs||[]).forEach(r=>{
@@ -596,27 +655,22 @@ function closeMonthlyAttendanceDetails(){document.getElementById('m_month_att_de
 async function loadEmpList() {
   let emps = null;
   try {
-    const res = await sb
-      .from('employees')
-      .select('id,name,login,kpi_type,face_registered,operator_number')
-      .eq('active', true)
-      .order('name');
-    if (!res.error && res.data) emps = res.data;
+    const sRes = await serverApi('/api/employees?active_only=true');
+    if (sRes.ok && Array.isArray(sRes.data)) emps = sRes.data;
   } catch (e) {}
 
   if (!emps) {
-    const { data, error } = await sb
-      .from('employees')
-      .select('id,name,login,kpi_type,face_registered')
-      .eq('active', true)
-      .order('name');
-
-    if (error || !data) {
-      toast('error', t('error_title'), error?.message || t('employees_load_error'));
-      return [];
-    }
-    emps = data;
+    try {
+      const res = await sb
+        .from('employees')
+        .select('id,name,login,kpi_type,face_registered,operator_number')
+        .eq('active', true)
+        .order('name');
+      if (!res.error && res.data) emps = res.data;
+    } catch (e) {}
   }
+
+  if (!emps) emps = [];
 
   // Mahalliy keshdagi operator raqamlarini birlashtirish (agar bazada ustun hali qo'shilmagan bo'lsa)
   try {
@@ -672,31 +726,23 @@ async function delEmp(id) {
   if (!confirm(t('del_c'))) return;
 
   try {
-    const { data: sessData, error: sessErr } = await sb.auth.getSession();
-    if (sessErr || !sessData?.session?.access_token) {
-      throw new Error(t('admin_session_missing'));
-    }
+    // 1. Server orqali o'chirish
+    await serverApi(`/api/employees/${id}`, { method: 'DELETE' });
 
-    const res = await fetch(`${FUNCTIONS_BASE}/delete-employee`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${sessData.session.access_token}`
-      },
-      body: JSON.stringify({ employee_id: id })
-    });
-
-    const raw = await res.text();
-    let result = {};
+    // 2. Supabase function orqali ham o'chirishga urinish
     try {
-      result = raw ? JSON.parse(raw) : {};
-    } catch {
-      result = { error: raw || 'Noma’lum xato' };
-    }
-
-    if (!res.ok) {
-      throw new Error(result.error || t('employee_remove_error'));
-    }
+      const { data: sessData } = await sb.auth.getSession();
+      if (sessData?.session?.access_token) {
+        await fetch(`${FUNCTIONS_BASE}/delete-employee`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${sessData.session.access_token}`
+          },
+          body: JSON.stringify({ employee_id: id })
+        });
+      }
+    } catch(e){}
 
     toast('success', t('employee_title'), t('employee_removed'));
     await loadEmpList();
@@ -719,33 +765,38 @@ async function addEmp() {
     return;
   }
 
-  // Supabase edge function 'junior' yoki 'senior' qabul qiladi.
-  // Edge function xatolik bermasligi uchun mos xavfsiz qiymat beriladi, so'ngra haqiqiy lavozim saqlanadi.
+  const payload = {
+    name: nm,
+    email,
+    password: ps,
+    kpi_type: selectedRole,
+    role: selectedRole,
+    operator_number: op || null
+  };
+
+  // 1-USUL: Server API orqali bir zumda qo'shish
+  try {
+    const sRes = await serverApi('/api/employees', {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    });
+    if (sRes.ok) {
+      document.getElementById('ne_n').value = '';
+      document.getElementById('ne_l').value = '';
+      document.getElementById('ne_p').value = '';
+      if (document.getElementById('ne_op')) document.getElementById('ne_op').value = '';
+      await loadEmpList();
+      if (typeof loadPbxDashboard === 'function' && currentAdminTab === 'pbx') loadPbxDashboard();
+      toast('success', t('employee_title'), t('employee_added'));
+      return;
+    }
+  } catch(e){}
+
   const edgeKpiType = (selectedRole === 'senior') ? 'senior' : 'junior';
 
   try {
-    const { data: userData, error: userErr } = await sb.auth.getUser();
-    if (userErr || !userData?.user) {
-      toast('error', t('error_title'), t('auth_session_invalid'));
-      return;
-    }
-
-    const { data: sessData, error: sessErr } = await sb.auth.getSession();
+    const { data: sessData } = await sb.auth.getSession();
     const token = sessData?.session?.access_token;
-
-    if (!token) {
-      toast('error', t('error_title'), t('admin_session_missing'));
-      return;
-    }
-
-    const payload = {
-      name: nm,
-      email,
-      password: ps,
-      kpi_type: edgeKpiType,
-      role: selectedRole,
-      operator_number: op || null
-    };
 
     let targetUrl = `${FUNCTIONS_BASE}/create-employee`;
     let res = await fetch(targetUrl, {
@@ -765,52 +816,9 @@ async function addEmp() {
       result = { error: raw || 'Noma’lum xato' };
     }
 
-    // Agar server.js yoki endpoint orqali xatolik bo'lsa va to'g'ridan-to'g'ri Supabase URL ga ulanish imkoni bo'lsa fallback qilish
-    if (!res.ok && targetUrl !== `${SUPABASE_URL}/functions/v1/create-employee` && (res.status === 404 || res.status === 502 || (result.error && result.error.includes('SUPABASE_SERVICE_ROLE_KEY')))) {
-      try {
-        const fallbackRes = await fetch(`${SUPABASE_URL}/functions/v1/create-employee`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify(payload)
-        });
-        const fallbackRaw = await fallbackRes.text();
-        if (fallbackRes.ok) {
-          res = fallbackRes;
-          try { result = fallbackRaw ? JSON.parse(fallbackRaw) : {}; } catch { result = {}; }
-        }
-      } catch (fbErr) {
-        console.warn('Fallback create-employee xatosi:', fbErr);
-      }
-    }
-
     if (!res.ok) {
       toast('error', t('error_title'), result.error || result.message || t('employee_add_error'));
       return;
-    }
-
-    // Xodimning tanlangan lavozimi (selectedRole) va operator raqamini saqlash
-    try {
-      const empId = result.employee_id || result.employee?.id || result.id;
-      const updateData = {};
-      if (op) {
-        updateData.operator_number = op;
-        updateData.pbx_extension = op;
-      }
-      try {
-        const { error: roleErr } = await (empId 
-          ? sb.from('employees').update({ kpi_type: selectedRole, ...updateData }).eq('id', empId)
-          : sb.from('employees').update({ kpi_type: selectedRole, ...updateData }).eq('login', email));
-        if (roleErr && roleErr.message && roleErr.message.includes('employees_kpi_type_check')) {
-          await (empId
-            ? sb.from('employees').update({ kpi_type: edgeKpiType, ...updateData }).eq('id', empId)
-            : sb.from('employees').update({ kpi_type: edgeKpiType, ...updateData }).eq('login', email));
-        }
-      } catch (_) {}
-    } catch (upErr) {
-      console.warn('Xodim lavozimi va operatorini yangilashda ogohlantirish:', upErr);
     }
 
     document.getElementById('ne_n').value = '';
@@ -826,6 +834,7 @@ async function addEmp() {
     toast('error', t('error_title'), e.message || t('system_error'));
   }
 }
+
 
 function openEditOperatorModal(id, name, currentOp) {
   const modal = document.getElementById('m_edit_operator');
@@ -851,7 +860,7 @@ async function saveEmployeeOperator() {
   }
 
   try {
-    // 1. Mahalliy xotiraga saqlash (Bazada operator_number ustuni hali qo'shilmagan bo'lsa ham darhol ishlaydi)
+    // 1. Mahalliy keshga saqlash
     try {
       const localOps = JSON.parse(localStorage.getItem('aloqa_operator_numbers') || '{}');
       if (opNum) localOps[empId] = opNum;
@@ -859,12 +868,24 @@ async function saveEmployeeOperator() {
       localStorage.setItem('aloqa_operator_numbers', JSON.stringify(localOps));
     } catch (_) {}
 
-    // 2. Supabase REST API orqali xodimning operator raqamini yangilaymiz
-    let savedToRemote = false;
-    let schemaMissing = false;
+    // 2. Server API orqali bir zumda saqlash va PBX qo'ng'iroqlarini bog'lash
+    try {
+      await serverApi('/api/functions/v1/update-employee-operator', {
+        method: 'POST',
+        body: JSON.stringify({ employee_id: empId, operator_number: opNum || null })
+      });
+    } catch (e) {}
 
     try {
-      const { error: sbErr } = await sb
+      await serverApi(`/api/employees/${empId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ operator_number: opNum || null, pbx_extension: opNum || null })
+      });
+    } catch (e) {}
+
+    // 3. Supabase REST API ga ham urinish
+    try {
+      await sb
         .from('employees')
         .update({
           operator_number: opNum || null,
@@ -872,55 +893,18 @@ async function saveEmployeeOperator() {
         })
         .eq('id', empId);
 
-      if (!sbErr) {
-        savedToRemote = true;
-      } else if (sbErr.message && (sbErr.message.includes('operator_number') || sbErr.message.includes('schema cache'))) {
-        schemaMissing = true;
-        console.warn('Supabase schema cache: operator_number column missing. Stored locally.', sbErr.message);
-      } else {
-        throw new Error(sbErr.message || 'Operator raqamini saqlashda xatolik');
-      }
-    } catch (apiErr) {
-      if (apiErr.message && (apiErr.message.includes('operator_number') || apiErr.message.includes('schema cache'))) {
-        schemaMissing = true;
-      } else {
-        throw apiErr;
-      }
-    }
-
-    // 3. Agar avvalgi qo'ng'iroqlarda ushbu operator bo'lsa, ularni ham xodimga biriktirish
-    if (opNum) {
-      try {
+      if (opNum) {
         await sb.from('calls').update({ employee_id: empId }).eq('operator_number', opNum).is('employee_id', null);
-      } catch (_) {}
-    }
-
-    // 4. Agar lokal backend server (/api/functions/v1) ishlab turgan bo'lsa, unga ham sinxronlash
-    try {
-      const { data: sessData } = await sb.auth.getSession();
-      const token = sessData?.session?.access_token;
-      fetch('/api/functions/v1/update-employee-operator', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-        },
-        body: JSON.stringify({ employee_id: empId, operator_number: opNum || null })
-      }).catch(() => {});
+      }
     } catch (_) {}
 
     closeEditOperatorModal();
-
-    if (savedToRemote) {
-      toast('success', t('edit_op_title') || 'Operator', t('edit_op_success') || 'Operator raqami saqlandi');
-    } else if (schemaMissing) {
-      toast('info', t('edit_op_title') || 'Operator', "Operator raqami saqlandi. Bazada doimiy saqlash uchun Supabase'da operator_number ustunini qo'shing.", 7000);
-    } else {
-      toast('success', t('edit_op_title') || 'Operator', t('edit_op_success') || 'Operator raqami saqlandi');
-    }
+    toast('success', t('edit_op_title') || 'Operator', t('edit_op_success') || 'Operator raqami saqlandi');
 
     await loadEmpList();
-    if (typeof loadPbxDashboard === 'function') loadPbxDashboard();
+    if (typeof loadPbxDashboard === 'function') {
+      loadPbxDashboard();
+    }
   } catch (err) {
     console.error('saveEmployeeOperator error:', err);
     toast('error', t('error_title'), err.message || 'Xatolik yuz berdi');

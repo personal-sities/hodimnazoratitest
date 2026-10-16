@@ -88,7 +88,17 @@
   max-height: 18px !important;
   flex-shrink: 0 !important;
 }
+<style>
+html.user-logged-in #loginPage {
+  display: none !important;
+}
 </style>
+<script>
+  try {
+    const _u = localStorage.getItem('aloqa_u');
+    if (_u) document.documentElement.classList.add('user-logged-in');
+  } catch (e) {}
+</script>
 </head>
 <body>
 
@@ -346,8 +356,8 @@
             </div>
           </div>
 
-          <!-- 4 Ta KPI Kartasi -->
-          <div class="scards">
+          <!-- 5 Ta KPI Kartasi -->
+          <div class="scards" style="grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));">
             <div class="scard scard-blue">
               <div class="scard-top">
                 <h4 id="pbx_card_total_title">Jami qo'ng'iroqlar</h4>
@@ -376,6 +386,13 @@
               </div>
               <div class="snum" id="pbx_stat_duration" style="font-size:19px;">0s / 0s</div>
             </div>
+            <div class="scard" style="background:var(--card-bg);border:1.5px solid rgba(234,179,8,0.35);">
+              <div class="scard-top">
+                <h4 id="pbx_card_rating_title" style="color:#ca8a04;">⭐ O'rtacha baho</h4>
+                <div class="scard-icon" data-lucide="star" style="color:#eab308;"></div>
+              </div>
+              <div class="snum" id="pbx_stat_rating" style="color:#ca8a04;">—</div>
+            </div>
           </div>
 
           <!-- Operatorlar bo'yicha umumiy reyting jadvali -->
@@ -387,7 +404,7 @@
               </span>
             </div>
             <div class="tbl-wrap">
-              <table class="tbl" style="min-width:760px;">
+              <table class="tbl" style="min-width:860px;">
                 <thead>
                   <tr>
                     <th>#</th>
@@ -399,10 +416,11 @@
                     <th id="pbx_th_percent">Qabul foizi</th>
                     <th id="pbx_th_talk_time">Jami suhbat</th>
                     <th id="pbx_th_avg">O'rtacha vaqt</th>
+                    <th id="pbx_th_rating">Qo'yilgan baho</th>
                   </tr>
                 </thead>
                 <tbody id="pbx_operators_body">
-                  <tr><td colspan="9" style="text-align:center;padding:24px;color:var(--text3);">Yuklanmoqda...</td></tr>
+                  <tr><td colspan="10" style="text-align:center;padding:24px;color:var(--text3);">Yuklanmoqda...</td></tr>
                 </tbody>
               </table>
             </div>
@@ -420,7 +438,7 @@
               </div>
             </div>
             <div class="tbl-wrap">
-              <table class="tbl" style="min-width:820px;">
+              <table class="tbl" style="min-width:920px;">
                 <thead>
                   <tr>
                     <th>#</th>
@@ -431,11 +449,12 @@
                     <th id="pbx_log_th_emp">Mas'ul xodim</th>
                     <th id="pbx_log_th_status">Holat</th>
                     <th id="pbx_log_th_duration">Suhbat davomiyligi</th>
+                    <th id="pbx_log_th_rating">Qo'yilgan baho</th>
                     <th id="pbx_log_th_rec">Yozuv</th>
                   </tr>
                 </thead>
                 <tbody id="pbx_calls_body">
-                  <tr><td colspan="9" style="text-align:center;padding:24px;color:var(--text3);">Yuklanmoqda...</td></tr>
+                  <tr><td colspan="10" style="text-align:center;padding:24px;color:var(--text3);">Yuklanmoqda...</td></tr>
                 </tbody>
               </table>
             </div>
@@ -960,14 +979,68 @@
           </select>
         </div>
       </div>
-      <div style="display:flex;gap:10px;align-items:center;justify-content:space-between;">
-        <div style="flex:1;">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+        <div>
+          <label style="font-size:11px;color:var(--text3);display:block;margin-bottom:4px;">Suhbat vaqti (soniya):</label>
           <input type="number" id="pbx_test_talk" placeholder="Suhbat vaqti (soniya)" value="65" style="width:100%;font-size:12px;padding:7px;border:1.5px solid var(--border2);border-radius:var(--radius-sm);background:var(--input-bg);color:var(--text);">
         </div>
+        <div>
+          <label style="font-size:11px;color:var(--text3);display:block;margin-bottom:4px;">Qo'yilgan baho (Reyting):</label>
+          <select id="pbx_test_rating" style="width:100%;font-size:12px;padding:7px;border:1.5px solid var(--border2);border-radius:var(--radius-sm);background:var(--input-bg);color:var(--text);">
+            <option value="5">⭐⭐⭐⭐⭐ 5 (A'lo)</option>
+            <option value="4">⭐⭐⭐⭐ 4 (Yaxshi)</option>
+            <option value="3">⭐⭐⭐ 3 (O'rtacha)</option>
+            <option value="2">⭐⭐ 2 (Qoniqarsiz)</option>
+            <option value="1">⭐ 1 (Yomon)</option>
+            <option value="0">Baholanmagan</option>
+          </select>
+        </div>
+      </div>
+      <div style="display:flex;gap:10px;align-items:center;justify-content:flex-end;">
         <button class="bb" id="btn_send_test_call" onclick="sendTestPbxCall()" style="white-space:nowrap;">
           <span class="btn-icon" data-lucide="send"></span> <span>Sinovni jo'natish</span>
         </button>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- Qo'ng'iroqni baholash modali -->
+<div class="ov hidden" id="m_rate_call">
+  <div class="modal" style="max-width:440px;">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:12px;">
+      <h3 style="color:#ca8a04;display:flex;align-items:center;gap:8px;margin:0;">
+        <span class="modal-ico" data-lucide="star"></span> <span>Qo'ng'iroqqa baho qo'yish</span>
+      </h3>
+      <button class="mno" onclick="closeRateCallModal()" style="padding:4px 8px;display:inline-flex;align-items:center;justify-content:center;" title="Yopish"><span class="btn-icon" data-lucide="x"></span></button>
+    </div>
+    <p style="color:var(--text2);font-size:12px;margin:0 0 14px 0;line-height:1.5;">
+      Mijoz: <strong id="rate_modal_caller" style="font-family:var(--mono);color:var(--text)">—</strong><br>
+      Mas'ul: <strong id="rate_modal_emp" style="color:var(--text)">—</strong>
+    </p>
+    <input type="hidden" id="rate_modal_call_id">
+    
+    <div style="margin-bottom:14px;">
+      <label style="font-size:11.5px;color:var(--text3);display:block;margin-bottom:6px;">Bahoni tanlang (1 dan 5 gacha):</label>
+      <div id="rate_star_selector" style="display:flex;gap:8px;justify-content:center;font-size:26px;cursor:pointer;user-select:none;margin:8px 0;">
+        <span onclick="setRateModalScore(1)" id="star_1" title="1">★</span>
+        <span onclick="setRateModalScore(2)" id="star_2" title="2">★</span>
+        <span onclick="setRateModalScore(3)" id="star_3" title="3">★</span>
+        <span onclick="setRateModalScore(4)" id="star_4" title="4">★</span>
+        <span onclick="setRateModalScore(5)" id="star_5" title="5">★</span>
+      </div>
+      <input type="hidden" id="rate_modal_score_val" value="5">
+      <div id="rate_score_text" style="text-align:center;font-size:12px;font-weight:700;color:#ca8a04;">5 - A'lo</div>
+    </div>
+
+    <div style="margin-bottom:14px;">
+      <label style="font-size:11.5px;color:var(--text3);display:block;margin-bottom:4px;">Izoh / Sharh (ixtiyoriy):</label>
+      <textarea id="rate_modal_comment" rows="2" placeholder="Xizmat ko'rsatish sifati bo'yicha izoh..." style="width:100%;font-size:12px;padding:8px;border:1.5px solid var(--border2);border-radius:var(--radius-sm);background:var(--input-bg);color:var(--text);font-family:var(--font);box-sizing:border-box;resize:vertical;"></textarea>
+    </div>
+
+    <div class="mbtns">
+      <button class="mok" id="btn_save_call_rating" onclick="saveCallRating()"><span class="btn-icon" data-lucide="check"></span> Saqlash</button>
+      <button class="mno" onclick="closeRateCallModal()"><span class="btn-icon" data-lucide="x"></span> Bekor</button>
     </div>
   </div>
 </div>

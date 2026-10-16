@@ -307,8 +307,25 @@ async function saveAtt(autoEnded=false){
   const today=todayISO();const ss=getLS()||{};const lm=ss.lateMin||0;
   const startHM = ss.i_s&&ss.i_s!=='-'?ss.i_s:null;
   const endHM = ss.i_e&&ss.i_e!=='-'?ss.i_e:null;
-  const payload={employee_id:CU.id,work_date:today,start_time:startHM?startHM+':00':null,end_time:endHM?endHM+':00':null,lunch_start:ss.i_ls&&ss.i_ls!=='-'?ss.i_ls+':00':null,lunch_end:ss.i_le&&ss.i_le!=='-'?ss.i_le+':00':null,work_seconds:wAccum,lunch_seconds:lAccum,afk_seconds:getPenaltyAfkSeconds(afkSeconds),afk_count:afkCount,late_minutes:lm,status:computeStatusByTimes(startHM,endHM,lm,wAccum),auto_ended:autoEnded};
-  await sb.from('attendance').upsert(payload,{onConflict:'employee_id,work_date'});
+  const payload={
+    employee_id:CU.id,
+    work_date:today,
+    start_time:startHM?startHM+':00':null,
+    end_time:endHM?endHM+':00':null,
+    lunch_start:ss.i_ls&&ss.i_ls!=='-'?ss.i_ls+':00':null,
+    lunch_end:ss.i_le&&ss.i_le!=='-'?ss.i_le+':00':null,
+    work_seconds:wAccum,
+    lunch_seconds:lAccum,
+    afk_seconds:getPenaltyAfkSeconds(afkSeconds),
+    afk_count:afkCount,
+    late_minutes:lm,
+    status:computeStatusByTimes(startHM,endHM,lm,wAccum),
+    auto_ended:autoEnded
+  };
+  try{
+    await serverApi('/api/attendance', { method:'POST', body: JSON.stringify(payload) });
+    try { await sb.from('attendance').upsert(payload,{onConflict:'employee_id,work_date'}); }catch(e){}
+  }catch(e){console.warn('saveAtt error:',e);}
   loadHist();
 }
 async function savePartial(){
@@ -318,8 +335,25 @@ async function savePartial(){
   let cl=lAccum;if(empState==='lunch'&&lStart)cl+=Math.floor((tzNow()-lStart)/1000);
   let afkNow=afkSeconds;
   const startHM = ss.i_s&&ss.i_s!=='-'?ss.i_s:null;
-  const payload={employee_id:CU.id,work_date:today,start_time:startHM?startHM+':00':null,end_time:ss.i_e&&ss.i_e!=='-'?ss.i_e+':00':null,lunch_start:ss.i_ls&&ss.i_ls!=='-'?ss.i_ls+':00':null,lunch_end:ss.i_le&&ss.i_le!=='-'?ss.i_le+':00':null,work_seconds:cw,lunch_seconds:cl,afk_seconds:getPenaltyAfkSeconds(afkNow),afk_count:afkCount,late_minutes:lm,status:computeStatusByTimes(startHM,ss.i_e&&ss.i_e!=='-'?ss.i_e:null,lm,cw),auto_ended:false};
-  await sb.from('attendance').upsert(payload,{onConflict:'employee_id,work_date'});
+  const payload={
+    employee_id:CU.id,
+    work_date:today,
+    start_time:startHM?startHM+':00':null,
+    end_time:ss.i_e&&ss.i_e!=='-'?ss.i_e+':00':null,
+    lunch_start:ss.i_ls&&ss.i_ls!=='-'?ss.i_ls+':00':null,
+    lunch_end:ss.i_le&&ss.i_le!=='-'?ss.i_le+':00':null,
+    work_seconds:cw,
+    lunch_seconds:cl,
+    afk_seconds:getPenaltyAfkSeconds(afkNow),
+    afk_count:afkCount,
+    late_minutes:lm,
+    status:computeStatusByTimes(startHM,ss.i_e&&ss.i_e!=='-'?ss.i_e:null,lm,cw),
+    auto_ended:false
+  };
+  try{
+    await serverApi('/api/attendance', { method:'POST', body: JSON.stringify(payload) });
+    try { await sb.from('attendance').upsert(payload,{onConflict:'employee_id,work_date'}); }catch(e){}
+  }catch(e){console.warn('savePartial error:',e);}
 }
 
 // ============================================================

@@ -85,11 +85,21 @@ async function loadFaceModels(){
     return false;
   }
 
-  // 🔴 MUHIM FIX
+  // WebGL / WASM / CPU backendni eng tezkoridan boshlab tanlash
   try {
     if(faceapi.tf?.setBackend){
-      await faceapi.tf.setBackend('cpu');
-      await faceapi.tf.ready();
+      try {
+        await faceapi.tf.setBackend('webgl');
+        await faceapi.tf.ready();
+      } catch(e1) {
+        try {
+          await faceapi.tf.setBackend('wasm');
+          await faceapi.tf.ready();
+        } catch(e2) {
+          await faceapi.tf.setBackend('cpu');
+          await faceapi.tf.ready();
+        }
+      }
     }
   } catch(e){
     console.warn('Backend set error', e);

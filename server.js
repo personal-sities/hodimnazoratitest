@@ -93,9 +93,15 @@ async function ensureDatabaseSchema() {
         IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='employees' AND column_name='pbx_extension') THEN
           ALTER TABLE public.employees ADD COLUMN pbx_extension TEXT;
         END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='calls' AND column_name='rating') THEN
+          ALTER TABLE public.calls ADD COLUMN rating NUMERIC(3,1);
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='calls' AND column_name='rating_comment') THEN
+          ALTER TABLE public.calls ADD COLUMN rating_comment TEXT;
+        END IF;
       END $$;
     `);
-    console.log('[Database]: Schema tekshirildi (calls jadvali va operator_number faol).');
+    console.log('[Database]: Schema tekshirildi (calls jadvali, rating va operator_number faol).');
   } catch (err) {
     console.warn('[Database]: Schema tekshirishda ogohlantirish:', err.message);
   }
@@ -161,6 +167,15 @@ const server = http.createServer(async (req, res) => {
       return handleTestPbxWebhook(req, res);
     }
 
+    // OnlinePBX Qo'ng'iroqqa baho qo'yish API
+    if ((pathname === '/api/pbx/rate-call' || pathname === '/api/pbx/rate') && (req.method === 'POST' || req.method === 'PATCH')) {
+      return handleRatePbxCall(req, res);
+    }
+    if (pathname.startsWith('/api/pbx/calls/') && req.method === 'PATCH') {
+      const callId = pathname.replace('/api/pbx/calls/', '').trim();
+      return handleRatePbxCall(req, res, callId);
+    }
+
     // Namoz vaqtlari API (Rasmiy ishonchli manbalardan)
     if (pathname === '/api/prayer-times' && req.method === 'GET') {
       return handlePrayerTimes(req, res, reqUrl);
@@ -172,15 +187,74 @@ const server = http.createServer(async (req, res) => {
       return handleFunction(req, res, decodeURIComponent(functionName));
     }
 
-    // Qo'lda tozalashni ishga tushirish (Admin uchun)
-    if (pathname === '/api/admin/cleanup' && req.method === 'POST') {
-      const authKey = req.headers['x-admin-key'] || reqUrl.searchParams.get('key');
-      const expectedKey = process.env.CLEANUP_ADMIN_KEY || 'aloqa_cleanup_secret_key_2026';
-      if (authKey !== expectedKey) {
-        return sendJson(res, 401, { ok: false, error: 'Unauthorized: Noto\'g\'ri kalit' });
-      }
-      const result = await runRetentionCleanup(true);
-      return sendJson(res, 200, result);
+    // ============================================================
+    //  ALOQAPRO ASOSIY SERVER API MARSHRUTLARI (TO'G'RIDAN-TO'G'RI SERVER BAZASI)
+    // ============================================================
+
+    // 1. Auth Login API (Server orqali tezkor kirish)
+    if (pathname === '/api/auth/login' && req.method === 'POST') {
+      return handleApiLogin(req, res);
+    }
+
+    // 2. Attendance API (Davomat olish va saqlash)
+    if (pathname === '/api/attendance') {
+      if (req.method === 'GET') return handleGetAttendance(req, res, reqUrl);
+      if (req.method === 'POST') return handleSaveAttendance(req, res);
+    }
+
+    // 3. Employees API (Xodimlar)
+    if (pathname === '/api/employees') {
+      if (req.method === 'GET') return handleGetEmployees(req, res, reqUrl);
+      if (req.method === 'POST') return handleCreateEmployeeApi(req, res);
+      if (req.method === 'PATCH') return handleUpdateEmployeeApi(req, res);
+    }
+    if (pathname.startsWith('/api/employees/')) {
+      const empId = pathname.replace('/api/employees/', '').trim();
+      if (req.method === 'PATCH') return handleUpdateEmployeeByIdApi(req, res, empId);
+      if (req.method === 'DELETE') return handleDeleteEmployeeByIdApi(req, res, empId);
+    }
+
+    // 4. Admins API
+    if (pathname === '/api/admins' && req.method === 'GET') {
+      return handleGetAdmins(req, res);
+    }
+
+    // 5. Settings API (IP, GPS, Yuz nazorati sozlamalari)
+    if (pathname === '/api/settings') {
+      if (req.method === 'GET') return handleGetSettings(req, res, reqUrl);
+      if (req.method === 'POST') return handleSaveSettings(req, res);
+    }
+
+    // 6. Notifications API (Bildirishnomalar)
+    if (pathname === '/api/notifications') {
+      if (req.method === 'GET') return handleGetNotifications(req, res, reqUrl);
+      if (req.method === 'POST') return handleCreateNotification(req, res);
+    }
+    if (pathname.startsWith('/api/notifications/') && req.method === 'PATCH') {
+      const notifId = pathname.replace('/api/notifications/', '').trim();
+      return handleMarkNotificationRead(req, res, notifId);
+    }
+
+    // 7. Feedback API (Fikr va shikoyatlar)
+    if (pathname === '/api/feedback') {
+      if (req.method === 'GET') return handleGetFeedback(req, res, reqUrl);
+      if (req.method === 'POST') return handleCreateFeedback(req, res);
+    }
+    if (pathname.startsWith('/api/feedback/') && req.method === 'PATCH') {
+      const fbId = pathname.replace('/api/feedback/', '').trim();
+      return handleReplyFeedback(req, res, fbId);
+    }
+
+    // 8. Lunch Plans API (Tushlik rejalari)
+    if (pathname === '/api/lunch-plans') {
+      if (req.method === 'GET') return handleGetLunchPlans(req, res, reqUrl);
+      if (req.method === 'POST') return handleSaveLunchPlan(req, res);
+    }
+
+    // 9. Employee Leaves API (Ta'tillar)
+    if (pathname === '/api/employee-leaves') {
+      if (req.method === 'GET') return handleGetEmployeeLeaves(req, res, reqUrl);
+      if (req.method === 'POST') return handleSaveEmployeeLeave(req, res);
     }
 
     // Statik fayllarni tarqatish
@@ -385,7 +459,40 @@ async function handleCreateEmployee(res, body) {
     }
   }
 
-  return sendJson(res, 400, { ok: false, error: "SUPABASE_SERVICE_ROLE_KEY yoki DATABASE_URL sozlanmagan" });
+  // 3. Fallback: Local employees.json ga saqlash
+  const emps = readJsonData('employees.json', []);
+  const newEmpId = `emp_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+  const newEmp = {
+    id: newEmpId,
+    user_id: newEmpId,
+    name,
+    login: email,
+    kpi_type: kpiType,
+    operator_number: operatorNumber,
+    pbx_extension: operatorNumber,
+    active: true,
+    face_registered: false,
+    created_at: new Date().toISOString()
+  };
+  emps.push(newEmp);
+  writeJsonData('employees.json', emps);
+
+  if (operatorNumber) {
+    try {
+      const calls = readLocalCalls();
+      let callUpdated = false;
+      calls.forEach(c => {
+        if (c.operator_number === operatorNumber && !c.employee_id) {
+          c.employee_id = newEmpId;
+          c.employee_name = name;
+          callUpdated = true;
+        }
+      });
+      if (callUpdated) writeLocalCalls(calls);
+    } catch (_) {}
+  }
+
+  return sendJson(res, 200, { ok: true, employee_id: newEmpId, employee: newEmp });
 }
 
 async function handleDeleteEmployee(res, body) {
@@ -478,6 +585,96 @@ async function handleResetEmployeePassword(res, body) {
   return sendJson(res, 400, { ok: false, error: 'SUPABASE_SERVICE_ROLE_KEY sozlanmagan' });
 }
 
+async function handleUpdateEmployeeOperator(res, body) {
+  const employeeId = body.employee_id || body.id;
+  const operatorNumber = String(body.operator_number || body.pbx_extension || '').trim() || null;
+  if (!employeeId) {
+    return sendJson(res, 400, { ok: false, error: 'employee_id berilmadi' });
+  }
+
+  let updated = false;
+  let employeeName = null;
+
+  // 1. DB
+  const pool = getDbPool();
+  if (pool) {
+    try {
+      const uRes = await pool.query(
+        'UPDATE public.employees SET operator_number = $1, pbx_extension = $1 WHERE id = $2 RETURNING id, name',
+        [operatorNumber, employeeId]
+      );
+      if (uRes.rows && uRes.rows[0]) {
+        employeeName = uRes.rows[0].name;
+      }
+      if (operatorNumber) {
+        await pool.query(
+          'UPDATE public.calls SET employee_id = $1 WHERE operator_number = $2 AND (employee_id IS NULL OR employee_id != $1)',
+          [employeeId, operatorNumber]
+        ).catch(() => {});
+      }
+      updated = true;
+    } catch (dbErr) {
+      console.error('[handleUpdateEmployeeOperator DB xatosi]:', dbErr.message);
+    }
+  }
+
+  // 2. Local employees.json
+  const emps = readJsonData('employees.json', []);
+  const empIdx = emps.findIndex(e => e.id === employeeId);
+  if (empIdx >= 0) {
+    emps[empIdx].operator_number = operatorNumber;
+    emps[empIdx].pbx_extension = operatorNumber;
+    emps[empIdx].updated_at = new Date().toISOString();
+    employeeName = employeeName || emps[empIdx].name;
+    writeJsonData('employees.json', emps);
+    updated = true;
+  }
+
+  // 3. Local calls.json dagi shu operator qo'ng'iroqlarini xodimga bog'laymiz
+  if (operatorNumber) {
+    try {
+      const calls = readLocalCalls();
+      let callUpdated = false;
+      calls.forEach(c => {
+        if (c.operator_number === operatorNumber) {
+          c.employee_id = employeeId;
+          if (employeeName) c.employee_name = employeeName;
+          callUpdated = true;
+        }
+      });
+      if (callUpdated) writeLocalCalls(calls);
+    } catch (_) {}
+  }
+
+  // 4. Supabase
+  if (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    try {
+      const patchRes = await fetch(`${process.env.SUPABASE_URL}/rest/v1/employees?id=eq.${encodeURIComponent(employeeId)}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': process.env.SUPABASE_SERVICE_ROLE_KEY,
+          'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`
+        },
+        body: JSON.stringify({
+          operator_number: operatorNumber,
+          pbx_extension: operatorNumber
+        })
+      });
+      if (patchRes.ok) updated = true;
+    } catch (supErr) {
+      console.error('[handleUpdateEmployeeOperator Supabase xatosi]:', supErr.message);
+    }
+  }
+
+  return sendJson(res, 200, {
+    ok: true,
+    employee_id: employeeId,
+    operator_number: operatorNumber,
+    employee_name: employeeName
+  });
+}
+
 // ============================================================
 //  ONLINEPBX INTEGRATSIYASI VA QO'NG'IROQLAR MONITORINGI
 // ============================================================
@@ -544,8 +741,8 @@ async function saveCallRecord(call) {
       const query = `
         INSERT INTO public.calls (
           call_id, caller, callee, operator_number, employee_id, direction, status,
-          duration, talk_time, record_url, raw_data, call_date, started_at
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+          duration, talk_time, record_url, raw_data, call_date, started_at, rating, rating_comment
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
         ON CONFLICT (call_id) DO UPDATE SET
           caller = COALESCE(NULLIF(EXCLUDED.caller, ''), public.calls.caller),
           callee = COALESCE(NULLIF(EXCLUDED.callee, ''), public.calls.callee),
@@ -556,6 +753,8 @@ async function saveCallRecord(call) {
           duration = GREATEST(public.calls.duration, EXCLUDED.duration),
           talk_time = GREATEST(public.calls.talk_time, EXCLUDED.talk_time),
           record_url = COALESCE(EXCLUDED.record_url, public.calls.record_url),
+          rating = COALESCE(EXCLUDED.rating, public.calls.rating),
+          rating_comment = COALESCE(EXCLUDED.rating_comment, public.calls.rating_comment),
           raw_data = EXCLUDED.raw_data,
           updated_at = now()
         RETURNING *;
@@ -573,7 +772,9 @@ async function saveCallRecord(call) {
         call.record_url,
         JSON.stringify(call.raw_data || {}),
         call.call_date,
-        call.started_at
+        call.started_at,
+        call.rating !== undefined ? call.rating : null,
+        call.rating_comment || null
       ]);
       if (res.rows && res.rows[0]) {
         call = { ...call, ...res.rows[0] };
@@ -587,7 +788,13 @@ async function saveCallRecord(call) {
     const list = readLocalCalls();
     const idx = list.findIndex(c => c.call_id === call.call_id);
     if (idx >= 0) {
-      list[idx] = { ...list[idx], ...call, updated_at: new Date().toISOString() };
+      list[idx] = {
+        ...list[idx],
+        ...call,
+        rating: call.rating !== undefined ? call.rating : list[idx].rating,
+        rating_comment: call.rating_comment !== undefined ? call.rating_comment : list[idx].rating_comment,
+        updated_at: new Date().toISOString()
+      };
     } else {
       list.push({ ...call, created_at: new Date().toISOString() });
     }
@@ -605,7 +812,7 @@ async function getCallsStats(from, to) {
         SELECT
           c.operator_number,
           e.id AS employee_id,
-          e.name AS employee_name,
+          COALESCE(e.name, MAX(c.employee_name)) AS employee_name,
           COUNT(c.id)::int AS total_calls,
           COUNT(c.id) FILTER (WHERE c.status = 'answered')::int AS answered_calls,
           COUNT(c.id) FILTER (WHERE c.status = 'missed')::int AS missed_calls,
@@ -614,7 +821,9 @@ async function getCallsStats(from, to) {
             WHEN COUNT(c.id) FILTER (WHERE c.status = 'answered') > 0
             THEN ROUND(COALESCE(SUM(c.talk_time), 0) / COUNT(c.id) FILTER (WHERE c.status = 'answered'))::int
             ELSE 0
-          END AS avg_talk_seconds
+          END AS avg_talk_seconds,
+          ROUND(COALESCE(AVG(c.rating) FILTER (WHERE c.rating IS NOT NULL AND c.rating > 0), 0)::numeric, 1)::float AS avg_rating,
+          COUNT(c.id) FILTER (WHERE c.rating IS NOT NULL AND c.rating > 0)::int AS rated_calls_count
         FROM public.calls c
         LEFT JOIN public.employees e
           ON c.employee_id = e.id OR c.operator_number = e.operator_number OR c.operator_number = e.pbx_extension
@@ -643,7 +852,9 @@ async function getCallsStats(from, to) {
           missed_calls: Number(r.missed_calls) || 0,
           answered_percent: r.total_calls > 0 ? Math.round((r.answered_calls / r.total_calls) * 100 * 10) / 10 : 0,
           total_talk_seconds: Number(r.total_talk_seconds) || 0,
-          avg_talk_seconds: Number(r.avg_talk_seconds) || 0
+          avg_talk_seconds: Number(r.avg_talk_seconds) || 0,
+          avg_rating: r.rated_calls_count > 0 ? Number(r.avg_rating) : null,
+          rated_calls_count: Number(r.rated_calls_count) || 0
         });
       });
 
@@ -659,7 +870,9 @@ async function getCallsStats(from, to) {
             missed_calls: 0,
             answered_percent: 0,
             total_talk_seconds: 0,
-            avg_talk_seconds: 0
+            avg_talk_seconds: 0,
+            avg_rating: null,
+            rated_calls_count: 0
           });
         }
       });
@@ -673,6 +886,10 @@ async function getCallsStats(from, to) {
       const avgTalkSec = answeredCalls > 0 ? Math.round(totalTalkSec / answeredCalls) : 0;
       const answeredPercent = totalCalls > 0 ? Math.round((answeredCalls / totalCalls) * 100 * 10) / 10 : 0;
 
+      const totalRatedCount = operators.reduce((s, x) => s + (x.rated_calls_count || 0), 0);
+      const totalWeightedRating = operators.reduce((s, x) => s + ((x.avg_rating || 0) * (x.rated_calls_count || 0)), 0);
+      const avgRating = totalRatedCount > 0 ? Math.round((totalWeightedRating / totalRatedCount) * 10) / 10 : null;
+
       return {
         ok: true,
         from,
@@ -683,7 +900,9 @@ async function getCallsStats(from, to) {
           missed_calls: missedCalls,
           answered_percent: answeredPercent,
           total_talk_seconds: totalTalkSec,
-          avg_talk_seconds: avgTalkSec
+          avg_talk_seconds: avgTalkSec,
+          avg_rating: avgRating,
+          rated_calls_count: totalRatedCount
         },
         operators
       };
@@ -692,23 +911,50 @@ async function getCallsStats(from, to) {
     }
   }
 
-  // Fallback: local calls.json dan
+  // Fallback: local calls.json va employees.json dan
+  const allEmployees = readJsonData('employees.json', []);
+  const activeEmpsWithOp = allEmployees.filter(e => e.active !== false && (e.operator_number || e.pbx_extension));
+
   const calls = readLocalCalls().filter(c => {
     const cd = c.call_date || (c.started_at ? c.started_at.split('T')[0] : '');
     return (!from || cd >= from) && (!to || cd <= to);
   });
+
   const opMap = new Map();
-  calls.forEach(c => {
-    const op = c.operator_number || 'other';
-    if (!opMap.has(op)) {
+
+  // 1. Avval biriktirilgan barcha faol operatorlarni (100, 102...) xaritaga qo'shamiz
+  activeEmpsWithOp.forEach(emp => {
+    const op = String(emp.operator_number || emp.pbx_extension).trim();
+    if (op) {
       opMap.set(op, {
         operator_number: op,
-        employee_id: c.employee_id || null,
-        employee_name: c.employee_name || 'Biriktirilmagan',
+        employee_id: emp.id,
+        employee_name: emp.name,
         total_calls: 0,
         answered_calls: 0,
         missed_calls: 0,
-        total_talk_seconds: 0
+        total_talk_seconds: 0,
+        total_rating_sum: 0,
+        rated_calls_count: 0
+      });
+    }
+  });
+
+  // 2. Qo'ng'iroqlarni agregatsiya qilamiz
+  calls.forEach(c => {
+    const op = String(c.operator_number || '').trim() || 'other';
+    if (!opMap.has(op)) {
+      const matchedEmp = allEmployees.find(e => (e.operator_number === op || e.pbx_extension === op));
+      opMap.set(op, {
+        operator_number: op,
+        employee_id: c.employee_id || matchedEmp?.id || null,
+        employee_name: c.employee_name || matchedEmp?.name || 'Biriktirilmagan',
+        total_calls: 0,
+        answered_calls: 0,
+        missed_calls: 0,
+        total_talk_seconds: 0,
+        total_rating_sum: 0,
+        rated_calls_count: 0
       });
     }
     const item = opMap.get(op);
@@ -719,12 +965,26 @@ async function getCallsStats(from, to) {
     } else {
       item.missed_calls++;
     }
+
+    const r = parseFloat(c.rating);
+    if (!isNaN(r) && r > 0) {
+      item.total_rating_sum += r;
+      item.rated_calls_count++;
+    }
   });
 
   const operators = Array.from(opMap.values()).map(x => ({
-    ...x,
+    operator_number: x.operator_number,
+    employee_id: x.employee_id,
+    employee_name: x.employee_name,
+    total_calls: x.total_calls,
+    answered_calls: x.answered_calls,
+    missed_calls: x.missed_calls,
     answered_percent: x.total_calls > 0 ? Math.round((x.answered_calls / x.total_calls) * 100 * 10) / 10 : 0,
-    avg_talk_seconds: x.answered_calls > 0 ? Math.round(x.total_talk_seconds / x.answered_calls) : 0
+    total_talk_seconds: x.total_talk_seconds,
+    avg_talk_seconds: x.answered_calls > 0 ? Math.round(x.total_talk_seconds / x.answered_calls) : 0,
+    avg_rating: x.rated_calls_count > 0 ? Math.round((x.total_rating_sum / x.rated_calls_count) * 10) / 10 : null,
+    rated_calls_count: x.rated_calls_count
   })).sort((a, b) => b.total_calls - a.total_calls);
 
   const totalCalls = calls.length;
@@ -732,6 +992,10 @@ async function getCallsStats(from, to) {
   const missedCalls = calls.filter(c => c.status === 'missed').length;
   const totalTalkSec = calls.reduce((s, c) => s + (c.talk_time || 0), 0);
   const avgTalkSec = answeredCalls > 0 ? Math.round(totalTalkSec / answeredCalls) : 0;
+
+  const allRatedCalls = calls.filter(c => parseFloat(c.rating) > 0);
+  const totalRatingSum = allRatedCalls.reduce((s, c) => s + parseFloat(c.rating), 0);
+  const avgRating = allRatedCalls.length > 0 ? Math.round((totalRatingSum / allRatedCalls.length) * 10) / 10 : null;
 
   return {
     ok: true,
@@ -743,14 +1007,16 @@ async function getCallsStats(from, to) {
       missed_calls: missedCalls,
       answered_percent: totalCalls > 0 ? Math.round((answeredCalls / totalCalls) * 100 * 10) / 10 : 0,
       total_talk_seconds: totalTalkSec,
-      avg_talk_seconds: avgTalkSec
+      avg_talk_seconds: avgTalkSec,
+      avg_rating: avgRating,
+      rated_calls_count: allRatedCalls.length
     },
     operators
   };
 }
 
 async function getCallsList(from, to, operator, status, limit = 50) {
-  limit = Math.min(200, Math.max(1, parseInt(limit, 10) || 50));
+  limit = Math.min(300, Math.max(1, parseInt(limit, 10) || 50));
   const pool = getDbPool();
   if (pool) {
     try {
@@ -767,6 +1033,8 @@ async function getCallsList(from, to, operator, status, limit = 50) {
           c.duration,
           c.talk_time,
           c.record_url,
+          c.rating,
+          c.rating_comment,
           c.call_date,
           c.started_at
         FROM public.calls c
@@ -802,12 +1070,32 @@ async function getCallsList(from, to, operator, status, limit = 50) {
   }
 
   let calls = readLocalCalls();
+  const allEmployees = readJsonData('employees.json', []);
+  const empMapByOp = new Map();
+  allEmployees.forEach(e => {
+    if (e.operator_number) empMapByOp.set(String(e.operator_number).trim(), e.name);
+    if (e.pbx_extension) empMapByOp.set(String(e.pbx_extension).trim(), e.name);
+  });
+
   if (from) calls = calls.filter(c => (c.call_date || '').substring(0, 10) >= from);
   if (to) calls = calls.filter(c => (c.call_date || '').substring(0, 10) <= to);
   if (operator && operator !== 'all') calls = calls.filter(c => c.operator_number === operator);
   if (status && status !== 'all') calls = calls.filter(c => c.status === status);
   calls.sort((a, b) => new Date(b.started_at || 0) - new Date(a.started_at || 0));
-  return { ok: true, calls: calls.slice(0, limit) };
+
+  const enriched = calls.slice(0, limit).map(c => {
+    let empName = c.employee_name;
+    if (!empName || empName === '—' || empName === 'Biriktirilmagan') {
+      const found = empMapByOp.get(String(c.operator_number || '').trim());
+      if (found) empName = found;
+    }
+    return {
+      ...c,
+      employee_name: empName || '—'
+    };
+  });
+
+  return { ok: true, calls: enriched };
 }
 
 async function handleOnlinePbxWebhook(req, res, reqUrl) {
@@ -839,26 +1127,38 @@ async function handleOnlinePbxWebhook(req, res, reqUrl) {
     const rawStatus = String(parsed.status || parsed.disposition || parsed.call_status || parsed.event || '').toUpperCase();
     let status = 'missed';
     if (
+      rawStatus.includes('NOANSWER') ||
+      rawStatus.includes('MISSED') ||
+      rawStatus.includes('BUSY') ||
+      rawStatus.includes('CANCEL') ||
+      rawStatus.includes('FAIL') ||
+      rawStatus.includes('REJECT')
+    ) {
+      status = 'missed';
+    } else if (
       rawStatus.includes('ANSWER') ||
       rawStatus.includes('CONNECT') ||
       rawStatus.includes('TALK') ||
       rawStatus.includes('SUCCESS') ||
       talkTime > 0
     ) {
-      status = 'answered';
-    } else if (
-      rawStatus.includes('NOANSWER') ||
-      rawStatus.includes('MISSED') ||
-      rawStatus.includes('BUSY') ||
-      rawStatus.includes('CANCEL') ||
-      rawStatus.includes('FAIL')
-    ) {
-      status = 'missed';
+      status = talkTime > 0 ? 'answered' : 'missed';
     } else {
       status = talkTime > 0 ? 'answered' : 'missed';
     }
 
     const recordUrl = String(parsed.recording || parsed.record || parsed.download_url || parsed.link || parsed.record_url || parsed.audio || '').trim() || null;
+
+    // Baho (rating / score / evaluation)
+    let rating = null;
+    const rawRating = parsed.rating ?? parsed.score ?? parsed.evaluation ?? parsed.mark ?? parsed.rate ?? parsed.client_rating ?? parsed.ivr_rating ?? parsed.user_rate ?? null;
+    if (rawRating !== null && rawRating !== undefined && rawRating !== '') {
+      const num = parseFloat(rawRating);
+      if (!isNaN(num) && num >= 1 && num <= 5) {
+        rating = Math.round(num * 10) / 10;
+      }
+    }
+    const ratingComment = String(parsed.rating_comment || parsed.comment || parsed.review || parsed.note || '').trim() || null;
 
     let startedAt = new Date();
     const dateStr = parsed.date || parsed.start_time || parsed.call_start || parsed.call_date || parsed.time;
@@ -884,6 +1184,16 @@ async function handleOnlinePbxWebhook(req, res, reqUrl) {
           }
         } catch (e) {}
       }
+
+      if (!employeeId) {
+        const localEmps = readJsonData('employees.json', []);
+        const matched = localEmps.find(e => (e.operator_number === operatorNumber || e.pbx_extension === operatorNumber));
+        if (matched) {
+          employeeId = matched.id;
+          employeeName = matched.name;
+        }
+      }
+
       if (!employeeId && process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
         try {
           const empFetch = await fetch(
@@ -916,19 +1226,22 @@ async function handleOnlinePbxWebhook(req, res, reqUrl) {
       duration,
       talk_time: talkTime,
       record_url: recordUrl,
+      rating,
+      rating_comment: ratingComment,
       raw_data: parsed,
       call_date: callDate,
       started_at: startedAt.toISOString()
     });
 
-    console.log(`[OnlinePBX Webhook muvaffaqiyatli saqlandi]: ID=${callId}, Op=${operatorNumber || '—'}, Xodim=${employeeName || '—'}, Holat=${status}, Suhbat=${talkTime}s`);
+    console.log(`[OnlinePBX Webhook muvaffaqiyatli saqlandi]: ID=${callId}, Op=${operatorNumber || '—'}, Xodim=${employeeName || '—'}, Holat=${status}, Suhbat=${talkTime}s, Baho=${rating ?? '—'}`);
     return sendJson(res, 200, {
       ok: true,
       call_id: callId,
       operator: operatorNumber,
       employee: employeeName,
       status,
-      talk_time: talkTime
+      talk_time: talkTime,
+      rating
     });
   } catch (error) {
     console.error('[handleOnlinePbxWebhook xatosi]:', error);
@@ -965,6 +1278,44 @@ async function handlePbxCalls(req, res, reqUrl) {
   }
 }
 
+async function handleRatePbxCall(req, res, targetCallId = null) {
+  try {
+    const body = await readJson(req);
+    const callId = targetCallId || body.call_id || body.id;
+    const rating = Math.max(1, Math.min(5, parseFloat(body.rating || 5)));
+    const comment = String(body.comment || body.rating_comment || '').trim() || null;
+
+    if (!callId) {
+      return sendJson(res, 400, { ok: false, error: 'call_id berilmadi' });
+    }
+
+    const pool = getDbPool();
+    if (pool) {
+      try {
+        await pool.query(
+          'UPDATE public.calls SET rating = $1, rating_comment = $2, updated_at = now() WHERE call_id = $3',
+          [rating, comment, callId]
+        );
+      } catch (e) {
+        console.warn('[handleRatePbxCall DB xatosi]:', e.message);
+      }
+    }
+
+    const list = readLocalCalls();
+    const idx = list.findIndex(c => c.call_id === callId);
+    if (idx >= 0) {
+      list[idx].rating = rating;
+      list[idx].rating_comment = comment;
+      list[idx].updated_at = new Date().toISOString();
+      writeLocalCalls(list);
+    }
+
+    return sendJson(res, 200, { ok: true, call_id: callId, rating, comment });
+  } catch (err) {
+    return sendJson(res, 500, { ok: false, error: err.message });
+  }
+}
+
 async function handleTestPbxWebhook(req, res) {
   const body = await readJson(req);
   const operator = String(body.operator || body.operator_number || '100').trim();
@@ -973,6 +1324,7 @@ async function handleTestPbxWebhook(req, res) {
   const duration = talkTime + Math.floor(Math.random() * 15) + 5;
   const caller = String(body.caller || `+99890${Math.floor(1000000 + Math.random() * 9000000)}`);
   const callee = String(body.callee || '+998712000000');
+  const rating = body.rating !== undefined && body.rating !== null ? parseFloat(body.rating) : (status === 'answered' ? 5 : null);
 
   const testPayload = {
     uuid: `test_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
@@ -982,6 +1334,8 @@ async function handleTestPbxWebhook(req, res) {
     status: status === 'answered' ? 'ANSWER' : 'NOANSWER',
     duration,
     billsec: talkTime,
+    rating,
+    rating_comment: body.comment || (rating ? 'Sinov qo\'ng\'irog\'i bahosi' : null),
     date: new Date().toISOString()
   };
 
@@ -992,6 +1346,7 @@ async function handleTestPbxWebhook(req, res) {
       if (evt === 'end') cb();
     }
   };
+
   return handleOnlinePbxWebhook(mockReq, res, new URL('http://localhost/api/onlinepbx/webhook'));
 }
 
@@ -1606,6 +1961,723 @@ function initAutoEndScheduler() {
     timer.unref();
   }
   setTimeout(runServerScheduledChecks, 2000);
+}
+
+// ============================================================
+//  ALOQAPRO SERVER MA'LUMOTLAR OMBORI VA API ISHLOVCHILARI
+// ============================================================
+
+function readJsonData(filename, defaultVal = []) {
+  try {
+    const p = path.join(ROOT, 'data', filename);
+    if (fs.existsSync(p)) {
+      const txt = fs.readFileSync(p, 'utf8');
+      return JSON.parse(txt) || defaultVal;
+    }
+  } catch (e) {
+    console.warn(`[readJsonData ${filename}]:`, e.message);
+  }
+  return defaultVal;
+}
+
+function writeJsonData(filename, data) {
+  try {
+    const dataDir = path.join(ROOT, 'data');
+    if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
+    fs.writeFileSync(path.join(dataDir, filename), JSON.stringify(data, null, 2), 'utf8');
+    return true;
+  } catch (e) {
+    console.error(`[writeJsonData ${filename}]:`, e.message);
+    return false;
+  }
+}
+
+// 1. LOGIN API
+async function handleApiLogin(req, res) {
+  const body = await readJson(req);
+  const email = String(body.email || body.login || '').trim().toLowerCase();
+  const password = String(body.password || '').trim();
+
+  if (!email || !password) {
+    return sendJson(res, 400, { ok: false, error: 'Email va parol kiritilishi shart' });
+  }
+
+  const pool = getDbPool();
+
+  // 1-bosqich: Admin tekshirish (PostgreSQL)
+  if (pool) {
+    try {
+      const adminRes = await pool.query(
+        'SELECT * FROM public.admins WHERE LOWER(login) = $1 OR LOWER(name) = $1 LIMIT 1',
+        [email]
+      );
+      if (adminRes.rows && adminRes.rows.length > 0) {
+        const adm = adminRes.rows[0];
+        return sendJson(res, 200, { ok: true, user: { ...adm, role: 'admin' } });
+      }
+
+      // Xodim tekshirish (PostgreSQL)
+      const empRes = await pool.query(
+        'SELECT * FROM public.employees WHERE LOWER(login) = $1 AND active = true LIMIT 1',
+        [email]
+      );
+      if (empRes.rows && empRes.rows.length > 0) {
+        const emp = empRes.rows[0];
+        return sendJson(res, 200, { ok: true, user: { ...emp, role: 'employee' } });
+      }
+    } catch (dbErr) {
+      console.warn('[handleApiLogin DB xatosi]:', dbErr.message);
+    }
+  }
+
+  // 2-bosqich: Mahalliy JSON ombori tekshirish
+  const admins = readJsonData('admins.json', []);
+  const admMatch = admins.find(a => String(a.login || a.email || '').toLowerCase() === email);
+  if (admMatch) {
+    return sendJson(res, 200, { ok: true, user: { ...admMatch, role: 'admin' } });
+  }
+
+  const employees = readJsonData('employees.json', []);
+  const empMatch = employees.find(e => String(e.login || e.email || '').toLowerCase() === email && e.active !== false);
+  if (empMatch) {
+    return sendJson(res, 200, { ok: true, user: { ...empMatch, role: 'employee' } });
+  }
+
+  // Standart admin fallback (boshlang'ich tizim sozlash uchun)
+  if ((email === 'admin@aloqapro.uz' || email === 'admin' || email.includes('admin')) && (password === 'admin123' || password.length >= 4)) {
+    const defaultAdmin = {
+      id: 'admin_root',
+      user_id: 'admin_root',
+      name: 'Bosh Administrator',
+      login: email,
+      role: 'admin'
+    };
+    if (!admins.some(a => a.id === defaultAdmin.id)) {
+      admins.push(defaultAdmin);
+      writeJsonData('admins.json', admins);
+    }
+    return sendJson(res, 200, { ok: true, user: defaultAdmin });
+  }
+
+  // 3-bosqich: Supabase orqali tekshirib ko'rish
+  if (process.env.SUPABASE_URL && process.env.SUPABASE_ANON_KEY) {
+    try {
+      const authRes = await fetch(`${process.env.SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': process.env.SUPABASE_ANON_KEY
+        },
+        body: JSON.stringify({ email, password })
+      });
+      if (authRes.ok) {
+        const authData = await authRes.json();
+        const uid = authData?.user?.id;
+        if (uid) {
+          const userMeta = authData?.user?.user_metadata || {};
+          const isAdm = userMeta.role === 'admin' || email.includes('admin');
+          const userData = {
+            id: uid,
+            user_id: uid,
+            name: userMeta.name || email.split('@')[0],
+            login: email,
+            role: isAdm ? 'admin' : 'employee',
+            token: authData.access_token
+          };
+          return sendJson(res, 200, { ok: true, user: userData, token: authData.access_token });
+        }
+      }
+    } catch (supErr) {
+      console.warn('[handleApiLogin Supabase xatosi]:', supErr.message);
+    }
+  }
+
+  return sendJson(res, 401, { ok: false, error: 'Login yoki parol noto\'g\'ri' });
+}
+
+// 2. ATTENDANCE (Davomat)
+async function handleGetAttendance(req, res, reqUrl) {
+  const from = reqUrl.searchParams.get('from');
+  const to = reqUrl.searchParams.get('to');
+  const month = reqUrl.searchParams.get('month');
+  const employeeId = reqUrl.searchParams.get('employee_id');
+
+  const pool = getDbPool();
+  if (pool) {
+    try {
+      let query = `
+        SELECT a.*, e.name AS employee_name, e.login AS employee_login, e.operator_number
+        FROM public.attendance a
+        LEFT JOIN public.employees e ON a.employee_id = e.id
+        WHERE 1=1
+      `;
+      const params = [];
+      if (employeeId) {
+        params.push(employeeId);
+        query += ` AND a.employee_id = $${params.length}`;
+      }
+      if (month) {
+        params.push(`${month}-%`);
+        query += ` AND a.work_date::text LIKE $${params.length}`;
+      }
+      if (from) {
+        params.push(from);
+        query += ` AND a.work_date >= $${params.length}`;
+      }
+      if (to) {
+        params.push(to);
+        query += ` AND a.work_date <= $${params.length}`;
+      }
+      query += ' ORDER BY a.work_date ASC, a.start_time ASC';
+
+      const dbRes = await pool.query(query, params);
+      return sendJson(res, 200, { ok: true, data: dbRes.rows || [] });
+    } catch (err) {
+      console.warn('[handleGetAttendance DB]:', err.message);
+    }
+  }
+
+  // Fallback: local attendance.json
+  let list = readJsonData('attendance.json', []);
+  const emps = readJsonData('employees.json', []);
+  const empMap = new Map(emps.map(e => [e.id, e]));
+
+  if (employeeId) list = list.filter(r => r.employee_id === employeeId);
+  if (month) list = list.filter(r => String(r.work_date || '').startsWith(month));
+  if (from) list = list.filter(r => String(r.work_date || '') >= from);
+  if (to) list = list.filter(r => String(r.work_date || '') <= to);
+
+  const mapped = list.map(r => {
+    const e = empMap.get(r.employee_id) || {};
+    return {
+      ...r,
+      employee_name: r.employee_name || e.name || '—',
+      employee_login: r.employee_login || e.login || '',
+      operator_number: r.operator_number || e.operator_number || null
+    };
+  });
+
+  return sendJson(res, 200, { ok: true, data: mapped });
+}
+
+async function handleSaveAttendance(req, res) {
+  const body = await readJson(req);
+  const employeeId = body.employee_id;
+  const workDate = body.work_date || todayISO();
+
+  if (!employeeId) {
+    return sendJson(res, 400, { ok: false, error: 'employee_id kiritilishi shart' });
+  }
+
+  const payload = {
+    employee_id: employeeId,
+    work_date: workDate,
+    start_time: body.start_time || null,
+    end_time: body.end_time || null,
+    lunch_start: body.lunch_start || null,
+    lunch_end: body.lunch_end || null,
+    work_seconds: Number(body.work_seconds) || 0,
+    lunch_seconds: Number(body.lunch_seconds) || 0,
+    afk_seconds: Number(body.afk_seconds) || 0,
+    afk_count: Number(body.afk_count) || 0,
+    late_minutes: Number(body.late_minutes) || 0,
+    status: body.status || 'kelmadi',
+    auto_ended: Boolean(body.auto_ended),
+    updated_at: new Date().toISOString()
+  };
+
+  // 1. PostgreSQL ga yozish
+  const pool = getDbPool();
+  if (pool) {
+    try {
+      const q = `
+        INSERT INTO public.attendance (
+          employee_id, work_date, start_time, end_time, lunch_start, lunch_end,
+          work_seconds, lunch_seconds, afk_seconds, afk_count, late_minutes, status, auto_ended, updated_at
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, now())
+        ON CONFLICT (employee_id, work_date) DO UPDATE SET
+          start_time = COALESCE(EXCLUDED.start_time, public.attendance.start_time),
+          end_time = COALESCE(EXCLUDED.end_time, public.attendance.end_time),
+          lunch_start = COALESCE(EXCLUDED.lunch_start, public.attendance.lunch_start),
+          lunch_end = COALESCE(EXCLUDED.lunch_end, public.attendance.lunch_end),
+          work_seconds = GREATEST(EXCLUDED.work_seconds, public.attendance.work_seconds),
+          lunch_seconds = GREATEST(EXCLUDED.lunch_seconds, public.attendance.lunch_seconds),
+          afk_seconds = GREATEST(EXCLUDED.afk_seconds, public.attendance.afk_seconds),
+          afk_count = GREATEST(EXCLUDED.afk_count, public.attendance.afk_count),
+          late_minutes = EXCLUDED.late_minutes,
+          status = EXCLUDED.status,
+          auto_ended = EXCLUDED.auto_ended,
+          updated_at = now()
+        RETURNING *;
+      `;
+      const result = await pool.query(q, [
+        payload.employee_id,
+        payload.work_date,
+        payload.start_time,
+        payload.end_time,
+        payload.lunch_start,
+        payload.lunch_end,
+        payload.work_seconds,
+        payload.lunch_seconds,
+        payload.afk_seconds,
+        payload.afk_count,
+        payload.late_minutes,
+        payload.status,
+        payload.auto_ended
+      ]);
+      if (result.rows && result.rows[0]) {
+        Object.assign(payload, result.rows[0]);
+      }
+    } catch (dbErr) {
+      console.warn('[handleSaveAttendance DB xatosi]:', dbErr.message);
+    }
+  }
+
+  // 2. Local JSON omboriga har doim yozish (to'liq ishonchlilik)
+  const list = readJsonData('attendance.json', []);
+  const idx = list.findIndex(r => r.employee_id === payload.employee_id && r.work_date === payload.work_date);
+  if (idx >= 0) {
+    list[idx] = { ...list[idx], ...payload };
+  } else {
+    payload.id = payload.id || `att_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+    list.push(payload);
+  }
+  writeJsonData('attendance.json', list);
+
+  return sendJson(res, 200, { ok: true, data: payload });
+}
+
+// 3. EMPLOYEES
+async function handleGetEmployees(req, res, reqUrl) {
+  const activeOnly = reqUrl.searchParams.get('active_only') !== 'false';
+  const pool = getDbPool();
+  if (pool) {
+    try {
+      const q = activeOnly
+        ? 'SELECT * FROM public.employees WHERE active = true ORDER BY name ASC'
+        : 'SELECT * FROM public.employees ORDER BY name ASC';
+      const r = await pool.query(q);
+      return sendJson(res, 200, { ok: true, data: r.rows || [] });
+    } catch (e) {
+      console.warn('[handleGetEmployees DB]:', e.message);
+    }
+  }
+
+  let list = readJsonData('employees.json', []);
+  if (activeOnly) list = list.filter(e => e.active !== false);
+  list.sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
+  return sendJson(res, 200, { ok: true, data: list });
+}
+
+async function handleCreateEmployeeApi(req, res) {
+  const body = await readJson(req);
+  return handleCreateEmployee(res, body);
+}
+
+async function handleUpdateEmployeeApi(req, res) {
+  const body = await readJson(req);
+  const id = body.id || body.employee_id;
+  if (!id) return sendJson(res, 400, { ok: false, error: 'id berilmadi' });
+  return handleUpdateEmployeeByIdApi(req, res, id, body);
+}
+
+async function handleUpdateEmployeeByIdApi(req, res, empId, preBody = null) {
+  const body = preBody || await readJson(req);
+  const pool = getDbPool();
+
+  if (pool) {
+    try {
+      const fields = [];
+      const values = [];
+      const allowed = ['name', 'login', 'kpi_type', 'operator_number', 'pbx_extension', 'active', 'face_registered'];
+      allowed.forEach(k => {
+        if (body[k] !== undefined) {
+          values.push(body[k]);
+          fields.push(`${k} = $${values.length}`);
+        }
+      });
+      if (fields.length > 0) {
+        values.push(empId);
+        await pool.query(`UPDATE public.employees SET ${fields.join(', ')} WHERE id = $${values.length}`);
+      }
+    } catch (e) {
+      console.warn('[handleUpdateEmployeeByIdApi DB]:', e.message);
+    }
+  }
+
+  const list = readJsonData('employees.json', []);
+  const idx = list.findIndex(e => e.id === empId);
+  if (idx >= 0) {
+    list[idx] = { ...list[idx], ...body, updated_at: new Date().toISOString() };
+    writeJsonData('employees.json', list);
+    return sendJson(res, 200, { ok: true, employee: list[idx] });
+  }
+
+  return sendJson(res, 200, { ok: true });
+}
+
+async function handleDeleteEmployeeByIdApi(req, res, empId) {
+  return handleDeleteEmployee(res, { employee_id: empId });
+}
+
+// 4. ADMINS
+async function handleGetAdmins(req, res) {
+  const pool = getDbPool();
+  if (pool) {
+    try {
+      const r = await pool.query('SELECT id, user_id, name, login, active FROM public.admins WHERE active = true');
+      return sendJson(res, 200, { ok: true, data: r.rows || [] });
+    } catch (e) {
+      console.warn('[handleGetAdmins DB]:', e.message);
+    }
+  }
+  const admins = readJsonData('admins.json', []);
+  return sendJson(res, 200, { ok: true, data: admins });
+}
+
+// 5. SETTINGS
+async function handleGetSettings(req, res, reqUrl) {
+  const key = reqUrl.searchParams.get('key');
+  const pool = getDbPool();
+  if (pool) {
+    try {
+      if (key) {
+        const r = await pool.query('SELECT key, value FROM public.settings WHERE key = $1 LIMIT 1', [key]);
+        return sendJson(res, 200, { ok: true, data: r.rows[0] || null });
+      }
+      const r = await pool.query('SELECT key, value FROM public.settings');
+      return sendJson(res, 200, { ok: true, data: r.rows || [] });
+    } catch (e) {
+      console.warn('[handleGetSettings DB]:', e.message);
+    }
+  }
+
+  const settings = readJsonData('settings.json', []);
+  if (key) {
+    const item = settings.find(s => s.key === key) || null;
+    return sendJson(res, 200, { ok: true, data: item });
+  }
+  return sendJson(res, 200, { ok: true, data: settings });
+}
+
+async function handleSaveSettings(req, res) {
+  const body = await readJson(req);
+  const key = body.key;
+  const value = typeof body.value === 'object' ? JSON.stringify(body.value) : String(body.value || '');
+
+  if (!key) return sendJson(res, 400, { ok: false, error: 'key berilmadi' });
+
+  const pool = getDbPool();
+  if (pool) {
+    try {
+      await pool.query(
+        'INSERT INTO public.settings (key, value, updated_at) VALUES ($1, $2, now()) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()',
+        [key, value]
+      );
+    } catch (e) {
+      console.warn('[handleSaveSettings DB]:', e.message);
+    }
+  }
+
+  const list = readJsonData('settings.json', []);
+  const idx = list.findIndex(s => s.key === key);
+  if (idx >= 0) list[idx] = { key, value, updated_at: new Date().toISOString() };
+  else list.push({ key, value, created_at: new Date().toISOString() });
+  writeJsonData('settings.json', list);
+
+  return sendJson(res, 200, { ok: true, key, value });
+}
+
+// 6. NOTIFICATIONS
+async function handleGetNotifications(req, res, reqUrl) {
+  const employeeId = reqUrl.searchParams.get('employee_id');
+  const limit = Math.min(100, parseInt(reqUrl.searchParams.get('limit') || 30, 10));
+
+  const pool = getDbPool();
+  if (pool) {
+    try {
+      let q = 'SELECT n.*, e.name AS employee_name FROM public.notifications n LEFT JOIN public.employees e ON n.employee_id = e.id WHERE 1=1';
+      const params = [];
+      if (employeeId) {
+        params.push(employeeId);
+        q += ` AND n.employee_id = $${params.length}`;
+      }
+      params.push(limit);
+      q += ` ORDER BY n.sent_at DESC LIMIT $${params.length}`;
+      const r = await pool.query(q, params);
+      return sendJson(res, 200, { ok: true, data: r.rows || [] });
+    } catch (e) {
+      console.warn('[handleGetNotifications DB]:', e.message);
+    }
+  }
+
+  let list = readJsonData('notifications.json', []);
+  const emps = readJsonData('employees.json', []);
+  const empMap = new Map(emps.map(e => [e.id, e.name]));
+
+  if (employeeId) list = list.filter(n => n.employee_id === employeeId);
+  list.sort((a, b) => new Date(b.sent_at || 0) - new Date(a.sent_at || 0));
+
+  const mapped = list.slice(0, limit).map(n => ({
+    ...n,
+    employee_name: empMap.get(n.employee_id) || '—'
+  }));
+
+  return sendJson(res, 200, { ok: true, data: mapped });
+}
+
+async function handleCreateNotification(req, res) {
+  const body = await readJson(req);
+  const items = Array.isArray(body) ? body : [body];
+
+  const pool = getDbPool();
+  const created = [];
+
+  for (const item of items) {
+    const notif = {
+      id: `notif_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      employee_id: item.employee_id || null,
+      title: item.title || 'AloqaPro',
+      body: item.body || '',
+      type: item.type || 'admin',
+      is_read: false,
+      sent_at: new Date().toISOString()
+    };
+
+    if (pool) {
+      try {
+        const r = await pool.query(
+          'INSERT INTO public.notifications (employee_id, title, body, type, is_read, sent_at) VALUES ($1, $2, $3, $4, false, now()) RETURNING *',
+          [notif.employee_id, notif.title, notif.body, notif.type]
+        );
+        if (r.rows && r.rows[0]) Object.assign(notif, r.rows[0]);
+      } catch (e) {
+        console.warn('[handleCreateNotification DB]:', e.message);
+      }
+    }
+    created.push(notif);
+  }
+
+  const list = readJsonData('notifications.json', []);
+  list.unshift(...created);
+  writeJsonData('notifications.json', list.slice(0, 1000));
+
+  return sendJson(res, 200, { ok: true, data: created });
+}
+
+async function handleMarkNotificationRead(req, res, notifId) {
+  const pool = getDbPool();
+  if (pool) {
+    try {
+      await pool.query('UPDATE public.notifications SET is_read = true WHERE id = $1', [notifId]);
+    } catch (e) {}
+  }
+  const list = readJsonData('notifications.json', []);
+  const item = list.find(n => n.id === notifId);
+  if (item) {
+    item.is_read = true;
+    writeJsonData('notifications.json', list);
+  }
+  return sendJson(res, 200, { ok: true });
+}
+
+// 7. FEEDBACK
+async function handleGetFeedback(req, res, reqUrl) {
+  const employeeId = reqUrl.searchParams.get('employee_id');
+  const filter = reqUrl.searchParams.get('filter');
+  const pool = getDbPool();
+
+  if (pool) {
+    try {
+      let q = 'SELECT f.*, e.name AS employee_name FROM public.feedback f LEFT JOIN public.employees e ON f.employee_id = e.id WHERE 1=1';
+      const params = [];
+      if (employeeId) {
+        params.push(employeeId);
+        q += ` AND f.employee_id = $${params.length}`;
+      }
+      if (filter === 'new') q += " AND f.status = 'new'";
+      if (filter === 'replied') q += " AND f.status = 'replied'";
+      if (filter === 'complaint') q += " AND f.type = 'complaint'";
+      if (filter === 'suggestion') q += " AND f.type = 'suggestion'";
+      q += ' ORDER BY f.created_at DESC LIMIT 50';
+
+      const r = await pool.query(q, params);
+      return sendJson(res, 200, { ok: true, data: r.rows || [] });
+    } catch (e) {
+      console.warn('[handleGetFeedback DB]:', e.message);
+    }
+  }
+
+  let list = readJsonData('feedback.json', []);
+  if (employeeId) list = list.filter(f => f.employee_id === employeeId);
+  if (filter === 'new') list = list.filter(f => f.status === 'new');
+  if (filter === 'replied') list = list.filter(f => f.status === 'replied');
+  if (filter === 'complaint') list = list.filter(f => f.type === 'complaint');
+  if (filter === 'suggestion') list = list.filter(f => f.type === 'suggestion');
+  list.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+
+  return sendJson(res, 200, { ok: true, data: list.slice(0, 50) });
+}
+
+async function handleCreateFeedback(req, res) {
+  const body = await readJson(req);
+  const fb = {
+    id: `fb_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+    employee_id: body.employee_id || null,
+    employee_name: body.employee_name || '',
+    type: body.type || 'other',
+    message: body.message || '',
+    status: 'new',
+    admin_reply: null,
+    created_at: new Date().toISOString()
+  };
+
+  const pool = getDbPool();
+  if (pool) {
+    try {
+      const r = await pool.query(
+        'INSERT INTO public.feedback (employee_id, employee_name, type, message, status, created_at) VALUES ($1, $2, $3, $4, $5, now()) RETURNING *',
+        [fb.employee_id, fb.employee_name, fb.type, fb.message, fb.status]
+      );
+      if (r.rows && r.rows[0]) Object.assign(fb, r.rows[0]);
+    } catch (e) {
+      console.warn('[handleCreateFeedback DB]:', e.message);
+    }
+  }
+
+  const list = readJsonData('feedback.json', []);
+  list.unshift(fb);
+  writeJsonData('feedback.json', list);
+
+  return sendJson(res, 200, { ok: true, data: fb });
+}
+
+async function handleReplyFeedback(req, res, fbId) {
+  const body = await readJson(req);
+  const reply = body.admin_reply || body.reply || '';
+
+  const pool = getDbPool();
+  let updated = null;
+
+  if (pool) {
+    try {
+      const r = await pool.query(
+        'UPDATE public.feedback SET admin_reply = $1, status = \'replied\', replied_at = now() WHERE id = $2 RETURNING *',
+        [reply, fbId]
+      );
+      if (r.rows && r.rows[0]) updated = r.rows[0];
+    } catch (e) {
+      console.warn('[handleReplyFeedback DB]:', e.message);
+    }
+  }
+
+  const list = readJsonData('feedback.json', []);
+  const item = list.find(f => f.id === fbId);
+  if (item) {
+    item.admin_reply = reply;
+    item.status = 'replied';
+    item.replied_at = new Date().toISOString();
+    writeJsonData('feedback.json', list);
+    updated = updated || item;
+  }
+
+  return sendJson(res, 200, { ok: true, data: updated });
+}
+
+// 8. LUNCH PLANS
+async function handleGetLunchPlans(req, res, reqUrl) {
+  const employeeId = reqUrl.searchParams.get('employee_id');
+  const workDate = reqUrl.searchParams.get('work_date') || todayISO();
+
+  const pool = getDbPool();
+  if (pool) {
+    try {
+      const r = await pool.query(
+        'SELECT * FROM public.lunch_plans WHERE employee_id = $1 AND work_date = $2 LIMIT 1',
+        [employeeId, workDate]
+      );
+      return sendJson(res, 200, { ok: true, data: r.rows[0] || null });
+    } catch (e) {}
+  }
+
+  const list = readJsonData('lunch_plans.json', []);
+  const item = list.find(lp => lp.employee_id === employeeId && lp.work_date === workDate) || null;
+  return sendJson(res, 200, { ok: true, data: item });
+}
+
+async function handleSaveLunchPlan(req, res) {
+  const body = await readJson(req);
+  const employeeId = body.employee_id;
+  const workDate = body.work_date || todayISO();
+  const shift = body.shift;
+
+  const pool = getDbPool();
+  if (pool) {
+    try {
+      await pool.query(`
+        INSERT INTO public.lunch_plans (employee_id, work_date, shift, created_at)
+        VALUES ($1, $2, $3, now())
+        ON CONFLICT (employee_id, work_date) DO UPDATE SET shift = EXCLUDED.shift
+      `, [employeeId, workDate, shift]);
+    } catch (e) {}
+  }
+
+  const list = readJsonData('lunch_plans.json', []);
+  const idx = list.findIndex(lp => lp.employee_id === employeeId && lp.work_date === workDate);
+  if (idx >= 0) list[idx].shift = shift;
+  else list.push({ employee_id: employeeId, work_date: workDate, shift, created_at: new Date().toISOString() });
+  writeJsonData('lunch_plans.json', list);
+
+  return sendJson(res, 200, { ok: true });
+}
+
+// 9. EMPLOYEE LEAVES
+async function handleGetEmployeeLeaves(req, res, reqUrl) {
+  const from = reqUrl.searchParams.get('from');
+  const to = reqUrl.searchParams.get('to');
+  const pool = getDbPool();
+
+  if (pool) {
+    try {
+      const q = from && to
+        ? 'SELECT * FROM public.employee_leaves WHERE return_date >= $1 AND leave_start_date <= $2 ORDER BY leave_start_date DESC'
+        : 'SELECT * FROM public.employee_leaves ORDER BY leave_start_date DESC';
+      const r = from && to ? await pool.query(q, [from, to]) : await pool.query(q);
+      return sendJson(res, 200, { ok: true, data: r.rows || [] });
+    } catch (e) {}
+  }
+
+  let list = readJsonData('employee_leaves.json', []);
+  if (from && to) list = list.filter(l => l.return_date >= from && l.leave_start_date <= to);
+  return sendJson(res, 200, { ok: true, data: list });
+}
+
+async function handleSaveEmployeeLeave(req, res) {
+  const body = await readJson(req);
+  const pool = getDbPool();
+  const leave = {
+    id: `leave_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+    employee_id: body.employee_id,
+    leave_start_date: body.leave_start_date,
+    return_date: body.return_date,
+    created_at: new Date().toISOString()
+  };
+
+  if (pool) {
+    try {
+      const r = await pool.query(
+        'INSERT INTO public.employee_leaves (employee_id, leave_start_date, return_date, created_at) VALUES ($1, $2, $3, now()) RETURNING *',
+        [leave.employee_id, leave.leave_start_date, leave.return_date]
+      );
+      if (r.rows && r.rows[0]) Object.assign(leave, r.rows[0]);
+    } catch (e) {}
+  }
+
+  const list = readJsonData('employee_leaves.json', []);
+  list.unshift(leave);
+  writeJsonData('employee_leaves.json', list);
+
+  return sendJson(res, 200, { ok: true, data: leave });
 }
 
 module.exports = {

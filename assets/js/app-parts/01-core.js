@@ -7,6 +7,35 @@ const SUPABASE_ANON = _cfg.SUPABASE_ANON_KEY || 'sb_publishable_CZUB0mOSzmmCvviN
 const FUNCTIONS_BASE = _cfg.FUNCTIONS_BASE || `${SUPABASE_URL}/functions/v1`;
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
 
+// ============================================================
+//  SERVER API HELPER (Serverdagi ma'lumotlar bazasi bilan tezkor ishlash)
+// ============================================================
+async function serverApi(endpoint, options = {}) {
+  try {
+    const url = endpoint.startsWith('http') ? endpoint : endpoint;
+    const headers = {
+      'Content-Type': 'application/json',
+      ...(options.headers || {})
+    };
+    const ctrl = new AbortController();
+    const timeout = setTimeout(() => ctrl.abort(), options.timeoutMs || 8000);
+    const res = await fetch(url, {
+      ...options,
+      headers,
+      signal: ctrl.signal
+    });
+    clearTimeout(timeout);
+    if (!res.ok) {
+      const errTxt = await res.text().catch(() => '');
+      return { ok: false, status: res.status, error: errTxt };
+    }
+    const json = await res.json().catch(() => ({}));
+    return { ok: true, ...json };
+  } catch (err) {
+    return { ok: false, error: err.message || 'Serverga ulanish xatosi' };
+  }
+}
+
 const TASHKENT_TIMEZONE = 'Asia/Tashkent';
 const WORKDAY_START_MINUTES = 9 * 60;
 const WORKDAY_END_MINUTES = 18 * 60;

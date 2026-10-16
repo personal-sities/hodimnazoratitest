@@ -1,26 +1,71 @@
 // ============================================================
-//  IP CHECK
+//  IP CHECK & FAST SETTINGS
 // ============================================================
-let userPublicIP = '';
+let userPublicIP = sessionStorage.getItem('aloqa_ip') || '';
 let userGeoPosition = null;
-async function getUserIP(){try{const r=await fetch('https://api.ipify.org?format=json');const d=await r.json();return d.ip||'';}catch(e){return '';}}
+
+async function getUserIP(){
+  if (userPublicIP) return userPublicIP;
+  try {
+    const ctrl = new AbortController();
+    const timeout = setTimeout(() => ctrl.abort(), 1500);
+    const r = await fetch('https://api.ipify.org?format=json', { signal: ctrl.signal });
+    clearTimeout(timeout);
+    const d = await r.json();
+    if (d && d.ip) {
+      userPublicIP = d.ip;
+      sessionStorage.setItem('aloqa_ip', d.ip);
+    }
+    return userPublicIP || '';
+  } catch (e) {
+    return userPublicIP || '';
+  }
+}
 
 async function getAllowedIPs(){
+  try{
+    const sRes = await serverApi('/api/settings?key=allowed_ips');
+    if(sRes.ok && sRes.data?.value){
+      return JSON.parse(sRes.data.value || '[]');
+    }
+  }catch(e){}
   try{
     const{data,error}=await sb.from('settings').select('value').eq('key','allowed_ips').maybeSingle();
     if(error||!data)return [];
     return JSON.parse(data.value||'[]');
   }catch(e){return [];}
 }
+
 async function saveAllowedIPs(arr){
   try{
     const json=JSON.stringify(arr);
-    await sb.from('settings').upsert({key:'allowed_ips',value:json},{onConflict:'key'});
+    await serverApi('/api/settings', { method:'POST', body: JSON.stringify({ key:'allowed_ips', value: json }) });
+    try { await sb.from('settings').upsert({key:'allowed_ips',value:json},{onConflict:'key'}); }catch(e){}
     await updateIPList();
   }catch(e){console.error('saveAllowedIPs error:',e);}
 }
-async function checkIPAccess(role){if(role==='admin')return true;const allowed=await getAllowedIPs();if(allowed.length===0)return true;if(!userPublicIP)userPublicIP=await getUserIP();return allowed.includes(userPublicIP);}
+
+async function checkIPAccess(role){
+  if(role==='admin')return true;
+  const allowed=await getAllowedIPs();
+  if(allowed.length===0)return true;
+  if(!userPublicIP)userPublicIP=await getUserIP();
+  return allowed.includes(userPublicIP);
+}
+
 async function getGPSRegionSettings(){
+  try{
+    const sRes = await serverApi('/api/settings?key=allowed_gps_region');
+    if(sRes.ok && sRes.data?.value){
+      const parsed = JSON.parse(sRes.data.value || '{}');
+      return {
+        enabled:Boolean(parsed.enabled),
+        latitude:parsed.latitude===null||parsed.latitude===undefined?null:Number(parsed.latitude),
+        longitude:parsed.longitude===null||parsed.longitude===undefined?null:Number(parsed.longitude),
+        radius_m:parsed.radius_m===null||parsed.radius_m===undefined?200:Number(parsed.radius_m)
+      };
+    }
+  }catch(e){}
   try{
     const{data,error}=await sb.from('settings').select('value').eq('key','allowed_gps_region').maybeSingle();
     if(error||!data)return {enabled:false,latitude:null,longitude:null,radius_m:200};
@@ -35,17 +80,22 @@ async function getGPSRegionSettings(){
     return {enabled:false,latitude:null,longitude:null,radius_m:200};
   }
 }
+
 async function saveGPSRegionSettings(cfg){
   try{
-    await sb.from('settings').upsert({key:'allowed_gps_region',value:JSON.stringify(cfg)},{onConflict:'key'});
+    const json = JSON.stringify(cfg);
+    await serverApi('/api/settings', { method:'POST', body: JSON.stringify({ key:'allowed_gps_region', value: json }) });
+    try { await sb.from('settings').upsert({key:'allowed_gps_region',value:json},{onConflict:'key'}); }catch(e){}
     await loadGPSSettingsUI();
   }catch(e){
     console.error('saveGPSRegionSettings error:',e);
     toast('error','GPS',t('gps_save_error'));
   }
 }
+
 const FACE_CONTROL_SETTING_KEY='face_control_enabled';
 let faceControlEnabled = localStorage.getItem('aloqa_face_control_enabled') !== 'false';
+
 function normalizeFaceControlValue(raw){
   if(raw===null||raw===undefined||raw==='')return true;
   if(typeof raw==='boolean')return raw;
@@ -58,7 +108,14 @@ function normalizeFaceControlValue(raw){
   }catch(e){}
   return !/^(false|0|off|disabled)$/i.test(text);
 }
+
 async function getFaceControlSettings(){
+  try{
+    const sRes = await serverApi(`/api/settings?key=${FACE_CONTROL_SETTING_KEY}`);
+    if(sRes.ok && sRes.data?.value !== undefined){
+      return normalizeFaceControlValue(sRes.data.value);
+    }
+  }catch(e){}
   const {data,error}=await sb.from('settings').select('value').eq('key',FACE_CONTROL_SETTING_KEY).maybeSingle();
   if(error)throw error;
   return normalizeFaceControlValue(data?.value);
@@ -106,7 +163,8 @@ async function saveFaceControlToggle(){
   const checkbox=document.getElementById('face_control_enabled');
   const enabled=!!checkbox?.checked;
   try{
-    await sb.from('settings').upsert({key:FACE_CONTROL_SETTING_KEY,value:JSON.stringify({enabled})},{onConflict:'key'});
+    await serverApi('/api/settings', { method:'POST', body: JSON.stringify({ key:FACE_CONTROL_SETTING_KEY, value: JSON.stringify({enabled}) }) });
+    try { await sb.from('settings').upsert({key:FACE_CONTROL_SETTING_KEY,value:JSON.stringify({enabled})},{onConflict:'key'}); }catch(e){}
     faceControlEnabled=enabled;
     localStorage.setItem('aloqa_face_control_enabled', String(enabled));
     updateFaceControlSettingsUI();

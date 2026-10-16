@@ -139,10 +139,11 @@ async function fetchAndRenderPbxStats(isBackground = false) {
   const ansEl = document.getElementById('pbx_stat_answered');
   const missEl = document.getElementById('pbx_stat_missed');
   const durEl = document.getElementById('pbx_stat_duration');
+  const ratingEl = document.getElementById('pbx_stat_rating');
   const tbody = document.getElementById('pbx_operators_body');
 
   if (!isBackground && tbody && (!tbody.children.length || tbody.innerHTML.includes('skeleton'))) {
-    tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:24px;color:var(--text3);">${t('loading') || 'Yuklanmoqda...'}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="10" style="text-align:center;padding:24px;color:var(--text3);">${t('loading') || 'Yuklanmoqda...'}</td></tr>`;
   }
 
   try {
@@ -157,7 +158,9 @@ async function fetchAndRenderPbxStats(isBackground = false) {
       missed_calls: 0,
       answered_percent: 0,
       total_talk_seconds: 0,
-      avg_talk_seconds: 0
+      avg_talk_seconds: 0,
+      avg_rating: null,
+      rated_calls_count: 0
     };
 
     if (totalEl) totalEl.textContent = summary.total_calls.toLocaleString();
@@ -169,12 +172,21 @@ async function fetchAndRenderPbxStats(isBackground = false) {
       durEl.textContent = `${totHm} / ${avgHm}`;
       durEl.title = `Jami: ${totHm}, O'rtacha: ${avgHm}`;
     }
+    if (ratingEl) {
+      if (summary.avg_rating) {
+        ratingEl.textContent = `★ ${summary.avg_rating}`;
+        ratingEl.title = `${summary.rated_calls_count} ta baholangan qo'ng'iroq`;
+      } else {
+        ratingEl.textContent = '—';
+        ratingEl.title = 'Hozircha baholanmagan';
+      }
+    }
 
     renderPbxOperatorsTable(data.operators || []);
   } catch (err) {
     console.error('fetchAndRenderPbxStats error:', err);
     if (!isBackground && tbody) {
-      tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:20px;color:var(--danger);">${err.message || 'Xatolik yuz berdi'}</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="10" style="text-align:center;padding:20px;color:var(--danger);">${err.message || 'Xatolik yuz berdi'}</td></tr>`;
     }
   }
 }
@@ -185,7 +197,7 @@ function renderPbxOperatorsTable(operators) {
   tbody.innerHTML = '';
 
   if (!operators || operators.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:24px;color:var(--text3);">${t('no_data') || 'Ma\'lumot yo\'q'}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="10" style="text-align:center;padding:24px;color:var(--text3);">${t('no_data') || 'Ma\'lumot yo\'q'}</td></tr>`;
     return;
   }
 
@@ -207,6 +219,10 @@ function renderPbxOperatorsTable(operators) {
       ? `<strong>${escapePbxHtml(op.employee_name)}</strong>`
       : `<span style="color:var(--text3);font-style:italic;">${escapePbxHtml(op.employee_name || 'Biriktirilmagan')}</span>`;
 
+    const ratingBadge = op.avg_rating
+      ? `<span class="badge bsm" style="background:rgba(234,179,8,0.15);color:#ca8a04;font-weight:700;display:inline-flex;align-items:center;gap:4px;">★ ${op.avg_rating} <span style="font-size:10px;color:var(--text3);font-weight:400;">(${op.rated_calls_count})</span></span>`
+      : `<span style="color:var(--text3);font-size:12px;">—</span>`;
+
     tr.innerHTML = `
       <td>${idx + 1}</td>
       <td>${opBadge}</td>
@@ -224,6 +240,7 @@ function renderPbxOperatorsTable(operators) {
       </td>
       <td style="font-family:var(--mono);">${totalTalkStr}</td>
       <td style="font-family:var(--mono);">${avgTalkStr}</td>
+      <td>${ratingBadge}</td>
     `;
     tbody.appendChild(tr);
   });
@@ -232,7 +249,7 @@ function renderPbxOperatorsTable(operators) {
 async function fetchAndRenderPbxCalls(isBackground = false) {
   const tbody = document.getElementById('pbx_calls_body');
   if (!isBackground && tbody && (!tbody.children.length || tbody.innerHTML.includes('skeleton'))) {
-    tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:24px;color:var(--text3);">${t('loading') || 'Yuklanmoqda...'}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="10" style="text-align:center;padding:24px;color:var(--text3);">${t('loading') || 'Yuklanmoqda...'}</td></tr>`;
   }
 
   try {
@@ -245,7 +262,7 @@ async function fetchAndRenderPbxCalls(isBackground = false) {
   } catch (err) {
     console.error('fetchAndRenderPbxCalls error:', err);
     if (!isBackground && tbody) {
-      tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:20px;color:var(--danger);">${err.message || 'Xatolik yuz berdi'}</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="10" style="text-align:center;padding:20px;color:var(--danger);">${err.message || 'Xatolik yuz berdi'}</td></tr>`;
     }
   }
 }
@@ -267,7 +284,7 @@ function renderPbxCallsTable(calls) {
   });
 
   if (!filtered.length) {
-    tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:24px;color:var(--text3);">${t('no_data') || 'Qo\'ng\'iroqlar topilmadi'}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="10" style="text-align:center;padding:24px;color:var(--text3);">${t('no_data') || 'Qo\'ng\'iroqlar topilmadi'}</td></tr>`;
     return;
   }
 
@@ -292,6 +309,11 @@ function renderPbxCallsTable(calls) {
       ? fmtPbxSeconds(c.talk_time || c.duration || 0)
       : '<span style="color:var(--text3);">0s</span>';
 
+    const rVal = parseFloat(c.rating);
+    const ratingHtml = (!isNaN(rVal) && rVal > 0)
+      ? `<button class="bsm" onclick="openRateCallModal('${c.call_id}','${escapePbxHtml(c.caller||'')}','${escapePbxHtml(c.employee_name||'')}',${rVal},'${escapePbxHtml(c.rating_comment||'')}')" style="background:rgba(234,179,8,0.15);color:#ca8a04;font-weight:700;border:none;cursor:pointer;display:inline-flex;align-items:center;gap:3px;" title="${c.rating_comment ? escapePbxHtml(c.rating_comment) : 'Bahoni tahrirlash'}">★ ${rVal}</button>`
+      : `<button class="bsm bg2" onclick="openRateCallModal('${c.call_id}','${escapePbxHtml(c.caller||'')}','${escapePbxHtml(c.employee_name||'')}',5,'')" style="font-size:11px;padding:3px 7px;cursor:pointer;" title="Baho qo'yish">+ Baholash</button>`;
+
     const recHtml = c.record_url
       ? `<button class="bsm bg2" onclick="playPbxAudio('${escapePbxHtml(c.record_url)}')" title="Yozuvni tinglash" style="display:inline-flex;align-items:center;gap:4px;">${getLucideIcon('play', '', 12)} ${t('pbx_th_record') || 'Yozuv'}</button>`
       : '<span style="color:var(--text3);font-size:11px;">—</span>';
@@ -309,6 +331,7 @@ function renderPbxCallsTable(calls) {
       <td><strong>${escapePbxHtml(c.employee_name || '—')}</strong></td>
       <td>${statusBadge}</td>
       <td style="font-family:var(--mono);">${talkStr}</td>
+      <td>${ratingHtml}</td>
       <td>${recHtml}</td>
     `;
     tbody.appendChild(tr);
@@ -425,6 +448,8 @@ async function sendTestPbxCall() {
   const op = document.getElementById('pbx_test_op')?.value || '100';
   const status = document.getElementById('pbx_test_status')?.value || 'answered';
   const talkSec = status === 'answered' ? (parseInt(document.getElementById('pbx_test_talk')?.value, 10) || 75) : 0;
+  const ratingVal = parseInt(document.getElementById('pbx_test_rating')?.value || '5', 10);
+  const rating = ratingVal > 0 ? ratingVal : null;
   const btn = document.getElementById('btn_send_test_call');
   if (btn) btn.disabled = true;
 
@@ -436,12 +461,13 @@ async function sendTestPbxCall() {
         operator: op,
         status,
         talk_time: talkSec,
+        rating,
         caller: `+99890${Math.floor(1000000 + Math.random() * 9000000)}`
       })
     });
     const result = await res.json();
     if (result.ok) {
-      toast('success', 'OnlinePBX Test', `Sinov qo'ng'irog'i muvaffaqiyatli qabul qilindi! (Operator: ${op}, Holat: ${status})`);
+      toast('success', 'OnlinePBX Test', `Sinov qo'ng'irog'i muvaffaqiyatli qabul qilindi! (Operator: ${op}, Holat: ${status}${rating ? ', Baho: ' + rating : ''})`);
       closePbxWebhookModal();
       await loadPbxDashboard();
     } else {
@@ -449,6 +475,89 @@ async function sendTestPbxCall() {
     }
   } catch (e) {
     toast('error', 'OnlinePBX Test', e.message || 'Serverga ulanishda xato');
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+// ============================================================
+//  QO'NG'IROQNI BAHOLASH (CALL RATING MODAL)
+// ============================================================
+
+function openRateCallModal(callId, caller, empName, currentRating = 5, currentComment = '') {
+  const modal = document.getElementById('m_rate_call');
+  if (!modal) return;
+
+  document.getElementById('rate_modal_call_id').value = callId || '';
+  document.getElementById('rate_modal_caller').textContent = caller || '—';
+  document.getElementById('rate_modal_emp').textContent = empName || '—';
+  document.getElementById('rate_modal_comment').value = currentComment || '';
+
+  const initialScore = Math.max(1, Math.min(5, parseInt(currentRating, 10) || 5));
+  setRateModalScore(initialScore);
+
+  modal.classList.remove('hidden');
+}
+
+function closeRateCallModal() {
+  const modal = document.getElementById('m_rate_call');
+  if (modal) modal.classList.add('hidden');
+}
+
+function setRateModalScore(score) {
+  score = Math.max(1, Math.min(5, parseInt(score, 10) || 5));
+  const hiddenInput = document.getElementById('rate_modal_score_val');
+  if (hiddenInput) hiddenInput.value = score;
+
+  const labels = {
+    1: "1 - Yomon",
+    2: "2 - Qoniqarsiz",
+    3: "3 - O'rtacha",
+    4: "4 - Yaxshi",
+    5: "5 - A'lo"
+  };
+  const labelEl = document.getElementById('rate_score_text');
+  if (labelEl) labelEl.textContent = labels[score] || `${score}`;
+
+  for (let i = 1; i <= 5; i++) {
+    const star = document.getElementById(`star_${i}`);
+    if (star) {
+      star.style.color = i <= score ? '#eab308' : 'var(--text3)';
+      star.style.transition = 'color .2s';
+    }
+  }
+}
+
+async function saveCallRating() {
+  const callId = document.getElementById('rate_modal_call_id')?.value;
+  const rating = parseInt(document.getElementById('rate_modal_score_val')?.value || '5', 10);
+  const comment = document.getElementById('rate_modal_comment')?.value?.trim() || '';
+
+  if (!callId) {
+    toast('warn', 'Baholash', 'Qo\'ng\'iroq ID topilmadi');
+    return;
+  }
+
+  const btn = document.getElementById('btn_save_call_rating');
+  if (btn) btn.disabled = true;
+
+  try {
+    const res = await fetch('/api/pbx/rate-call', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ call_id: callId, rating, comment })
+    });
+    const result = await res.json();
+    if (result.ok) {
+      toast('success', 'Baholash', `Qo'ng'iroqqa baho saqlandi: ★ ${rating}`);
+      closeRateCallModal();
+      fetchAndRenderPbxStats(true);
+      fetchAndRenderPbxCalls(true);
+    } else {
+      toast('error', 'Baholash', result.error || 'Saqlashda xatolik');
+    }
+  } catch (err) {
+    toast('error', 'Baholash', err.message || 'Serverga ulanishda xato');
   } finally {
     if (btn) btn.disabled = false;
   }
@@ -477,7 +586,8 @@ function exportPbxExcel() {
     t('pbx_th_missed') || 'Propushnniy',
     t('pbx_th_percent') || 'Qabul foizi (%)',
     t('pbx_th_talk_time') || 'Jami suhbat vaqti',
-    t('pbx_th_avg') || 'O\'rtacha suhbat vaqti'
+    t('pbx_th_avg') || 'O\'rtacha suhbat vaqti',
+    'Qo\'yilgan baho (Reyting)'
   ];
 
   const rows = pbxStatsCache.operators.map((op, i) => [
@@ -489,7 +599,8 @@ function exportPbxExcel() {
     op.missed_calls || 0,
     `${op.answered_percent || 0}%`,
     fmtPbxSeconds(op.total_talk_seconds || 0),
-    fmtPbxSeconds(op.avg_talk_seconds || 0)
+    fmtPbxSeconds(op.avg_talk_seconds || 0),
+    op.avg_rating ? `★ ${op.avg_rating} (${op.rated_calls_count})` : '—'
   ]);
 
   const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
