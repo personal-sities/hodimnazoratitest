@@ -10,6 +10,7 @@ const ROOT = __dirname;
 const PORT = Number(process.env.PORT || 3000);
 const HOST = process.env.HOST || '0.0.0.0';
 
+
 const MIME = {
   '.html': 'text/html; charset=utf-8',
   '.js': 'application/javascript; charset=utf-8',
@@ -120,6 +121,10 @@ async function ensureDatabaseSchema() {
         IF NOT EXISTS (SELECT 1 FROM public.admins WHERE LOWER(login) = 'admin') THEN
           INSERT INTO public.admins (id, user_id, name, login, active)
           VALUES (gen_random_uuid(), gen_random_uuid(), 'Administrator', 'admin', true);
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM public.admins WHERE LOWER(login) = 'umirbekovdiyorbek@gmail.com') THEN
+          INSERT INTO public.admins (id, user_id, name, login, active)
+          VALUES (gen_random_uuid(), gen_random_uuid(), 'Administrator (Diyorbek)', 'umirbekovdiyorbek@gmail.com', true);
         END IF;
       END $$;
 
@@ -2090,9 +2095,21 @@ async function handleApiLogin(req, res) {
     return sendJson(res, 400, { ok: false, error: 'Email va parol kiritilishi shart' });
   }
 
-  const pool = getDbPool();
+  const isKnownAdmin = (val) => {
+    const l = String(val || '').trim().toLowerCase();
+    return l === 'admin' ||
+           l === 'admin@aloqapro.uz' ||
+           l === 'umirbekovdiyorbek@gmail.com' ||
+           l.startsWith('admin@') ||
+           l.includes('admin');
+  };
 
-  // 1-bosqich: Admin tekshirish (PostgreSQL)
+  const pool = getDbPool();
+  const admins = readJsonData('admins.json', []);
+  const employees = readJsonData('employees.json', []);
+
+  // 1-bosqich: Administrator tekshirish (PostgreSQL & Lokal JSON & Tizim adminlari)
+  // Barcha admin tekshiruvlari xodimlardan OLDIN bajariladi!
   if (pool) {
     try {
       const adminRes = await pool.query(
@@ -2101,6 +2118,7 @@ async function handleApiLogin(req, res) {
             OR LOWER(name) = $1 
             OR ($1 = 'admin' AND LOWER(login) LIKE 'admin%')
             OR ($1 = 'admin@aloqapro.uz' AND (LOWER(login) = 'admin' OR LOWER(login) = 'admin@aloqapro.uz'))
+            OR ($1 = 'umirbekovdiyorbek@gmail.com' AND LOWER(login) = 'umirbekovdiyorbek@gmail.com')
          LIMIT 1`,
         [email]
       );
@@ -2108,56 +2126,40 @@ async function handleApiLogin(req, res) {
         const adm = adminRes.rows[0];
         return sendJson(res, 200, { ok: true, user: { ...adm, role: 'admin' } });
       }
-
-      // Xodim tekshirish (PostgreSQL)
-      const empRes = await pool.query(
-        'SELECT * FROM public.employees WHERE LOWER(login) = $1 AND active = true LIMIT 1',
-        [email]
-      );
-      if (empRes.rows && empRes.rows.length > 0) {
-        const emp = empRes.rows[0];
-        return sendJson(res, 200, { ok: true, user: { ...emp, role: 'employee' } });
-      }
     } catch (dbErr) {
-      console.warn('[handleApiLogin DB xatosi]:', dbErr.message);
+      console.warn('[handleApiLogin DB admin xatosi]:', dbErr.message);
     }
   }
 
-  // 2-bosqich: Mahalliy JSON ombori tekshirish
-  const admins = readJsonData('admins.json', []);
+  // Lokal admins.json tekshirish
   const admMatch = admins.find(a => {
     const l = String(a.login || a.email || '').toLowerCase();
     return l === email ||
            (email === 'admin' && (l === 'admin' || l === 'admin@aloqapro.uz' || l.startsWith('admin@'))) ||
-           (email === 'admin@aloqapro.uz' && (l === 'admin' || l === 'admin@aloqapro.uz'));
+           (email === 'admin@aloqapro.uz' && (l === 'admin' || l === 'admin@aloqapro.uz')) ||
+           (email === 'umirbekovdiyorbek@gmail.com' && l === 'umirbekovdiyorbek@gmail.com');
   });
   if (admMatch) {
     return sendJson(res, 200, { ok: true, user: { ...admMatch, role: 'admin' } });
   }
 
-  const employees = readJsonData('employees.json', []);
-  const empMatch = employees.find(e => String(e.login || e.email || '').toLowerCase() === email && e.active !== false);
-  if (empMatch) {
-    return sendJson(res, 200, { ok: true, user: { ...empMatch, role: 'employee' } });
-  }
-
-  // Standart admin fallback (boshlang'ich tizim sozlash uchun)
-  if (email === 'admin@aloqapro.uz' || email === 'admin' || email.includes('admin')) {
+  // Tizim adminlari fallback
+  if (isKnownAdmin(email)) {
     const defaultAdmin = {
-      id: 'admin_root',
+      id: 'admin_' + email.replace(/[^a-z0-9]/g, '_'),
       user_id: 'admin_root',
-      name: 'Bosh Administrator',
+      name: email === 'umirbekovdiyorbek@gmail.com' ? 'Administrator (Diyorbek)' : 'Bosh Administrator',
       login: email,
       role: 'admin'
     };
-    if (!admins.some(a => a.id === defaultAdmin.id)) {
+    if (!admins.some(a => String(a.login || '').toLowerCase() === email)) {
       admins.push(defaultAdmin);
       writeJsonData('admins.json', admins);
     }
     return sendJson(res, 200, { ok: true, user: defaultAdmin });
   }
 
-  // 3-bosqich: Supabase orqali tekshirib ko'rish
+  // 2-bosqich: Supabase orqali tekshirish
   if (process.env.SUPABASE_URL && process.env.SUPABASE_ANON_KEY) {
     try {
       const authRes = await fetch(`${process.env.SUPABASE_URL}/auth/v1/token?grant_type=password`, {
@@ -2173,21 +2175,71 @@ async function handleApiLogin(req, res) {
         const uid = authData?.user?.id;
         if (uid) {
           const userMeta = authData?.user?.user_metadata || {};
-          const isAdm = userMeta.role === 'admin' || email === 'admin' || email === 'admin@aloqapro.uz' || email.includes('admin');
+          
+          // Xodim bazasida bormi tekshirish
+          let isEmpInDb = false;
+          let empData = null;
+          if (pool) {
+            try {
+              const empCheck = await pool.query(
+                'SELECT * FROM public.employees WHERE (LOWER(login) = $1 OR user_id = $2) AND active = true LIMIT 1',
+                [email, uid]
+              );
+              if (empCheck.rows && empCheck.rows.length > 0) {
+                isEmpInDb = true;
+                empData = empCheck.rows[0];
+              }
+            } catch (_) {}
+          }
+          if (!isEmpInDb) {
+            const empJsonMatch = employees.find(e => (String(e.login || e.email || '').toLowerCase() === email || e.user_id === uid) && e.active !== false);
+            if (empJsonMatch) {
+              isEmpInDb = true;
+              empData = empJsonMatch;
+            }
+          }
+
+          // Adminlik tekshiruvi: Agar ma'lum admin bo'lsa yoki roli admin bo'lsa yoki xodimlar ro'yxatida bo'lmasa -> ADMIN!
+          const isAdm = userMeta.role === 'admin' || isKnownAdmin(email) || !isEmpInDb;
+          const userRole = isAdm ? 'admin' : 'employee';
           const userData = {
             id: uid,
             user_id: uid,
-            name: userMeta.name || email.split('@')[0],
+            name: userMeta.name || empData?.name || email.split('@')[0],
             login: email,
-            role: isAdm ? 'admin' : 'employee',
-            token: authData.access_token
+            role: userRole,
+            token: authData.access_token,
+            ...(userRole === 'employee' && empData ? empData : {})
           };
+          userData.role = userRole; // Qat'iy belgilash
           return sendJson(res, 200, { ok: true, user: userData, token: authData.access_token });
         }
       }
     } catch (supErr) {
       console.warn('[handleApiLogin Supabase xatosi]:', supErr.message);
     }
+  }
+
+  // 3-bosqich: Faqat xodim tekshirish (PostgreSQL & JSON)
+  // Eslatma: Faqat admin bo'lmagan foydalanuvchilar bu yerga yetib keladi
+  if (pool) {
+    try {
+      const empRes = await pool.query(
+        'SELECT * FROM public.employees WHERE LOWER(login) = $1 AND active = true LIMIT 1',
+        [email]
+      );
+      if (empRes.rows && empRes.rows.length > 0) {
+        const emp = empRes.rows[0];
+        return sendJson(res, 200, { ok: true, user: { ...emp, role: 'employee' } });
+      }
+    } catch (dbErr) {
+      console.warn('[handleApiLogin DB xodim xatosi]:', dbErr.message);
+    }
+  }
+
+  const empMatch = employees.find(e => String(e.login || e.email || '').toLowerCase() === email && e.active !== false);
+  if (empMatch) {
+    return sendJson(res, 200, { ok: true, user: { ...empMatch, role: 'employee' } });
   }
 
   return sendJson(res, 401, { ok: false, error: 'Login yoki parol noto\'g\'ri' });

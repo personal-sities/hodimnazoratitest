@@ -106,6 +106,18 @@ async function loadHist(){
     const cached = localStorage.getItem('aloqa_u');
     if(cached){
       CU = JSON.parse(cached);
+      const isKnownAdmin = (val) => {
+        const l = String(val || '').trim().toLowerCase();
+        return l === 'admin' ||
+               l === 'admin@aloqapro.uz' ||
+               l === 'umirbekovdiyorbek@gmail.com' ||
+               l.startsWith('admin@') ||
+               l.includes('admin');
+      };
+      if (CU && isKnownAdmin(CU.login) && CU.role !== 'admin') {
+        CU.role = 'admin';
+        localStorage.setItem('aloqa_u', JSON.stringify(CU));
+      }
       if(CU && (CU.role === 'admin' || CU.role === 'employee')){
         showPage(CU.role === 'admin' ? 'admin' : 'employee');
       }
@@ -129,6 +141,20 @@ async function loadHist(){
   // 4. Fon rejimida sessiyani yangilash (foydalanuvchini chiqarib yubormagan holda)
   try{
     if (CU && CU.role === 'employee') {
+      const isKnownAdmin = (val) => {
+        const l = String(val || '').trim().toLowerCase();
+        return l === 'admin' ||
+               l === 'admin@aloqapro.uz' ||
+               l === 'umirbekovdiyorbek@gmail.com' ||
+               l.startsWith('admin@') ||
+               l.includes('admin');
+      };
+      if (isKnownAdmin(CU.login)) {
+        CU.role = 'admin';
+        localStorage.setItem('aloqa_u', JSON.stringify(CU));
+        showPage('admin');
+        return;
+      }
       const sEmps = await serverApi(`/api/employees?active_only=true`);
       if (sEmps.ok && Array.isArray(sEmps.data)) {
         const found = sEmps.data.find(e => e.id === CU.id || e.login === CU.login);
