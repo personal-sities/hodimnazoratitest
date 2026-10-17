@@ -39,16 +39,30 @@ try {
 }
 
 let sharedPool = null;
+let dbConnectionLogged = false;
+
 function getDbPool() {
   if (!sharedPool && process.env.DATABASE_URL && pg) {
     try {
       sharedPool = new pg.Pool({
         connectionString: process.env.DATABASE_URL,
-        max: 10,
-        idleTimeoutMillis: 30000
+        max: 15,
+        idleTimeoutMillis: 30000,
+        connectionTimeoutMillis: 3000
       });
       sharedPool.on('error', (err) => {
         console.error('[PostgreSQL Pool xatosi]:', err.message);
+      });
+      sharedPool.query('SELECT 1').then(() => {
+        if (!dbConnectionLogged) {
+          console.log('[PostgreSQL]: Ma\'lumotlar bazasiga muvaffaqiyatli ulandi.');
+          dbConnectionLogged = true;
+        }
+      }).catch((err) => {
+        if (!dbConnectionLogged) {
+          console.warn('[PostgreSQL]: Bazasiga ulanish kutilmoqda (' + err.message + '). Barcha amallar lokal data/ omborida xavfsiz bajariladi.');
+          dbConnectionLogged = true;
+        }
       });
     } catch (e) {
       console.error('[getDbPool]:', e.message);
@@ -101,17 +115,16 @@ async function ensureDatabaseSchema() {
   const pool = getDbPool();
   if (!pool) return;
   try {
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS public.admins (
-        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        user_id UUID NOT NULL DEFAULT gen_random_uuid(),
-        name TEXT NOT NULL,
-        login TEXT,
-        active BOOLEAN NOT NULL DEFAULT true,
-        created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-        UNIQUE(user_id)
-      );
+    const schemaFile = path.join(ROOT, 'schema.sql');
+    if (fs.existsSync(schemaFile)) {
+      const schemaSql = fs.readFileSync(schemaFile, 'utf8');
+      await pool.query(schemaSql);
+      console.log('[PostgreSQL]: schema.sql bo\'yicha barcha jadvallar va funksiyalar faollashtirildi.');
+    }
 
+    await pool.query(`
+      ALTER TABLE public.employees ADD COLUMN IF NOT EXISTS password TEXT;
+      ALTER TABLE public.admins ADD COLUMN IF NOT EXISTS password TEXT;
       DO $$
       BEGIN
         IF NOT EXISTS (SELECT 1 FROM public.admins WHERE LOWER(login) = 'admin@aloqapro.uz') THEN
@@ -127,48 +140,8 @@ async function ensureDatabaseSchema() {
           VALUES (gen_random_uuid(), gen_random_uuid(), 'Administrator (Diyorbek)', 'umirbekovdiyorbek@gmail.com', true);
         END IF;
       END $$;
-
-      CREATE TABLE IF NOT EXISTS public.calls (
-        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        call_id TEXT UNIQUE,
-        caller TEXT,
-        callee TEXT,
-        operator_number TEXT,
-        employee_id UUID REFERENCES public.employees(id) ON DELETE SET NULL,
-        direction TEXT DEFAULT 'in',
-        status TEXT NOT NULL,
-        duration INTEGER NOT NULL DEFAULT 0,
-        talk_time INTEGER NOT NULL DEFAULT 0,
-        record_url TEXT,
-        raw_data JSONB,
-        call_date DATE NOT NULL DEFAULT CURRENT_DATE,
-        started_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-        created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-        updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
-      );
-      CREATE INDEX IF NOT EXISTS idx_calls_call_date ON public.calls(call_date);
-      CREATE INDEX IF NOT EXISTS idx_calls_operator_number ON public.calls(operator_number);
-      CREATE INDEX IF NOT EXISTS idx_calls_employee_id ON public.calls(employee_id);
-      CREATE INDEX IF NOT EXISTS idx_calls_status ON public.calls(status);
-      CREATE INDEX IF NOT EXISTS idx_calls_started_at ON public.calls(started_at);
-
-      DO $$
-      BEGIN
-        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='employees' AND column_name='operator_number') THEN
-          ALTER TABLE public.employees ADD COLUMN operator_number TEXT;
-        END IF;
-        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='employees' AND column_name='pbx_extension') THEN
-          ALTER TABLE public.employees ADD COLUMN pbx_extension TEXT;
-        END IF;
-        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='calls' AND column_name='rating') THEN
-          ALTER TABLE public.calls ADD COLUMN rating NUMERIC(3,1);
-        END IF;
-        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='calls' AND column_name='rating_comment') THEN
-          ALTER TABLE public.calls ADD COLUMN rating_comment TEXT;
-        END IF;
-      END $$;
     `);
-    console.log('[Database]: Schema tekshirildi (admins va calls jadvallari faol).');
+    console.log('[Database]: PostgreSQL sxemasi va administratorlar to\'liq tayyor.');
   } catch (err) {
     console.warn('[Database]: Schema tekshirishda ogohlantirish:', err.message);
   }
@@ -191,8 +164,8 @@ const server = http.createServer(async (req, res) => {
         retention_months: Number(process.env.RETENTION_MONTHS || 3),
         retention_interval_months: Number(process.env.RETENTION_INTERVAL_MONTHS || 2),
         google_sheets: 'disabled',
+        database: 'postgresql',
         has_database: Boolean(process.env.DATABASE_URL && pg),
-        has_supabase: Boolean(process.env.SUPABASE_URL),
         uptime: Math.floor(process.uptime())
       });
     }
@@ -257,6 +230,18 @@ const server = http.createServer(async (req, res) => {
     // ============================================================
     //  ALOQAPRO ASOSIY SERVER API MARSHRUTLARI (TO'G'RIDAN-TO'G'RI SERVER BAZASI)
     // ============================================================
+
+    // Database Table API (PostgreSQL direct / lokal zaxira)
+    if (pathname.startsWith('/api/db/')) {
+      const table = pathname.replace('/api/db/', '').split('/')[0].trim();
+      return handleDatabaseTableApi(req, res, table, reqUrl);
+    }
+
+    // Database RPC API (PostgreSQL funksiyalari / lokal hisoblash)
+    if (pathname.startsWith('/api/rpc/')) {
+      const func = pathname.replace('/api/rpc/', '').split('/')[0].trim();
+      return handleDatabaseRpcApi(req, res, func);
+    }
 
     // 1. Auth Login API (Server orqali tezkor kirish)
     if (pathname === '/api/auth/login' && req.method === 'POST') {
@@ -338,7 +323,8 @@ if (require.main === module) {
     console.log(`====================================================`);
     console.log(`  AloqaPro Server muvaffaqiyatli ishga tushdi`);
     console.log(`  Manzil: http://${HOST}:${PORT}`);
-    console.log(`  Ma'lumotlar bazasi: ${process.env.DATABASE_URL ? 'PostgreSQL ulandi' : 'Supabase Cloud / Standart'}`);
+    console.log(`  Ma'lumotlar bazasi: PostgreSQL (${process.env.DATABASE_URL ? 'sozlangan' : 'lokal zaxira'})`);
+    console.log(`  Supabase: BUTUNLAY O'CHIRILGAN (100% Server & PostgreSQL)`);
     console.log(`  Google Sheets: TO'XTATILGAN (Faqat xavfsiz baza)`);
     console.log(`  Tozalash siyosati: Har ${process.env.RETENTION_INTERVAL_MONTHS || 2} oyda, 3 oydan eski ma'lumotlar o'chiriladi`);
     console.log(`====================================================`);
@@ -371,23 +357,42 @@ if (require.main === module) {
 
 function loadEnv() {
   const envPath = path.join(__dirname, '.env');
-  if (!fs.existsSync(envPath)) return;
-  const content = fs.readFileSync(envPath, 'utf8');
-  content.split(/\r?\n/).forEach(line => {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith('#')) return;
-    const match = trimmed.match(/^([^=]+)=(.*)$/);
-    if (match) {
-      const key = match[1].trim();
-      let val = match[2].trim();
-      if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
-        val = val.slice(1, -1);
+  const examplePath = path.join(__dirname, '.env.example');
+  if (!fs.existsSync(envPath) && fs.existsSync(examplePath)) {
+    try {
+      fs.copyFileSync(examplePath, envPath);
+      console.log("[AloqaPro]: .env fayli topilmadi, .env.example asosida avtomatik yaratildi.");
+    } catch (_) {}
+  }
+
+  if (fs.existsSync(envPath)) {
+    const content = fs.readFileSync(envPath, 'utf8');
+    content.split(/\r?\n/).forEach(line => {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith('#')) return;
+      const match = trimmed.match(/^([^=]+)=(.*)$/);
+      if (match) {
+        const key = match[1].trim();
+        let val = match[2].trim();
+        if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+          val = val.slice(1, -1);
+        }
+        if (process.env[key] === undefined) {
+          process.env[key] = val;
+        }
       }
-      if (process.env[key] === undefined) {
-        process.env[key] = val;
-      }
-    }
-  });
+    });
+  }
+
+  // Standart PostgreSQL ulanish manzili (hech qachon DATABASE_URL yo'q deb xato bermaydi)
+  if (!process.env.DATABASE_URL) {
+    const dbUser = process.env.DB_USER || 'aloqa_user';
+    const dbPass = process.env.DB_PASSWORD || 'aloqa_password';
+    const dbHost = process.env.DB_HOST || 'localhost';
+    const dbPort = process.env.DB_PORT || '5432';
+    const dbName = process.env.DB_NAME || 'aloqapro';
+    process.env.DATABASE_URL = `postgres://${dbUser}:${dbPass}@${dbHost}:${dbPort}/${dbName}`;
+  }
 }
 
 function parseBool(val) {
@@ -396,9 +401,9 @@ function parseBool(val) {
 
 function sendEnv(res) {
   const config = {
-    SUPABASE_URL: process.env.SUPABASE_URL || 'https://hdbhdddekjjjtwtyocfa.supabase.co',
-    SUPABASE_ANON_KEY: process.env.SUPABASE_ANON_KEY || 'sb_publishable_CZUB0mOSzmmCvviNzWykzw_B3_0-5bE',
-    FUNCTIONS_BASE: process.env.FUNCTIONS_BASE || '/api/functions/v1',
+    DATABASE_TYPE: 'postgresql',
+    API_BASE: '/api',
+    FUNCTIONS_BASE: '/api/functions/v1',
     ENABLE_GOOGLE_SHEETS: false
   };
   const content = `window.ALOQA_CONFIG = ${JSON.stringify(config, null, 2)};\n`;
@@ -449,84 +454,36 @@ async function handleCreateEmployee(res, body) {
     return sendJson(res, 400, { ok: false, error: 'Ism, email va parol kiritilishi shart' });
   }
 
-  // 1. Supabase Service Role mavjud bo'lsa Supabase Auth ga qo'shish
-  if (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
-    try {
-      const userRes = await fetch(`${process.env.SUPABASE_URL}/auth/v1/admin/users`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': process.env.SUPABASE_SERVICE_ROLE_KEY,
-          'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`
-        },
-        body: JSON.stringify({
-          email,
-          password,
-          email_confirm: true,
-          user_metadata: { name, role: 'employee' }
-        })
-      });
-      const userData = await userRes.json();
-      if (!userRes.ok) {
-        throw new Error(userData.msg || userData.message || userData.error_description || 'Foydalanuvchi yaratilmadi');
-      }
-
-      const empRes = await fetch(`${process.env.SUPABASE_URL}/rest/v1/employees`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': process.env.SUPABASE_SERVICE_ROLE_KEY,
-          'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
-          'Prefer': 'return=representation'
-        },
-        body: JSON.stringify({
-          user_id: userData.id,
-          name,
-          login: email,
-          kpi_type: kpiType,
-          operator_number: operatorNumber,
-          pbx_extension: operatorNumber,
-          active: true,
-          face_registered: false
-        })
-      });
-      const empData = await empRes.json();
-      if (!empRes.ok) {
-        throw new Error(empData.message || empData.msg || 'Xodim ma\'lumotlar bazasiga yozilmadi');
-      }
-
-      return sendJson(res, 200, { ok: true, employee_id: empData?.[0]?.id, employee: empData?.[0] });
-    } catch (err) {
-      console.error('handleCreateEmployee Supabase xatosi:', err);
-      return sendJson(res, 400, { ok: false, error: err.message || 'Xodimni yaratishda xatolik yuz berdi' });
-    }
-  }
-
-  // 2. Mahalliy PostgreSQL mavjud bo'lsa
   const pool = getDbPool();
   if (pool) {
     try {
       const query = `
-        INSERT INTO public.employees (user_id, name, login, kpi_type, operator_number, pbx_extension, active, face_registered)
-        VALUES (gen_random_uuid(), $1, $2, $3, $4, $4, true, false)
-        RETURNING id, name, login, kpi_type, operator_number;
+        INSERT INTO public.employees (user_id, name, login, password, kpi_type, operator_number, pbx_extension, active, face_registered)
+        VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $5, true, false)
+        RETURNING id, name, login, kpi_type, operator_number, active;
       `;
-      const result = await pool.query(query, [name, email, kpiType, operatorNumber]);
-      const newEmpId = result.rows[0]?.id;
+      const result = await pool.query(query, [name, email, password, kpiType, operatorNumber]);
+      const newEmp = result.rows[0];
+      const newEmpId = newEmp?.id;
       if (newEmpId && operatorNumber) {
         await pool.query(
           'UPDATE public.calls SET employee_id = $1 WHERE operator_number = $2 AND employee_id IS NULL',
           [newEmpId, operatorNumber]
         ).catch(() => {});
       }
-      return sendJson(res, 200, { ok: true, employee_id: newEmpId, employee: result.rows[0] });
+
+      // Lokal JSON zaxirasi
+      const emps = readJsonData('employees.json', []);
+      emps.push({ ...newEmp, password, created_at: new Date().toISOString() });
+      writeJsonData('employees.json', emps);
+
+      return sendJson(res, 200, { ok: true, employee_id: newEmpId, employee: newEmp });
     } catch (dbErr) {
-      console.error('handleCreateEmployee DB xatosi:', dbErr);
-      return sendJson(res, 400, { ok: false, error: dbErr.message });
+      console.error('handleCreateEmployee DB xatosi:', dbErr.message);
     }
   }
 
-  // 3. Fallback: Local employees.json ga saqlash
+  // Fallback: Local employees.json ga saqlash
   const emps = readJsonData('employees.json', []);
   const newEmpId = `emp_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
   const newEmp = {
@@ -534,6 +491,7 @@ async function handleCreateEmployee(res, body) {
     user_id: newEmpId,
     name,
     login: email,
+    password,
     kpi_type: kpiType,
     operator_number: operatorNumber,
     pbx_extension: operatorNumber,
@@ -566,40 +524,21 @@ async function handleDeleteEmployee(res, body) {
   const employeeId = body.employee_id || body.id;
   if (!employeeId) return sendJson(res, 400, { ok: false, error: 'employee_id berilmadi' });
 
-  let handled = false;
-
-  if (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
+  const pool = getDbPool();
+  if (pool) {
     try {
-      const delRes = await fetch(`${process.env.SUPABASE_URL}/rest/v1/employees?id=eq.${encodeURIComponent(employeeId)}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': process.env.SUPABASE_SERVICE_ROLE_KEY,
-          'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`
-        },
-        body: JSON.stringify({ active: false })
-      });
-      if (!delRes.ok) {
-        const txt = await delRes.text();
-        throw new Error(txt || 'Xodimni o\'chirishda xatolik');
-      }
-      handled = true;
-    } catch (e) {
-      console.error('handleDeleteEmployee error:', e);
-      return sendJson(res, 500, { ok: false, error: e.message });
+      await pool.query('UPDATE public.employees SET active = false WHERE id = $1', [employeeId]);
+    } catch (dbErr) {
+      console.error('handleDeleteEmployee DB xatosi:', dbErr.message);
     }
   }
 
-  if (process.env.DATABASE_URL && pg && !handled) {
-    const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
-    try {
-      await pool.query('UPDATE public.employees SET active = false WHERE id = $1', [employeeId]);
-      await pool.end();
-      handled = true;
-    } catch (dbErr) {
-      await pool.end().catch(() => {});
-      return sendJson(res, 500, { ok: false, error: dbErr.message });
-    }
+  const emps = readJsonData('employees.json', []);
+  const emp = emps.find(e => e.id === employeeId);
+  if (emp) {
+    emp.active = false;
+    emp.updated_at = new Date().toISOString();
+    writeJsonData('employees.json', emps);
   }
 
   return sendJson(res, 200, { ok: true });
@@ -612,44 +551,24 @@ async function handleResetEmployeePassword(res, body) {
     return sendJson(res, 400, { ok: false, error: 'employee_id va new_password kiritilishi shart' });
   }
 
-  if (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
+  const pool = getDbPool();
+  if (pool) {
     try {
-      // 1. Employee ning user_id sini topish
-      const empRes = await fetch(`${process.env.SUPABASE_URL}/rest/v1/employees?id=eq.${encodeURIComponent(employeeId)}&select=user_id`, {
-        headers: {
-          'apikey': process.env.SUPABASE_SERVICE_ROLE_KEY,
-          'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`
-        }
-      });
-      const emps = await empRes.json();
-      const userId = emps?.[0]?.user_id;
-      if (!userId) {
-        return sendJson(res, 404, { ok: false, error: 'Xodim yoki uning auth user_id si topilmadi' });
-      }
-
-      // 2. Supabase Auth da parolni yangilash
-      const passRes = await fetch(`${process.env.SUPABASE_URL}/auth/v1/admin/users/${userId}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': process.env.SUPABASE_SERVICE_ROLE_KEY,
-          'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`
-        },
-        body: JSON.stringify({ password: newPassword })
-      });
-      const passData = await passRes.json();
-      if (!passRes.ok) {
-        throw new Error(passData.msg || passData.message || 'Parolni yangilab bo\'lmadi');
-      }
-
-      return sendJson(res, 200, { ok: true, message: 'Parol muvaffaqiyatli yangilandi' });
+      await pool.query('UPDATE public.employees SET password = $1 WHERE id = $2', [newPassword, employeeId]);
     } catch (err) {
-      console.error('handleResetEmployeePassword error:', err);
-      return sendJson(res, 500, { ok: false, error: err.message || 'Parolni yangilashda xatolik' });
+      console.error('handleResetEmployeePassword DB xatosi:', err.message);
     }
   }
 
-  return sendJson(res, 400, { ok: false, error: 'SUPABASE_SERVICE_ROLE_KEY sozlanmagan' });
+  const emps = readJsonData('employees.json', []);
+  const emp = emps.find(e => e.id === employeeId);
+  if (emp) {
+    emp.password = newPassword;
+    emp.updated_at = new Date().toISOString();
+    writeJsonData('employees.json', emps);
+  }
+
+  return sendJson(res, 200, { ok: true, message: 'Parol muvaffaqiyatli yangilandi' });
 }
 
 async function handleUpdateEmployeeOperator(res, body) {
@@ -659,10 +578,9 @@ async function handleUpdateEmployeeOperator(res, body) {
     return sendJson(res, 400, { ok: false, error: 'employee_id berilmadi' });
   }
 
-  let updated = false;
   let employeeName = null;
 
-  // 1. DB
+  // 1. PostgreSQL DB
   const pool = getDbPool();
   if (pool) {
     try {
@@ -679,7 +597,6 @@ async function handleUpdateEmployeeOperator(res, body) {
           [employeeId, operatorNumber]
         ).catch(() => {});
       }
-      updated = true;
     } catch (dbErr) {
       console.error('[handleUpdateEmployeeOperator DB xatosi]:', dbErr.message);
     }
@@ -694,10 +611,9 @@ async function handleUpdateEmployeeOperator(res, body) {
     emps[empIdx].updated_at = new Date().toISOString();
     employeeName = employeeName || emps[empIdx].name;
     writeJsonData('employees.json', emps);
-    updated = true;
   }
 
-  // 3. Local calls.json dagi shu operator qo'ng'iroqlarini xodimga bog'laymiz
+  // 3. Local calls.json
   if (operatorNumber) {
     try {
       const calls = readLocalCalls();
@@ -711,27 +627,6 @@ async function handleUpdateEmployeeOperator(res, body) {
       });
       if (callUpdated) writeLocalCalls(calls);
     } catch (_) {}
-  }
-
-  // 4. Supabase
-  if (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
-    try {
-      const patchRes = await fetch(`${process.env.SUPABASE_URL}/rest/v1/employees?id=eq.${encodeURIComponent(employeeId)}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': process.env.SUPABASE_SERVICE_ROLE_KEY,
-          'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`
-        },
-        body: JSON.stringify({
-          operator_number: operatorNumber,
-          pbx_extension: operatorNumber
-        })
-      });
-      if (patchRes.ok) updated = true;
-    } catch (supErr) {
-      console.error('[handleUpdateEmployeeOperator Supabase xatosi]:', supErr.message);
-    }
   }
 
   return sendJson(res, 200, {
@@ -1284,25 +1179,6 @@ async function handleOnlinePbxWebhook(req, res, reqUrl) {
           employeeName = matched.name;
         }
       }
-
-      if (!employeeId && process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
-        try {
-          const empFetch = await fetch(
-            `${process.env.SUPABASE_URL}/rest/v1/employees?or=(operator_number.eq.${encodeURIComponent(operatorNumber)},pbx_extension.eq.${encodeURIComponent(operatorNumber)})&select=id,name&limit=1`,
-            {
-              headers: {
-                'apikey': process.env.SUPABASE_SERVICE_ROLE_KEY,
-                'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`
-              }
-            }
-          );
-          const emps = await empFetch.json();
-          if (Array.isArray(emps) && emps.length > 0) {
-            employeeId = emps[0].id;
-            employeeName = emps[0].name;
-          }
-        } catch (e) {}
-      }
     }
 
     const saved = await saveCallRecord({
@@ -1551,61 +1427,6 @@ async function handlePrayerTimes(req, res, reqUrl) {
   });
 }
 
-async function handleUpdateEmployeeOperator(res, body) {
-  const employeeId = body.employee_id || body.id;
-  const operatorNumber = String(body.operator_number || body.pbx_extension || '').trim() || null;
-  if (!employeeId) {
-    return sendJson(res, 400, { ok: false, error: 'employee_id berilmadi' });
-  }
-
-  let updated = false;
-
-  const pool = getDbPool();
-  if (pool) {
-    try {
-      await pool.query(
-        'UPDATE public.employees SET operator_number = $1, pbx_extension = $1 WHERE id = $2',
-        [operatorNumber, employeeId]
-      );
-      if (operatorNumber) {
-        await pool.query(
-          'UPDATE public.calls SET employee_id = $1 WHERE operator_number = $2 AND employee_id IS NULL',
-          [employeeId, operatorNumber]
-        ).catch(() => {});
-      }
-      updated = true;
-    } catch (dbErr) {
-      console.error('[handleUpdateEmployeeOperator DB xatosi]:', dbErr.message);
-    }
-  }
-
-  if (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
-    try {
-      const patchRes = await fetch(`${process.env.SUPABASE_URL}/rest/v1/employees?id=eq.${encodeURIComponent(employeeId)}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': process.env.SUPABASE_SERVICE_ROLE_KEY,
-          'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`
-        },
-        body: JSON.stringify({
-          operator_number: operatorNumber,
-          pbx_extension: operatorNumber
-        })
-      });
-      if (patchRes.ok) updated = true;
-    } catch (supErr) {
-      console.error('[handleUpdateEmployeeOperator Supabase xatosi]:', supErr.message);
-    }
-  }
-
-  return sendJson(res, 200, {
-    ok: true,
-    employee_id: employeeId,
-    operator_number: operatorNumber
-  });
-}
-
 // Himoyalangan ichki fayllar ro'yxati (hech qachon brauzerga berilmaydi)
 const PROTECTED_FILES = new Set([
   '.env',
@@ -1620,8 +1441,6 @@ const PROTECTED_FILES = new Set([
   'package.json',
   'package-lock.json',
   'schema.sql',
-  'migrate-from-supabase.js',
-  'export-supabase-data.js',
   'ubuntu_deploy.md',
   'readme.md',
   '.cleanup_last_run'
@@ -1793,54 +1612,39 @@ async function runRetentionCleanup(isManual = false) {
     }
   }
 
-  // 2-USUL: Supabase REST API orqali tozalash (agar DATABASE_URL yo'q, lekin Supabase service kaliti bo'lsa)
-  if (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
-    try {
-      console.log('[Tozalash]: Supabase REST API orqali eski ma\'lumotlar tozalanmoqda...');
-      const cutoffDate = new Date();
-      cutoffDate.setMonth(cutoffDate.getMonth() - retentionMonths);
-      const cutoffDateStr = cutoffDate.toISOString().split('T')[0];
-      const cutoffIso = cutoffDate.toISOString();
+  // 2-USUL: Lokal JSON fayllarni tozalash (PostgreSQL mavjud bo'lmaganda)
+  try {
+    const cutoffDate = new Date();
+    cutoffDate.setMonth(cutoffDate.getMonth() - retentionMonths);
+    const cutoffDateStr = cutoffDate.toISOString().split('T')[0];
+    const cutoffIso = cutoffDate.toISOString();
 
-      const headers = {
-        'apikey': process.env.SUPABASE_SERVICE_ROLE_KEY,
-        'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
-        'Prefer': 'count=exact'
-      };
+    const att = readJsonData('attendance.json', []).filter(r => (r.work_date || '') >= cutoffDateStr);
+    writeJsonData('attendance.json', att);
 
-      const [r1, r2, r3, r4] = await Promise.all([
-        fetch(`${process.env.SUPABASE_URL}/rest/v1/attendance?work_date=lt.${cutoffDateStr}`, { method: 'DELETE', headers }),
-        fetch(`${process.env.SUPABASE_URL}/rest/v1/notifications?sent_at=lt.${cutoffIso}`, { method: 'DELETE', headers }),
-        fetch(`${process.env.SUPABASE_URL}/rest/v1/feedback?created_at=lt.${cutoffIso}`, { method: 'DELETE', headers }),
-        fetch(`${process.env.SUPABASE_URL}/rest/v1/employee_leaves?return_date=lt.${cutoffDateStr}`, { method: 'DELETE', headers })
-      ]);
+    const notifs = readJsonData('notifications.json', []).filter(r => (r.sent_at || '') >= cutoffIso);
+    writeJsonData('notifications.json', notifs);
 
-      const summary = {
-        ok: true,
-        method: 'supabase_rest',
-        retention_months: retentionMonths,
-        cutoff_date: cutoffDateStr,
-        attendance_status: r1.status,
-        notifications_status: r2.status,
-        feedback_status: r3.status,
-        leaves_status: r4.status,
-        cleaned_at: new Date().toISOString()
-      };
-      console.log(`[Tozalash muvaffaqiyatli - Supabase REST]:`, summary);
-      saveLastCleanupTimestamp();
-      return summary;
-    } catch (restErr) {
-      console.error('[Tozalash xatosi - Supabase REST]:', restErr.message);
-      return { ok: false, error: restErr.message };
-    }
+    const fb = readJsonData('feedback.json', []).filter(r => (r.created_at || '') >= cutoffIso);
+    writeJsonData('feedback.json', fb);
+
+    const leaves = readJsonData('employee_leaves.json', []).filter(r => (r.return_date || '') >= cutoffDateStr);
+    writeJsonData('employee_leaves.json', leaves);
+
+    saveLastCleanupTimestamp();
+    const summary = {
+      ok: true,
+      method: 'local_json_cleanup',
+      retention_months: retentionMonths,
+      cutoff_date: cutoffDateStr,
+      cleaned_at: new Date().toISOString()
+    };
+    console.log('[Tozalash muvaffaqiyatli - Lokal JSON]:', summary);
+    return summary;
+  } catch (jsonErr) {
+    console.error('[Tozalash xatosi - Lokal JSON]:', jsonErr.message);
+    return { ok: false, error: jsonErr.message };
   }
-
-  console.log('[Tozalash ogohlantirish]: DATABASE_URL yoki SUPABASE_SERVICE_ROLE_KEY mavjud emas. Tozalash uchun ulardan birini sozlang.');
-  return {
-    ok: false,
-    message: "DATABASE_URL yoki SUPABASE_SERVICE_ROLE_KEY mavjud emas",
-    retention_months: retentionMonths
-  };
 }
 
 const CLEANUP_TIMESTAMP_FILE = path.join(__dirname, '.cleanup_last_run');
@@ -1945,36 +1749,24 @@ async function runServerScheduledChecks() {
         } catch (dbErr) {
           console.warn('[AutoEnd Scheduler] 17:55 eslatma xatosi:', dbErr.message);
         }
-      } else if (process.env.SUPABASE_URL && (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY)) {
-        try {
-          const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
-          const attRes = await fetch(`${process.env.SUPABASE_URL}/rest/v1/attendance?work_date=eq.${dStr}&end_time=is.null&start_time=not.is.null&select=employee_id`, {
-            headers: { 'apikey': key, 'Authorization': `Bearer ${key}` }
+      } else {
+        // Lokal JSON eslatmasi
+        const att = readJsonData('attendance.json', []);
+        const activeToday = att.filter(r => r.work_date === dStr && r.start_time && !r.end_time);
+        if (activeToday.length > 0) {
+          const notifs = readJsonData('notifications.json', []);
+          activeToday.forEach(r => {
+            notifs.unshift({
+              id: `notif_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+              employee_id: r.employee_id,
+              title,
+              body,
+              type: 'work_end_reminder',
+              is_read: false,
+              sent_at: new Date().toISOString()
+            });
           });
-          if (attRes.ok) {
-            const attRows = await attRes.json();
-            const uniqueEmpIds = Array.from(new Set((attRows || []).map(r => r.employee_id).filter(Boolean)));
-            if (uniqueEmpIds.length > 0) {
-              const notifPayload = uniqueEmpIds.map(empId => ({
-                employee_id: empId,
-                title,
-                body,
-                type: 'work_end_reminder'
-              }));
-              await fetch(`${process.env.SUPABASE_URL}/rest/v1/notifications`, {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  'apikey': key,
-                  'Authorization': `Bearer ${key}`
-                },
-                body: JSON.stringify(notifPayload)
-              });
-              console.log(`[AutoEnd Scheduler - Supabase]: ${uniqueEmpIds.length} ta xodimga 17:55 eslatmasi yuborildi.`);
-            }
-          }
-        } catch (supErr) {
-          console.warn('[AutoEnd Scheduler - Supabase] 17:55 eslatma xatosi:', supErr.message);
+          writeJsonData('notifications.json', notifs.slice(0, 1000));
         }
       }
     }
@@ -2020,26 +1812,21 @@ async function runServerScheduledChecks() {
         } catch (dbErr) {
           console.warn('[AutoEnd Scheduler] 18:30 auto-end DB xatosi:', dbErr.message);
         }
-      } else if (process.env.SUPABASE_URL && (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY)) {
-        try {
-          const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
-          const patchRes = await fetch(`${process.env.SUPABASE_URL}/rest/v1/attendance?work_date=eq.${dStr}&end_time=is.null&start_time=not.is.null`, {
-            method: 'PATCH',
-            headers: {
-              'Content-Type': 'application/json',
-              'apikey': key,
-              'Authorization': `Bearer ${key}`
-            },
-            body: JSON.stringify({
-              end_time: '18:30:00',
-              auto_ended: true
-            })
-          });
-          if (patchRes.ok) {
-            console.log(`[AutoEnd Scheduler - Supabase]: 18:30 avtomatik yakunlash muvaffaqiyatli yuborildi.`);
+      } else {
+        // Lokal JSON avtomatik yakunlash
+        const att = readJsonData('attendance.json', []);
+        let updatedCount = 0;
+        att.forEach(r => {
+          if (r.work_date === dStr && r.start_time && !r.end_time) {
+            r.end_time = '18:30:00';
+            r.auto_ended = true;
+            r.updated_at = new Date().toISOString();
+            updatedCount++;
           }
-        } catch (supErr) {
-          console.warn('[AutoEnd Scheduler - Supabase] 18:30 xatosi:', supErr.message);
+        });
+        if (updatedCount > 0) {
+          writeJsonData('attendance.json', att);
+          console.log(`[AutoEnd Scheduler - Lokal]: ${updatedCount} ta xodimning davomati 18:30 holatiga yakunlandi.`);
         }
       }
     }
@@ -2083,6 +1870,381 @@ function writeJsonData(filename, data) {
     console.error(`[writeJsonData ${filename}]:`, e.message);
     return false;
   }
+}
+
+// ============================================================
+//  POSTGRESQL TO'G'RIDAN-TO'G'RI REST VA RPC ISHLOVCHILARI
+// ============================================================
+
+async function handleDatabaseTableApi(req, res, table, reqUrl) {
+  const allowedTables = [
+    'admins', 'employees', 'attendance', 'kpi_bonuses', 'settings',
+    'notifications', 'feedback', 'lunch_plans', 'employee_leaves', 'face_profiles', 'calls'
+  ];
+  if (!allowedTables.includes(table)) {
+    return sendJson(res, 404, { ok: false, error: `Noma'lum jadval: ${table}` });
+  }
+
+  const pool = getDbPool();
+
+  // 1. GET (Select & Filter)
+  if (req.method === 'GET') {
+    const selectParam = reqUrl.searchParams.get('select') || '*';
+    const orderParam = reqUrl.searchParams.get('order');
+    const limitParam = reqUrl.searchParams.get('limit');
+    const offsetParam = reqUrl.searchParams.get('offset');
+
+    if (pool) {
+      try {
+        const whereClauses = [];
+        const params = [];
+
+        for (const [key, val] of reqUrl.searchParams.entries()) {
+          if (['select', 'order', 'limit', 'offset', 'on_conflict'].includes(key)) continue;
+          if (val.startsWith('eq.')) {
+            params.push(val.slice(3));
+            whereClauses.push(`t."${key}" = $${params.length}`);
+          } else if (val.startsWith('neq.')) {
+            params.push(val.slice(4));
+            whereClauses.push(`t."${key}" != $${params.length}`);
+          } else if (val.startsWith('gte.')) {
+            params.push(val.slice(4));
+            whereClauses.push(`t."${key}" >= $${params.length}`);
+          } else if (val.startsWith('lte.')) {
+            params.push(val.slice(4));
+            whereClauses.push(`t."${key}" <= $${params.length}`);
+          } else if (val.startsWith('gt.')) {
+            params.push(val.slice(3));
+            whereClauses.push(`t."${key}" > $${params.length}`);
+          } else if (val.startsWith('lt.')) {
+            params.push(val.slice(3));
+            whereClauses.push(`t."${key}" < $${params.length}`);
+          } else if (val.startsWith('like.')) {
+            params.push(val.slice(5));
+            whereClauses.push(`t."${key}" LIKE $${params.length}`);
+          } else if (val.startsWith('ilike.')) {
+            params.push(val.slice(6));
+            whereClauses.push(`t."${key}" ILIKE $${params.length}`);
+          } else if (val === 'is.null') {
+            whereClauses.push(`t."${key}" IS NULL`);
+          } else if (val === 'not.is.null') {
+            whereClauses.push(`t."${key}" IS NOT NULL`);
+          }
+        }
+
+        let selectClause = 't.*';
+        let joinClause = '';
+        if (selectParam.includes('employees(name)')) {
+          selectClause = `t.*, json_build_object('name', e.name) AS employees`;
+          joinClause = `LEFT JOIN public.employees e ON t.employee_id = e.id`;
+        } else if (selectParam !== '*') {
+          const cols = selectParam.split(',').map(c => c.trim()).filter(Boolean);
+          selectClause = cols.map(c => c.includes('(') ? c : `t."${c}"`).join(', ');
+        }
+
+        let query = `SELECT ${selectClause} FROM public."${table}" t ${joinClause}`;
+        if (whereClauses.length > 0) {
+          query += ` WHERE ${whereClauses.join(' AND ')}`;
+        }
+        if (orderParam) {
+          const [oCol, oDir] = orderParam.split('.');
+          const dir = (oDir && oDir.toLowerCase() === 'desc') ? 'DESC' : 'ASC';
+          query += ` ORDER BY t."${oCol}" ${dir}`;
+        }
+        if (limitParam && !isNaN(Number(limitParam))) {
+          params.push(Number(limitParam));
+          query += ` LIMIT $${params.length}`;
+        }
+        if (offsetParam && !isNaN(Number(offsetParam))) {
+          params.push(Number(offsetParam));
+          query += ` OFFSET $${params.length}`;
+        }
+
+        const dbRes = await pool.query(query, params);
+        return sendJson(res, 200, { ok: true, data: dbRes.rows || [] });
+      } catch (err) {
+        console.warn(`[handleDatabaseTableApi GET ${table} DB xatosi]:`, err.message);
+      }
+    }
+
+    // Local JSON fallback
+    let list = readJsonData(`${table}.json`, []);
+    for (const [key, val] of reqUrl.searchParams.entries()) {
+      if (['select', 'order', 'limit', 'offset', 'on_conflict'].includes(key)) continue;
+      if (val.startsWith('eq.')) {
+        const target = val.slice(3);
+        list = list.filter(item => String(item[key] ?? '') === target);
+      } else if (val.startsWith('neq.')) {
+        const target = val.slice(4);
+        list = list.filter(item => String(item[key] ?? '') !== target);
+      } else if (val.startsWith('gte.')) {
+        const target = val.slice(4);
+        list = list.filter(item => (item[key] ?? '') >= target);
+      } else if (val.startsWith('lte.')) {
+        const target = val.slice(4);
+        list = list.filter(item => (item[key] ?? '') <= target);
+      } else if (val === 'is.null') {
+        list = list.filter(item => item[key] == null);
+      } else if (val === 'not.is.null') {
+        list = list.filter(item => item[key] != null);
+      }
+    }
+
+    if (orderParam) {
+      const [oCol, oDir] = orderParam.split('.');
+      const isDesc = oDir && oDir.toLowerCase() === 'desc';
+      list.sort((a, b) => {
+        const valA = a[oCol] ?? '';
+        const valB = b[oCol] ?? '';
+        if (valA < valB) return isDesc ? 1 : -1;
+        if (valA > valB) return isDesc ? -1 : 1;
+        return 0;
+      });
+    }
+
+    if (offsetParam && !isNaN(Number(offsetParam))) {
+      list = list.slice(Number(offsetParam));
+    }
+    if (limitParam && !isNaN(Number(limitParam))) {
+      list = list.slice(0, Number(limitParam));
+    }
+
+    return sendJson(res, 200, { ok: true, data: list });
+  }
+
+  // 2. POST (Insert / Upsert)
+  if (req.method === 'POST') {
+    const rawBody = await readJson(req);
+    const rows = Array.isArray(rawBody) ? rawBody : [rawBody];
+    const onConflict = reqUrl.searchParams.get('on_conflict');
+    const insertedRows = [];
+
+    if (pool) {
+      try {
+        for (const item of rows) {
+          const keys = Object.keys(item).filter(k => item[k] !== undefined);
+          if (keys.length === 0) continue;
+
+          let query = '';
+          const params = keys.map(k => {
+            const v = item[k];
+            if (typeof v === 'object' && v !== null && (table === 'face_profiles' || k === 'descriptor' || k === 'raw_data')) {
+              return JSON.stringify(v);
+            }
+            return v;
+          });
+
+          if (onConflict) {
+            const conflictCols = onConflict.split(',').map(c => c.trim());
+            const updateCols = keys.filter(k => !conflictCols.includes(k));
+            const updateSet = updateCols.map(k => `"${k}" = EXCLUDED."${k}"`).join(', ');
+            query = `
+              INSERT INTO public."${table}" (${keys.map(k => `"${k}"`).join(', ')})
+              VALUES (${keys.map((_, i) => `$${i + 1}`).join(', ')})
+              ON CONFLICT (${conflictCols.map(c => `"${c}"`).join(', ')})
+              DO UPDATE SET ${updateSet || `"${conflictCols[0]}" = EXCLUDED."${conflictCols[0]}"`}
+              RETURNING *;
+            `;
+          } else {
+            query = `
+              INSERT INTO public."${table}" (${keys.map(k => `"${k}"`).join(', ')})
+              VALUES (${keys.map((_, i) => `$${i + 1}`).join(', ')})
+              RETURNING *;
+            `;
+          }
+          const resDb = await pool.query(query, params);
+          if (resDb.rows && resDb.rows[0]) insertedRows.push(resDb.rows[0]);
+        }
+      } catch (err) {
+        console.warn(`[handleDatabaseTableApi POST ${table} DB xatosi]:`, err.message);
+      }
+    }
+
+    // Local JSON update
+    const currentList = readJsonData(`${table}.json`, []);
+    for (const item of rows) {
+      if (!item.id && !item.employee_id) {
+        item.id = `${table}_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+      }
+      let foundIdx = -1;
+      if (onConflict) {
+        const conflictCols = onConflict.split(',').map(c => c.trim());
+        foundIdx = currentList.findIndex(entry => conflictCols.every(c => entry[c] === item[c]));
+      } else if (item.id) {
+        foundIdx = currentList.findIndex(entry => entry.id === item.id);
+      }
+
+      if (foundIdx >= 0) {
+        currentList[foundIdx] = { ...currentList[foundIdx], ...item, updated_at: new Date().toISOString() };
+      } else {
+        currentList.push({ ...item, created_at: item.created_at || new Date().toISOString() });
+      }
+    }
+    writeJsonData(`${table}.json`, currentList);
+
+    return sendJson(res, 200, { ok: true, data: insertedRows.length > 0 ? insertedRows : rows });
+  }
+
+  // 3. PATCH (Update)
+  if (req.method === 'PATCH') {
+    const body = await readJson(req);
+    const updateKeys = Object.keys(body).filter(k => body[k] !== undefined);
+    const updatedRows = [];
+
+    if (pool && updateKeys.length > 0) {
+      try {
+        const setClauses = updateKeys.map((k, i) => `"${k}" = $${i + 1}`);
+        const params = updateKeys.map(k => body[k]);
+        const whereClauses = [];
+
+        for (const [key, val] of reqUrl.searchParams.entries()) {
+          if (['select', 'order', 'limit', 'offset', 'on_conflict'].includes(key)) continue;
+          if (val.startsWith('eq.')) {
+            params.push(val.slice(3));
+            whereClauses.push(`"${key}" = $${params.length}`);
+          }
+        }
+
+        let query = `UPDATE public."${table}" SET ${setClauses.join(', ')}`;
+        if (whereClauses.length > 0) {
+          query += ` WHERE ${whereClauses.join(' AND ')}`;
+        }
+        query += ' RETURNING *;';
+
+        const dbRes = await pool.query(query, params);
+        if (dbRes.rows) updatedRows.push(...dbRes.rows);
+      } catch (err) {
+        console.warn(`[handleDatabaseTableApi PATCH ${table} DB xatosi]:`, err.message);
+      }
+    }
+
+    // Local JSON update
+    const currentList = readJsonData(`${table}.json`, []);
+    for (const item of currentList) {
+      let match = true;
+      for (const [key, val] of reqUrl.searchParams.entries()) {
+        if (['select', 'order', 'limit', 'offset', 'on_conflict'].includes(key)) continue;
+        if (val.startsWith('eq.') && String(item[key] ?? '') !== val.slice(3)) {
+          match = false;
+          break;
+        }
+      }
+      if (match) {
+        Object.assign(item, body, { updated_at: new Date().toISOString() });
+        if (updatedRows.length === 0) updatedRows.push(item);
+      }
+    }
+    writeJsonData(`${table}.json`, currentList);
+
+    return sendJson(res, 200, { ok: true, data: updatedRows });
+  }
+
+  // 4. DELETE
+  if (req.method === 'DELETE') {
+    const deletedRows = [];
+    if (pool) {
+      try {
+        const whereClauses = [];
+        const params = [];
+        for (const [key, val] of reqUrl.searchParams.entries()) {
+          if (['select', 'order', 'limit', 'offset', 'on_conflict'].includes(key)) continue;
+          if (val.startsWith('eq.')) {
+            params.push(val.slice(3));
+            whereClauses.push(`"${key}" = $${params.length}`);
+          }
+        }
+        let query = `DELETE FROM public."${table}"`;
+        if (whereClauses.length > 0) {
+          query += ` WHERE ${whereClauses.join(' AND ')}`;
+        }
+        query += ' RETURNING *;';
+        const dbRes = await pool.query(query, params);
+        if (dbRes.rows) deletedRows.push(...dbRes.rows);
+      } catch (err) {
+        console.warn(`[handleDatabaseTableApi DELETE ${table} DB xatosi]:`, err.message);
+      }
+    }
+
+    // Local JSON delete
+    let currentList = readJsonData(`${table}.json`, []);
+    currentList = currentList.filter(item => {
+      for (const [key, val] of reqUrl.searchParams.entries()) {
+        if (['select', 'order', 'limit', 'offset', 'on_conflict'].includes(key)) continue;
+        if (val.startsWith('eq.') && String(item[key] ?? '') === val.slice(3)) {
+          return false;
+        }
+      }
+      return true;
+    });
+    writeJsonData(`${table}.json`, currentList);
+
+    return sendJson(res, 200, { ok: true, data: deletedRows });
+  }
+
+  return sendJson(res, 405, { ok: false, error: 'Usul qo\'llab-quvvatlanmaydi' });
+}
+
+// Database RPC API (Stored procedures)
+async function handleDatabaseRpcApi(req, res, func) {
+  const body = await readJson(req);
+  const pool = getDbPool();
+
+  if (func === 'admin_attendance_range') {
+    const pFrom = body.p_from || todayISO();
+    const pTo = body.p_to || todayISO();
+    const pSearch = body.p_search || '';
+    const pStatus = body.p_status || '';
+
+    if (pool) {
+      try {
+        const r = await pool.query(
+          'SELECT * FROM public.admin_attendance_range($1, $2, $3, $4)',
+          [pFrom, pTo, pSearch, pStatus]
+        );
+        return sendJson(res, 200, { ok: true, data: r.rows || [] });
+      } catch (err) {
+        console.warn('[handleDatabaseRpcApi admin_attendance_range DB]:', err.message);
+      }
+    }
+
+    // Local fallback for admin_attendance_range
+    const emps = readJsonData('employees.json', []).filter(e => e.active !== false);
+    const attendance = readJsonData('attendance.json', []);
+    const results = [];
+
+    emps.forEach(emp => {
+      if (pSearch) {
+        const s = pSearch.toLowerCase();
+        const matchName = String(emp.name || '').toLowerCase().includes(s);
+        const matchLogin = String(emp.login || '').toLowerCase().includes(s);
+        if (!matchName && !matchLogin) return;
+      }
+      const rec = attendance.find(a => a.employee_id === emp.id && a.work_date >= pFrom && a.work_date <= pTo);
+      if (pStatus && (!rec || rec.status !== pStatus)) return;
+
+      results.push({
+        employee_id: emp.id,
+        employee_name: emp.name,
+        employee_login: emp.login,
+        name: emp.name,
+        login: emp.login,
+        work_date: rec?.work_date || pFrom,
+        start_time: rec?.start_time || null,
+        end_time: rec?.end_time || null,
+        lunch_start: rec?.lunch_start || null,
+        lunch_end: rec?.lunch_end || null,
+        late_minutes: Number(rec?.late_minutes) || 0,
+        worked_seconds: Number(rec?.work_seconds || rec?.worked_seconds) || 0,
+        work_seconds: Number(rec?.work_seconds || rec?.worked_seconds) || 0,
+        afk_seconds: Number(rec?.afk_seconds) || 0,
+        status: rec?.status || 'kelmadi'
+      });
+    });
+
+    return sendJson(res, 200, { ok: true, data: results });
+  }
+
+  return sendJson(res, 404, { ok: false, error: `Noma'lum funksiya: ${func}` });
 }
 
 // 1. LOGIN API
@@ -2159,69 +2321,7 @@ async function handleApiLogin(req, res) {
     return sendJson(res, 200, { ok: true, user: defaultAdmin });
   }
 
-  // 2-bosqich: Supabase orqali tekshirish
-  if (process.env.SUPABASE_URL && process.env.SUPABASE_ANON_KEY) {
-    try {
-      const authRes = await fetch(`${process.env.SUPABASE_URL}/auth/v1/token?grant_type=password`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': process.env.SUPABASE_ANON_KEY
-        },
-        body: JSON.stringify({ email, password })
-      });
-      if (authRes.ok) {
-        const authData = await authRes.json();
-        const uid = authData?.user?.id;
-        if (uid) {
-          const userMeta = authData?.user?.user_metadata || {};
-          
-          // Xodim bazasida bormi tekshirish
-          let isEmpInDb = false;
-          let empData = null;
-          if (pool) {
-            try {
-              const empCheck = await pool.query(
-                'SELECT * FROM public.employees WHERE (LOWER(login) = $1 OR user_id = $2) AND active = true LIMIT 1',
-                [email, uid]
-              );
-              if (empCheck.rows && empCheck.rows.length > 0) {
-                isEmpInDb = true;
-                empData = empCheck.rows[0];
-              }
-            } catch (_) {}
-          }
-          if (!isEmpInDb) {
-            const empJsonMatch = employees.find(e => (String(e.login || e.email || '').toLowerCase() === email || e.user_id === uid) && e.active !== false);
-            if (empJsonMatch) {
-              isEmpInDb = true;
-              empData = empJsonMatch;
-            }
-          }
-
-          // Adminlik tekshiruvi: Agar ma'lum admin bo'lsa yoki roli admin bo'lsa yoki xodimlar ro'yxatida bo'lmasa -> ADMIN!
-          const isAdm = userMeta.role === 'admin' || isKnownAdmin(email) || !isEmpInDb;
-          const userRole = isAdm ? 'admin' : 'employee';
-          const userData = {
-            id: uid,
-            user_id: uid,
-            name: userMeta.name || empData?.name || email.split('@')[0],
-            login: email,
-            role: userRole,
-            token: authData.access_token,
-            ...(userRole === 'employee' && empData ? empData : {})
-          };
-          userData.role = userRole; // Qat'iy belgilash
-          return sendJson(res, 200, { ok: true, user: userData, token: authData.access_token });
-        }
-      }
-    } catch (supErr) {
-      console.warn('[handleApiLogin Supabase xatosi]:', supErr.message);
-    }
-  }
-
-  // 3-bosqich: Faqat xodim tekshirish (PostgreSQL & JSON)
-  // Eslatma: Faqat admin bo'lmagan foydalanuvchilar bu yerga yetib keladi
+  // 2-bosqich: Xodim tekshirish (PostgreSQL & JSON)
   if (pool) {
     try {
       const empRes = await pool.query(
@@ -2230,7 +2330,13 @@ async function handleApiLogin(req, res) {
       );
       if (empRes.rows && empRes.rows.length > 0) {
         const emp = empRes.rows[0];
-        return sendJson(res, 200, { ok: true, user: { ...emp, role: 'employee' } });
+        if (!emp.password || emp.password === password) {
+          return sendJson(res, 200, {
+            ok: true,
+            user: { ...emp, role: 'employee' },
+            token: 'local_token_' + Date.now()
+          });
+        }
       }
     } catch (dbErr) {
       console.warn('[handleApiLogin DB xodim xatosi]:', dbErr.message);
@@ -2239,7 +2345,13 @@ async function handleApiLogin(req, res) {
 
   const empMatch = employees.find(e => String(e.login || e.email || '').toLowerCase() === email && e.active !== false);
   if (empMatch) {
-    return sendJson(res, 200, { ok: true, user: { ...empMatch, role: 'employee' } });
+    if (!empMatch.password || empMatch.password === password) {
+      return sendJson(res, 200, {
+        ok: true,
+        user: { ...empMatch, role: 'employee' },
+        token: 'local_token_' + Date.now()
+      });
+    }
   }
 
   return sendJson(res, 401, { ok: false, error: 'Login yoki parol noto\'g\'ri' });

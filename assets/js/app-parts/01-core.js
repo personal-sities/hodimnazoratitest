@@ -1,11 +1,9 @@
 // ============================================================
-//  CONFIG
+//  CONFIG (Lokal PostgreSQL va Server API)
 // ============================================================
 const _cfg = window.ALOQA_CONFIG || {};
-const SUPABASE_URL  = _cfg.SUPABASE_URL || 'https://hdbhdddekjjjtwtyocfa.supabase.co';
-const SUPABASE_ANON = _cfg.SUPABASE_ANON_KEY || 'sb_publishable_CZUB0mOSzmmCvviNzWykzw_B3_0-5bE';
-const FUNCTIONS_BASE = _cfg.FUNCTIONS_BASE || `${SUPABASE_URL}/functions/v1`;
-const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+const FUNCTIONS_BASE = _cfg.FUNCTIONS_BASE || '/api/functions/v1';
+const sb = window.supabase ? window.supabase.createClient() : null;
 
 // ============================================================
 //  SERVER API HELPER (Serverdagi ma'lumotlar bazasi bilan tezkor ishlash)

@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS public.admins (
   user_id UUID NOT NULL,
   name TEXT NOT NULL,
   login TEXT,
+  password TEXT,
   active BOOLEAN NOT NULL DEFAULT true,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE(user_id)
@@ -22,6 +23,7 @@ CREATE TABLE IF NOT EXISTS public.employees (
   user_id UUID NOT NULL,
   name TEXT NOT NULL,
   login TEXT NOT NULL,
+  password TEXT,
   kpi_type TEXT DEFAULT 'junior',
   active BOOLEAN NOT NULL DEFAULT true,
   face_registered BOOLEAN NOT NULL DEFAULT false,
@@ -30,9 +32,15 @@ CREATE TABLE IF NOT EXISTS public.employees (
   UNIQUE(user_id)
 );
 
--- Agar oldingi bazada responsible_course yoki operator_number yo'q bo'lsa qo'shish
+-- Agar oldingi bazada ustunlar yo'q bo'lsa qo'shish
 DO $$
 BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='employees' AND column_name='password') THEN
+    ALTER TABLE public.employees ADD COLUMN password TEXT;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='admins' AND column_name='password') THEN
+    ALTER TABLE public.admins ADD COLUMN password TEXT;
+  END IF;
   IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='employees' AND column_name='responsible_course') THEN
     ALTER TABLE public.employees ADD COLUMN responsible_course TEXT;
   END IF;

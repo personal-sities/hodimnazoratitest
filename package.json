@@ -10,9 +10,7 @@
     "pm2:stop": "pm2 stop aloqapro",
     "pm2:restart": "pm2 restart aloqapro",
     "pm2:logs": "pm2 logs aloqapro",
-    "cleanup": "node -e \"require('./server.js').runRetentionCleanup(true).then(r => { console.log(r); process.exit(r?.ok ? 0 : 1); }).catch(e => { console.error(e); process.exit(1); })\"",
-    "migrate": "node migrate-from-supabase.js",
-    "export-data": "node export-supabase-data.js"
+    "cleanup": "node -e \"require('./server.js').runRetentionCleanup(true).then(r => { console.log(r); process.exit(r?.ok ? 0 : 1); }).catch(e => { console.error(e); process.exit(1); })\""
   },
   "dependencies": {
     "pg": "^8.11.3"

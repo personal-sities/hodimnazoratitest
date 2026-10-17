@@ -153,27 +153,4 @@ pm2 logs aloqapro
 pm2 restart aloqapro
 ```
 
----
-
-## 7. Supabasedagi Ma'lumotlarni Serverga O'tkazish (Migratsiya)
-
-Supabasedagi barcha xodimlar, davomat, yuz qoliplari va boshqa ma'lumotlarni yangi serverga ko'chirish uchun 2 ta qulay usul tayyorlangan:
-
-### A) Avtomatik Skript orqali (Tavsiya etiladi)
-1. `.env` faylida `SUPABASE_SERVICE_ROLE_KEY` ni ko'rsating (Supabase Dashboard -> Project Settings -> API -> `service_role` secret kaliti).
-2. Serverda quyidagi buyruqni bering:
-```bash
-npm run migrate
-```
-Ushbu skript Supabasedagi barcha jadvallarni (`employees`, `admins`, `attendance`, `face_profiles`, `settings`, `feedback`, `notifications`, `lunch_plans`, `employee_leaves`, `kpi_bonuses`) avtomatik o'qib, yangi serverdagi PostgreSQL bazasiga to'liq ko'chiradi.
-
-### B) `pg_dump` orqali (To'liq baza kloni)
-Agar Supabase PostgreSQL parolini bilsangiz:
-```bash
-# 1. Supabasedan faylga olish:
-pg_dump "postgres://postgres.[PROJECT_REF]:[PASSWORD]@aws-0-[REGION].pooler.supabase.com:6543/postgres" > backup.sql
-
-# 2. Serverdagi PostgreSQL bazasiga yuklash:
-sudo -u postgres psql -d aloqapro < backup.sql
-```
 
