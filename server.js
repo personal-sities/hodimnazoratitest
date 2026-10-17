@@ -79,7 +79,7 @@ async function ensureDatabaseSchema() {
     const adminsPath = path.join(dataDir, 'admins.json');
     let currentAdmins = [];
     if (fs.existsSync(adminsPath)) {
-      try { currentAdmins = JSON.parse(fs.readFileSync(adminsPath, 'utf8')) || []; } catch(_) {}
+      try { currentAdmins = JSON.parse(fs.readFileSync(adminsPath, 'utf8')) || []; } catch (_) { }
     }
     const hasAdminRoot = currentAdmins.some(a => String(a.login || '').toLowerCase() === 'admin@aloqapro.uz');
     const hasAdminSimple = currentAdmins.some(a => String(a.login || '').toLowerCase() === 'admin');
@@ -319,6 +319,16 @@ const server = http.createServer(async (req, res) => {
 
 // Faqat to'g'ridan-to'g'ri ishga tushirilganda listen qilish
 if (require.main === module) {
+  server.on('error', (err) => {
+    if (err.code === 'EADDRINUSE') {
+      console.error(`\n[DIQQAT]: ${PORT}-port band! Ushbu portda boshqa jarayon ishlayapti.`);
+      console.error(`Eski jarayonni to'xtatish uchun terminalda: fuser -k ${PORT}/tcp yoki killall node`);
+    } else {
+      console.error('\n[Server xatoligi]:', err.message);
+    }
+    process.exit(1);
+  });
+
   server.listen(PORT, HOST, () => {
     console.log(`====================================================`);
     console.log(`  AloqaPro Server muvaffaqiyatli ishga tushdi`);
@@ -362,7 +372,7 @@ function loadEnv() {
     try {
       fs.copyFileSync(examplePath, envPath);
       console.log("[AloqaPro]: .env fayli topilmadi, .env.example asosida avtomatik yaratildi.");
-    } catch (_) {}
+    } catch (_) { }
   }
 
   if (fs.existsSync(envPath)) {
@@ -469,7 +479,7 @@ async function handleCreateEmployee(res, body) {
         await pool.query(
           'UPDATE public.calls SET employee_id = $1 WHERE operator_number = $2 AND employee_id IS NULL',
           [newEmpId, operatorNumber]
-        ).catch(() => {});
+        ).catch(() => { });
       }
 
       // Lokal JSON zaxirasi
@@ -514,7 +524,7 @@ async function handleCreateEmployee(res, body) {
         }
       });
       if (callUpdated) writeLocalCalls(calls);
-    } catch (_) {}
+    } catch (_) { }
   }
 
   return sendJson(res, 200, { ok: true, employee_id: newEmpId, employee: newEmp });
@@ -595,7 +605,7 @@ async function handleUpdateEmployeeOperator(res, body) {
         await pool.query(
           'UPDATE public.calls SET employee_id = $1 WHERE operator_number = $2 AND (employee_id IS NULL OR employee_id != $1)',
           [employeeId, operatorNumber]
-        ).catch(() => {});
+        ).catch(() => { });
       }
     } catch (dbErr) {
       console.error('[handleUpdateEmployeeOperator DB xatosi]:', dbErr.message);
@@ -626,7 +636,7 @@ async function handleUpdateEmployeeOperator(res, body) {
         }
       });
       if (callUpdated) writeLocalCalls(calls);
-    } catch (_) {}
+    } catch (_) { }
   }
 
   return sendJson(res, 200, {
@@ -649,7 +659,7 @@ function readLocalCalls() {
       const txt = fs.readFileSync(CALLS_DATA_FILE, 'utf8');
       return JSON.parse(txt) || [];
     }
-  } catch (e) {}
+  } catch (e) { }
   return [];
 }
 
@@ -761,7 +771,7 @@ async function saveCallRecord(call) {
       list.push({ ...call, created_at: new Date().toISOString() });
     }
     writeLocalCalls(list);
-  } catch (e) {}
+  } catch (e) { }
 
   return call;
 }
@@ -1168,7 +1178,7 @@ async function handleOnlinePbxWebhook(req, res, reqUrl) {
             employeeId = empRes.rows[0].id;
             employeeName = empRes.rows[0].name;
           }
-        } catch (e) {}
+        } catch (e) { }
       }
 
       if (!employeeId) {
@@ -1607,7 +1617,7 @@ async function runRetentionCleanup(isManual = false) {
     } catch (err) {
       console.warn('[Tozalash ogohlantirish - PostgreSQL]: Baza xatosi (' + err.message + '). Lokal fayllar tozalanadi.');
     } finally {
-      await pool.end().catch(() => {});
+      await pool.end().catch(() => { });
     }
   }
 
@@ -1672,7 +1682,7 @@ function getLastCleanupTimestamp() {
         return Number.isNaN(d.getTime()) ? null : d;
       }
     }
-  } catch (e) {}
+  } catch (e) { }
   return null;
 }
 
@@ -2259,10 +2269,10 @@ async function handleApiLogin(req, res) {
   const isKnownAdmin = (val) => {
     const l = String(val || '').trim().toLowerCase();
     return l === 'admin' ||
-           l === 'admin@aloqapro.uz' ||
-           l === 'umirbekovdiyorbek@gmail.com' ||
-           l.startsWith('admin@') ||
-           l.includes('admin');
+      l === 'admin@aloqapro.uz' ||
+      l === 'umirbekovdiyorbek@gmail.com' ||
+      l.startsWith('admin@') ||
+      l.includes('admin');
   };
 
   const pool = getDbPool();
@@ -2296,9 +2306,9 @@ async function handleApiLogin(req, res) {
   const admMatch = admins.find(a => {
     const l = String(a.login || a.email || '').toLowerCase();
     return l === email ||
-           (email === 'admin' && (l === 'admin' || l === 'admin@aloqapro.uz' || l.startsWith('admin@'))) ||
-           (email === 'admin@aloqapro.uz' && (l === 'admin' || l === 'admin@aloqapro.uz')) ||
-           (email === 'umirbekovdiyorbek@gmail.com' && l === 'umirbekovdiyorbek@gmail.com');
+      (email === 'admin' && (l === 'admin' || l === 'admin@aloqapro.uz' || l.startsWith('admin@'))) ||
+      (email === 'admin@aloqapro.uz' && (l === 'admin' || l === 'admin@aloqapro.uz')) ||
+      (email === 'umirbekovdiyorbek@gmail.com' && l === 'umirbekovdiyorbek@gmail.com');
   });
   if (admMatch) {
     return sendJson(res, 200, { ok: true, user: { ...admMatch, role: 'admin' } });
@@ -2830,7 +2840,7 @@ async function handleMarkNotificationRead(req, res, notifId) {
   if (pool) {
     try {
       await pool.query('UPDATE public.notifications SET is_read = true WHERE id = $1', [notifId]);
-    } catch (e) {}
+    } catch (e) { }
   }
   const list = readJsonData('notifications.json', []);
   const item = list.find(n => n.id === notifId);
@@ -2957,7 +2967,7 @@ async function handleGetLunchPlans(req, res, reqUrl) {
         [employeeId, workDate]
       );
       return sendJson(res, 200, { ok: true, data: r.rows[0] || null });
-    } catch (e) {}
+    } catch (e) { }
   }
 
   const list = readJsonData('lunch_plans.json', []);
@@ -2979,7 +2989,7 @@ async function handleSaveLunchPlan(req, res) {
         VALUES ($1, $2, $3, now())
         ON CONFLICT (employee_id, work_date) DO UPDATE SET shift = EXCLUDED.shift
       `, [employeeId, workDate, shift]);
-    } catch (e) {}
+    } catch (e) { }
   }
 
   const list = readJsonData('lunch_plans.json', []);
@@ -3004,7 +3014,7 @@ async function handleGetEmployeeLeaves(req, res, reqUrl) {
         : 'SELECT * FROM public.employee_leaves ORDER BY leave_start_date DESC';
       const r = from && to ? await pool.query(q, [from, to]) : await pool.query(q);
       return sendJson(res, 200, { ok: true, data: r.rows || [] });
-    } catch (e) {}
+    } catch (e) { }
   }
 
   let list = readJsonData('employee_leaves.json', []);
@@ -3030,7 +3040,7 @@ async function handleSaveEmployeeLeave(req, res) {
         [leave.employee_id, leave.leave_start_date, leave.return_date]
       );
       if (r.rows && r.rows[0]) Object.assign(leave, r.rows[0]);
-    } catch (e) {}
+    } catch (e) { }
   }
 
   const list = readJsonData('employee_leaves.json', []);
