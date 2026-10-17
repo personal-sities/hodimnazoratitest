@@ -319,35 +319,51 @@ const server = http.createServer(async (req, res) => {
 
 // Faqat to'g'ridan-to'g'ri ishga tushirilganda listen qilish
 if (require.main === module) {
-  server.on('error', (err) => {
-    if (err.code === 'EADDRINUSE') {
-      console.error(`\n[DIQQAT]: ${PORT}-port band! Ushbu portda boshqa jarayon ishlayapti.`);
-      console.error(`Eski jarayonni to'xtatish uchun terminalda: fuser -k ${PORT}/tcp yoki killall node`);
-    } else {
-      console.error('\n[Server xatoligi]:', err.message);
-    }
-    process.exit(1);
-  });
+  function startListening(portToTry, attempt = 0) {
+    const onError = (err) => {
+      if (err.code === 'EADDRINUSE') {
+        if (attempt < 5) {
+          const nextPort = portToTry + 1;
+          console.warn(`[DIQQAT]: ${portToTry}-port band! Keyingi ${nextPort}-portda ishga tushirishga harakat qilinmoqda...`);
+          server.removeListener('error', onError);
+          startListening(nextPort, attempt + 1);
+        } else {
+          console.error(`\n[DIQQAT]: ${PORT} dan ${portToTry} gacha bo'lgan portlar band!`);
+          console.error(`Eski jarayonlarni to'xtatish uchun terminalda: sudo fuser -k ${PORT}/tcp yoki sudo killall -9 node`);
+          process.exit(1);
+        }
+      } else {
+        console.error('\n[Server xatoligi]:', err.message);
+        process.exit(1);
+      }
+    };
 
-  server.listen(PORT, HOST, () => {
-    console.log(`====================================================`);
-    console.log(`  AloqaPro Server muvaffaqiyatli ishga tushdi`);
-    console.log(`  Manzil: http://${HOST}:${PORT}`);
-    console.log(`  Ma'lumotlar bazasi: PostgreSQL (${process.env.DATABASE_URL ? 'sozlangan' : 'lokal zaxira'})`);
-    console.log(`  Supabase: BUTUNLAY O'CHIRILGAN (100% Server & PostgreSQL)`);
-    console.log(`  Google Sheets: TO'XTATILGAN (Faqat xavfsiz baza)`);
-    console.log(`  Tozalash siyosati: Har ${process.env.RETENTION_INTERVAL_MONTHS || 2} oyda, 3 oydan eski ma'lumotlar o'chiriladi`);
-    console.log(`====================================================`);
+    server.once('error', onError);
 
-    // Ma'lumotlar bazasi sxemasini tekshirish va yangilash
-    ensureDatabaseSchema();
+    server.listen(portToTry, HOST, () => {
+      server.removeListener('error', onError);
+      console.log(`====================================================`);
+      console.log(`  AloqaPro Server muvaffaqiyatli ishga tushdi`);
+      console.log(`  Manzil: http://${HOST}:${portToTry}`);
+      console.log(`  Lokal test: http://localhost:${portToTry}`);
+      console.log(`  Ma'lumotlar bazasi: PostgreSQL (${process.env.DATABASE_URL ? 'sozlangan' : 'lokal zaxira'})`);
+      console.log(`  Supabase: BUTUNLAY O'CHIRILGAN (100% Server & PostgreSQL)`);
+      console.log(`  Google Sheets: TO'XTATILGAN (Faqat xavfsiz baza)`);
+      console.log(`  Tozalash siyosati: Har ${process.env.RETENTION_INTERVAL_MONTHS || 2} oyda, 3 oydan eski ma'lumotlar o'chiriladi`);
+      console.log(`====================================================`);
 
-    // Tozalash vazifasini ishga tushirish
-    initRetentionScheduler();
+      // Ma'lumotlar bazasi sxemasini tekshirish va yangilash
+      ensureDatabaseSchema();
 
-    // 18:30 avtomatik yakunlash va 17:55 eslatma rejalashtiruvchisi
-    initAutoEndScheduler();
-  });
+      // Tozalash vazifasini ishga tushirish
+      initRetentionScheduler();
+
+      // 18:30 avtomatik yakunlash va 17:55 eslatma rejalashtiruvchisi
+      initAutoEndScheduler();
+    });
+  }
+
+  startListening(PORT);
 
   // Toza to'xtatish (graceful shutdown)
   const shutdown = () => {
