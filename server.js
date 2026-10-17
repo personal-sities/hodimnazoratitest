@@ -3,6 +3,14 @@ const fs = require('fs');
 const path = require('path');
 const url = require('url');
 
+// Server to'xtab qolmasligi uchun barcha kutilmagan xatolarni ushlab qolish (Crash-Proof)
+process.on('uncaughtException', (err) => {
+  console.warn('[Ogohlantirish: Uncaught Exception ushlandi]:', err?.message || err);
+});
+process.on('unhandledRejection', (reason) => {
+  console.warn('[Ogohlantirish: Unhandled Rejection ushlandi]:', reason?.message || reason);
+});
+
 // 1. .env faylini o'qish (tashqi kutubxonasiz ham ishlaydi)
 loadEnv();
 
@@ -149,6 +157,8 @@ async function ensureDatabaseSchema() {
 
 // 2. HTTP SERVER
 const server = http.createServer(async (req, res) => {
+  req.on('error', () => { });
+  res.on('error', () => { });
   try {
     setCors(res);
     if (req.method === 'OPTIONS') return sendText(res, 204, '');
@@ -1474,84 +1484,116 @@ const PROTECTED_FILES = new Set([
 
 // Statik fayllarni xavfsiz tarqatish
 function serveStatic(requestPath, res) {
-  const cleanPath = decodeURIComponent(requestPath.split('?')[0]);
-  const safePath = cleanPath === '/' ? '/index.html' : cleanPath;
+  try {
+    let cleanPath = '/';
+    try {
+      cleanPath = decodeURIComponent(requestPath.split('?')[0]);
+    } catch {
+      cleanPath = requestPath.split('?')[0];
+    }
+    const safePath = cleanPath === '/' ? '/index.html' : cleanPath;
 
-  // 1. Xavfsizlik: Nuqta bilan boshlanuvchi yashirin fayl va papkalarni taqiqlash (.env, .git, va h.k.)
-  if (/(?:^|\/)\.[^\/]/.test(safePath)) {
-    return sendText(res, 403, 'Taqiqlangan (Forbidden)');
-  }
-
-  // 2. Xavfsizlik: Path traversal hujumlarini bartaraf etish
-  const fullPath = path.resolve(ROOT, '.' + safePath);
-  if (!fullPath.startsWith(ROOT + path.sep) && fullPath !== ROOT) {
-    return sendText(res, 403, 'Taqiqlangan (Forbidden)');
-  }
-
-  // 3. Xavfsizlik: Server kodlari, konfiguratsiyalar va ma'lumotlar bazasi fayllarini yashirish
-  const baseName = path.basename(fullPath).toLowerCase();
-  const relPath = path.relative(ROOT, fullPath).replace(/\\/g, '/').toLowerCase();
-  if (
-    PROTECTED_FILES.has(baseName) ||
-    baseName.endsWith('.sql') ||
-    relPath.startsWith('data/') ||
-    relPath.startsWith('.git/') ||
-    relPath.startsWith('.vscode/')
-  ) {
-    return sendText(res, 403, 'Taqiqlangan (Forbidden)');
-  }
-
-  fs.stat(fullPath, (err, stats) => {
-    if (err || !stats.isFile()) {
-      // index.html fallback SPA uchun
-      if (!path.extname(safePath)) {
-        return fs.readFile(path.join(ROOT, 'index.html'), (err2, data) => {
-          if (err2) return sendText(res, 404, 'Sahifa topilmadi');
-          res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-          res.end(data);
-        });
-      }
-      return sendText(res, 404, 'Fayl topilmadi');
+    // 1. Xavfsizlik: Nuqta bilan boshlanuvchi yashirin fayl va papkalarni taqiqlash (.env, .git, va h.k.)
+    if (/(?:^|\/)\.[^\/]/.test(safePath)) {
+      return sendText(res, 403, 'Taqiqlangan (Forbidden)');
     }
 
-    const ext = path.extname(fullPath).toLowerCase();
-    const contentType = MIME[ext] || 'application/octet-stream';
+    // 2. Xavfsizlik: Path traversal hujumlarini bartaraf etish
+    const fullPath = path.resolve(ROOT, '.' + safePath);
+    if (!fullPath.startsWith(ROOT + path.sep) && fullPath !== ROOT) {
+      return sendText(res, 403, 'Taqiqlangan (Forbidden)');
+    }
 
-    // Model va og'ir kutubxona fayllari uchun uzoq muddatli keshlash
-    const isImmutable = fullPath.includes('model') || ext === '.wasm' || ext === '.bin';
-    const cacheControl = isImmutable
-      ? 'public, max-age=2592000, immutable'
-      : 'no-cache';
+    // 3. Xavfsizlik: Server kodlari, konfiguratsiyalar va ma'lumotlar bazasi fayllarini yashirish
+    const baseName = path.basename(fullPath).toLowerCase();
+    const relPath = path.relative(ROOT, fullPath).replace(/\\/g, '/').toLowerCase();
+    if (
+      PROTECTED_FILES.has(baseName) ||
+      baseName.endsWith('.sql') ||
+      relPath.startsWith('data/') ||
+      relPath.startsWith('.git/') ||
+      relPath.startsWith('.vscode/')
+    ) {
+      return sendText(res, 403, 'Taqiqlangan (Forbidden)');
+    }
 
-    res.writeHead(200, {
-      'Content-Type': contentType,
-      'Content-Length': stats.size,
-      'Cache-Control': cacheControl
+    fs.stat(fullPath, (err, stats) => {
+      if (res.writableEnded) return;
+
+      if (err || !stats.isFile()) {
+        // index.html fallback SPA uchun
+        if (!path.extname(safePath)) {
+          return fs.readFile(path.join(ROOT, 'index.html'), (err2, data) => {
+            if (res.writableEnded) return;
+            if (err2) return sendText(res, 404, 'Sahifa topilmadi');
+            try {
+              res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+              res.end(data);
+            } catch (_) { }
+          });
+        }
+        return sendText(res, 404, 'Fayl topilmadi');
+      }
+
+      const ext = path.extname(fullPath).toLowerCase();
+      const contentType = MIME[ext] || 'application/octet-stream';
+
+      // Model va og'ir kutubxona fayllari uchun uzoq muddatli keshlash
+      const isImmutable = fullPath.includes('model') || ext === '.wasm' || ext === '.bin';
+      const cacheControl = isImmutable
+        ? 'public, max-age=2592000, immutable'
+        : 'no-cache';
+
+      try {
+        res.writeHead(200, {
+          'Content-Type': contentType,
+          'Content-Length': stats.size,
+          'Cache-Control': cacheControl
+        });
+      } catch (_) {
+        return;
+      }
+
+      const stream = fs.createReadStream(fullPath);
+      stream.on('error', () => {
+        stream.destroy();
+        if (!res.headersSent && !res.writableEnded) sendText(res, 500, 'Faylni o\'qishda xatolik');
+      });
+      res.on('close', () => {
+        stream.destroy();
+      });
+      res.on('error', () => {
+        stream.destroy();
+      });
+      stream.pipe(res);
     });
-
-    const stream = fs.createReadStream(fullPath);
-    stream.on('error', (streamErr) => {
-      console.error('Stream xatosi:', streamErr.message);
-      if (!res.headersSent) sendText(res, 500, 'Faylni o\'qishda xatolik');
-    });
-    stream.pipe(res);
-  });
+  } catch (err) {
+    if (!res.headersSent && !res.writableEnded) sendText(res, 500, 'Ichki server xatosi');
+  }
 }
 
 function setCors(res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS,PATCH,DELETE');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization,apikey,x-admin-key');
+  try {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS,PATCH,DELETE');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization,apikey,x-admin-key');
+  } catch (_) { }
 }
 
 function sendJson(res, status, payload) {
-  res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' });
-  res.end(JSON.stringify(payload));
+  try {
+    if (res.writableEnded || res.headersSent) return;
+    res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify(payload));
+  } catch (_) { }
 }
 
 function sendText(res, status, text) {
-  res.writeHead(status, { 'Content-Type': 'text/plain; charset=utf-8' });
-  res.end(text);
+  try {
+    if (res.writableEnded || res.headersSent) return;
+    res.writeHead(status, { 'Content-Type': 'text/plain; charset=utf-8' });
+    res.end(text);
+  } catch (_) { }
 }
 
 function readJson(req) {
@@ -1577,8 +1619,8 @@ async function runRetentionCleanup(isManual = false) {
   const dbUrl = process.env.DATABASE_URL;
 
   // 1-USUL: PostgreSQL bazasi to'g'ridan-to'g'ri ulangan bo'lsa
-  if (dbUrl && pg) {
-    const pool = new pg.Pool({ connectionString: dbUrl });
+  const pool = getDbPool();
+  if (pool) {
     try {
       // 1. Stored procedure cleanup_old_records orqali tozalash
       const procResult = await pool.query('SELECT public.cleanup_old_records($1) AS res', [retentionMonths]).catch(() => null);
@@ -1625,15 +1667,13 @@ async function runRetentionCleanup(isManual = false) {
         saveLastCleanupTimestamp();
         return summary;
       } catch (sqlErr) {
-        await client.query('ROLLBACK');
+        await client.query('ROLLBACK').catch(() => { });
         throw sqlErr;
       } finally {
         client.release();
       }
     } catch (err) {
       console.warn('[Tozalash ogohlantirish - PostgreSQL]: Baza xatosi (' + err.message + '). Lokal fayllar tozalanadi.');
-    } finally {
-      await pool.end().catch(() => { });
     }
   }
 
@@ -1712,7 +1752,11 @@ function initRetentionScheduler() {
   if (!lastRun || (now - lastRun.getTime() >= intervalMs)) {
     console.log(`[Scheduler]: Oxirgi tozalash muddati o'tgan yoki topilmadi. Tozalash tekshiruvi boshlanmoqda...`);
     setTimeout(() => {
-      runRetentionCleanup(false).catch(err => console.error('[Scheduler err]:', err));
+      try {
+        runRetentionCleanup(false).catch(err => console.warn('[Scheduler ogohlantirish]:', err?.message || err));
+      } catch (e) {
+        console.warn('[Scheduler ogohlantirish]:', e.message);
+      }
     }, 10000); // Server ishga tushgach 10 soniyadan so'ng
   } else {
     const nextDays = Math.round((intervalMs - (now - lastRun.getTime())) / (24 * 3600 * 1000));
