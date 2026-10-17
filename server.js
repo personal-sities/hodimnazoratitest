@@ -1605,8 +1605,7 @@ async function runRetentionCleanup(isManual = false) {
         client.release();
       }
     } catch (err) {
-      console.error('[Tozalash xatosi - PostgreSQL]:', err.message);
-      return { ok: false, error: err.message };
+      console.warn('[Tozalash ogohlantirish - PostgreSQL]: Baza xatosi (' + err.message + '). Lokal fayllar tozalanadi.');
     } finally {
       await pool.end().catch(() => {});
     }
