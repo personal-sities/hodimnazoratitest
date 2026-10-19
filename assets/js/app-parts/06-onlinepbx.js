@@ -171,6 +171,47 @@ async function loadPbxOperatorFilterOptions() {
   }
 }
 
+function getPbxRatingColor(score) {
+  const num = parseFloat(score);
+  if (isNaN(num) || num <= 0) {
+    return {
+      text: 'var(--text3)',
+      bg: 'var(--bg2)',
+      border: 'var(--border2)',
+      glow: 'transparent',
+      label: '—'
+    };
+  }
+  // 1, 2, 3 -> Qizil (Red)
+  if (num < 3.5) {
+    return {
+      text: '#ef4444',
+      bg: 'rgba(239, 68, 68, 0.15)',
+      border: 'rgba(239, 68, 68, 0.35)',
+      glow: 'rgba(239, 68, 68, 0.45)',
+      label: 'Qizil'
+    };
+  }
+  // 4 -> Sariq (Yellow)
+  if (num < 4.5) {
+    return {
+      text: '#f59e0b',
+      bg: 'rgba(245, 158, 11, 0.15)',
+      border: 'rgba(245, 158, 11, 0.35)',
+      glow: 'rgba(245, 158, 11, 0.45)',
+      label: 'Sariq'
+    };
+  }
+  // 5 -> Yashil (Green)
+  return {
+    text: '#10b981',
+    bg: 'rgba(16, 185, 129, 0.15)',
+    border: 'rgba(16, 185, 129, 0.35)',
+    glow: 'rgba(16, 185, 129, 0.45)',
+    label: 'Yashil'
+  };
+}
+
 async function fetchAndRenderPbxStats(isBackground = false) {
   const totalEl = document.getElementById('pbx_stat_total');
   const ansEl = document.getElementById('pbx_stat_answered');
@@ -208,15 +249,34 @@ async function fetchAndRenderPbxStats(isBackground = false) {
       const totHm = fmtPbxSeconds(summary.total_talk_seconds);
       const avgHm = fmtPbxSeconds(summary.avg_talk_seconds);
       durEl.textContent = `${totHm} / ${avgHm}`;
-      durEl.title = `Jami: ${totHm}, O'rtacha: ${avgHm}`;
+      durEl.title = `Jami: ${totHm}, O'rtacha (umumiy qo'ng'iroqlarga nisbatan): ${avgHm}`;
     }
     if (ratingEl) {
+      const cardEl = ratingEl.closest('.scard');
+      const titleEl = document.getElementById('pbx_card_rating_title');
+      const iconEl = cardEl ? cardEl.querySelector('.scard-icon') : null;
+
       if (summary.avg_rating) {
+        const rc = getPbxRatingColor(summary.avg_rating);
         ratingEl.textContent = `★ ${summary.avg_rating}`;
+        ratingEl.style.color = rc.text;
         ratingEl.title = `${summary.rated_calls_count} ta baholangan qo'ng'iroq`;
+        if (cardEl) {
+          cardEl.style.borderColor = rc.border;
+          cardEl.style.background = `linear-gradient(135deg, var(--card-bg) 0%, ${rc.bg} 100%)`;
+        }
+        if (titleEl) titleEl.style.color = rc.text;
+        if (iconEl) iconEl.style.color = rc.text;
       } else {
         ratingEl.textContent = '—';
+        ratingEl.style.color = 'var(--text3)';
         ratingEl.title = 'Hozircha baholanmagan';
+        if (cardEl) {
+          cardEl.style.borderColor = 'rgba(234,179,8,0.35)';
+          cardEl.style.background = 'var(--card-bg)';
+        }
+        if (titleEl) titleEl.style.color = '#ca8a04';
+        if (iconEl) iconEl.style.color = '#eab308';
       }
     }
 
@@ -262,8 +322,9 @@ function renderPbxOperatorsTable(operators) {
       ? `<strong>${escapePbxHtml(op.employee_name)}</strong>`
       : `<span style="color:var(--text3);font-style:italic;">${escapePbxHtml(op.employee_name || 'Biriktirilmagan')}</span>`;
 
+    const rc = getPbxRatingColor(op.avg_rating);
     const ratingBadge = op.avg_rating
-      ? `<span class="badge bsm" style="background:rgba(234,179,8,0.15);color:#ca8a04;font-weight:700;display:inline-flex;align-items:center;gap:4px;">★ ${op.avg_rating} <span style="font-size:10px;color:var(--text3);font-weight:400;">(${op.rated_calls_count})</span></span>`
+      ? `<span class="badge bsm" style="background:${rc.bg};color:${rc.text};border:1px solid ${rc.border};font-weight:700;display:inline-flex;align-items:center;gap:4px;" title="Reyting: ${op.avg_rating} (${rc.label})">★ ${op.avg_rating} <span style="font-size:10px;opacity:0.8;font-weight:400;">(${op.rated_calls_count})</span></span>`
       : `<span style="color:var(--text3);font-size:12px;">—</span>`;
 
     tr.innerHTML = `
@@ -282,7 +343,7 @@ function renderPbxOperatorsTable(operators) {
         </div>
       </td>
       <td style="font-family:var(--mono);">${totalTalkStr}</td>
-      <td style="font-family:var(--mono);">${avgTalkStr}</td>
+      <td style="font-family:var(--mono);" title="O'rtacha suhbat umumiy qo'ng'iroqlarga nisbatan">${avgTalkStr}</td>
       <td>${ratingBadge}</td>
     `;
     tbody.appendChild(tr);
@@ -353,25 +414,46 @@ function renderPbxCallsTable(calls) {
       : '<span style="color:var(--text3);">0s</span>';
 
     const rVal = parseFloat(c.rating);
-    const ratingHtml = (!isNaN(rVal) && rVal > 0)
-      ? `<button class="bsm" onclick="openRateCallModal('${c.call_id}','${escapePbxHtml(c.caller||'')}','${escapePbxHtml(c.employee_name||'')}',${rVal},'${escapePbxHtml(c.rating_comment||'')}')" style="background:rgba(234,179,8,0.15);color:#ca8a04;font-weight:700;border:none;cursor:pointer;display:inline-flex;align-items:center;gap:3px;" title="${c.rating_comment ? escapePbxHtml(c.rating_comment) : 'Bahoni tahrirlash'}">★ ${rVal}</button>`
-      : `<button class="bsm bg2" onclick="openRateCallModal('${c.call_id}','${escapePbxHtml(c.caller||'')}','${escapePbxHtml(c.employee_name||'')}',5,'')" style="font-size:11px;padding:3px 7px;cursor:pointer;" title="Baho qo'yish">+ Baholash</button>`;
+    let ratingHtml = '';
+    if (!isNaN(rVal) && rVal > 0) {
+      const rc = getPbxRatingColor(rVal);
+      ratingHtml = `<button class="bsm" onclick="openRateCallModal('${c.call_id}','${escapePbxHtml(c.caller||'')}','${escapePbxHtml(c.employee_name||'')}',${rVal},'${escapePbxHtml(c.rating_comment||'')}')" style="background:${rc.bg};color:${rc.text};border:1px solid ${rc.border};font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:3px;border-radius:var(--radius-sm);padding:3px 8px;" title="${c.rating_comment ? escapePbxHtml(c.rating_comment) : 'Bahoni tahrirlash'}">★ ${rVal}</button>`;
+    } else {
+      ratingHtml = `<button class="bsm bg2" onclick="openRateCallModal('${c.call_id}','${escapePbxHtml(c.caller||'')}','${escapePbxHtml(c.employee_name||'')}',5,'')" style="font-size:11px;padding:3px 7px;cursor:pointer;" title="Baho qo'yish">+ Baholash</button>`;
+    }
 
     const recHtml = c.record_url
       ? `<button class="bsm bg2" onclick="playPbxAudio('${escapePbxHtml(c.record_url)}')" title="Yozuvni tinglash" style="display:inline-flex;align-items:center;gap:4px;">${getLucideIcon('play', '', 12)} ${t('pbx_th_record') || 'Yozuv'}</button>`
       : '<span style="color:var(--text3);font-size:11px;">—</span>';
 
-    const dirIco = c.direction === 'out'
-      ? `<span style="display:inline-flex;align-items:center;gap:3px;color:var(--primary);">${getLucideIcon('arrow-up-right', '', 13)} Chiquvchi</span>`
-      : `<span style="display:inline-flex;align-items:center;gap:3px;color:var(--text2);">${getLucideIcon('arrow-down-left', '', 13)} Kiruvchi</span>`;
+    const isOut = (c.direction === 'out' || (c.caller && String(c.caller).length <= 4 && c.callee && String(c.callee).length > 4));
+    const clientPhone = isOut ? (c.callee || 'Noma\'lum') : (c.caller || 'Noma\'lum');
+    const lineDisplay = isOut ? (c.caller || 'Chiquvchi') : (c.callee || '—');
+    const dirBadge = isOut
+      ? `<span class="badge bsm bb" style="font-size:10px;padding:2px 6px;display:inline-flex;align-items:center;gap:3px;" title="Chiquvchi qo'ng'iroq">${getLucideIcon('arrow-up-right', '', 11)} Chiq.</span>`
+      : `<span class="badge bsm bg2" style="font-size:10px;padding:2px 6px;display:inline-flex;align-items:center;gap:3px;" title="Kiruvchi qo'ng'iroq">${getLucideIcon('arrow-down-left', '', 11)} Kir.</span>`;
+
+    const isCurrentOpSelected = (pbxFilterOperator && pbxFilterOperator !== 'all' && c.operator_number === pbxFilterOperator);
+    const opBadge = (c.operator_number && c.operator_number !== '—' && c.operator_number !== 'other')
+      ? `<span class="badge bsm ${isCurrentOpSelected ? 'bb' : 'bg'}" style="font-family:var(--mono);display:inline-flex;align-items:center;gap:4px;cursor:pointer;" onclick="selectPbxOperator('${c.operator_number}')" title="Faqat shu operatorni filtrlash">${getLucideIcon('phone', '', 12)} ${c.operator_number}</span>`
+      : `<span class="badge bsm bgr">—</span>`;
+
+    const empNameHtml = (c.employee_name && c.employee_name !== '—' && c.employee_name !== 'Biriktirilmagan')
+      ? `<strong>${escapePbxHtml(c.employee_name)}</strong>`
+      : `<span style="color:var(--text3);font-style:italic;">Biriktirilmagan</span>`;
 
     tr.innerHTML = `
       <td>${idx + 1}</td>
       <td style="font-family:var(--mono);font-size:11.5px;">${timeStr}</td>
-      <td style="font-family:var(--mono);font-weight:600;">${c.caller || 'Noma\'lum'}</td>
-      <td style="font-family:var(--mono);font-size:12px;color:var(--text2);">${c.callee || '—'}</td>
-      <td><span class="badge bsm bgr" style="font-family:var(--mono);display:inline-flex;align-items:center;gap:4px;">${getLucideIcon('phone', '', 12)} ${c.operator_number || '—'}</span></td>
-      <td><strong>${escapePbxHtml(c.employee_name || '—')}</strong></td>
+      <td style="font-family:var(--mono);font-weight:600;">
+        <div style="display:inline-flex;align-items:center;gap:6px;">
+          ${dirBadge}
+          <span>${escapePbxHtml(clientPhone)}</span>
+        </div>
+      </td>
+      <td style="font-family:var(--mono);font-size:12px;color:var(--text2);">${escapePbxHtml(lineDisplay)}</td>
+      <td>${opBadge}</td>
+      <td>${empNameHtml}</td>
       <td>${statusBadge}</td>
       <td style="font-family:var(--mono);">${talkStr}</td>
       <td>${ratingHtml}</td>
@@ -379,6 +461,31 @@ function renderPbxCallsTable(calls) {
     `;
     tbody.appendChild(tr);
   });
+}
+
+async function relinkPbxCallsManual() {
+  const btn = document.getElementById('pbx_relink_btn');
+  const btnTxt = document.getElementById('pbx_relink_btn_text');
+  const origTxt = btnTxt ? btnTxt.textContent : '';
+  if (btn) btn.disabled = true;
+  if (btnTxt) btnTxt.textContent = 'Biriktirilmoqda...';
+
+  try {
+    toast('info', 'OnlinePBX', "Qo'ng'iroqlar xodimlarga qayta biriktirilmoqda...");
+    const res = await fetch('/api/pbx/relink', { method: 'POST' });
+    const data = await res.json();
+    if (data.ok) {
+      toast('success', 'OnlinePBX', `Muvaffaqiyatli! ${data.updated_count || 0} ta qo'ng'iroq xodimlarga biriktirildi.`);
+      await loadPbxDashboard();
+    } else {
+      toast('error', 'OnlinePBX', data.error || 'Qayta biriktirishda xatolik yuz berdi');
+    }
+  } catch (e) {
+    toast('error', 'OnlinePBX', e.message || 'Serverga ulanishda xato');
+  } finally {
+    if (btn) btn.disabled = false;
+    if (btnTxt) btnTxt.textContent = origTxt;
+  }
 }
 
 function filterPbxCallsLocally() {
@@ -552,22 +659,34 @@ function setRateModalScore(score) {
   const hiddenInput = document.getElementById('rate_modal_score_val');
   if (hiddenInput) hiddenInput.value = score;
 
+  const rc = getPbxRatingColor(score);
   const labels = {
-    1: "1 - Yomon",
-    2: "2 - Qoniqarsiz",
-    3: "3 - O'rtacha",
-    4: "4 - Yaxshi",
-    5: "5 - A'lo"
+    1: "1 - Yomon (Qizil)",
+    2: "2 - Qoniqarsiz (Qizil)",
+    3: "3 - O'rtacha (Qizil)",
+    4: "4 - Yaxshi (Sariq)",
+    5: "5 - A'lo (Yashil)"
   };
   const labelEl = document.getElementById('rate_score_text');
-  if (labelEl) labelEl.textContent = labels[score] || `${score}`;
+  if (labelEl) {
+    labelEl.textContent = labels[score] || `${score}`;
+    labelEl.style.color = rc.text;
+  }
 
   for (let i = 1; i <= 5; i++) {
     const star = document.getElementById(`star_${i}`);
     if (star) {
-      star.style.color = i <= score ? '#eab308' : 'var(--text3)';
-      star.style.transition = 'color .2s';
+      const active = (i <= score);
+      star.style.color = active ? rc.text : 'var(--text3)';
+      star.style.textShadow = active ? `0 0 12px ${rc.glow}` : 'none';
+      star.style.transform = active ? 'scale(1.15)' : 'scale(1)';
+      star.style.transition = 'all .2s ease';
     }
+  }
+
+  const modalHeader = document.querySelector('#m_rate_call .modal h3');
+  if (modalHeader) {
+    modalHeader.style.color = rc.text;
   }
 }
 

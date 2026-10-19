@@ -304,6 +304,10 @@ html.user-logged-in #loginPage {
               </p>
             </div>
             <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+              <button class="bg2" id="pbx_relink_btn" onclick="relinkPbxCallsManual()" title="Barcha qo'ng'iroqlarni operatorlarga qayta biriktirish">
+                <span class="btn-icon" data-lucide="user-check"></span>
+                <span id="pbx_relink_btn_text">Hodimlarga biriktirish</span>
+              </button>
               <button class="bg2" onclick="openPbxWebhookModal()" title="Webhook sozlamalari">
                 <span class="btn-icon" data-lucide="link"></span>
                 <span id="pbx_webhook_info_btn_text">Webhook sozlamalari</span>
@@ -360,7 +364,7 @@ html.user-logged-in #loginPage {
           <div class="scards" style="grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));">
             <div class="scard scard-blue">
               <div class="scard-top">
-                <h4 id="pbx_card_total_title">Jami qo'ng'iroqlar</h4>
+                <h4 id="pbx_card_total_title">Kiruvchi qo'ng'iroqlar</h4>
                 <div class="scard-icon" data-lucide="phone"></div>
               </div>
               <div class="snum" id="pbx_stat_total">0</div>
@@ -410,7 +414,7 @@ html.user-logged-in #loginPage {
                     <th>#</th>
                     <th id="pbx_th_op">Operator</th>
                     <th id="pbx_th_emp">Mas'ul xodim</th>
-                    <th id="pbx_th_total">Jami</th>
+                    <th id="pbx_th_total">Kiruvchi</th>
                     <th id="pbx_th_answered">Gaplashilgan</th>
                     <th id="pbx_th_missed">Propushnniy</th>
                     <th id="pbx_th_percent">Qabul foizi</th>
@@ -987,11 +991,11 @@ html.user-logged-in #loginPage {
         <div>
           <label style="font-size:11px;color:var(--text3);display:block;margin-bottom:4px;">Qo'yilgan baho (Reyting):</label>
           <select id="pbx_test_rating" style="width:100%;font-size:12px;padding:7px;border:1.5px solid var(--border2);border-radius:var(--radius-sm);background:var(--input-bg);color:var(--text);">
-            <option value="5">⭐⭐⭐⭐⭐ 5 (A'lo)</option>
-            <option value="4">⭐⭐⭐⭐ 4 (Yaxshi)</option>
-            <option value="3">⭐⭐⭐ 3 (O'rtacha)</option>
-            <option value="2">⭐⭐ 2 (Qoniqarsiz)</option>
-            <option value="1">⭐ 1 (Yomon)</option>
+            <option value="5">⭐⭐⭐⭐⭐ 5 (A'lo - Yashil)</option>
+            <option value="4">⭐⭐⭐⭐ 4 (Yaxshi - Sariq)</option>
+            <option value="3">⭐⭐⭐ 3 (O'rtacha - Qizil)</option>
+            <option value="2">⭐⭐ 2 (Qoniqarsiz - Qizil)</option>
+            <option value="1">⭐ 1 (Yomon - Qizil)</option>
             <option value="0">Baholanmagan</option>
           </select>
         </div>
@@ -1009,7 +1013,7 @@ html.user-logged-in #loginPage {
 <div class="ov hidden" id="m_rate_call">
   <div class="modal" style="max-width:440px;">
     <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:12px;">
-      <h3 style="color:#ca8a04;display:flex;align-items:center;gap:8px;margin:0;">
+      <h3 style="color:#10b981;display:flex;align-items:center;gap:8px;margin:0;">
         <span class="modal-ico" data-lucide="star"></span> <span>Qo'ng'iroqqa baho qo'yish</span>
       </h3>
       <button class="mno" onclick="closeRateCallModal()" style="padding:4px 8px;display:inline-flex;align-items:center;justify-content:center;" title="Yopish"><span class="btn-icon" data-lucide="x"></span></button>
@@ -1030,7 +1034,7 @@ html.user-logged-in #loginPage {
         <span onclick="setRateModalScore(5)" id="star_5" title="5">★</span>
       </div>
       <input type="hidden" id="rate_modal_score_val" value="5">
-      <div id="rate_score_text" style="text-align:center;font-size:12px;font-weight:700;color:#ca8a04;">5 - A'lo</div>
+      <div id="rate_score_text" style="text-align:center;font-size:12px;font-weight:700;color:#10b981;">5 - A'lo (Yashil)</div>
     </div>
 
     <div style="margin-bottom:14px;">
@@ -1045,17 +1049,17 @@ html.user-logged-in #loginPage {
   </div>
 </div>
 
-<script src="assets/js/app-parts/00-lucide-icons.js?v=2.7"></script>
-<script src="assets/js/app-parts/01-core.js?v=2.7" defer></script>
-<script src="assets/js/app-parts/02-access-settings.js?v=2.7" defer></script>
-<script src="assets/js/app-parts/03-translations.js?v=2.7" defer></script>
-<script src="assets/js/app-parts/04-time-attendance-utils.js?v=2.7" defer></script>
-<script src="assets/js/app-parts/05-notifications-feedback-login.js?v=2.7" defer></script>
-<script src="assets/js/app-parts/06-admin-pbx.js?v=2.7" defer></script>
-<script src="assets/js/app-parts/06-onlinepbx.js?v=2.7" defer></script>
-<script src="assets/js/app-parts/07-export-employee-state-actions.js?v=2.7" defer></script>
-<script src="assets/js/app-parts/08-timers-prayer-autoend.js?v=2.7" defer></script>
-<script src="assets/js/app-parts/09-face-detection.js?v=2.7" defer></script>
-<script src="assets/js/app-parts/10-employee-ui-init.js?v=2.7" defer></script>
+<script src="assets/js/app-parts/00-lucide-icons.js?v=2.9"></script>
+<script src="assets/js/app-parts/01-core.js?v=2.9" defer></script>
+<script src="assets/js/app-parts/02-access-settings.js?v=2.9" defer></script>
+<script src="assets/js/app-parts/03-translations.js?v=2.9" defer></script>
+<script src="assets/js/app-parts/04-time-attendance-utils.js?v=2.9" defer></script>
+<script src="assets/js/app-parts/05-notifications-feedback-login.js?v=2.9" defer></script>
+<script src="assets/js/app-parts/06-admin-pbx.js?v=2.9" defer></script>
+<script src="assets/js/app-parts/06-onlinepbx.js?v=2.9" defer></script>
+<script src="assets/js/app-parts/07-export-employee-state-actions.js?v=2.9" defer></script>
+<script src="assets/js/app-parts/08-timers-prayer-autoend.js?v=2.9" defer></script>
+<script src="assets/js/app-parts/09-face-detection.js?v=2.9" defer></script>
+<script src="assets/js/app-parts/10-employee-ui-init.js?v=2.9" defer></script>
 </body>
 </html>
