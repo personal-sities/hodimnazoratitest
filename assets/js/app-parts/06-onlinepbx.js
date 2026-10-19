@@ -239,6 +239,14 @@ async function fetchAndRenderPbxStats(isBackground = false) {
       durEl.textContent = `${totHm} / ${avgHm}`;
       durEl.title = `Jami: ${totHm}, O'rtacha (umumiy qo'ng'iroqlarga nisbatan): ${avgHm}`;
     }
+
+    const formulaX = document.getElementById('pbx_formula_x');
+    const formulaZ = document.getElementById('pbx_formula_z');
+    if (formulaX) formulaX.textContent = (summary.total_calls || 0).toLocaleString();
+    if (formulaZ) {
+      const zVal = summary.target_quota != null ? summary.target_quota : (Math.round(((summary.total_calls || 0) / 5) * 10) / 10);
+      formulaZ.textContent = zVal.toLocaleString();
+    }
     if (ratingEl) {
       const cardEl = ratingEl.closest('.scard');
       const titleEl = document.getElementById('pbx_card_rating_title');
@@ -292,8 +300,14 @@ function renderPbxOperatorsTable(operators) {
     return;
   }
 
+  const totalX = pbxStatsCache?.summary?.total_calls || 0;
+  const targetQuotaPerAccount = pbxStatsCache?.summary?.target_quota != null 
+    ? pbxStatsCache.summary.target_quota 
+    : (Math.round((totalX / 5) * 10) / 10);
+
   list.forEach((op, idx) => {
     const tr = document.createElement('tr');
+    const targetQuota = op.target_quota != null ? op.target_quota : targetQuotaPerAccount;
     const pct = op.answered_percent || 0;
     const pctColor = pct >= 80 ? 'var(--success)' : (pct >= 50 ? 'var(--warn)' : 'var(--danger)');
     const barWidth = Math.min(100, Math.max(0, pct));
@@ -319,19 +333,22 @@ function renderPbxOperatorsTable(operators) {
       <td>${idx + 1}</td>
       <td>${opBadge}</td>
       <td>${empNameHtml}</td>
-      <td><strong>${op.total_calls}</strong></td>
+      <td>
+        <strong title="Ushbu operatorga tushgan qo'ng'iroqlar">${op.total_calls}</strong>
+        <div style="font-size:10.5px;color:var(--text3);margin-top:2px;" title="Har bir akkaunt normasi: Z = X (${totalX}) / 5 = ${targetQuota}">norma: ${targetQuota}</div>
+      </td>
       <td><span class="badge bsm bg">${op.answered_calls}</span></td>
       <td><span class="badge bsm br">${op.missed_calls}</span></td>
-      <td style="min-width:140px;">
+      <td style="min-width:140px;" title="Formula: Y (${op.answered_calls}) / Z (${targetQuota}) × 100% = ${pct}%">
         <div style="display:flex;align-items:center;gap:8px;">
-          <div style="flex:1;height:8px;background:var(--border2);border-radius:4px;overflow:hidden;">
+          <div style="flex:1;height:8px;background:var(--border2);border-radius:4px;overflow:hidden;" title="${pct}%">
             <div style="width:${barWidth}%;height:100%;background:${pctColor};border-radius:4px;transition:width .3s;"></div>
           </div>
-          <span style="font-size:12px;font-weight:600;color:${pctColor};min-width:38px;">${pct}%</span>
+          <span style="font-size:12px;font-weight:700;color:${pctColor};min-width:44px;">${pct}%</span>
         </div>
       </td>
       <td style="font-family:var(--mono);">${totalTalkStr}</td>
-      <td style="font-family:var(--mono);" title="O'rtacha suhbat umumiy qo'ng'iroqlarga nisbatan">${avgTalkStr}</td>
+      <td style="font-family:var(--mono);" title="O'rtacha suhbat vaqti">${avgTalkStr}</td>
       <td>${ratingBadge}</td>
     `;
     tbody.appendChild(tr);
@@ -727,14 +744,20 @@ function exportPbxExcel() {
     return;
   }
 
+  const totalX = pbxStatsCache?.summary?.total_calls || 0;
+  const targetQuota = pbxStatsCache?.summary?.target_quota != null 
+    ? pbxStatsCache.summary.target_quota 
+    : (Math.round((totalX / 5) * 10) / 10);
+
   const headers = [
     '#',
     t('pbx_th_op') || 'Operator',
     t('pbx_th_emp') || 'Mas\'ul xodim',
-    t('pbx_th_total') || 'Jami qo\'ng\'iroqlar',
-    t('pbx_th_answered') || 'Gaplashilgan',
+    'Kiruvchi (Operatorga tushgan)',
+    'Har biriga norma (Z = X/5)',
+    t('pbx_th_answered') || 'Gaplashilgan (Y)',
     t('pbx_th_missed') || 'Propushnniy',
-    t('pbx_th_percent') || 'Qabul foizi (%)',
+    'Qabul foizi (Y/Z*100%)',
     t('pbx_th_talk_time') || 'Jami suhbat vaqti',
     t('pbx_th_avg') || 'O\'rtacha suhbat vaqti',
     'Qo\'yilgan baho (Reyting)'
@@ -745,6 +768,7 @@ function exportPbxExcel() {
     op.operator_number || '—',
     op.employee_name || '—',
     op.total_calls || 0,
+    op.target_quota != null ? op.target_quota : targetQuota,
     op.answered_calls || 0,
     op.missed_calls || 0,
     `${op.answered_percent || 0}%`,

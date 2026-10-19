@@ -981,9 +981,30 @@ async function relinkAllPbxCalls() {
 
 async function getCallsStats(from, to, operator = 'all', status = 'all') {
   const allowedSet = new Set(ALLOWED_PBX_OPERATORS);
+  const OPERATOR_ACCOUNTS_COUNT = 5; // Foydalanuvchi talabi: qat'iy 5 ta akkaunt
   const pool = getDbPool();
   if (pool) {
     try {
+      // 1. Kompaniyaga kelgan barcha umumiy kiruvchi qo'ng'iroqlar soni (X)
+      const companyQuery = `
+        SELECT
+          COUNT(c.id)::int AS total_company_incoming,
+          COUNT(c.id) FILTER (WHERE c.status = 'answered')::int AS total_company_answered,
+          COUNT(c.id) FILTER (WHERE c.status = 'missed')::int AS total_company_missed
+        FROM public.calls c
+        WHERE c.call_date BETWEEN $1 AND $2
+          AND (LOWER(COALESCE(c.direction, 'in')) IN ('in', 'inbound', '') OR c.direction IS NULL);
+      `;
+      const companyRes = await pool.query(companyQuery, [from, to]).catch(() => ({ rows: [] }));
+      const totalCompanyIncoming = Number(companyRes.rows[0]?.total_company_incoming) || 0;
+      const totalCompanyAnswered = Number(companyRes.rows[0]?.total_company_answered) || 0;
+      const totalCompanyMissed = Number(companyRes.rows[0]?.total_company_missed) || 0;
+
+      // X: Jami kiruvchilar soni (Kompaniyaga kelgan)
+      const X = totalCompanyIncoming;
+      // Z: Har bir akkaunt uchun gaplashishi kerak bo'lgan norma soni (X / 5)
+      const Z = OPERATOR_ACCOUNTS_COUNT > 0 ? (X / OPERATOR_ACCOUNTS_COUNT) : 0;
+
       let statsQuery = `
         SELECT
           c.operator_number,
@@ -1035,6 +1056,7 @@ async function getCallsStats(from, to, operator = 'all', status = 'all') {
           total_calls: 0,
           answered_calls: 0,
           missed_calls: 0,
+          target_quota: Math.round(Z * 10) / 10,
           answered_percent: 0,
           total_talk_seconds: 0,
           avg_talk_seconds: 0,
@@ -1054,7 +1076,9 @@ async function getCallsStats(from, to, operator = 'all', status = 'all') {
           item.total_calls = Number(r.total_calls) || 0;
           item.answered_calls = Number(r.answered_calls) || 0;
           item.missed_calls = Number(r.missed_calls) || 0;
-          item.answered_percent = item.total_calls > 0 ? Math.round((item.answered_calls / item.total_calls) * 100 * 10) / 10 : 0;
+          item.target_quota = Math.round(Z * 10) / 10;
+          // FORMULA: Y / Z * 100% (Y: gaplashilgan qo'ng'iroqlar, Z: har bir akkaunt normasi X/5)
+          item.answered_percent = Z > 0 ? Math.round((item.answered_calls / Z) * 100 * 10) / 10 : 0;
           item.total_talk_seconds = Number(r.total_talk_seconds) || 0;
           item.avg_talk_seconds = Number(r.avg_talk_seconds) || 0;
           item.avg_rating = r.rated_calls_count > 0 ? Number(r.avg_rating) : null;
@@ -1067,9 +1091,9 @@ async function getCallsStats(from, to, operator = 'all', status = 'all') {
         operators = operators.filter(o => o.operator_number === operator);
       }
 
-      const totalCalls = operators.reduce((s, x) => s + x.total_calls, 0);
-      const answeredCalls = operators.reduce((s, x) => s + x.answered_calls, 0);
-      const missedCalls = operators.reduce((s, x) => s + x.missed_calls, 0);
+      const totalCalls = X > 0 ? X : operators.reduce((s, x) => s + x.total_calls, 0);
+      const answeredCalls = totalCompanyAnswered > 0 ? totalCompanyAnswered : operators.reduce((s, x) => s + x.answered_calls, 0);
+      const missedCalls = totalCompanyMissed > 0 ? totalCompanyMissed : Math.max(0, totalCalls - answeredCalls);
       const totalTalkSec = operators.reduce((s, x) => s + x.total_talk_seconds, 0);
       const avgTalkSec = totalCalls > 0 ? Math.round(totalTalkSec / totalCalls) : 0;
       const answeredPercent = totalCalls > 0 ? Math.round((answeredCalls / totalCalls) * 100 * 10) / 10 : 0;
@@ -1086,6 +1110,8 @@ async function getCallsStats(from, to, operator = 'all', status = 'all') {
         status,
         summary: {
           total_calls: totalCalls,
+          accounts_count: OPERATOR_ACCOUNTS_COUNT,
+          target_quota: Math.round(Z * 10) / 10,
           answered_calls: answeredCalls,
           missed_calls: missedCalls,
           answered_percent: answeredPercent,
@@ -1103,24 +1129,25 @@ async function getCallsStats(from, to, operator = 'all', status = 'all') {
 
   // Fallback: local calls.json va employees.json dan
   const allEmployees = readJsonData('employees.json', []);
-  const empByOp = new Map();
-  allEmployees.forEach(e => {
-    if (e.operator_number) empByOp.set(String(e.operator_number).trim(), e);
-    if (e.pbx_extension) empByOp.set(String(e.pbx_extension).trim(), e);
-  });
+  const allLocalCalls = readLocalCalls();
 
-  let calls = readLocalCalls().filter(c => {
+  const allCompanyIncoming = allLocalCalls.filter(c => {
     const cd = c.call_date || (c.started_at ? c.started_at.split('T')[0] : '');
     const dateMatch = (!from || cd >= from) && (!to || cd <= to);
     const dir = String(c.direction || 'in').toLowerCase().trim();
     const isIncoming = (dir === 'in' || dir === 'inbound' || dir === '');
     const statusMatch = (!status || status === 'all' || c.status === status);
+    return dateMatch && isIncoming && statusMatch;
+  });
 
+  const X = allCompanyIncoming.length;
+  const Z = OPERATOR_ACCOUNTS_COUNT > 0 ? (X / OPERATOR_ACCOUNTS_COUNT) : 0;
+
+  let calls = allCompanyIncoming.filter(c => {
     const op = String(c.operator_number || '').trim();
     const isAllowed = allowedSet.has(op);
     const opMatch = (!operator || operator === 'all' || op === String(operator).trim());
-
-    return dateMatch && isIncoming && statusMatch && isAllowed && opMatch;
+    return isAllowed && opMatch;
   });
 
   const opMap = new Map();
@@ -1133,6 +1160,8 @@ async function getCallsStats(from, to, operator = 'all', status = 'all') {
       total_calls: 0,
       answered_calls: 0,
       missed_calls: 0,
+      target_quota: Math.round(Z * 10) / 10,
+      answered_percent: 0,
       total_talk_seconds: 0,
       total_rating_sum: 0,
       rated_calls_count: 0
@@ -1166,7 +1195,8 @@ async function getCallsStats(from, to, operator = 'all', status = 'all') {
     total_calls: x.total_calls,
     answered_calls: x.answered_calls,
     missed_calls: x.missed_calls,
-    answered_percent: x.total_calls > 0 ? Math.round((x.answered_calls / x.total_calls) * 100 * 10) / 10 : 0,
+    target_quota: Math.round(Z * 10) / 10,
+    answered_percent: Z > 0 ? Math.round((x.answered_calls / Z) * 100 * 10) / 10 : 0,
     total_talk_seconds: x.total_talk_seconds,
     avg_talk_seconds: x.total_calls > 0 ? Math.round(x.total_talk_seconds / x.total_calls) : 0,
     avg_rating: x.rated_calls_count > 0 ? Math.round((x.total_rating_sum / x.rated_calls_count) * 10) / 10 : null,
@@ -1177,9 +1207,9 @@ async function getCallsStats(from, to, operator = 'all', status = 'all') {
     operators = operators.filter(o => o.operator_number === operator);
   }
 
-  const totalCalls = calls.length;
-  const answeredCalls = calls.filter(c => c.status === 'answered').length;
-  const missedCalls = calls.filter(c => c.status === 'missed').length;
+  const totalCalls = X > 0 ? X : calls.length;
+  const answeredCalls = allCompanyIncoming.filter(c => c.status === 'answered').length;
+  const missedCalls = allCompanyIncoming.filter(c => c.status === 'missed').length;
   const totalTalkSec = calls.reduce((s, c) => s + (c.talk_time || 0), 0);
   const avgTalkSec = totalCalls > 0 ? Math.round(totalTalkSec / totalCalls) : 0;
 
@@ -1195,6 +1225,8 @@ async function getCallsStats(from, to, operator = 'all', status = 'all') {
     status,
     summary: {
       total_calls: totalCalls,
+      accounts_count: OPERATOR_ACCOUNTS_COUNT,
+      target_quota: Math.round(Z * 10) / 10,
       answered_calls: answeredCalls,
       missed_calls: missedCalls,
       answered_percent: totalCalls > 0 ? Math.round((answeredCalls / totalCalls) * 100 * 10) / 10 : 0,
