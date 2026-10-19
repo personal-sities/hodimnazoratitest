@@ -805,6 +805,8 @@ async function saveCallRecord(call) {
 // ============================================================
 //  ONLINEPBX QO'NG'IROQLARINI XODIMLARGA BIRIKTIRISH (RELINK)
 // ============================================================
+const ALLOWED_PBX_OPERATORS = ['100', '101', '102', '103', '104', '105', '5002'];
+
 async function relinkAllPbxCalls() {
   const pool = getDbPool();
   let updatedCount = 0;
@@ -823,87 +825,97 @@ async function relinkAllPbxCalls() {
     employees = readJsonData('employees.json', []);
   }
 
-  // Xodimlar xaritasi: operator raqami va ichki liniya bo'yicha
+  // Xodimlar xaritasi: faqat ruxsat berilgan 7 ta operator bo'yicha
   const empByOp = new Map();
   employees.forEach(emp => {
     const op = String(emp.operator_number || '').trim();
     const pbx = String(emp.pbx_extension || '').trim();
-    if (op) empByOp.set(op, emp);
-    if (pbx) empByOp.set(pbx, emp);
+    if (op && ALLOWED_PBX_OPERATORS.includes(op)) empByOp.set(op, emp);
+    if (pbx && ALLOWED_PBX_OPERATORS.includes(pbx)) empByOp.set(pbx, emp);
   });
 
   // 2. PostgreSQL dagi calls jadvalini to'liq qayta bog'laymiz
-  if (pool && empByOp.size > 0) {
+  if (pool) {
     try {
-      for (const [opNum, emp] of empByOp.entries()) {
-        if (!opNum) continue;
+      // 0. Begona / noto'g'ri raqamlarni (10, 5000, 5001, 5004, 6200 va hk) tozalash
+      await pool.query(`
+        UPDATE public.calls
+        SET operator_number = NULL, employee_id = NULL, employee_name = NULL
+        WHERE operator_number IS NOT NULL
+          AND NOT (operator_number = ANY($1::text[]))
+      `, [ALLOWED_PBX_OPERATORS]).catch(() => {});
 
-        // A. callee operator raqamiga to'g'ri keladigan kiruvchi qo'ng'iroqlar
-        const resCallee = await pool.query(`
-          UPDATE public.calls
-          SET operator_number = $1,
-              employee_id = $2,
-              employee_name = $3,
-              direction = COALESCE(NULLIF(direction, ''), 'in'),
-              updated_at = now()
-          WHERE (operator_number IS NULL OR operator_number = '' OR operator_number = '—' OR employee_id IS NULL)
-            AND (callee = $1 OR callee = ('SIP/' || $1) OR callee LIKE ($1 || '@%') OR callee LIKE ('%/' || $1))
-        `, [opNum, emp.id, emp.name]);
-        updatedCount += (resCallee.rowCount || 0);
+      if (empByOp.size > 0) {
+        for (const [opNum, emp] of empByOp.entries()) {
+          if (!opNum) continue;
 
-        // B. caller operator raqamiga to'g'ri keladigan chiquvchi qo'ng'iroqlar
-        const resCaller = await pool.query(`
-          UPDATE public.calls
-          SET operator_number = $1,
-              employee_id = $2,
-              employee_name = $3,
-              direction = 'out',
-              updated_at = now()
-          WHERE (operator_number IS NULL OR operator_number = '' OR operator_number = '—' OR employee_id IS NULL)
-            AND (caller = $1 OR caller = ('SIP/' || $1) OR caller LIKE ($1 || '@%') OR caller LIKE ('%/' || $1))
-        `, [opNum, emp.id, emp.name]);
-        updatedCount += (resCaller.rowCount || 0);
+          // A. callee operator raqamiga to'g'ri keladigan kiruvchi qo'ng'iroqlar
+          const resCallee = await pool.query(`
+            UPDATE public.calls
+            SET operator_number = $1,
+                employee_id = $2,
+                employee_name = $3,
+                direction = COALESCE(NULLIF(direction, ''), 'in'),
+                updated_at = now()
+            WHERE (operator_number IS NULL OR operator_number = '' OR operator_number = '—' OR employee_id IS NULL)
+              AND (callee = $1 OR callee = ('SIP/' || $1) OR callee LIKE ($1 || '@%') OR callee LIKE ('%/' || $1))
+          `, [opNum, emp.id, emp.name]);
+          updatedCount += (resCallee.rowCount || 0);
 
-        // C. operator_number allaqachon qo'yilgan, lekin employee_id bo'sh bo'lgan holatlar
-        const resExistingOp = await pool.query(`
-          UPDATE public.calls
-          SET employee_id = $2,
-              employee_name = $3,
-              updated_at = now()
-          WHERE operator_number = $1
-            AND (employee_id IS NULL OR employee_name IS NULL OR employee_name = '' OR employee_name = 'Biriktirilmagan')
-        `, [opNum, emp.id, emp.name]);
-        updatedCount += (resExistingOp.rowCount || 0);
+          // B. caller operator raqamiga to'g'ri keladigan chiquvchi qo'ng'iroqlar
+          const resCaller = await pool.query(`
+            UPDATE public.calls
+            SET operator_number = $1,
+                employee_id = $2,
+                employee_name = $3,
+                direction = 'out',
+                updated_at = now()
+            WHERE (operator_number IS NULL OR operator_number = '' OR operator_number = '—' OR employee_id IS NULL)
+              AND (caller = $1 OR caller = ('SIP/' || $1) OR caller LIKE ($1 || '@%') OR caller LIKE ('%/' || $1))
+          `, [opNum, emp.id, emp.name]);
+          updatedCount += (resCaller.rowCount || 0);
 
-        // D. raw_data JSON ichida user/extension/agent mavjud bo'lgan holatlar
-        const resRaw = await pool.query(`
-          UPDATE public.calls
-          SET operator_number = $1,
-              employee_id = $2,
-              employee_name = $3,
-              updated_at = now()
-          WHERE (operator_number IS NULL OR operator_number = '' OR operator_number = '—' OR employee_id IS NULL)
-            AND (
-              raw_data->>'user' = $1 OR
-              raw_data->>'extension' = $1 OR
-              raw_data->>'ext' = $1 OR
-              raw_data->>'agent' = $1 OR
-              raw_data->>'operator' = $1 OR
-              raw_data->'user'->>'number' = $1
-            )
-        `, [opNum, emp.id, emp.name]);
-        updatedCount += (resRaw.rowCount || 0);
+          // C. operator_number allaqachon qo'yilgan, lekin employee_id bo'sh bo'lgan holatlar
+          const resExistingOp = await pool.query(`
+            UPDATE public.calls
+            SET employee_id = $2,
+                employee_name = $3,
+                updated_at = now()
+            WHERE operator_number = $1
+              AND (employee_id IS NULL OR employee_name IS NULL OR employee_name = '' OR employee_name = 'Biriktirilmagan')
+          `, [opNum, emp.id, emp.name]);
+          updatedCount += (resExistingOp.rowCount || 0);
+
+          // D. raw_data JSON ichida user/extension/agent mavjud bo'lgan holatlar
+          const resRaw = await pool.query(`
+            UPDATE public.calls
+            SET operator_number = $1,
+                employee_id = $2,
+                employee_name = $3,
+                updated_at = now()
+            WHERE (operator_number IS NULL OR operator_number = '' OR operator_number = '—' OR employee_id IS NULL)
+              AND (
+                raw_data->>'user' = $1 OR
+                raw_data->>'extension' = $1 OR
+                raw_data->>'ext' = $1 OR
+                raw_data->>'agent' = $1 OR
+                raw_data->>'operator' = $1 OR
+                raw_data->'user'->>'number' = $1
+              )
+          `, [opNum, emp.id, emp.name]);
+          updatedCount += (resRaw.rowCount || 0);
+        }
       }
 
-      // E. Agar operator_number hali ham bo'sh bo'lsa, lekin callee yoki caller 2-5 ta raqam bo'lsa
+      // E. Agar operator_number hali ham bo'sh bo'lsa, lekin callee yoki caller ruxsat berilgan 7 ta operatordan biri bo'lsa
       await pool.query(`
         UPDATE public.calls
         SET operator_number = callee,
             direction = COALESCE(NULLIF(direction, ''), 'in'),
             updated_at = now()
         WHERE (operator_number IS NULL OR operator_number = '' OR operator_number = '—')
-          AND callee ~ '^[0-9]{2,5}$'
-      `).catch(() => {});
+          AND callee = ANY($1::text[])
+      `, [ALLOWED_PBX_OPERATORS]).catch(() => {});
 
       await pool.query(`
         UPDATE public.calls
@@ -911,8 +923,8 @@ async function relinkAllPbxCalls() {
             direction = 'out',
             updated_at = now()
         WHERE (operator_number IS NULL OR operator_number = '' OR operator_number = '—')
-          AND caller ~ '^[0-9]{2,5}$'
-      `).catch(() => {});
+          AND caller = ANY($1::text[])
+      `, [ALLOWED_PBX_OPERATORS]).catch(() => {});
     } catch (dbErr) {
       console.warn('[relinkAllPbxCalls DB]:', dbErr.message);
     }
@@ -922,25 +934,25 @@ async function relinkAllPbxCalls() {
   try {
     const localCalls = readLocalCalls();
     let localChanged = false;
+    const allowedSet = new Set(ALLOWED_PBX_OPERATORS);
+
     localCalls.forEach(c => {
       let op = String(c.operator_number || '').trim();
+      if (op && !allowedSet.has(op)) {
+        c.operator_number = null;
+        c.employee_id = null;
+        c.employee_name = null;
+        localChanged = true;
+      }
       const callee = String(c.callee || '').trim();
       const caller = String(c.caller || '').trim();
 
-      if (!op || op === '—' || !c.employee_id) {
-        let matchedEmp = null;
-        let detectedOp = (op && op !== '—') ? op : null;
-
-        if (!detectedOp && callee && empByOp.has(callee)) {
+      if (!c.operator_number || c.operator_number === '—' || !c.employee_id) {
+        let detectedOp = null;
+        if (allowedSet.has(callee)) {
           detectedOp = callee;
           c.direction = c.direction || 'in';
-        } else if (!detectedOp && caller && empByOp.has(caller)) {
-          detectedOp = caller;
-          c.direction = 'out';
-        } else if (!detectedOp && /^\d{2,5}$/.test(callee)) {
-          detectedOp = callee;
-          c.direction = c.direction || 'in';
-        } else if (!detectedOp && /^\d{2,5}$/.test(caller)) {
+        } else if (allowedSet.has(caller)) {
           detectedOp = caller;
           c.direction = 'out';
         }
@@ -948,7 +960,7 @@ async function relinkAllPbxCalls() {
         if (detectedOp) {
           c.operator_number = detectedOp;
           if (empByOp.has(detectedOp)) {
-            matchedEmp = empByOp.get(detectedOp);
+            const matchedEmp = empByOp.get(detectedOp);
             c.employee_id = matchedEmp.id;
             c.employee_name = matchedEmp.name;
           }
@@ -968,14 +980,15 @@ async function relinkAllPbxCalls() {
 }
 
 async function getCallsStats(from, to, operator = 'all', status = 'all') {
+  const allowedSet = new Set(ALLOWED_PBX_OPERATORS);
   const pool = getDbPool();
   if (pool) {
     try {
       let statsQuery = `
         SELECT
-          COALESCE(c.operator_number, e.operator_number, e.pbx_extension, 'other') AS operator_number,
-          COALESCE(e.id, c.employee_id) AS employee_id,
-          COALESCE(e.name, MAX(c.employee_name), 'Biriktirilmagan') AS employee_name,
+          c.operator_number,
+          c.employee_id,
+          MAX(c.employee_name) AS employee_name,
           COUNT(c.id)::int AS total_calls,
           COUNT(c.id) FILTER (WHERE c.status = 'answered')::int AS answered_calls,
           COUNT(c.id) FILTER (WHERE c.status = 'missed')::int AS missed_calls,
@@ -988,72 +1001,66 @@ async function getCallsStats(from, to, operator = 'all', status = 'all') {
           ROUND(COALESCE(AVG(c.rating) FILTER (WHERE c.rating IS NOT NULL AND c.rating > 0), 0)::numeric, 1)::float AS avg_rating,
           COUNT(c.id) FILTER (WHERE c.rating IS NOT NULL AND c.rating > 0)::int AS rated_calls_count
         FROM public.calls c
-        LEFT JOIN public.employees e
-          ON c.employee_id = e.id
-          OR (c.operator_number IS NOT NULL AND c.operator_number <> '' AND (c.operator_number = e.operator_number OR c.operator_number = e.pbx_extension))
-          OR (c.callee = e.operator_number OR c.callee = e.pbx_extension)
-          OR (c.caller = e.operator_number OR c.caller = e.pbx_extension)
         WHERE c.call_date BETWEEN $1 AND $2
           AND (LOWER(COALESCE(c.direction, 'in')) IN ('in', 'inbound', '') OR c.direction IS NULL)
+          AND c.operator_number = ANY($3::text[])
       `;
-      const params = [from, to];
+      const params = [from, to, ALLOWED_PBX_OPERATORS];
       if (operator && operator !== 'all') {
         params.push(operator);
-        statsQuery += ` AND (c.operator_number = $${params.length} OR e.operator_number = $${params.length} OR e.pbx_extension = $${params.length} OR c.callee = $${params.length} OR c.caller = $${params.length})`;
+        statsQuery += ` AND c.operator_number = $${params.length}`;
       }
       if (status && status !== 'all') {
         params.push(status);
         statsQuery += ` AND c.status = $${params.length}`;
       }
-      statsQuery += ` GROUP BY COALESCE(c.operator_number, e.operator_number, e.pbx_extension, 'other'), COALESCE(e.id, c.employee_id), e.name ORDER BY total_calls DESC;`;
+      statsQuery += ` GROUP BY c.operator_number, c.employee_id ORDER BY total_calls DESC;`;
       const statsRes = await pool.query(statsQuery, params);
 
       const empQuery = `
         SELECT id, name, operator_number, pbx_extension
         FROM public.employees
-        WHERE active = true AND (operator_number IS NOT NULL OR pbx_extension IS NOT NULL);
+        WHERE active = true;
       `;
       const empRes = await pool.query(empQuery).catch(() => ({ rows: [] }));
+      const emps = empRes.rows || [];
 
       const opMap = new Map();
-      (statsRes.rows || []).forEach(r => {
-        const rawOp = r.operator_number;
-        const opKey = (rawOp && rawOp !== '—' && rawOp !== 'other') ? rawOp : 'other';
-        opMap.set(opKey, {
-          operator_number: opKey === 'other' ? '—' : opKey,
-          employee_id: r.employee_id,
-          employee_name: r.employee_name || (opKey === 'other' ? 'Biriktirilmagan' : '—'),
-          total_calls: Number(r.total_calls) || 0,
-          answered_calls: Number(r.answered_calls) || 0,
-          missed_calls: Number(r.missed_calls) || 0,
-          answered_percent: r.total_calls > 0 ? Math.round((r.answered_calls / r.total_calls) * 100 * 10) / 10 : 0,
-          total_talk_seconds: Number(r.total_talk_seconds) || 0,
-          avg_talk_seconds: Number(r.avg_talk_seconds) || 0,
-          avg_rating: r.rated_calls_count > 0 ? Number(r.avg_rating) : null,
-          rated_calls_count: Number(r.rated_calls_count) || 0
+      ALLOWED_PBX_OPERATORS.forEach(opNum => {
+        const emp = emps.find(e => (String(e.operator_number || '').trim() === opNum || String(e.pbx_extension || '').trim() === opNum));
+        opMap.set(opNum, {
+          operator_number: opNum,
+          employee_id: emp?.id || null,
+          employee_name: emp?.name || (opNum === '5002' ? '5002-operator' : '—'),
+          total_calls: 0,
+          answered_calls: 0,
+          missed_calls: 0,
+          answered_percent: 0,
+          total_talk_seconds: 0,
+          avg_talk_seconds: 0,
+          avg_rating: null,
+          rated_calls_count: 0
         });
       });
 
-      if (!operator || operator === 'all') {
-        (empRes.rows || []).forEach(emp => {
-          const opNum = emp.operator_number || emp.pbx_extension;
-          if (opNum && !opMap.has(opNum)) {
-            opMap.set(opNum, {
-              operator_number: opNum,
-              employee_id: emp.id,
-              employee_name: emp.name,
-              total_calls: 0,
-              answered_calls: 0,
-              missed_calls: 0,
-              answered_percent: 0,
-              total_talk_seconds: 0,
-              avg_talk_seconds: 0,
-              avg_rating: null,
-              rated_calls_count: 0
-            });
+      (statsRes.rows || []).forEach(r => {
+        const rawOp = String(r.operator_number || '').trim();
+        if (opMap.has(rawOp)) {
+          const item = opMap.get(rawOp);
+          if (r.employee_id) item.employee_id = r.employee_id;
+          if (r.employee_name && r.employee_name !== 'Biriktirilmagan' && r.employee_name !== '—') {
+            item.employee_name = r.employee_name;
           }
-        });
-      }
+          item.total_calls = Number(r.total_calls) || 0;
+          item.answered_calls = Number(r.answered_calls) || 0;
+          item.missed_calls = Number(r.missed_calls) || 0;
+          item.answered_percent = item.total_calls > 0 ? Math.round((item.answered_calls / item.total_calls) * 100 * 10) / 10 : 0;
+          item.total_talk_seconds = Number(r.total_talk_seconds) || 0;
+          item.avg_talk_seconds = Number(r.avg_talk_seconds) || 0;
+          item.avg_rating = r.rated_calls_count > 0 ? Number(r.avg_rating) : null;
+          item.rated_calls_count = Number(r.rated_calls_count) || 0;
+        }
+      });
 
       let operators = Array.from(opMap.values()).sort((a, b) => b.total_calls - a.total_calls);
       if (operator && operator !== 'all') {
@@ -1096,8 +1103,6 @@ async function getCallsStats(from, to, operator = 'all', status = 'all') {
 
   // Fallback: local calls.json va employees.json dan
   const allEmployees = readJsonData('employees.json', []);
-  const activeEmpsWithOp = allEmployees.filter(e => e.active !== false && (e.operator_number || e.pbx_extension));
-
   const empByOp = new Map();
   allEmployees.forEach(e => {
     if (e.operator_number) empByOp.set(String(e.operator_number).trim(), e);
@@ -1107,74 +1112,50 @@ async function getCallsStats(from, to, operator = 'all', status = 'all') {
   let calls = readLocalCalls().filter(c => {
     const cd = c.call_date || (c.started_at ? c.started_at.split('T')[0] : '');
     const dateMatch = (!from || cd >= from) && (!to || cd <= to);
-    const op = String(c.operator_number || c.callee || c.caller || '').trim();
-    const opMatch = (!operator || operator === 'all' || op === String(operator).trim());
-    const statusMatch = (!status || status === 'all' || c.status === status);
     const dir = String(c.direction || 'in').toLowerCase().trim();
     const isIncoming = (dir === 'in' || dir === 'inbound' || dir === '');
-    return dateMatch && opMatch && statusMatch && isIncoming;
+    const statusMatch = (!status || status === 'all' || c.status === status);
+
+    const op = String(c.operator_number || '').trim();
+    const isAllowed = allowedSet.has(op);
+    const opMatch = (!operator || operator === 'all' || op === String(operator).trim());
+
+    return dateMatch && isIncoming && statusMatch && isAllowed && opMatch;
   });
 
   const opMap = new Map();
-
-  // 1. Biriktirilgan faol operatorlarni xaritaga qo'shamiz
-  activeEmpsWithOp.forEach(emp => {
-    const op = String(emp.operator_number || emp.pbx_extension).trim();
-    if (op && (!operator || operator === 'all' || op === operator)) {
-      opMap.set(op, {
-        operator_number: op,
-        employee_id: emp.id,
-        employee_name: emp.name,
-        total_calls: 0,
-        answered_calls: 0,
-        missed_calls: 0,
-        total_talk_seconds: 0,
-        total_rating_sum: 0,
-        rated_calls_count: 0
-      });
-    }
+  ALLOWED_PBX_OPERATORS.forEach(opNum => {
+    const emp = allEmployees.find(e => (String(e.operator_number || '').trim() === opNum || String(e.pbx_extension || '').trim() === opNum));
+    opMap.set(opNum, {
+      operator_number: opNum,
+      employee_id: emp?.id || null,
+      employee_name: emp?.name || (opNum === '5002' ? '5002-operator' : '—'),
+      total_calls: 0,
+      answered_calls: 0,
+      missed_calls: 0,
+      total_talk_seconds: 0,
+      total_rating_sum: 0,
+      rated_calls_count: 0
+    });
   });
 
-  // 2. Qo'ng'iroqlarni agregatsiya qilamiz
   calls.forEach(c => {
-    let op = String(c.operator_number || '').trim();
-    if (!op || op === '—') {
-      const callee = String(c.callee || '').trim();
-      const caller = String(c.caller || '').trim();
-      if (callee && empByOp.has(callee)) op = callee;
-      else if (caller && empByOp.has(caller)) op = caller;
-      else if (/^\d{2,5}$/.test(callee)) op = callee;
-      else if (/^\d{2,5}$/.test(caller)) op = caller;
-      else op = 'other';
-    }
+    const op = String(c.operator_number || '').trim();
+    if (opMap.has(op)) {
+      const item = opMap.get(op);
+      item.total_calls++;
+      if (c.status === 'answered') {
+        item.answered_calls++;
+        item.total_talk_seconds += (c.talk_time || 0);
+      } else {
+        item.missed_calls++;
+      }
 
-    if (!opMap.has(op)) {
-      const matchedEmp = empByOp.get(op);
-      opMap.set(op, {
-        operator_number: op === 'other' ? '—' : op,
-        employee_id: c.employee_id || matchedEmp?.id || null,
-        employee_name: c.employee_name || matchedEmp?.name || (op === 'other' ? 'Biriktirilmagan' : '—'),
-        total_calls: 0,
-        answered_calls: 0,
-        missed_calls: 0,
-        total_talk_seconds: 0,
-        total_rating_sum: 0,
-        rated_calls_count: 0
-      });
-    }
-    const item = opMap.get(op);
-    item.total_calls++;
-    if (c.status === 'answered') {
-      item.answered_calls++;
-      item.total_talk_seconds += (c.talk_time || 0);
-    } else {
-      item.missed_calls++;
-    }
-
-    const r = parseFloat(c.rating);
-    if (!isNaN(r) && r > 0) {
-      item.total_rating_sum += r;
-      item.rated_calls_count++;
+      const r = parseFloat(c.rating);
+      if (!isNaN(r) && r > 0) {
+        item.total_rating_sum += r;
+        item.rated_calls_count++;
+      }
     }
   });
 
@@ -1254,9 +1235,9 @@ async function getCallsList(from, to, operator, status, limit = 50) {
           OR (c.operator_number IS NOT NULL AND c.operator_number <> '' AND (c.operator_number = e.operator_number OR c.operator_number = e.pbx_extension))
           OR (c.callee = e.operator_number OR c.callee = e.pbx_extension)
           OR (c.caller = e.operator_number OR c.caller = e.pbx_extension)
-        WHERE 1=1
+        WHERE c.operator_number = ANY($1::text[])
       `;
-      const params = [];
+      const params = [ALLOWED_PBX_OPERATORS];
       if (from) {
         params.push(from);
         query += ` AND c.call_date >= $${params.length}`;
@@ -1267,7 +1248,7 @@ async function getCallsList(from, to, operator, status, limit = 50) {
       }
       if (operator && operator !== 'all') {
         params.push(operator);
-        query += ` AND (c.operator_number = $${params.length} OR e.operator_number = $${params.length} OR e.pbx_extension = $${params.length} OR c.callee = $${params.length} OR c.caller = $${params.length})`;
+        query += ` AND c.operator_number = $${params.length}`;
       }
       if (status && status !== 'all') {
         params.push(status);
@@ -1291,10 +1272,11 @@ async function getCallsList(from, to, operator, status, limit = 50) {
     if (e.pbx_extension) empMapByOp.set(String(e.pbx_extension).trim(), e.name);
   });
 
+  calls = calls.filter(c => ALLOWED_PBX_OPERATORS.includes(String(c.operator_number || '').trim()));
   if (from) calls = calls.filter(c => (c.call_date || '').substring(0, 10) >= from);
   if (to) calls = calls.filter(c => (c.call_date || '').substring(0, 10) <= to);
   if (operator && operator !== 'all') {
-    calls = calls.filter(c => c.operator_number === operator || c.callee === operator || c.caller === operator);
+    calls = calls.filter(c => c.operator_number === operator);
   }
   if (status && status !== 'all') calls = calls.filter(c => c.status === status);
   calls.sort((a, b) => new Date(b.started_at || 0) - new Date(a.started_at || 0));
@@ -1403,15 +1385,19 @@ async function handleOnlinePbxWebhook(req, res, reqUrl) {
       direction = 'out';
     }
 
-    // D) Agar hali ham topilmagan bo'lsa, qisqa raqam (2-5 ta raqam) tekshiruvi
+    // D) Agar hali ham topilmagan bo'lsa, qisqa raqam tekshiruvi (faqat ruxsat berilgan 7 ta operator uchun)
     if (!operatorNumber) {
-      if (/^\d{2,5}$/.test(callee)) {
+      if (ALLOWED_PBX_OPERATORS.includes(callee)) {
         operatorNumber = callee;
         if (!direction) direction = 'in';
-      } else if (/^\d{2,5}$/.test(caller)) {
+      } else if (ALLOWED_PBX_OPERATORS.includes(caller)) {
         operatorNumber = caller;
         direction = 'out';
       }
+    }
+
+    if (operatorNumber && !ALLOWED_PBX_OPERATORS.includes(operatorNumber)) {
+      operatorNumber = null;
     }
 
     if (!direction) {

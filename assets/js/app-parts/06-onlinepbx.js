@@ -9,6 +9,7 @@ let pbxFilterStatus = 'all';
 let pbxStatsCache = null;
 let pbxCallsCache = [];
 let pbxAutoRefreshTimer = null;
+const ALLOWED_PBX_OPERATORS = ['100', '101', '102', '103', '104', '105', '5002'];
 
 function initOnlinePbx() {
   const fromEl = document.getElementById('pbx_date_from');
@@ -137,27 +138,14 @@ async function loadPbxOperatorFilterOptions() {
 
     sel.innerHTML = `<option value="all">${t('pbx_filter_all_ops') || 'Barcha operatorlar'}</option>`;
     const added = new Set();
-    (emps || []).forEach(emp => {
-      const opNum = String(emp.operator_number || emp.pbx_extension || '').trim();
-      if (opNum && !added.has(opNum)) {
-        added.add(opNum);
-        const opt = document.createElement('option');
-        opt.value = opNum;
-        opt.textContent = `${opNum} — ${emp.name}`;
-        sel.appendChild(opt);
-      }
-    });
-
-    // Keshdagi qo'shimcha operatorlar
-    (pbxStatsCache?.operators || []).forEach(op => {
-      const opNum = String(op.operator_number || '').trim();
-      if (opNum && opNum !== '—' && opNum !== 'other' && !added.has(opNum)) {
-        added.add(opNum);
-        const opt = document.createElement('option');
-        opt.value = opNum;
-        opt.textContent = `${opNum} — ${op.employee_name || 'Operator'}`;
-        sel.appendChild(opt);
-      }
+    ALLOWED_PBX_OPERATORS.forEach(opNum => {
+      const emp = (emps || []).find(e => String(e.operator_number || '').trim() === opNum || String(e.pbx_extension || '').trim() === opNum);
+      const name = emp ? emp.name : (opNum === '5002' ? '5002-operator' : 'Operator');
+      added.add(opNum);
+      const opt = document.createElement('option');
+      opt.value = opNum;
+      opt.textContent = `${opNum} — ${name}`;
+      sel.appendChild(opt);
     });
 
     if (currentVal && (currentVal === 'all' || added.has(currentVal))) {
@@ -294,7 +282,7 @@ function renderPbxOperatorsTable(operators) {
   if (!tbody) return;
   tbody.innerHTML = '';
 
-  let list = operators || [];
+  let list = (operators || []).filter(op => ALLOWED_PBX_OPERATORS.includes(String(op.operator_number || '').trim()));
   if (pbxFilterOperator && pbxFilterOperator !== 'all') {
     list = list.filter(op => String(op.operator_number || '').trim() === String(pbxFilterOperator).trim());
   }
@@ -377,7 +365,9 @@ function renderPbxCallsTable(calls) {
   tbody.innerHTML = '';
 
   const query = (document.getElementById('pbx_search_input')?.value || '').toLowerCase().trim();
-  const filtered = calls.filter(c => {
+  const filtered = (calls || []).filter(c => {
+    const op = String(c.operator_number || '').trim();
+    if (op && !ALLOWED_PBX_OPERATORS.includes(op)) return false;
     if (!query) return true;
     return (
       (c.caller || '').toLowerCase().includes(query) ||
@@ -558,12 +548,14 @@ async function loadPbxTestOperatorOptions() {
   const sel = document.getElementById('pbx_test_op');
   if (!sel) return;
   try {
-    let emps = null;
-    const res = await sb.from('employees').select('id,name,operator_number').eq('active', true).order('name');
-    if (!res.error && res.data) emps = res.data;
-    if (!emps) {
-      const fallback = await sb.from('employees').select('id,name').eq('active', true).order('name');
-      emps = fallback.data || [];
+    let emps = [];
+    try {
+      const sRes = await serverApi('/api/employees?active_only=true');
+      if (sRes.ok && Array.isArray(sRes.data)) emps = sRes.data;
+    } catch (_) {}
+    if (!emps.length) {
+      const res = await sb.from('employees').select('id,name,operator_number,pbx_extension').eq('active', true).order('name');
+      if (!res.error && res.data) emps = res.data;
     }
 
     try {
@@ -576,21 +568,16 @@ async function loadPbxTestOperatorOptions() {
     } catch (_) {}
 
     sel.innerHTML = '';
-    let hasAny = false;
-    (emps || []).forEach(emp => {
-      if (emp.operator_number) {
-        hasAny = true;
-        const opt = document.createElement('option');
-        opt.value = emp.operator_number;
-        opt.textContent = `${emp.operator_number} — ${emp.name}`;
-        sel.appendChild(opt);
-      }
+    ALLOWED_PBX_OPERATORS.forEach(opNum => {
+      const emp = (emps || []).find(e => String(e.operator_number || '').trim() === opNum || String(e.pbx_extension || '').trim() === opNum);
+      const name = emp ? emp.name : (opNum === '5002' ? '5002-operator' : 'Operator');
+      const opt = document.createElement('option');
+      opt.value = opNum;
+      opt.textContent = `${opNum} — ${name}`;
+      sel.appendChild(opt);
     });
-    if (!hasAny) {
-      sel.innerHTML = `<option value="100">100 — Standart operator</option>`;
-    }
   } catch (e) {
-    sel.innerHTML = `<option value="100">100 — Standart operator</option>`;
+    sel.innerHTML = ALLOWED_PBX_OPERATORS.map(o => `<option value="${o}">${o}</option>`).join('');
   }
 }
 
@@ -730,7 +717,8 @@ async function saveCallRating() {
 // ============================================================
 
 function exportPbxExcel() {
-  if (!pbxStatsCache || !pbxStatsCache.operators || !pbxStatsCache.operators.length) {
+  const operators = (pbxStatsCache?.operators || []).filter(op => ALLOWED_PBX_OPERATORS.includes(String(op.operator_number || '').trim()));
+  if (!operators.length) {
     toast('warn', 'OnlinePBX', t('no_data') || 'Eksport uchun ma\'lumot yo\'q');
     return;
   }
@@ -752,7 +740,7 @@ function exportPbxExcel() {
     'Qo\'yilgan baho (Reyting)'
   ];
 
-  const rows = pbxStatsCache.operators.map((op, i) => [
+  const rows = operators.map((op, i) => [
     i + 1,
     op.operator_number || '—',
     op.employee_name || '—',
