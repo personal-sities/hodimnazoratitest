@@ -225,22 +225,26 @@ async function saveNotifToDB(type,title,body){
   if(!CU)return;
   const payload = {employee_id:CU.id,title,body,type};
   try{
-    await serverApi('/api/notifications', { method:'POST', body: JSON.stringify(payload) });
-    try{ await sb.from('notifications').insert(payload); }catch(e){}
+    const sRes = await serverApi('/api/notifications', { method:'POST', body: JSON.stringify(payload) });
+    if (!sRes || !sRes.ok) {
+      await sb.from('notifications').insert(payload).catch(()=>{});
+    }
   }catch(e){console.warn('saveNotifToDB:',e);}
   loadNotificationsEmp(false);
 }
+let adminNotifInFlight = false;
 async function adminSendNotif() {
+  if (adminNotifInFlight) return;
   const btn = document.querySelector('#tab_notif .bb');
-  if (btn) btn.disabled = true;
   const empId = document.getElementById('ns_emp').value;
   const title = document.getElementById('ns_title_inp').value.trim();
   const body = document.getElementById('ns_body').value.trim();
   if (!title || !body) {
     toast('warn',t('error_title'),t('notif_fill_required'));
-    if (btn) btn.disabled = false;
     return;
   }
+  adminNotifInFlight = true;
+  if (btn) btn.disabled = true;
   try{
     let targets = [];
     if (empId === 'all') {
@@ -256,8 +260,10 @@ async function adminSendNotif() {
     }
     const inserts = targets.map(eid => ({employee_id:eid, title, body, type:'admin'}));
     if (inserts.length > 0) {
-      await serverApi('/api/notifications', { method:'POST', body: JSON.stringify(inserts) });
-      try{ await sb.from('notifications').insert(inserts); }catch(e){}
+      const sRes = await serverApi('/api/notifications', { method:'POST', body: JSON.stringify(inserts) });
+      if (!sRes || !sRes.ok) {
+        await sb.from('notifications').insert(inserts).catch(()=>{});
+      }
     }
     if (notifChannel) notifChannel.postMessage({type:'new-notification', title, body});
     document.getElementById('ns_title_inp').value = '';
@@ -268,6 +274,7 @@ async function adminSendNotif() {
     console.error('adminSendNotif error:',e);
     toast('error',t('error_title'),e.message||t('notif_send_error'));
   }finally{
+    adminNotifInFlight = false;
     if(btn)btn.disabled=false;
   }
 }
@@ -346,19 +353,35 @@ if (notifChannel) {
 // ============================================================
 //  FEEDBACK
 // ============================================================
+let feedbackInFlight = false;
 async function sendFeedback() {
-  if (!CU) return;
-  const type = document.getElementById('fb_type').value;
-  const msg = document.getElementById('fb_msg').value.trim();
+  if (!CU || feedbackInFlight) return;
+  const typeEl = document.getElementById('fb_type');
+  const msgEl = document.getElementById('fb_msg');
+  const type = typeEl ? typeEl.value : 'other';
+  const msg = msgEl ? msgEl.value.trim() : '';
   if (!msg) { toast('warn',t('error_title'),t('feedback_write_message')); return; }
+
+  const btn = document.querySelector('#emp_tab_feedback .bb');
+  feedbackInFlight = true;
+  if (btn) btn.disabled = true;
+
   const payload = { employee_id:CU.id, employee_name:CU.name, type, message:msg };
   try{
-    await serverApi('/api/feedback', { method: 'POST', body: JSON.stringify(payload) });
-    try { await sb.from('feedback').insert(payload); } catch(e){}
-  }catch(e){console.warn('sendFeedback error:',e);}
-  document.getElementById('fb_msg').value = '';
-  toast('success',t('feedback_sent_title'),t('feedback_sent_success'));
-  loadMyFeedback();
+    const sRes = await serverApi('/api/feedback', { method: 'POST', body: JSON.stringify(payload) });
+    if (!sRes || !sRes.ok) {
+      await sb.from('feedback').insert(payload).catch(()=>{});
+    }
+    if (msgEl) msgEl.value = '';
+    toast('success',t('feedback_sent_title'),t('feedback_sent_success'));
+    await loadMyFeedback();
+  }catch(e){
+    console.warn('sendFeedback error:',e);
+    toast('error', t('error_title'), e.message || 'Xabarni yuborishda xatolik');
+  }finally{
+    feedbackInFlight = false;
+    if (btn) btn.disabled = false;
+  }
 }
 function renderFeedbackBadge(type){
   const iconName = type==='complaint' ? 'alert-circle' : type==='suggestion' ? 'sparkles' : 'file-text';

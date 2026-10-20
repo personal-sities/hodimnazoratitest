@@ -127,9 +127,10 @@ async function loadPbxOperatorFilterOptions() {
       } catch (_) {}
     }
 
+    const activeEmps = (emps || []).filter(e => e.active !== false);
     try {
       const localOps = JSON.parse(localStorage.getItem('aloqa_operator_numbers') || '{}');
-      (emps || []).forEach(emp => {
+      activeEmps.forEach(emp => {
         if (!emp.operator_number && localOps[emp.id]) {
           emp.operator_number = localOps[emp.id];
         }
@@ -139,7 +140,7 @@ async function loadPbxOperatorFilterOptions() {
     sel.innerHTML = `<option value="all">${t('pbx_filter_all_ops') || 'Barcha operatorlar'}</option>`;
     const added = new Set();
     ALLOWED_PBX_OPERATORS.forEach(opNum => {
-      const emp = (emps || []).find(e => String(e.operator_number || '').trim() === opNum || String(e.pbx_extension || '').trim() === opNum);
+      const emp = activeEmps.find(e => String(e.operator_number || '').trim() === opNum || String(e.pbx_extension || '').trim() === opNum);
       const name = emp ? emp.name : (opNum === '5002' ? '5002-operator' : 'Operator');
       added.add(opNum);
       const opt = document.createElement('option');
@@ -575,9 +576,10 @@ async function loadPbxTestOperatorOptions() {
       if (!res.error && res.data) emps = res.data;
     }
 
+    const activeEmps = (emps || []).filter(e => e.active !== false);
     try {
       const localOps = JSON.parse(localStorage.getItem('aloqa_operator_numbers') || '{}');
-      (emps || []).forEach(emp => {
+      activeEmps.forEach(emp => {
         if (!emp.operator_number && localOps[emp.id]) {
           emp.operator_number = localOps[emp.id];
         }
@@ -586,7 +588,7 @@ async function loadPbxTestOperatorOptions() {
 
     sel.innerHTML = '';
     ALLOWED_PBX_OPERATORS.forEach(opNum => {
-      const emp = (emps || []).find(e => String(e.operator_number || '').trim() === opNum || String(e.pbx_extension || '').trim() === opNum);
+      const emp = activeEmps.find(e => String(e.operator_number || '').trim() === opNum || String(e.pbx_extension || '').trim() === opNum);
       const name = emp ? emp.name : (opNum === '5002' ? '5002-operator' : 'Operator');
       const opt = document.createElement('option');
       opt.value = opNum;

@@ -755,9 +755,9 @@ async function delEmp(id) {
       }
     } catch(_) {}
 
-    // 3. To'g'ridan-to'g'ri Supabase bazasidan o'chirish yoki active=false qilish
+    // 3. To'g'ridan-to'g'ri Supabase bazasidan o'chirish yoki active=false qilish va operator raqamlarini tozalash
     try {
-      await sb.from('employees').update({ active: false }).eq('id', id);
+      await sb.from('employees').update({ active: false, operator_number: null, pbx_extension: null }).eq('id', id);
     } catch (_) {}
 
     // 4. Lokal keshdan o'chirish
@@ -765,12 +765,26 @@ async function delEmp(id) {
       const localEmps = JSON.parse(localStorage.getItem('aloqa_local_employees') || '[]');
       const filtered = localEmps.filter(e => e.id !== id);
       localStorage.setItem('aloqa_local_employees', JSON.stringify(filtered));
+
+      const localOps = JSON.parse(localStorage.getItem('aloqa_operator_numbers') || '{}');
+      if (localOps[id]) {
+        delete localOps[id];
+        localStorage.setItem('aloqa_operator_numbers', JSON.stringify(localOps));
+      }
+    } catch (_) {}
+
+    // 5. Serverda qayta biriktirishni ishga tushirish
+    try {
+      await fetch('/api/pbx/relink', { method: 'POST' });
     } catch (_) {}
 
     toast('success', t('employee_title'), t('employee_removed'));
     await loadEmpList();
     loadDashboard();
     if (mVisible) loadMonthly();
+    if (typeof loadPbxDashboard === 'function') {
+      loadPbxDashboard();
+    }
   } catch (e) {
     console.error('delEmp error:', e);
     toast('error', t('error_title'), e.message || t('employee_remove_error'));
@@ -952,11 +966,17 @@ async function saveEmployeeOperator() {
   }
 
   try {
-    // 1. Mahalliy keshga saqlash
+    // 1. Mahalliy keshga saqlash (ushbu operator raqami boshqa xodimda bo'lsa tozalash)
     try {
       const localOps = JSON.parse(localStorage.getItem('aloqa_operator_numbers') || '{}');
-      if (opNum) localOps[empId] = opNum;
-      else delete localOps[empId];
+      if (opNum) {
+        Object.keys(localOps).forEach(k => {
+          if (localOps[k] === opNum && k !== empId) delete localOps[k];
+        });
+        localOps[empId] = opNum;
+      } else {
+        delete localOps[empId];
+      }
       localStorage.setItem('aloqa_operator_numbers', JSON.stringify(localOps));
     } catch (_) {}
 
@@ -977,6 +997,13 @@ async function saveEmployeeOperator() {
 
     // 3. Supabase REST API ga ham urinish
     try {
+      if (opNum) {
+        await sb
+          .from('employees')
+          .update({ operator_number: null, pbx_extension: null })
+          .eq('operator_number', opNum)
+          .neq('id', empId);
+      }
       await sb
         .from('employees')
         .update({
@@ -986,8 +1013,13 @@ async function saveEmployeeOperator() {
         .eq('id', empId);
 
       if (opNum) {
-        await sb.from('calls').update({ employee_id: empId }).eq('operator_number', opNum).is('employee_id', null);
+        await sb.from('calls').update({ employee_id: empId }).eq('operator_number', opNum);
       }
+    } catch (_) {}
+
+    // 4. Serverda barcha qo'ng'iroqlarni va statistikani yangilash
+    try {
+      await fetch('/api/pbx/relink', { method: 'POST' });
     } catch (_) {}
 
     closeEditOperatorModal();
@@ -995,7 +1027,7 @@ async function saveEmployeeOperator() {
 
     await loadEmpList();
     if (typeof loadPbxDashboard === 'function') {
-      loadPbxDashboard();
+      await loadPbxDashboard();
     }
   } catch (err) {
     console.error('saveEmployeeOperator error:', err);
