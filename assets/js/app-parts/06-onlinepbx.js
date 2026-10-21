@@ -238,7 +238,7 @@ async function fetchAndRenderPbxStats(isBackground = false) {
   const tbody = document.getElementById('pbx_operators_body');
 
   if (!isBackground && tbody && (!tbody.children.length || tbody.innerHTML.includes('skeleton'))) {
-    tbody.innerHTML = `<tr><td colspan="10" style="text-align:center;padding:24px;color:var(--text3);">${t('loading') || 'Yuklanmoqda...'}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:24px;color:var(--text3);">${t('loading') || 'Yuklanmoqda...'}</td></tr>`;
   }
 
   try {
@@ -312,7 +312,7 @@ async function fetchAndRenderPbxStats(isBackground = false) {
   } catch (err) {
     console.error('fetchAndRenderPbxStats error:', err);
     if (!isBackground && tbody) {
-      tbody.innerHTML = `<tr><td colspan="10" style="text-align:center;padding:20px;color:var(--danger);">${err.message || 'Xatolik yuz berdi'}</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:20px;color:var(--danger);">${err.message || 'Xatolik yuz berdi'}</td></tr>`;
     }
   }
 }
@@ -328,7 +328,7 @@ function renderPbxOperatorsTable(operators) {
   }
 
   if (!list || list.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="10" style="text-align:center;padding:24px;color:var(--text3);">${t('no_data') || 'Ma\'lumot yo\'q'}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:24px;color:var(--text3);">${t('no_data') || 'Ma\'lumot yo\'q'}</td></tr>`;
     return;
   }
 
@@ -378,7 +378,6 @@ function renderPbxOperatorsTable(operators) {
         <div style="font-size:10.5px;color:var(--text3);margin-top:2px;" title="Har bir akkaunt normasi: Z = X (${totalX}) / ${accountsCount} = ${targetQuota}">norma: ${targetQuota}</div>
       </td>
       <td><span class="badge bsm bg">${op.answered_calls}</span></td>
-      <td><span class="badge bsm br">${op.missed_calls}</span></td>
       <td style="min-width:140px;" title="Formula: Y (${op.answered_calls}) / Z (${targetQuota}) × 100% = ${pct}%">
         <div style="display:flex;align-items:center;gap:8px;">
           <div style="flex:1;height:8px;background:var(--border2);border-radius:4px;overflow:hidden;" title="${pct}%">
