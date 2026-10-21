@@ -1201,7 +1201,7 @@ function normalizePbxEmpName(name) {
   return s;
 }
 
-const ALLOWED_PBX_OPERATORS = ['100', '101', '102', '103', '104', '105', '5002'];
+const ALLOWED_PBX_OPERATORS = ['100', '101', '102', '103', '104', '105'];
 
 async function relinkAllPbxCalls() {
   const pool = getDbPool();
@@ -1250,13 +1250,18 @@ async function relinkAllPbxCalls() {
     } catch (_) {}
   }
 
-  // 0.1 Inactive (ishdan ketgan) xodimlardan operator raqamini tozalash
+  // 0.1 Inactive (ishdan ketgan) xodimlardan va 5002 (operator bo'lmagan) raqamlardan tozalash
   if (pool) {
     try {
       await pool.query(`
         UPDATE public.employees
         SET operator_number = NULL, pbx_extension = NULL
-        WHERE active = false AND (operator_number IS NOT NULL OR pbx_extension IS NOT NULL)
+        WHERE (active = false AND (operator_number IS NOT NULL OR pbx_extension IS NOT NULL))
+           OR operator_number = '5002' OR pbx_extension = '5002';
+
+        UPDATE public.calls
+        SET operator_number = NULL, employee_id = NULL, employee_name = NULL, updated_at = now()
+        WHERE operator_number = '5002' OR operator_number = '5 2';
       `);
     } catch (_) {}
   }
@@ -1454,7 +1459,7 @@ async function relinkAllPbxCalls() {
 
 async function getCallsStats(from, to, operator = 'all', status = 'all') {
   const allowedSet = new Set(ALLOWED_PBX_OPERATORS);
-  const OPERATOR_ACCOUNTS_COUNT = 5; // Foydalanuvchi talabi: qat'iy 5 ta akkaunt
+  const OPERATOR_ACCOUNTS_COUNT = ALLOWED_PBX_OPERATORS.length; // Faqat 100, 101, 102, 103, 104, 105 (6 ta operator)
   const pool = getDbPool();
   if (pool) {
     try {
@@ -1475,7 +1480,7 @@ async function getCallsStats(from, to, operator = 'all', status = 'all') {
 
       // X: Jami kiruvchilar soni (Kompaniyaga kelgan)
       const X = totalCompanyIncoming;
-      // Z: Har bir akkaunt uchun gaplashishi kerak bo'lgan norma soni (X / 5)
+      // Z: Har bir akkaunt uchun gaplashishi kerak bo'lgan norma soni (X / OPERATOR_ACCOUNTS_COUNT)
       const Z = OPERATOR_ACCOUNTS_COUNT > 0 ? (X / OPERATOR_ACCOUNTS_COUNT) : 0;
 
       let statsQuery = `
@@ -1546,7 +1551,7 @@ async function getCallsStats(from, to, operator = 'all', status = 'all') {
         opMap.set(opNum, {
           operator_number: opNum,
           employee_id: emp?.id || null,
-          employee_name: empName || (opNum === '5002' ? '5002-operator' : '—'),
+          employee_name: empName || '—',
           total_calls: 0,
           answered_calls: 0,
           missed_calls: 0,
@@ -1653,7 +1658,7 @@ async function getCallsStats(from, to, operator = 'all', status = 'all') {
     opMap.set(opNum, {
       operator_number: opNum,
       employee_id: emp?.id || null,
-      employee_name: empName || (opNum === '5002' ? '5002-operator' : '—'),
+      employee_name: empName || '—',
       total_calls: 0,
       answered_calls: 0,
       missed_calls: 0,

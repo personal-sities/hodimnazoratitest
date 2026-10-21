@@ -9,7 +9,7 @@ let pbxFilterStatus = 'all';
 let pbxStatsCache = null;
 let pbxCallsCache = [];
 let pbxAutoRefreshTimer = null;
-const ALLOWED_PBX_OPERATORS = ['100', '101', '102', '103', '104', '105', '5002'];
+const ALLOWED_PBX_OPERATORS = ['100', '101', '102', '103', '104', '105'];
 
 function normalizePbxEmpName(name) {
   if (!name) return name;
@@ -168,7 +168,7 @@ async function loadPbxOperatorFilterOptions() {
     const added = new Set();
     ALLOWED_PBX_OPERATORS.forEach(opNum => {
       const emp = activeEmps.find(e => String(e.operator_number || '').trim() === opNum || String(e.pbx_extension || '').trim() === opNum);
-      const rawName = emp ? emp.name : (opNum === '5002' ? '5002-operator' : 'Operator');
+      const rawName = emp ? emp.name : 'Operator';
       const name = normalizePbxEmpName(rawName);
       added.add(opNum);
       const opt = document.createElement('option');
@@ -271,9 +271,12 @@ async function fetchAndRenderPbxStats(isBackground = false) {
 
     const formulaX = document.getElementById('pbx_formula_x');
     const formulaZ = document.getElementById('pbx_formula_z');
+    const accountsEl = document.getElementById('pbx_formula_accounts_count');
+    const accountsCount = summary.accounts_count || ALLOWED_PBX_OPERATORS.length;
+    if (accountsEl) accountsEl.textContent = `${accountsCount} ta`;
     if (formulaX) formulaX.textContent = (summary.total_calls || 0).toLocaleString();
     if (formulaZ) {
-      const zVal = summary.target_quota != null ? summary.target_quota : (Math.round(((summary.total_calls || 0) / 5) * 10) / 10);
+      const zVal = summary.target_quota != null ? summary.target_quota : (Math.round(((summary.total_calls || 0) / accountsCount) * 10) / 10);
       formulaZ.textContent = zVal.toLocaleString();
     }
     if (ratingEl) {
@@ -330,9 +333,10 @@ function renderPbxOperatorsTable(operators) {
   }
 
   const totalX = pbxStatsCache?.summary?.total_calls || 0;
+  const accountsCount = pbxStatsCache?.summary?.accounts_count || ALLOWED_PBX_OPERATORS.length;
   const targetQuotaPerAccount = pbxStatsCache?.summary?.target_quota != null 
     ? pbxStatsCache.summary.target_quota 
-    : (Math.round((totalX / 5) * 10) / 10);
+    : (Math.round((totalX / accountsCount) * 10) / 10);
 
   list.forEach((op, idx) => {
     const tr = document.createElement('tr');
@@ -371,7 +375,7 @@ function renderPbxOperatorsTable(operators) {
       <td>${empNameHtml}</td>
       <td>
         <strong title="Ushbu operatorga tushgan qo'ng'iroqlar">${op.total_calls}</strong>
-        <div style="font-size:10.5px;color:var(--text3);margin-top:2px;" title="Har bir akkaunt normasi: Z = X (${totalX}) / 5 = ${targetQuota}">norma: ${targetQuota}</div>
+        <div style="font-size:10.5px;color:var(--text3);margin-top:2px;" title="Har bir akkaunt normasi: Z = X (${totalX}) / ${accountsCount} = ${targetQuota}">norma: ${targetQuota}</div>
       </td>
       <td><span class="badge bsm bg">${op.answered_calls}</span></td>
       <td><span class="badge bsm br">${op.missed_calls}</span></td>
