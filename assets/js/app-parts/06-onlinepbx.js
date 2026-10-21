@@ -447,7 +447,7 @@ function renderPbxCallsTable(calls) {
 
     const talkStr = isAnswered
       ? fmtPbxSeconds(c.talk_time || c.duration || 0)
-      : '<span style="color:var(--text3);">0s</span>';
+      : '<span style="color:var(--text3);">0m</span>';
 
     const empDisplayName = normalizePbxEmpName(c.employee_name);
     const rVal = parseFloat(c.rating);
@@ -531,13 +531,16 @@ function filterPbxCallsLocally() {
 
 function fmtPbxSeconds(sec) {
   sec = Math.max(0, parseInt(sec, 10) || 0);
-  if (sec === 0) return '0s';
+  if (sec === 0) return '0m';
   const h = Math.floor(sec / 3600);
   const m = Math.floor((sec % 3600) / 60);
-  const s = sec % 60;
-  if (h > 0) return `${h}h ${m}m ${s}s`;
-  if (m > 0) return `${m}m ${s}s`;
-  return `${s}s`;
+  if (h > 0) {
+    return `${h}h ${m}m`;
+  }
+  if (m > 0) {
+    return `${m}m`;
+  }
+  return '1m';
 }
 
 function escapePbxHtml(str) {
