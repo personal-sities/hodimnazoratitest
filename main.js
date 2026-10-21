@@ -60,7 +60,9 @@ function showWindow() {
 }
 
 function createWindow() {
-  const iconPath = path.join(__dirname, 'favicon.ico');
+  const iconPath = fs.existsSync(path.join(__dirname, 'images', 'logo2.png'))
+    ? path.join(__dirname, 'images', 'logo2.png')
+    : path.join(__dirname, 'favicon.ico');
 
   win = new BrowserWindow({
     width: config.window.width || 1280,
@@ -136,7 +138,9 @@ function createWindow() {
 function createTray() {
   if (tray) return;
 
-  const iconPath = path.join(__dirname, 'favicon.ico');
+  const iconPath = fs.existsSync(path.join(__dirname, 'images', 'logo2.png'))
+    ? path.join(__dirname, 'images', 'logo2.png')
+    : path.join(__dirname, 'favicon.ico');
   if (!fs.existsSync(iconPath)) return;
 
   tray = new Tray(iconPath);

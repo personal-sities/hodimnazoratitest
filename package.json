@@ -2,6 +2,7 @@
   "name": "aloqapro",
   "version": "2.0.0",
   "description": "AloqaPro - Xodimlar nazorati va davomat tizimi (Ubuntu Server & Desktop App)",
+  "author": "AloqaPro",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
@@ -59,7 +60,7 @@
           "arch": ["x64"]
         }
       ],
-      "icon": "favicon.ico"
+      "icon": "images/logo2.png"
     },
     "nsis": {
       "oneClick": false,
