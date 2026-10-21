@@ -11,6 +11,10 @@ const sb = window.supabase ? window.supabase.createClient() : null;
 function resolveApiUrl(endpoint) {
   if (endpoint.startsWith('http://') || endpoint.startsWith('https://')) return endpoint;
   const clean = endpoint.startsWith('/') ? endpoint : ('/' + endpoint);
+  const serverBase = window.ALOQA_SERVER_URL || (window.ALOQA_CONFIG && window.ALOQA_CONFIG.SERVER_URL) || localStorage.getItem('aloqa_server_url');
+  if (serverBase) {
+    return serverBase.replace(/\/+$/, '') + clean;
+  }
   const loc = window.location;
   if (!loc || loc.protocol === 'file:' || (loc.port && loc.port !== '3000' && (loc.hostname === 'localhost' || loc.hostname === '127.0.0.1'))) {
     return 'http://localhost:3000' + clean;

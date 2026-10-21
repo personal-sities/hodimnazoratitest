@@ -1,7 +1,7 @@
 {
   "name": "aloqapro",
   "version": "2.0.0",
-  "description": "AloqaPro - Xodimlar nazorati va davomat tizimi (Ubuntu Server)",
+  "description": "AloqaPro - Xodimlar nazorati va davomat tizimi (Ubuntu Server & Desktop App)",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
@@ -10,10 +10,64 @@
     "pm2:stop": "pm2 stop aloqapro",
     "pm2:restart": "pm2 restart aloqapro",
     "pm2:logs": "pm2 logs aloqapro",
-    "cleanup": "node -e \"require('./server.js').runRetentionCleanup(true).then(r => { console.log(r); process.exit(r?.ok ? 0 : 1); }).catch(e => { console.error(e); process.exit(1); })\""
+    "cleanup": "node -e \"require('./server.js').runRetentionCleanup(true).then(r => { console.log(r); process.exit(r?.ok ? 0 : 1); }).catch(e => { console.error(e); process.exit(1); })\"",
+    "electron:start": "electron main.js",
+    "electron:build": "electron-builder --win",
+    "electron:build:portable": "electron-builder --win portable",
+    "electron:dist": "electron-builder --win nsis portable"
   },
   "dependencies": {
     "pg": "^8.11.3"
+  },
+  "devDependencies": {
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "uz.aloqapro.desktop",
+    "productName": "AloqaPro",
+    "copyright": "Copyright © 2026 AloqaPro",
+    "extraMetadata": {
+      "main": "main.js"
+    },
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "desktop-config.json",
+      "index.html",
+      "favicon.ico",
+      "assets/**/*",
+      "images/**/*",
+      "model/**/*",
+      "face-api.js",
+      "jspdf.umd.min.js",
+      "jspdf.plugin.autotable.min.js",
+      "xlsx.full.min.js",
+      "tfjs-backend-wasm*.wasm",
+      "manifest.json"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        },
+        {
+          "target": "portable",
+          "arch": ["x64"]
+        }
+      ],
+      "icon": "favicon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "AloqaPro"
+    }
   },
   "engines": {
     "node": ">=18.0.0"
