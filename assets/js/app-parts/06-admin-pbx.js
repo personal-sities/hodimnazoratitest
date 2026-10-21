@@ -673,12 +673,25 @@ async function loadEmpList() {
   // Mahalliy xotiradagi xodimlarni ham birlashtirish
   try {
     const localEmps = JSON.parse(localStorage.getItem('aloqa_local_employees') || '[]');
+    let leMod = false;
     localEmps.forEach(le => {
+      if (le.name && (/axma[dt]ova/i.test(le.name) || (/maftuna/i.test(le.name) && /axma[dt]/i.test(le.name)))) {
+        le.name = 'Qarshiyeva Maftuna';
+        leMod = true;
+      }
       if (!emps.some(e => e.id === le.id || (e.login && e.login.toLowerCase() === (le.login || '').toLowerCase()))) {
         emps.push(le);
       }
     });
+    if (leMod) localStorage.setItem('aloqa_local_employees', JSON.stringify(localEmps));
   } catch (_) {}
+
+  // Xodimlar ismlarini tozalash (Axmadova Maftuna -> Qarshiyeva Maftuna)
+  (emps || []).forEach(emp => {
+    if (emp.name && (/axma[dt]ova/i.test(emp.name) || (/maftuna/i.test(emp.name) && /axma[dt]/i.test(emp.name)))) {
+      emp.name = 'Qarshiyeva Maftuna';
+    }
+  });
 
   // Mahalliy keshdagi operator raqamlarini birlashtirish (agar bazada ustun hali qo'shilmagan bo'lsa)
   try {
@@ -945,6 +958,9 @@ async function addEmp() {
 function openEditOperatorModal(id, name, currentOp) {
   const modal = document.getElementById('m_edit_operator');
   if (!modal) return;
+  if (name && (/axma[dt]ova/i.test(name) || (/maftuna/i.test(name) && /axma[dt]/i.test(name)))) {
+    name = 'Qarshiyeva Maftuna';
+  }
   document.getElementById('edit_op_emp_id').value = id;
   document.getElementById('edit_op_emp_name').textContent = name;
   document.getElementById('edit_op_number').value = currentOp || '';

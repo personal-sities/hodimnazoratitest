@@ -11,6 +11,15 @@ let pbxCallsCache = [];
 let pbxAutoRefreshTimer = null;
 const ALLOWED_PBX_OPERATORS = ['100', '101', '102', '103', '104', '105', '5002'];
 
+function normalizePbxEmpName(name) {
+  if (!name) return name;
+  const s = String(name).trim();
+  if (/axma[dt]ova/i.test(s) || (/maftuna/i.test(s) && /axma[dt]/i.test(s))) {
+    return 'Qarshiyeva Maftuna';
+  }
+  return s;
+}
+
 function initOnlinePbx() {
   const fromEl = document.getElementById('pbx_date_from');
   const toEl = document.getElementById('pbx_date_to');
@@ -128,6 +137,22 @@ async function loadPbxOperatorFilterOptions() {
     }
 
     const activeEmps = (emps || []).filter(e => e.active !== false);
+    activeEmps.forEach(emp => {
+      emp.name = normalizePbxEmpName(emp.name);
+    });
+
+    try {
+      const localEmps = JSON.parse(localStorage.getItem('aloqa_local_employees') || '[]');
+      let leMod = false;
+      localEmps.forEach(le => {
+        if (le.name && (/axma[dt]ova/i.test(le.name) || (/maftuna/i.test(le.name) && /axma[dt]/i.test(le.name)))) {
+          le.name = 'Qarshiyeva Maftuna';
+          leMod = true;
+        }
+      });
+      if (leMod) localStorage.setItem('aloqa_local_employees', JSON.stringify(localEmps));
+    } catch (_) {}
+
     try {
       const localOps = JSON.parse(localStorage.getItem('aloqa_operator_numbers') || '{}');
       activeEmps.forEach(emp => {
@@ -141,7 +166,8 @@ async function loadPbxOperatorFilterOptions() {
     const added = new Set();
     ALLOWED_PBX_OPERATORS.forEach(opNum => {
       const emp = activeEmps.find(e => String(e.operator_number || '').trim() === opNum || String(e.pbx_extension || '').trim() === opNum);
-      const name = emp ? emp.name : (opNum === '5002' ? '5002-operator' : 'Operator');
+      const rawName = emp ? emp.name : (opNum === '5002' ? '5002-operator' : 'Operator');
+      const name = normalizePbxEmpName(rawName);
       added.add(opNum);
       const opt = document.createElement('option');
       opt.value = opNum;
@@ -321,9 +347,10 @@ function renderPbxOperatorsTable(operators) {
       ? `<span class="badge bsm ${isCurrentOpSelected ? 'bb' : 'bg'}" style="font-family:var(--mono);display:inline-flex;align-items:center;gap:4px;cursor:pointer;" onclick="selectPbxOperator('${op.operator_number}')" title="Faqat shu operatorni filtrlash">${getLucideIcon('phone', '', 12)} ${op.operator_number}</span>`
       : `<span class="badge bsm bgr">—</span>`;
 
+    const empDisplayName = normalizePbxEmpName(op.employee_name);
     const empNameHtml = op.employee_id
-      ? `<strong>${escapePbxHtml(op.employee_name)}</strong>`
-      : `<span style="color:var(--text3);font-style:italic;">${escapePbxHtml(op.employee_name || 'Biriktirilmagan')}</span>`;
+      ? `<strong>${escapePbxHtml(empDisplayName)}</strong>`
+      : `<span style="color:var(--text3);font-style:italic;">${escapePbxHtml(empDisplayName || 'Biriktirilmagan')}</span>`;
 
     const rc = getPbxRatingColor(op.avg_rating);
     const ratingBadge = op.avg_rating
@@ -386,6 +413,7 @@ function renderPbxCallsTable(calls) {
   const filtered = (calls || []).filter(c => {
     const op = String(c.operator_number || '').trim();
     if (op && !ALLOWED_PBX_OPERATORS.includes(op)) return false;
+    c.employee_name = normalizePbxEmpName(c.employee_name);
     if (!query) return true;
     return (
       (c.caller || '').toLowerCase().includes(query) ||
@@ -421,13 +449,14 @@ function renderPbxCallsTable(calls) {
       ? fmtPbxSeconds(c.talk_time || c.duration || 0)
       : '<span style="color:var(--text3);">0s</span>';
 
+    const empDisplayName = normalizePbxEmpName(c.employee_name);
     const rVal = parseFloat(c.rating);
     let ratingHtml = '';
     if (!isNaN(rVal) && rVal > 0) {
       const rc = getPbxRatingColor(rVal);
-      ratingHtml = `<button class="bsm" onclick="openRateCallModal('${c.call_id}','${escapePbxHtml(c.caller||'')}','${escapePbxHtml(c.employee_name||'')}',${rVal},'${escapePbxHtml(c.rating_comment||'')}')" style="background:${rc.bg};color:${rc.text};border:1px solid ${rc.border};font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:3px;border-radius:var(--radius-sm);padding:3px 8px;" title="${c.rating_comment ? escapePbxHtml(c.rating_comment) : 'Bahoni tahrirlash'}">★ ${rVal}</button>`;
+      ratingHtml = `<button class="bsm" onclick="openRateCallModal('${c.call_id}','${escapePbxHtml(c.caller||'')}','${escapePbxHtml(empDisplayName||'')}',${rVal},'${escapePbxHtml(c.rating_comment||'')}')" style="background:${rc.bg};color:${rc.text};border:1px solid ${rc.border};font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:3px;border-radius:var(--radius-sm);padding:3px 8px;" title="${c.rating_comment ? escapePbxHtml(c.rating_comment) : 'Bahoni tahrirlash'}">★ ${rVal}</button>`;
     } else {
-      ratingHtml = `<button class="bsm bg2" onclick="openRateCallModal('${c.call_id}','${escapePbxHtml(c.caller||'')}','${escapePbxHtml(c.employee_name||'')}',5,'')" style="font-size:11px;padding:3px 7px;cursor:pointer;" title="Baho qo'yish">+ Baholash</button>`;
+      ratingHtml = `<button class="bsm bg2" onclick="openRateCallModal('${c.call_id}','${escapePbxHtml(c.caller||'')}','${escapePbxHtml(empDisplayName||'')}',5,'')" style="font-size:11px;padding:3px 7px;cursor:pointer;" title="Baho qo'yish">+ Baholash</button>`;
     }
 
     const recHtml = c.record_url
@@ -446,8 +475,8 @@ function renderPbxCallsTable(calls) {
       ? `<span class="badge bsm ${isCurrentOpSelected ? 'bb' : 'bg'}" style="font-family:var(--mono);display:inline-flex;align-items:center;gap:4px;cursor:pointer;" onclick="selectPbxOperator('${c.operator_number}')" title="Faqat shu operatorni filtrlash">${getLucideIcon('phone', '', 12)} ${c.operator_number}</span>`
       : `<span class="badge bsm bgr">—</span>`;
 
-    const empNameHtml = (c.employee_name && c.employee_name !== '—' && c.employee_name !== 'Biriktirilmagan')
-      ? `<strong>${escapePbxHtml(c.employee_name)}</strong>`
+    const empNameHtml = (empDisplayName && empDisplayName !== '—' && empDisplayName !== 'Biriktirilmagan')
+      ? `<strong>${escapePbxHtml(empDisplayName)}</strong>`
       : `<span style="color:var(--text3);font-style:italic;">Biriktirilmagan</span>`;
 
     tr.innerHTML = `
@@ -589,7 +618,8 @@ async function loadPbxTestOperatorOptions() {
     sel.innerHTML = '';
     ALLOWED_PBX_OPERATORS.forEach(opNum => {
       const emp = activeEmps.find(e => String(e.operator_number || '').trim() === opNum || String(e.pbx_extension || '').trim() === opNum);
-      const name = emp ? emp.name : (opNum === '5002' ? '5002-operator' : 'Operator');
+      const rawName = emp ? emp.name : (opNum === '5002' ? '5002-operator' : 'Operator');
+      const name = normalizePbxEmpName(rawName);
       const opt = document.createElement('option');
       opt.value = opNum;
       opt.textContent = `${opNum} — ${name}`;
@@ -768,7 +798,7 @@ function exportPbxExcel() {
   const rows = operators.map((op, i) => [
     i + 1,
     op.operator_number || '—',
-    op.employee_name || '—',
+    normalizePbxEmpName(op.employee_name) || '—',
     op.total_calls || 0,
     op.target_quota != null ? op.target_quota : targetQuota,
     op.answered_calls || 0,

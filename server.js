@@ -205,6 +205,47 @@ async function ensureDatabaseSchema() {
           auto_ended = false
       WHERE work_date = CURRENT_DATE
         AND (end_time > CURRENT_TIME OR lunch_start > CURRENT_TIME OR end_time = '17:50:00');
+
+      -- 6. Axmadova Maftuna -> Qarshiyeva Maftuna xodim va qo'ng'iroqlarini avtomatik to'g'rilash
+      DO $$
+      DECLARE
+        v_qarshiyeva_id TEXT;
+        v_axmadova_id TEXT;
+        v_axmadova_op TEXT;
+        v_axmadova_pbx TEXT;
+      BEGIN
+        SELECT id::text INTO v_qarshiyeva_id FROM public.employees 
+        WHERE (name ILIKE '%Qarshiyeva%Maftuna%' OR name ILIKE '%Maftuna%Qarshiyeva%')
+        ORDER BY (active = true) DESC, updated_at DESC LIMIT 1;
+
+        SELECT id::text, operator_number, pbx_extension INTO v_axmadova_id, v_axmadova_op, v_axmadova_pbx FROM public.employees 
+        WHERE (name ILIKE '%Axmadova%Maftuna%' OR name ILIKE '%Maftuna%Axmadova%' OR name ILIKE '%Axmatova%Maftuna%' OR name ILIKE '%Maftuna%Axmatova%' OR name ILIKE '%Axmadova%' OR name ILIKE '%Axmatova%')
+        ORDER BY (active = true) DESC, updated_at DESC LIMIT 1;
+
+        IF v_qarshiyeva_id IS NOT NULL AND v_axmadova_id IS NOT NULL AND v_qarshiyeva_id <> v_axmadova_id THEN
+          IF v_axmadova_op IS NOT NULL THEN
+            UPDATE public.employees 
+            SET operator_number = v_axmadova_op, pbx_extension = COALESCE(v_axmadova_pbx, v_axmadova_op), active = true, updated_at = now() 
+            WHERE id::text = v_qarshiyeva_id;
+          END IF;
+          UPDATE public.employees SET active = false, operator_number = NULL, pbx_extension = NULL, updated_at = now() WHERE id::text = v_axmadova_id;
+          UPDATE public.calls SET employee_id = v_qarshiyeva_id::uuid, employee_name = 'Qarshiyeva Maftuna', updated_at = now() WHERE employee_id::text = v_axmadova_id;
+        ELSIF v_axmadova_id IS NOT NULL THEN
+          UPDATE public.employees SET name = 'Qarshiyeva Maftuna', updated_at = now() WHERE id::text = v_axmadova_id;
+        END IF;
+      END $$;
+
+      UPDATE public.employees
+      SET name = 'Qarshiyeva Maftuna', updated_at = now()
+      WHERE (name ILIKE '%Axmadova%' OR name ILIKE '%Axmatova%');
+
+      UPDATE public.calls
+      SET employee_name = 'Qarshiyeva Maftuna', updated_at = now()
+      WHERE (employee_name ILIKE '%Axmadova%' OR employee_name ILIKE '%Axmatova%');
+
+      UPDATE public.attendance
+      SET employee_name = 'Qarshiyeva Maftuna'
+      WHERE (employee_name ILIKE '%Axmadova%' OR employee_name ILIKE '%Axmatova%');
     `);
     console.log('[Database]: PostgreSQL sxemasi va administratorlar to\'liq tayyor.');
 
@@ -233,6 +274,29 @@ async function ensureDatabaseSchema() {
         }
       });
       if (uniqueNotif.length !== notifList.length) writeJsonData('notifications.json', uniqueNotif);
+
+      // Lokal JSON dagi xodimlar va qo'ng'iroqlarni tekshirib Axmadova nomlarini to'g'rilash
+      try {
+        const empList = readJsonData('employees.json', []);
+        let empMod = false;
+        empList.forEach(e => {
+          if (/axma[dt]ova/i.test(e.name || '') || (/maftuna/i.test(e.name || '') && /axma[dt]/i.test(e.name || ''))) {
+            e.name = 'Qarshiyeva Maftuna';
+            empMod = true;
+          }
+        });
+        if (empMod) writeJsonData('employees.json', empList);
+
+        const callList = readLocalCalls();
+        let callMod = false;
+        callList.forEach(c => {
+          if (/axma[dt]ova/i.test(c.employee_name || '') || (/maftuna/i.test(c.employee_name || '') && /axma[dt]/i.test(c.employee_name || ''))) {
+            c.employee_name = 'Qarshiyeva Maftuna';
+            callMod = true;
+          }
+        });
+        if (callMod) writeLocalCalls(callList);
+      } catch (_) {}
     } catch (_) {}
 
     await relinkAllPbxCalls().catch((e) => {
@@ -913,13 +977,65 @@ async function saveCallRecord(call) {
 // ============================================================
 //  ONLINEPBX QO'NG'IROQLARINI XODIMLARGA BIRIKTIRISH (RELINK)
 // ============================================================
+function normalizePbxEmpName(name) {
+  if (!name) return name;
+  const s = String(name).trim();
+  if (/axma[dt]ova/i.test(s) || (/maftuna/i.test(s) && /axma[dt]/i.test(s))) {
+    return 'Qarshiyeva Maftuna';
+  }
+  return s;
+}
+
 const ALLOWED_PBX_OPERATORS = ['100', '101', '102', '103', '104', '105', '5002'];
 
 async function relinkAllPbxCalls() {
   const pool = getDbPool();
   let updatedCount = 0;
 
-  // 0. Inactive (ishdan ketgan) xodimlardan operator raqamini tozalash
+  // 0. Axmadova Maftuna -> Qarshiyeva Maftuna xodim va qo'ng'iroqlarini avtomatik to'g'rilash (DB va aloqalar)
+  if (pool) {
+    try {
+      await pool.query(`
+        DO $$
+        DECLARE
+          v_qarshiyeva_id TEXT;
+          v_axmadova_id TEXT;
+          v_axmadova_op TEXT;
+          v_axmadova_pbx TEXT;
+        BEGIN
+          SELECT id::text INTO v_qarshiyeva_id FROM public.employees 
+          WHERE (name ILIKE '%Qarshiyeva%Maftuna%' OR name ILIKE '%Maftuna%Qarshiyeva%')
+          ORDER BY (active = true) DESC, updated_at DESC LIMIT 1;
+
+          SELECT id::text, operator_number, pbx_extension INTO v_axmadova_id, v_axmadova_op, v_axmadova_pbx FROM public.employees 
+          WHERE (name ILIKE '%Axmadova%Maftuna%' OR name ILIKE '%Maftuna%Axmadova%' OR name ILIKE '%Axmatova%Maftuna%' OR name ILIKE '%Maftuna%Axmatova%' OR name ILIKE '%Axmadova%' OR name ILIKE '%Axmatova%')
+          ORDER BY (active = true) DESC, updated_at DESC LIMIT 1;
+
+          IF v_qarshiyeva_id IS NOT NULL AND v_axmadova_id IS NOT NULL AND v_qarshiyeva_id <> v_axmadova_id THEN
+            IF v_axmadova_op IS NOT NULL THEN
+              UPDATE public.employees 
+              SET operator_number = v_axmadova_op, pbx_extension = COALESCE(v_axmadova_pbx, v_axmadova_op), active = true, updated_at = now() 
+              WHERE id::text = v_qarshiyeva_id;
+            END IF;
+            UPDATE public.employees SET active = false, operator_number = NULL, pbx_extension = NULL, updated_at = now() WHERE id::text = v_axmadova_id;
+            UPDATE public.calls SET employee_id = v_qarshiyeva_id::uuid, employee_name = 'Qarshiyeva Maftuna', updated_at = now() WHERE employee_id::text = v_axmadova_id;
+          ELSIF v_axmadova_id IS NOT NULL THEN
+            UPDATE public.employees SET name = 'Qarshiyeva Maftuna', updated_at = now() WHERE id::text = v_axmadova_id;
+          END IF;
+        END $$;
+
+        UPDATE public.employees
+        SET name = 'Qarshiyeva Maftuna', updated_at = now()
+        WHERE (name ILIKE '%Axmadova%' OR name ILIKE '%Axmatova%');
+
+        UPDATE public.calls
+        SET employee_name = 'Qarshiyeva Maftuna', updated_at = now()
+        WHERE (employee_name ILIKE '%Axmadova%' OR employee_name ILIKE '%Axmatova%');
+      `);
+    } catch (_) {}
+  }
+
+  // 0.1 Inactive (ishdan ketgan) xodimlardan operator raqamini tozalash
   if (pool) {
     try {
       await pool.query(`
@@ -947,6 +1063,7 @@ async function relinkAllPbxCalls() {
   // Xodimlar xaritasi: faqat ruxsat berilgan 7 ta operator bo'yicha (eng yangi aktiv xodim)
   const empByOp = new Map();
   employees.forEach(emp => {
+    emp.name = normalizePbxEmpName(emp.name);
     const op = String(emp.operator_number || '').trim();
     const pbx = String(emp.pbx_extension || '').trim();
     if (op && ALLOWED_PBX_OPERATORS.includes(op) && !empByOp.has(op)) empByOp.set(op, emp);
@@ -967,6 +1084,7 @@ async function relinkAllPbxCalls() {
       if (empByOp.size > 0) {
         for (const [opNum, emp] of empByOp.entries()) {
           if (!opNum) continue;
+          const empName = normalizePbxEmpName(emp.name);
 
           // A. Ushbu operator raqamidagi BARCHA qo'ng'iroqlarni hozirgi faol xodimga to'liq yangilash
           const resExistingOp = await pool.query(`
@@ -976,7 +1094,7 @@ async function relinkAllPbxCalls() {
                 updated_at = now()
             WHERE operator_number = $1
               AND (employee_id IS NULL OR employee_id <> $2 OR employee_name IS NULL OR employee_name <> $3)
-          `, [opNum, emp.id, emp.name]);
+          `, [opNum, emp.id, empName]);
           updatedCount += (resExistingOp.rowCount || 0);
 
           // B. callee operator raqamiga to'g'ri keladigan kiruvchi qo'ng'iroqlar
@@ -989,7 +1107,7 @@ async function relinkAllPbxCalls() {
                 updated_at = now()
             WHERE (operator_number IS NULL OR operator_number = '' OR operator_number = '—' OR employee_id IS NULL OR employee_id <> $2)
               AND (callee = $1 OR callee = ('SIP/' || $1) OR callee LIKE ($1 || '@%') OR callee LIKE ('%/' || $1))
-          `, [opNum, emp.id, emp.name]);
+          `, [opNum, emp.id, empName]);
           updatedCount += (resCallee.rowCount || 0);
 
           // C. caller operator raqamiga to'g'ri keladigan chiquvchi qo'ng'iroqlar
@@ -1002,7 +1120,7 @@ async function relinkAllPbxCalls() {
                 updated_at = now()
             WHERE (operator_number IS NULL OR operator_number = '' OR operator_number = '—' OR employee_id IS NULL OR employee_id <> $2)
               AND (caller = $1 OR caller = ('SIP/' || $1) OR caller LIKE ($1 || '@%') OR caller LIKE ('%/' || $1))
-          `, [opNum, emp.id, emp.name]);
+          `, [opNum, emp.id, empName]);
           updatedCount += (resCaller.rowCount || 0);
 
           // D. raw_data JSON ichida user/extension/agent mavjud bo'lgan holatlar
@@ -1021,7 +1139,7 @@ async function relinkAllPbxCalls() {
                 raw_data->>'operator' = $1 OR
                 raw_data->'user'->>'number' = $1
               )
-          `, [opNum, emp.id, emp.name]);
+          `, [opNum, emp.id, empName]);
           updatedCount += (resRaw.rowCount || 0);
         }
       }
@@ -1044,6 +1162,13 @@ async function relinkAllPbxCalls() {
         WHERE (operator_number IS NULL OR operator_number = '' OR operator_number = '—')
           AND caller = ANY($1::text[])
       `, [ALLOWED_PBX_OPERATORS]).catch(() => {});
+
+      // Qo'ng'iroqlardagi eski Axmadova nomlarini to'liq Qarshiyeva Maftunaga almashtirish
+      await pool.query(`
+        UPDATE public.calls
+        SET employee_name = 'Qarshiyeva Maftuna', updated_at = now()
+        WHERE employee_name ILIKE '%Axmadova%' OR employee_name ILIKE '%Axmatova%';
+      `).catch(() => {});
     } catch (dbErr) {
       console.warn('[relinkAllPbxCalls DB]:', dbErr.message);
     }
@@ -1081,12 +1206,20 @@ async function relinkAllPbxCalls() {
         c.operator_number = detectedOp;
         if (empByOp.has(detectedOp)) {
           const matchedEmp = empByOp.get(detectedOp);
-          if (c.employee_id !== matchedEmp.id || c.employee_name !== matchedEmp.name) {
+          const cleanMatchedName = normalizePbxEmpName(matchedEmp.name);
+          if (c.employee_id !== matchedEmp.id || c.employee_name !== cleanMatchedName) {
             c.employee_id = matchedEmp.id;
-            c.employee_name = matchedEmp.name;
+            c.employee_name = cleanMatchedName;
             localChanged = true;
             updatedCount++;
           }
+        }
+      }
+      if (c.employee_name) {
+        const normed = normalizePbxEmpName(c.employee_name);
+        if (normed !== c.employee_name) {
+          c.employee_name = normed;
+          localChanged = true;
         }
       }
     });
@@ -1165,15 +1298,19 @@ async function getCallsStats(from, to, operator = 'all', status = 'all') {
         ORDER BY updated_at DESC, created_at DESC;
       `;
       const empRes = await pool.query(empQuery).catch(() => ({ rows: [] }));
-      const emps = empRes.rows || [];
+      const emps = (empRes.rows || []).map(e => ({
+        ...e,
+        name: normalizePbxEmpName(e.name)
+      }));
 
       const opMap = new Map();
       ALLOWED_PBX_OPERATORS.forEach(opNum => {
         const emp = emps.find(e => (String(e.operator_number || '').trim() === opNum || String(e.pbx_extension || '').trim() === opNum));
+        const empName = normalizePbxEmpName(emp?.name);
         opMap.set(opNum, {
           operator_number: opNum,
           employee_id: emp?.id || null,
-          employee_name: emp?.name || (opNum === '5002' ? '5002-operator' : '—'),
+          employee_name: empName || (opNum === '5002' ? '5002-operator' : '—'),
           total_calls: 0,
           answered_calls: 0,
           missed_calls: 0,
@@ -1245,7 +1382,10 @@ async function getCallsStats(from, to, operator = 'all', status = 'all') {
   }
 
   // Fallback: local calls.json va employees.json dan
-  const allEmployees = readJsonData('employees.json', []);
+  const allEmployees = readJsonData('employees.json', []).map(e => ({
+    ...e,
+    name: normalizePbxEmpName(e.name)
+  }));
   const allLocalCalls = readLocalCalls();
 
   const allCompanyIncoming = allLocalCalls.filter(c => {
@@ -1270,10 +1410,11 @@ async function getCallsStats(from, to, operator = 'all', status = 'all') {
   const opMap = new Map();
   ALLOWED_PBX_OPERATORS.forEach(opNum => {
     const emp = allEmployees.find(e => (String(e.operator_number || '').trim() === opNum || String(e.pbx_extension || '').trim() === opNum));
+    const empName = normalizePbxEmpName(emp?.name);
     opMap.set(opNum, {
       operator_number: opNum,
       employee_id: emp?.id || null,
-      employee_name: emp?.name || (opNum === '5002' ? '5002-operator' : '—'),
+      employee_name: empName || (opNum === '5002' ? '5002-operator' : '—'),
       total_calls: 0,
       answered_calls: 0,
       missed_calls: 0,
@@ -1368,7 +1509,10 @@ async function getCallsList(from, to, operator, status, limit = 50) {
           c.caller,
           c.callee,
           c.operator_number,
-          COALESCE(e.name, c.employee_name, '—') AS employee_name,
+          CASE
+            WHEN COALESCE(e.name, c.employee_name) ILIKE '%Axmadova%' OR COALESCE(e.name, c.employee_name) ILIKE '%Axmatova%' THEN 'Qarshiyeva Maftuna'
+            ELSE COALESCE(e.name, c.employee_name, '—')
+          END AS employee_name,
           c.direction,
           c.status,
           c.duration,
@@ -1413,7 +1557,11 @@ async function getCallsList(from, to, operator, status, limit = 50) {
       query += ` ORDER BY c.started_at DESC LIMIT $${params.length}`;
 
       const res = await pool.query(query, params);
-      return { ok: true, calls: res.rows || [] };
+      const calls = (res.rows || []).map(r => ({
+        ...r,
+        employee_name: normalizePbxEmpName(r.employee_name)
+      }));
+      return { ok: true, calls };
     } catch (err) {
       console.error('[getCallsList DB xatosi]:', err.message);
     }
@@ -1423,8 +1571,9 @@ async function getCallsList(from, to, operator, status, limit = 50) {
   const allEmployees = readJsonData('employees.json', []);
   const empMapByOp = new Map();
   allEmployees.forEach(e => {
-    if (e.operator_number) empMapByOp.set(String(e.operator_number).trim(), e.name);
-    if (e.pbx_extension) empMapByOp.set(String(e.pbx_extension).trim(), e.name);
+    const eName = normalizePbxEmpName(e.name);
+    if (e.operator_number) empMapByOp.set(String(e.operator_number).trim(), eName);
+    if (e.pbx_extension) empMapByOp.set(String(e.pbx_extension).trim(), eName);
   });
 
   calls = calls.filter(c => ALLOWED_PBX_OPERATORS.includes(String(c.operator_number || '').trim()));
@@ -1454,7 +1603,7 @@ async function getCallsList(from, to, operator, status, limit = 50) {
     return {
       ...c,
       operator_number: opNum || '—',
-      employee_name: empName || '—'
+      employee_name: normalizePbxEmpName(empName) || '—'
     };
   });
 
@@ -1480,11 +1629,17 @@ async function handleOnlinePbxWebhook(req, res, reqUrl) {
     if (pool) {
       try {
         const empRes = await pool.query('SELECT id, name, operator_number, pbx_extension FROM public.employees WHERE active = true ORDER BY updated_at DESC, created_at DESC');
-        allEmployees = empRes.rows || [];
+        allEmployees = (empRes.rows || []).map(e => ({
+          ...e,
+          name: normalizePbxEmpName(e.name)
+        }));
       } catch (e) { }
     }
     if (!allEmployees.length) {
-      allEmployees = readJsonData('employees.json', []).filter(e => e.active !== false);
+      allEmployees = readJsonData('employees.json', []).filter(e => e.active !== false).map(e => ({
+        ...e,
+        name: normalizePbxEmpName(e.name)
+      }));
     }
 
     const empByOp = new Map();
@@ -1560,7 +1715,7 @@ async function handleOnlinePbxWebhook(req, res, reqUrl) {
     }
 
     const employeeId = matchedEmployee ? matchedEmployee.id : null;
-    const employeeName = matchedEmployee ? matchedEmployee.name : null;
+    const employeeName = normalizePbxEmpName(matchedEmployee ? matchedEmployee.name : null);
 
     const duration = Math.max(0, parseInt(parsed.duration || parsed.call_duration || parsed.total_duration || 0, 10) || 0);
     const talkTime = Math.max(0, parseInt(parsed.billsec || parsed.dialog_duration || parsed.talk_time || parsed.conversation_duration || 0, 10) || 0);
@@ -2438,7 +2593,13 @@ async function handleDatabaseTableApi(req, res, table, reqUrl) {
         }
 
         const dbRes = await pool.query(query, params);
-        return sendJson(res, 200, { ok: true, data: dbRes.rows || [] });
+        let rows = dbRes.rows || [];
+        if (table === 'employees') {
+          rows = rows.map(e => ({ ...e, name: normalizePbxEmpName(e.name) }));
+        } else if (table === 'calls') {
+          rows = rows.map(c => ({ ...c, employee_name: normalizePbxEmpName(c.employee_name) }));
+        }
+        return sendJson(res, 200, { ok: true, data: rows });
       } catch (err) {
         console.warn(`[handleDatabaseTableApi GET ${table} DB xatosi]:`, err.message);
       }
@@ -2484,6 +2645,12 @@ async function handleDatabaseTableApi(req, res, table, reqUrl) {
     }
     if (limitParam && !isNaN(Number(limitParam))) {
       list = list.slice(0, Number(limitParam));
+    }
+
+    if (table === 'employees') {
+      list = list.map(e => ({ ...e, name: normalizePbxEmpName(e.name) }));
+    } else if (table === 'calls') {
+      list = list.map(c => ({ ...c, employee_name: normalizePbxEmpName(c.employee_name) }));
     }
 
     return sendJson(res, 200, { ok: true, data: list });
@@ -3163,7 +3330,11 @@ async function handleGetEmployees(req, res, reqUrl) {
         ? 'SELECT * FROM public.employees WHERE active = true ORDER BY name ASC'
         : 'SELECT * FROM public.employees ORDER BY name ASC';
       const r = await pool.query(q);
-      return sendJson(res, 200, { ok: true, data: r.rows || [] });
+      const rows = (r.rows || []).map(e => ({
+        ...e,
+        name: normalizePbxEmpName(e.name)
+      }));
+      return sendJson(res, 200, { ok: true, data: rows });
     } catch (e) {
       console.warn('[handleGetEmployees DB]:', e.message);
     }
@@ -3171,6 +3342,10 @@ async function handleGetEmployees(req, res, reqUrl) {
 
   let list = readJsonData('employees.json', []);
   if (activeOnly) list = list.filter(e => e.active !== false);
+  list = list.map(e => ({
+    ...e,
+    name: normalizePbxEmpName(e.name)
+  }));
   list.sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
   return sendJson(res, 200, { ok: true, data: list });
 }
