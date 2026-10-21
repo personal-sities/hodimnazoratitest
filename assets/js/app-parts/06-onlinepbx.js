@@ -14,8 +14,8 @@ const ALLOWED_PBX_OPERATORS = ['100', '101', '102', '103', '104', '105', '5002']
 function normalizePbxEmpName(name) {
   if (!name) return name;
   const s = String(name).trim();
-  if (/axma[dt]ova/i.test(s) || (/maftuna/i.test(s) && /axma[dt]/i.test(s))) {
-    return 'Qarshiyeva Maftuna';
+  if (/axma[dt]ova/i.test(s) || /maftuna/i.test(s)) {
+    return 'Qarshiyeva Durdona';
   }
   return s;
 }
@@ -145,8 +145,8 @@ async function loadPbxOperatorFilterOptions() {
       const localEmps = JSON.parse(localStorage.getItem('aloqa_local_employees') || '[]');
       let leMod = false;
       localEmps.forEach(le => {
-        if (le.name && (/axma[dt]ova/i.test(le.name) || (/maftuna/i.test(le.name) && /axma[dt]/i.test(le.name)))) {
-          le.name = 'Qarshiyeva Maftuna';
+        if (le.name && (/axma[dt]ova/i.test(le.name) || /maftuna/i.test(le.name))) {
+          le.name = 'Qarshiyeva Durdona';
           leMod = true;
         }
       });
@@ -161,6 +161,8 @@ async function loadPbxOperatorFilterOptions() {
         }
       });
     } catch (_) {}
+
+    window._cachedActiveEmps = activeEmps;
 
     sel.innerHTML = `<option value="all">${t('pbx_filter_all_ops') || 'Barcha operatorlar'}</option>`;
     const added = new Set();
@@ -347,8 +349,14 @@ function renderPbxOperatorsTable(operators) {
       ? `<span class="badge bsm ${isCurrentOpSelected ? 'bb' : 'bg'}" style="font-family:var(--mono);display:inline-flex;align-items:center;gap:4px;cursor:pointer;" onclick="selectPbxOperator('${op.operator_number}')" title="Faqat shu operatorni filtrlash">${getLucideIcon('phone', '', 12)} ${op.operator_number}</span>`
       : `<span class="badge bsm bgr">—</span>`;
 
-    const empDisplayName = normalizePbxEmpName(op.employee_name);
-    const empNameHtml = op.employee_id
+    let empDisplayName = op.employee_name;
+    if (!empDisplayName || empDisplayName === '—' || empDisplayName === 'Biriktirilmagan') {
+      const activeEmps = (window._cachedActiveEmps || []);
+      const matched = activeEmps.find(e => String(e.operator_number || '').trim() === String(op.operator_number).trim() || String(e.pbx_extension || '').trim() === String(op.operator_number).trim());
+      if (matched && matched.name) empDisplayName = matched.name;
+    }
+    empDisplayName = normalizePbxEmpName(empDisplayName);
+    const empNameHtml = (op.employee_id || (empDisplayName && empDisplayName !== '—' && empDisplayName !== 'Biriktirilmagan'))
       ? `<strong>${escapePbxHtml(empDisplayName)}</strong>`
       : `<span style="color:var(--text3);font-style:italic;">${escapePbxHtml(empDisplayName || 'Biriktirilmagan')}</span>`;
 

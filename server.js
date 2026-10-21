@@ -352,7 +352,7 @@ async function ensureDatabaseSchema() {
         AND (end_time > CURRENT_TIME OR lunch_start > CURRENT_TIME OR end_time = '17:50:00');
     `).catch(() => {});
 
-    // 2.11 Axmadova Maftuna -> Qarshiyeva Maftuna xodim va qo'ng'iroqlarini avtomatik to'g'rilash
+    // 2.11 Axmadova / Maftuna -> Qarshiyeva Durdona xodim va qo'ng'iroqlarini avtomatik to'g'rilash
     await pool.query(`
       DO $$
       DECLARE
@@ -362,11 +362,11 @@ async function ensureDatabaseSchema() {
         v_axmadova_pbx TEXT;
       BEGIN
         SELECT id::text INTO v_qarshiyeva_id FROM public.employees 
-        WHERE (name ILIKE '%Qarshiyeva%Maftuna%' OR name ILIKE '%Maftuna%Qarshiyeva%')
+        WHERE (name ILIKE '%Qarshiyeva%Durdona%' OR name ILIKE '%Durdona%Qarshiyeva%')
         ORDER BY (active = true) DESC, COALESCE(updated_at, created_at, now()) DESC LIMIT 1;
 
         SELECT id::text, operator_number, pbx_extension INTO v_axmadova_id, v_axmadova_op, v_axmadova_pbx FROM public.employees 
-        WHERE (name ILIKE '%Axmadova%Maftuna%' OR name ILIKE '%Maftuna%Axmadova%' OR name ILIKE '%Axmatova%Maftuna%' OR name ILIKE '%Maftuna%Axmatova%' OR name ILIKE '%Axmadova%' OR name ILIKE '%Axmatova%')
+        WHERE (name ILIKE '%Qarshiyeva%Maftuna%' OR name ILIKE '%Maftuna%Qarshiyeva%' OR name ILIKE '%Axmadova%' OR name ILIKE '%Axmatova%' OR name ILIKE '%Maftuna%')
         ORDER BY (active = true) DESC, COALESCE(updated_at, created_at, now()) DESC LIMIT 1;
 
         IF v_qarshiyeva_id IS NOT NULL AND v_axmadova_id IS NOT NULL AND v_qarshiyeva_id <> v_axmadova_id THEN
@@ -376,23 +376,23 @@ async function ensureDatabaseSchema() {
             WHERE id::text = v_qarshiyeva_id;
           END IF;
           UPDATE public.employees SET active = false, operator_number = NULL, pbx_extension = NULL, updated_at = now() WHERE id::text = v_axmadova_id;
-          UPDATE public.calls SET employee_id = v_qarshiyeva_id::uuid, employee_name = 'Qarshiyeva Maftuna', updated_at = now() WHERE employee_id::text = v_axmadova_id;
+          UPDATE public.calls SET employee_id = v_qarshiyeva_id::uuid, employee_name = 'Qarshiyeva Durdona', updated_at = now() WHERE employee_id::text = v_axmadova_id;
         ELSIF v_axmadova_id IS NOT NULL THEN
-          UPDATE public.employees SET name = 'Qarshiyeva Maftuna', updated_at = now() WHERE id::text = v_axmadova_id;
+          UPDATE public.employees SET name = 'Qarshiyeva Durdona', updated_at = now() WHERE id::text = v_axmadova_id;
         END IF;
       END $$;
 
       UPDATE public.employees
-      SET name = 'Qarshiyeva Maftuna', updated_at = now()
-      WHERE (name ILIKE '%Axmadova%' OR name ILIKE '%Axmatova%');
+      SET name = 'Qarshiyeva Durdona', updated_at = now()
+      WHERE (name ILIKE '%Axmadova%' OR name ILIKE '%Axmatova%' OR name ILIKE '%Qarshiyeva%Maftuna%' OR name ILIKE '%Maftuna%Qarshiyeva%');
 
       UPDATE public.calls
-      SET employee_name = 'Qarshiyeva Maftuna', updated_at = now()
-      WHERE (employee_name ILIKE '%Axmadova%' OR employee_name ILIKE '%Axmatova%');
+      SET employee_name = 'Qarshiyeva Durdona', updated_at = now()
+      WHERE (employee_name ILIKE '%Axmadova%' OR employee_name ILIKE '%Axmatova%' OR employee_name ILIKE '%Qarshiyeva%Maftuna%' OR employee_name ILIKE '%Maftuna%');
 
       UPDATE public.attendance
-      SET employee_name = 'Qarshiyeva Maftuna'
-      WHERE (employee_name ILIKE '%Axmadova%' OR employee_name ILIKE '%Axmatova%');
+      SET employee_name = 'Qarshiyeva Durdona'
+      WHERE (employee_name ILIKE '%Axmadova%' OR employee_name ILIKE '%Axmatova%' OR employee_name ILIKE '%Qarshiyeva%Maftuna%' OR employee_name ILIKE '%Maftuna%');
     `).catch(() => {});
 
     console.log('[Database]: PostgreSQL sxemasi va administratorlar to\'liq tayyor.');
@@ -423,13 +423,13 @@ async function ensureDatabaseSchema() {
       });
       if (uniqueNotif.length !== notifList.length) writeJsonData('notifications.json', uniqueNotif);
 
-      // Lokal JSON dagi xodimlar va qo'ng'iroqlarni tekshirib Axmadova nomlarini to'g'rilash
+      // Lokal JSON dagi xodimlar va qo'ng'iroqlarni tekshirib Axmadova / Maftuna nomlarini Qarshiyeva Durdonaga to'g'rilash
       try {
         const empList = readJsonData('employees.json', []);
         let empMod = false;
         empList.forEach(e => {
-          if (/axma[dt]ova/i.test(e.name || '') || (/maftuna/i.test(e.name || '') && /axma[dt]/i.test(e.name || ''))) {
-            e.name = 'Qarshiyeva Maftuna';
+          if (/axma[dt]ova/i.test(e.name || '') || /maftuna/i.test(e.name || '')) {
+            e.name = 'Qarshiyeva Durdona';
             empMod = true;
           }
         });
@@ -438,8 +438,8 @@ async function ensureDatabaseSchema() {
         const callList = readLocalCalls();
         let callMod = false;
         callList.forEach(c => {
-          if (/axma[dt]ova/i.test(c.employee_name || '') || (/maftuna/i.test(c.employee_name || '') && /axma[dt]/i.test(c.employee_name || ''))) {
-            c.employee_name = 'Qarshiyeva Maftuna';
+          if (/axma[dt]ova/i.test(c.employee_name || '') || /maftuna/i.test(c.employee_name || '')) {
+            c.employee_name = 'Qarshiyeva Durdona';
             callMod = true;
           }
         });
@@ -811,10 +811,19 @@ async function handleCreateEmployee(res, body) {
       const newEmp = result.rows[0];
       const newEmpId = newEmp?.id;
       if (newEmpId && operatorNumber) {
+        // Boshqa xodimlardan bu operator raqamini bo'shatamiz
         await pool.query(
-          'UPDATE public.calls SET employee_id = $1 WHERE operator_number = $2 AND employee_id IS NULL',
-          [newEmpId, operatorNumber]
+          'UPDATE public.employees SET operator_number = NULL, pbx_extension = NULL WHERE (operator_number = $1 OR pbx_extension = $1) AND id <> $2',
+          [operatorNumber, newEmpId]
         ).catch(() => { });
+
+        // Ushbu operator raqamidagi barcha qo'ng'iroqlarni yangi xodimga to'liq bog'laymiz
+        await pool.query(
+          'UPDATE public.calls SET employee_id = $1, employee_name = $2, updated_at = now() WHERE operator_number = $3',
+          [newEmpId, name, operatorNumber]
+        ).catch(() => { });
+
+        await relinkAllPbxCalls().catch(() => { });
       }
 
       // Lokal JSON zaxirasi
@@ -848,17 +857,24 @@ async function handleCreateEmployee(res, body) {
   writeJsonData('employees.json', emps);
 
   if (operatorNumber) {
+    emps.forEach(e => {
+      if (e.id !== newEmpId && (e.operator_number === operatorNumber || e.pbx_extension === operatorNumber)) {
+        e.operator_number = null;
+        e.pbx_extension = null;
+      }
+    });
     try {
       const calls = readLocalCalls();
       let callUpdated = false;
       calls.forEach(c => {
-        if (c.operator_number === operatorNumber && !c.employee_id) {
+        if (c.operator_number === operatorNumber) {
           c.employee_id = newEmpId;
           c.employee_name = name;
           callUpdated = true;
         }
       });
       if (callUpdated) writeLocalCalls(calls);
+      await relinkAllPbxCalls().catch(() => { });
     } catch (_) { }
   }
 
@@ -1179,8 +1195,8 @@ async function saveCallRecord(call) {
 function normalizePbxEmpName(name) {
   if (!name) return name;
   const s = String(name).trim();
-  if (/axma[dt]ova/i.test(s) || (/maftuna/i.test(s) && /axma[dt]/i.test(s))) {
-    return 'Qarshiyeva Maftuna';
+  if (/axma[dt]ova/i.test(s) || /maftuna/i.test(s)) {
+    return 'Qarshiyeva Durdona';
   }
   return s;
 }
@@ -1191,7 +1207,7 @@ async function relinkAllPbxCalls() {
   const pool = getDbPool();
   let updatedCount = 0;
 
-  // 0. Axmadova Maftuna -> Qarshiyeva Maftuna xodim va qo'ng'iroqlarini avtomatik to'g'rilash (DB va aloqalar)
+  // 0. Axmadova / Maftuna -> Qarshiyeva Durdona xodim va qo'ng'iroqlarini avtomatik to'g'rilash (DB va aloqalar)
   if (pool) {
     try {
       await pool.query(`
@@ -1203,11 +1219,11 @@ async function relinkAllPbxCalls() {
           v_axmadova_pbx TEXT;
         BEGIN
           SELECT id::text INTO v_qarshiyeva_id FROM public.employees 
-          WHERE (name ILIKE '%Qarshiyeva%Maftuna%' OR name ILIKE '%Maftuna%Qarshiyeva%')
+          WHERE (name ILIKE '%Qarshiyeva%Durdona%' OR name ILIKE '%Durdona%Qarshiyeva%')
           ORDER BY (active = true) DESC, COALESCE(updated_at, created_at, now()) DESC LIMIT 1;
 
           SELECT id::text, operator_number, pbx_extension INTO v_axmadova_id, v_axmadova_op, v_axmadova_pbx FROM public.employees 
-          WHERE (name ILIKE '%Axmadova%Maftuna%' OR name ILIKE '%Maftuna%Axmadova%' OR name ILIKE '%Axmatova%Maftuna%' OR name ILIKE '%Maftuna%Axmatova%' OR name ILIKE '%Axmadova%' OR name ILIKE '%Axmatova%')
+          WHERE (name ILIKE '%Qarshiyeva%Maftuna%' OR name ILIKE '%Maftuna%Qarshiyeva%' OR name ILIKE '%Axmadova%' OR name ILIKE '%Axmatova%' OR name ILIKE '%Maftuna%')
           ORDER BY (active = true) DESC, COALESCE(updated_at, created_at, now()) DESC LIMIT 1;
 
           IF v_qarshiyeva_id IS NOT NULL AND v_axmadova_id IS NOT NULL AND v_qarshiyeva_id <> v_axmadova_id THEN
@@ -1217,19 +1233,19 @@ async function relinkAllPbxCalls() {
               WHERE id::text = v_qarshiyeva_id;
             END IF;
             UPDATE public.employees SET active = false, operator_number = NULL, pbx_extension = NULL, updated_at = now() WHERE id::text = v_axmadova_id;
-            UPDATE public.calls SET employee_id = v_qarshiyeva_id::uuid, employee_name = 'Qarshiyeva Maftuna', updated_at = now() WHERE employee_id::text = v_axmadova_id;
+            UPDATE public.calls SET employee_id = v_qarshiyeva_id::uuid, employee_name = 'Qarshiyeva Durdona', updated_at = now() WHERE employee_id::text = v_axmadova_id;
           ELSIF v_axmadova_id IS NOT NULL THEN
-            UPDATE public.employees SET name = 'Qarshiyeva Maftuna', updated_at = now() WHERE id::text = v_axmadova_id;
+            UPDATE public.employees SET name = 'Qarshiyeva Durdona', updated_at = now() WHERE id::text = v_axmadova_id;
           END IF;
         END $$;
 
         UPDATE public.employees
-        SET name = 'Qarshiyeva Maftuna', updated_at = now()
-        WHERE (name ILIKE '%Axmadova%' OR name ILIKE '%Axmatova%');
+        SET name = 'Qarshiyeva Durdona', updated_at = now()
+        WHERE (name ILIKE '%Axmadova%' OR name ILIKE '%Axmatova%' OR name ILIKE '%Qarshiyeva%Maftuna%' OR name ILIKE '%Maftuna%Qarshiyeva%');
 
         UPDATE public.calls
-        SET employee_name = 'Qarshiyeva Maftuna', updated_at = now()
-        WHERE (employee_name ILIKE '%Axmadova%' OR employee_name ILIKE '%Axmatova%');
+        SET employee_name = 'Qarshiyeva Durdona', updated_at = now()
+        WHERE (employee_name ILIKE '%Axmadova%' OR employee_name ILIKE '%Axmatova%' OR employee_name ILIKE '%Qarshiyeva%Maftuna%' OR employee_name ILIKE '%Maftuna%');
       `);
     } catch (_) {}
   }
@@ -1362,11 +1378,11 @@ async function relinkAllPbxCalls() {
           AND caller = ANY($1::text[])
       `, [ALLOWED_PBX_OPERATORS]).catch(() => {});
 
-      // Qo'ng'iroqlardagi eski Axmadova nomlarini to'liq Qarshiyeva Maftunaga almashtirish
+      // Qo'ng'iroqlardagi eski Axmadova / Maftuna nomlarini to'liq Qarshiyeva Durdonaga almashtirish
       await pool.query(`
         UPDATE public.calls
-        SET employee_name = 'Qarshiyeva Maftuna', updated_at = now()
-        WHERE employee_name ILIKE '%Axmadova%' OR employee_name ILIKE '%Axmatova%';
+        SET employee_name = 'Qarshiyeva Durdona', updated_at = now()
+        WHERE employee_name ILIKE '%Axmadova%' OR employee_name ILIKE '%Axmatova%' OR employee_name ILIKE '%Maftuna%';
       `).catch(() => {});
     } catch (dbErr) {
       if (dbErr.message && (dbErr.message.includes('does not exist') || dbErr.message.includes('column'))) {
@@ -1500,15 +1516,33 @@ async function getCallsStats(from, to, operator = 'all', status = 'all') {
         ORDER BY COALESCE(updated_at, created_at, now()) DESC;
       `;
       const empRes = await pool.query(empQuery).catch(() => ({ rows: [] }));
-      const emps = (empRes.rows || []).map(e => ({
+      let emps = (empRes.rows || []).map(e => ({
         ...e,
         name: normalizePbxEmpName(e.name)
       }));
+      if (!emps.length) {
+        emps = readJsonData('employees.json', []).filter(e => e.active !== false).map(e => ({
+          ...e,
+          name: normalizePbxEmpName(e.name)
+        }));
+      }
+
+      // Agar PostgreSQL da xodimga operator raqami hali yozilmagan bo'lsa, employees.json dan birlashtirish
+      const localEmpsList = readJsonData('employees.json', []);
+      emps.forEach(e => {
+        if (!e.operator_number && !e.pbx_extension) {
+          const matched = localEmpsList.find(le => le.id === e.id || (le.login && le.login === e.login));
+          if (matched && (matched.operator_number || matched.pbx_extension)) {
+            e.operator_number = matched.operator_number || matched.pbx_extension;
+            e.pbx_extension = matched.pbx_extension || matched.operator_number;
+          }
+        }
+      });
 
       const opMap = new Map();
       ALLOWED_PBX_OPERATORS.forEach(opNum => {
         const emp = emps.find(e => (String(e.operator_number || '').trim() === opNum || String(e.pbx_extension || '').trim() === opNum));
-        const empName = normalizePbxEmpName(emp?.name);
+        const empName = emp?.name ? normalizePbxEmpName(emp.name) : null;
         opMap.set(opNum, {
           operator_number: opNum,
           employee_id: emp?.id || null,
@@ -1714,10 +1748,7 @@ async function getCallsList(from, to, operator, status, limit = 50) {
           c.caller,
           c.callee,
           c.operator_number,
-          CASE
-            WHEN COALESCE(e.name, c.employee_name) ILIKE '%Axmadova%' OR COALESCE(e.name, c.employee_name) ILIKE '%Axmatova%' THEN 'Qarshiyeva Maftuna'
-            ELSE COALESCE(e.name, c.employee_name, '—')
-          END AS employee_name,
+          COALESCE(e.name, c.employee_name, '—') AS employee_name,
           c.direction,
           c.status,
           c.duration,

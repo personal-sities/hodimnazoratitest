@@ -675,8 +675,8 @@ async function loadEmpList() {
     const localEmps = JSON.parse(localStorage.getItem('aloqa_local_employees') || '[]');
     let leMod = false;
     localEmps.forEach(le => {
-      if (le.name && (/axma[dt]ova/i.test(le.name) || (/maftuna/i.test(le.name) && /axma[dt]/i.test(le.name)))) {
-        le.name = 'Qarshiyeva Maftuna';
+      if (le.name && (/axma[dt]ova/i.test(le.name) || /maftuna/i.test(le.name))) {
+        le.name = 'Qarshiyeva Durdona';
         leMod = true;
       }
       if (!emps.some(e => e.id === le.id || (e.login && e.login.toLowerCase() === (le.login || '').toLowerCase()))) {
@@ -686,10 +686,10 @@ async function loadEmpList() {
     if (leMod) localStorage.setItem('aloqa_local_employees', JSON.stringify(localEmps));
   } catch (_) {}
 
-  // Xodimlar ismlarini tozalash (Axmadova Maftuna -> Qarshiyeva Maftuna)
+  // Xodimlar ismlarini tozalash (Axmadova / Maftuna -> Qarshiyeva Durdona)
   (emps || []).forEach(emp => {
-    if (emp.name && (/axma[dt]ova/i.test(emp.name) || (/maftuna/i.test(emp.name) && /axma[dt]/i.test(emp.name)))) {
-      emp.name = 'Qarshiyeva Maftuna';
+    if (emp.name && (/axma[dt]ova/i.test(emp.name) || /maftuna/i.test(emp.name))) {
+      emp.name = 'Qarshiyeva Durdona';
     }
   });
 
@@ -844,7 +844,8 @@ async function addEmp() {
     document.getElementById('ne_p').value = '';
     if (document.getElementById('ne_op')) document.getElementById('ne_op').value = '';
     await loadEmpList();
-    if (typeof loadPbxDashboard === 'function' && currentAdminTab === 'pbx') loadPbxDashboard();
+    try { fetch('/api/pbx/relink', { method: 'POST' }); } catch (_) {}
+    if (typeof loadPbxDashboard === 'function') loadPbxDashboard();
     toast('success', t('employee_title'), t('employee_added'));
   };
 
@@ -971,8 +972,8 @@ async function addEmp() {
 function openEditOperatorModal(id, name, currentOp) {
   const modal = document.getElementById('m_edit_operator');
   if (!modal) return;
-  if (name && (/axma[dt]ova/i.test(name) || (/maftuna/i.test(name) && /axma[dt]/i.test(name)))) {
-    name = 'Qarshiyeva Maftuna';
+  if (name && (/axma[dt]ova/i.test(name) || /maftuna/i.test(name))) {
+    name = 'Qarshiyeva Durdona';
   }
   document.getElementById('edit_op_emp_id').value = id;
   document.getElementById('edit_op_emp_name').textContent = name;
