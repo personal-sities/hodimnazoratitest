@@ -1,6 +1,6 @@
 -- ============================================================
 -- AloqaPro Database Permission & Missing Columns Fix Script
--- Ushbu skript PostgreSQL ruxsatlarini to'g'irlaydi va yetishmayotgan ustunlarni qo'shadi.
+-- Ushbu skript PostgreSQL ruxsatlarini to'g'irlaydi, UUID cheklovlarini yechadi va ustunlarni to'g'irlaydi.
 -- Ishga tushirish: sudo -u postgres psql -d aloqapro -f fix-db.sql
 -- ============================================================
 
@@ -13,7 +13,27 @@ GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO aloqa_user;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO aloqa_user;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO aloqa_user;
 
--- 2. employees jadvali uchun yetishmayotgan ustunlarni qo'shish
+-- 2. UUID cheklovlarini olib tashlash (emp_... formatidagi string IDlar ishlashi uchun)
+ALTER TABLE public.calls DROP CONSTRAINT IF EXISTS calls_employee_id_fkey;
+ALTER TABLE public.attendance DROP CONSTRAINT IF EXISTS attendance_employee_id_fkey;
+ALTER TABLE public.employee_leaves DROP CONSTRAINT IF EXISTS employee_leaves_employee_id_fkey;
+ALTER TABLE public.lunch_plans DROP CONSTRAINT IF EXISTS lunch_plans_employee_id_fkey;
+ALTER TABLE public.kpi_bonuses DROP CONSTRAINT IF EXISTS kpi_bonuses_employee_id_fkey;
+ALTER TABLE public.face_profiles DROP CONSTRAINT IF EXISTS face_profiles_employee_id_fkey;
+
+DO $$
+BEGIN
+  BEGIN ALTER TABLE public.employees ALTER COLUMN id TYPE TEXT; EXCEPTION WHEN OTHERS THEN NULL; END;
+  BEGIN ALTER TABLE public.employees ALTER COLUMN user_id TYPE TEXT; EXCEPTION WHEN OTHERS THEN NULL; END;
+  BEGIN ALTER TABLE public.attendance ALTER COLUMN employee_id TYPE TEXT; EXCEPTION WHEN OTHERS THEN NULL; END;
+  BEGIN ALTER TABLE public.calls ALTER COLUMN employee_id TYPE TEXT; EXCEPTION WHEN OTHERS THEN NULL; END;
+  BEGIN ALTER TABLE public.employee_leaves ALTER COLUMN employee_id TYPE TEXT; EXCEPTION WHEN OTHERS THEN NULL; END;
+  BEGIN ALTER TABLE public.lunch_plans ALTER COLUMN employee_id TYPE TEXT; EXCEPTION WHEN OTHERS THEN NULL; END;
+  BEGIN ALTER TABLE public.kpi_bonuses ALTER COLUMN employee_id TYPE TEXT; EXCEPTION WHEN OTHERS THEN NULL; END;
+  BEGIN ALTER TABLE public.face_profiles ALTER COLUMN employee_id TYPE TEXT; EXCEPTION WHEN OTHERS THEN NULL; END;
+END $$;
+
+-- 3. employees jadvali uchun yetishmayotgan ustunlarni qo'shish
 ALTER TABLE public.employees ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT now();
 ALTER TABLE public.employees ADD COLUMN IF NOT EXISTS operator_number TEXT;
 ALTER TABLE public.employees ADD COLUMN IF NOT EXISTS pbx_extension TEXT;
@@ -21,14 +41,14 @@ ALTER TABLE public.employees ADD COLUMN IF NOT EXISTS kpi_type TEXT DEFAULT 'jun
 ALTER TABLE public.employees ADD COLUMN IF NOT EXISTS password TEXT;
 ALTER TABLE public.employees ADD COLUMN IF NOT EXISTS responsible_course TEXT;
 
--- 3. calls jadvali (agar yo'q bo'lsa yaratish, bor bo'lsa ustunlarni qo'shish)
+-- 4. calls jadvali (agar yo'q bo'lsa yaratish, bor bo'lsa ustunlarni qo'shish)
 CREATE TABLE IF NOT EXISTS public.calls (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   call_id TEXT UNIQUE,
   caller TEXT,
   callee TEXT,
   operator_number TEXT,
-  employee_id UUID REFERENCES public.employees(id) ON DELETE SET NULL,
+  employee_id TEXT,
   employee_name TEXT,
   direction TEXT DEFAULT 'in',
   status TEXT NOT NULL DEFAULT 'missed',
@@ -48,7 +68,7 @@ ALTER TABLE public.calls ADD COLUMN IF NOT EXISTS call_id TEXT;
 ALTER TABLE public.calls ADD COLUMN IF NOT EXISTS caller TEXT;
 ALTER TABLE public.calls ADD COLUMN IF NOT EXISTS callee TEXT;
 ALTER TABLE public.calls ADD COLUMN IF NOT EXISTS operator_number TEXT;
-ALTER TABLE public.calls ADD COLUMN IF NOT EXISTS employee_id UUID;
+ALTER TABLE public.calls ADD COLUMN IF NOT EXISTS employee_id TEXT;
 ALTER TABLE public.calls ADD COLUMN IF NOT EXISTS employee_name TEXT;
 ALTER TABLE public.calls ADD COLUMN IF NOT EXISTS direction TEXT DEFAULT 'in';
 ALTER TABLE public.calls ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'missed';
@@ -62,7 +82,19 @@ ALTER TABLE public.calls ADD COLUMN IF NOT EXISTS call_date DATE DEFAULT CURRENT
 ALTER TABLE public.calls ADD COLUMN IF NOT EXISTS started_at TIMESTAMPTZ DEFAULT now();
 ALTER TABLE public.calls ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT now();
 
--- 4. attendance jadvali uchun tekshiruv
+-- calls jadvalidagi call_id ga UNIQUE qo'yish (ON CONFLICT ishlashi uchun)
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conrelid = 'public.calls'::regclass AND (conname = 'calls_call_id_unique' OR conname = 'calls_call_id_key')
+  ) THEN
+    ALTER TABLE public.calls ADD CONSTRAINT calls_call_id_unique UNIQUE (call_id);
+  END IF;
+EXCEPTION WHEN OTHERS THEN
+  NULL;
+END $$;
+
+-- 5. attendance jadvali uchun tekshiruv
 ALTER TABLE public.attendance ADD COLUMN IF NOT EXISTS worked_seconds INTEGER DEFAULT 0;
 ALTER TABLE public.attendance ADD COLUMN IF NOT EXISTS work_seconds INTEGER DEFAULT 0;
 ALTER TABLE public.attendance ADD COLUMN IF NOT EXISTS lunch_seconds INTEGER DEFAULT 0;
@@ -72,7 +104,7 @@ ALTER TABLE public.attendance ADD COLUMN IF NOT EXISTS late_minutes INTEGER DEFA
 ALTER TABLE public.attendance ADD COLUMN IF NOT EXISTS auto_ended BOOLEAN DEFAULT false;
 ALTER TABLE public.attendance ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT now();
 
--- 5. Barcha mavjud jadvallarning egasini aloqa_user ga o'tkazish
+-- 6. Barcha mavjud jadvallarning egasini aloqa_user ga o'tkazish
 DO $$
 DECLARE
   r RECORD;

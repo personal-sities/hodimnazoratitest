@@ -224,6 +224,40 @@ async function ensureDatabaseSchema() {
       if (uniqueNotif.length !== notifList.length) writeJsonData('notifications.json', uniqueNotif);
     } catch (_) {}
 
+    // Agar PostgreSQL da xodimlar soni 0 bo'lsa, employees.json dan avtomatik ko'chirish
+    try {
+      const dbEmpCheck = await pool.query('SELECT COUNT(*)::int AS cnt FROM public.employees');
+      if (Number(dbEmpCheck.rows[0]?.cnt || 0) === 0) {
+        const localEmps = readJsonData('employees.json', []);
+        for (const le of localEmps) {
+          if (!le.name) continue;
+          const empId = String(le.id || `emp_${Date.now()}_${Math.random().toString(36).substring(2,6)}`);
+          const empUid = String(le.user_id || empId);
+          await pool.query(`
+            INSERT INTO public.employees (id, user_id, name, login, password, kpi_type, operator_number, pbx_extension, active, created_at, updated_at)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, COALESCE($10::timestamptz, now()), now())
+            ON CONFLICT DO NOTHING;
+          `, [
+            empId,
+            empUid,
+            le.name,
+            le.login || (empId + '@aloqapro.uz'),
+            le.password || '123456',
+            le.kpi_type || 'junior',
+            le.operator_number || null,
+            le.pbx_extension || le.operator_number || null,
+            le.active !== false,
+            le.created_at || null
+          ]).catch(e => console.warn('[emp migration err]:', e.message));
+        }
+        if (localEmps.length > 0) {
+          console.log(`[Auto-Migrate]: ${localEmps.length} ta xodim employees.json dan PostgreSQL ga yuklandi.`);
+        }
+      }
+    } catch (migErr) {
+      console.warn('[Emp auto-migration error]:', migErr.message);
+    }
+
     await relinkAllPbxCalls().catch((e) => {
       console.warn('[ensureDatabaseSchema relinkAllPbxCalls ogohlantirish]:', e.message);
     });
