@@ -5,20 +5,6 @@
 // ============================================================
 
 (function() {
-  function resolveUrl(p) {
-    if (typeof window !== 'undefined' && typeof window.resolveApiUrl === 'function') {
-      return window.resolveApiUrl(p);
-    }
-    const clean = p.startsWith('/') ? p : ('/' + p);
-    const sb = (typeof window !== 'undefined' && window.ALOQA_SERVER_URL) ||
-               (typeof localStorage !== 'undefined' ? localStorage.getItem('aloqa_server_url') : null);
-    if (sb) return sb.replace(/\/+$/, '') + clean;
-    if (typeof window !== 'undefined' && window.location && window.location.protocol === 'file:') {
-      return 'http://localhost:3000' + clean;
-    }
-    return clean;
-  }
-
   class QueryBuilder {
     constructor(table) {
       this.table = table;
@@ -154,7 +140,7 @@
     }
 
     async execute() {
-      const baseUrl = resolveUrl('/api/db/' + this.table);
+      const baseUrl = '/api/db/' + this.table;
       const params = [...this._filters];
 
       if (this._select && this._action === 'SELECT') {
@@ -221,7 +207,7 @@
 
     async rpc(funcName, params = {}) {
       try {
-        const res = await fetch(resolveUrl('/api/rpc/' + encodeURIComponent(funcName)), {
+        const res = await fetch('/api/rpc/' + encodeURIComponent(funcName), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(params)
@@ -240,7 +226,7 @@
     auth: {
       async signInWithPassword({ email, password }) {
         try {
-          const res = await fetch(resolveUrl('/api/auth/login'), {
+          const res = await fetch('/api/auth/login', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email, password })
@@ -266,7 +252,7 @@
 
       async signUp({ email, password, options = {} }) {
         try {
-          const res = await fetch(resolveUrl('/api/functions/v1/create-employee'), {
+          const res = await fetch('/api/functions/v1/create-employee', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({

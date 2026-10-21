@@ -673,25 +673,12 @@ async function loadEmpList() {
   // Mahalliy xotiradagi xodimlarni ham birlashtirish
   try {
     const localEmps = JSON.parse(localStorage.getItem('aloqa_local_employees') || '[]');
-    let leMod = false;
     localEmps.forEach(le => {
-      if (le.name && (/axma[dt]ova/i.test(le.name) || /maftuna/i.test(le.name))) {
-        le.name = 'Qarshiyeva Durdona';
-        leMod = true;
-      }
       if (!emps.some(e => e.id === le.id || (e.login && e.login.toLowerCase() === (le.login || '').toLowerCase()))) {
         emps.push(le);
       }
     });
-    if (leMod) localStorage.setItem('aloqa_local_employees', JSON.stringify(localEmps));
   } catch (_) {}
-
-  // Xodimlar ismlarini tozalash (Axmadova / Maftuna -> Qarshiyeva Durdona)
-  (emps || []).forEach(emp => {
-    if (emp.name && (/axma[dt]ova/i.test(emp.name) || /maftuna/i.test(emp.name))) {
-      emp.name = 'Qarshiyeva Durdona';
-    }
-  });
 
   // Mahalliy keshdagi operator raqamlarini birlashtirish (agar bazada ustun hali qo'shilmagan bo'lsa)
   try {
@@ -748,29 +735,16 @@ async function delEmp(id) {
   if (!confirm(t('del_c'))) return;
 
   try {
-    // 1. Server orqali PostgreSQL bazasidan va lokal ombordan to'g'ridan-to'g'ri o'chirish
+    // 1. Server orqali o'chirish
     try {
-      const sRes = await serverApi(`/api/employees/${id}`, { method: 'DELETE' });
-      if (!sRes || !sRes.ok) {
-        await serverApi('/api/functions/delete-employee', {
-          method: 'POST',
-          body: JSON.stringify({ employee_id: id })
-        }).catch(() => {});
-      }
-    } catch (_) {
-      try {
-        await serverApi('/api/functions/delete-employee', {
-          method: 'POST',
-          body: JSON.stringify({ employee_id: id })
-        });
-      } catch (e2) {}
-    }
+      await serverApi(`/api/employees/${id}`, { method: 'DELETE' });
+    } catch (_) {}
 
     // 2. Supabase function orqali ham o'chirishga urinish
     try {
       const { data: sessData } = await sb.auth.getSession();
       if (sessData?.session?.access_token) {
-        await fetch(resolveApiUrl(`${FUNCTIONS_BASE}/delete-employee`), {
+        await fetch(`${FUNCTIONS_BASE}/delete-employee`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -781,15 +755,15 @@ async function delEmp(id) {
       }
     } catch(_) {}
 
-    // 3. To'g'ridan-to'g'ri Supabase bazasidan butunlay o'chirish
+    // 3. To'g'ridan-to'g'ri Supabase bazasidan o'chirish yoki active=false qilish va operator raqamlarini tozalash
     try {
-      await sb.from('employees').delete().eq('id', id);
+      await sb.from('employees').update({ active: false, operator_number: null, pbx_extension: null }).eq('id', id);
     } catch (_) {}
 
-    // 4. Lokal keshdan to'liq tozalash
+    // 4. Lokal keshdan o'chirish
     try {
       const localEmps = JSON.parse(localStorage.getItem('aloqa_local_employees') || '[]');
-      const filtered = localEmps.filter(e => e.id !== id && e.user_id !== id);
+      const filtered = localEmps.filter(e => e.id !== id);
       localStorage.setItem('aloqa_local_employees', JSON.stringify(filtered));
 
       const localOps = JSON.parse(localStorage.getItem('aloqa_operator_numbers') || '{}');
@@ -801,7 +775,7 @@ async function delEmp(id) {
 
     // 5. Serverda qayta biriktirishni ishga tushirish
     try {
-      await fetch(resolveApiUrl('/api/pbx/relink'), { method: 'POST' });
+      await fetch('/api/pbx/relink', { method: 'POST' });
     } catch (_) {}
 
     toast('success', t('employee_title'), t('employee_removed'));
@@ -844,8 +818,7 @@ async function addEmp() {
     document.getElementById('ne_p').value = '';
     if (document.getElementById('ne_op')) document.getElementById('ne_op').value = '';
     await loadEmpList();
-    try { fetch(resolveApiUrl('/api/pbx/relink'), { method: 'POST' }); } catch (_) {}
-    if (typeof loadPbxDashboard === 'function') loadPbxDashboard();
+    if (typeof loadPbxDashboard === 'function' && currentAdminTab === 'pbx') loadPbxDashboard();
     toast('success', t('employee_title'), t('employee_added'));
   };
 
@@ -972,9 +945,6 @@ async function addEmp() {
 function openEditOperatorModal(id, name, currentOp) {
   const modal = document.getElementById('m_edit_operator');
   if (!modal) return;
-  if (name && (/axma[dt]ova/i.test(name) || /maftuna/i.test(name))) {
-    name = 'Qarshiyeva Durdona';
-  }
   document.getElementById('edit_op_emp_id').value = id;
   document.getElementById('edit_op_emp_name').textContent = name;
   document.getElementById('edit_op_number').value = currentOp || '';
@@ -1049,7 +1019,7 @@ async function saveEmployeeOperator() {
 
     // 4. Serverda barcha qo'ng'iroqlarni va statistikani yangilash
     try {
-      await fetch(resolveApiUrl('/api/pbx/relink'), { method: 'POST' });
+      await fetch('/api/pbx/relink', { method: 'POST' });
     } catch (_) {}
 
     closeEditOperatorModal();
@@ -1138,7 +1108,7 @@ async function savePass() {
     const { data: sessData } = await sb.auth.getSession();
     const token = sessData?.session?.access_token;
     if (token) {
-      const res = await fetch(resolveApiUrl(`${FUNCTIONS_BASE}/reset-employee-password`), {
+      const res = await fetch(`${FUNCTIONS_BASE}/reset-employee-password`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -730,10 +730,8 @@ async function doLogout(){
   window._manualLogoutInitiated = true;
   if(CU && CU.role==='employee'){
     try{
-      if(typeof empState !== 'undefined' && empState !== 'ended'){
-        pauseWorkForPlatformExit();
-        await savePartial();
-      }
+      pauseWorkForPlatformExit();
+      await savePartial();
     }catch(e){console.warn('logout pause save:',e.message||e);}
   }
   stopAll();
@@ -744,15 +742,7 @@ async function doLogout(){
 
   CU = null;
   localStorage.removeItem('aloqa_u');
-  // Agar bugun ish yakunlangan bo'lsa, xodim qayta kirganda 'ended' holatini yo'qotmaslik uchun saqlab qolamiz
-  try {
-    const curState = (typeof getLS === 'function') ? getLS() : JSON.parse(localStorage.getItem('aloqa_emp_state') || 'null');
-    if (!curState || (curState.state !== 'ended' && (!curState.i_e || curState.i_e === '-'))) {
-      localStorage.removeItem('aloqa_emp_state');
-    }
-  } catch (_) {
-    localStorage.removeItem('aloqa_emp_state');
-  }
+  localStorage.removeItem('aloqa_emp_state');
 
   showPage('login');
 }
@@ -844,26 +834,3 @@ function empNavTab(tab){
 }
 
 // ============================================================
-//  DESKTOP SERVER URL SOZLAMASI
-// ============================================================
-function promptServerUrl(){
-  const cur = localStorage.getItem('aloqa_server_url') || (window.ALOQA_SERVER_URL || 'http://localhost:3000');
-  const entered = prompt(
-    "Server manzilini kiriting (masalan: http://192.168.1.100:3000 yoki https://aloqapro.uz):\nStandart holatga qaytarish uchun bo'sh qoldiring.",
-    cur
-  );
-  if(entered !== null){
-    const clean = entered.trim().replace(/\/+$/, '');
-    if(clean){
-      localStorage.setItem('aloqa_server_url', clean);
-      window.ALOQA_SERVER_URL = clean;
-      toast('info', 'Server', 'Server manzili saqlandi: ' + clean);
-      setTimeout(()=>location.reload(), 400);
-    } else {
-      localStorage.removeItem('aloqa_server_url');
-      window.ALOQA_SERVER_URL = null;
-      toast('info', 'Server', 'Standart serverga qaytarildi');
-      setTimeout(()=>location.reload(), 400);
-    }
-  }
-}

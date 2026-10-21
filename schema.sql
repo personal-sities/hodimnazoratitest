@@ -29,16 +29,12 @@ CREATE TABLE IF NOT EXISTS public.employees (
   face_registered BOOLEAN NOT NULL DEFAULT false,
   responsible_course TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE(user_id)
 );
 
 -- Agar oldingi bazada ustunlar yo'q bo'lsa qo'shish
 DO $$
 BEGIN
-  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='employees' AND column_name='updated_at') THEN
-    ALTER TABLE public.employees ADD COLUMN updated_at TIMESTAMPTZ DEFAULT now();
-  END IF;
   IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='employees' AND column_name='password') THEN
     ALTER TABLE public.employees ADD COLUMN password TEXT;
   END IF;
@@ -171,14 +167,11 @@ CREATE TABLE IF NOT EXISTS public.calls (
   callee TEXT,
   operator_number TEXT,
   employee_id UUID REFERENCES public.employees(id) ON DELETE SET NULL,
-  employee_name TEXT,
   direction TEXT DEFAULT 'in',
-  status TEXT NOT NULL DEFAULT 'missed',
+  status TEXT NOT NULL,
   duration INTEGER NOT NULL DEFAULT 0,
   talk_time INTEGER NOT NULL DEFAULT 0,
   record_url TEXT,
-  rating NUMERIC,
-  rating_comment TEXT,
   raw_data JSONB,
   call_date DATE NOT NULL DEFAULT CURRENT_DATE,
   started_at TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -186,74 +179,11 @@ CREATE TABLE IF NOT EXISTS public.calls (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- calls jadvali uchun avtomatik ustunlar migratsiyasi
-DO $$
-BEGIN
-  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='calls') THEN
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='calls' AND column_name='call_id') THEN
-      ALTER TABLE public.calls ADD COLUMN call_id TEXT UNIQUE;
-    END IF;
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='calls' AND column_name='caller') THEN
-      ALTER TABLE public.calls ADD COLUMN caller TEXT;
-    END IF;
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='calls' AND column_name='callee') THEN
-      ALTER TABLE public.calls ADD COLUMN callee TEXT;
-    END IF;
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='calls' AND column_name='operator_number') THEN
-      ALTER TABLE public.calls ADD COLUMN operator_number TEXT;
-    END IF;
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='calls' AND column_name='employee_id') THEN
-      ALTER TABLE public.calls ADD COLUMN employee_id UUID REFERENCES public.employees(id) ON DELETE SET NULL;
-    END IF;
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='calls' AND column_name='employee_name') THEN
-      ALTER TABLE public.calls ADD COLUMN employee_name TEXT;
-    END IF;
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='calls' AND column_name='direction') THEN
-      ALTER TABLE public.calls ADD COLUMN direction TEXT DEFAULT 'in';
-    END IF;
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='calls' AND column_name='status') THEN
-      ALTER TABLE public.calls ADD COLUMN status TEXT DEFAULT 'missed';
-    END IF;
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='calls' AND column_name='duration') THEN
-      ALTER TABLE public.calls ADD COLUMN duration INTEGER DEFAULT 0;
-    END IF;
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='calls' AND column_name='talk_time') THEN
-      ALTER TABLE public.calls ADD COLUMN talk_time INTEGER DEFAULT 0;
-    END IF;
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='calls' AND column_name='record_url') THEN
-      ALTER TABLE public.calls ADD COLUMN record_url TEXT;
-    END IF;
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='calls' AND column_name='rating') THEN
-      ALTER TABLE public.calls ADD COLUMN rating NUMERIC;
-    END IF;
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='calls' AND column_name='rating_comment') THEN
-      ALTER TABLE public.calls ADD COLUMN rating_comment TEXT;
-    END IF;
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='calls' AND column_name='raw_data') THEN
-      ALTER TABLE public.calls ADD COLUMN raw_data JSONB;
-    END IF;
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='calls' AND column_name='call_date') THEN
-      ALTER TABLE public.calls ADD COLUMN call_date DATE DEFAULT CURRENT_DATE;
-    END IF;
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='calls' AND column_name='started_at') THEN
-      ALTER TABLE public.calls ADD COLUMN started_at TIMESTAMPTZ DEFAULT now();
-    END IF;
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='calls' AND column_name='created_at') THEN
-      ALTER TABLE public.calls ADD COLUMN created_at TIMESTAMPTZ DEFAULT now();
-    END IF;
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='calls' AND column_name='updated_at') THEN
-      ALTER TABLE public.calls ADD COLUMN updated_at TIMESTAMPTZ DEFAULT now();
-    END IF;
-  END IF;
-END $$;
-
 CREATE INDEX IF NOT EXISTS idx_calls_call_date ON public.calls(call_date);
 CREATE INDEX IF NOT EXISTS idx_calls_operator_number ON public.calls(operator_number);
 CREATE INDEX IF NOT EXISTS idx_calls_employee_id ON public.calls(employee_id);
 CREATE INDEX IF NOT EXISTS idx_calls_status ON public.calls(status);
 CREATE INDEX IF NOT EXISTS idx_calls_started_at ON public.calls(started_at);
-CREATE INDEX IF NOT EXISTS idx_calls_caller ON public.calls(caller);
-CREATE INDEX IF NOT EXISTS idx_calls_callee ON public.calls(callee);
 
 -- 13. UPDATED_AT TRIGGER FUNKSIYASI
 CREATE OR REPLACE FUNCTION public.set_updated_at()
@@ -284,30 +214,25 @@ BEGIN
 END;
 $$;
 
-DO $$
-BEGIN
-  DROP TRIGGER IF EXISTS attendance_sync_seconds_insert ON public.attendance;
-  CREATE TRIGGER attendance_sync_seconds_insert
-  BEFORE INSERT ON public.attendance
-  FOR EACH ROW EXECUTE FUNCTION public.sync_attendance_seconds();
+DROP TRIGGER IF EXISTS attendance_sync_seconds_insert ON public.attendance;
+CREATE TRIGGER attendance_sync_seconds_insert
+BEFORE INSERT ON public.attendance
+FOR EACH ROW EXECUTE FUNCTION public.sync_attendance_seconds();
 
-  DROP TRIGGER IF EXISTS attendance_set_updated_at ON public.attendance;
-  CREATE TRIGGER attendance_set_updated_at
-  BEFORE UPDATE ON public.attendance
-  FOR EACH ROW EXECUTE FUNCTION public.sync_attendance_seconds();
+DROP TRIGGER IF EXISTS attendance_set_updated_at ON public.attendance;
+CREATE TRIGGER attendance_set_updated_at
+BEFORE UPDATE ON public.attendance
+FOR EACH ROW EXECUTE FUNCTION public.sync_attendance_seconds();
 
-  DROP TRIGGER IF EXISTS settings_set_updated_at ON public.settings;
-  CREATE TRIGGER settings_set_updated_at
-  BEFORE UPDATE ON public.settings
-  FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+DROP TRIGGER IF EXISTS settings_set_updated_at ON public.settings;
+CREATE TRIGGER settings_set_updated_at
+BEFORE UPDATE ON public.settings
+FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
-  DROP TRIGGER IF EXISTS face_profiles_set_updated_at ON public.face_profiles;
-  CREATE TRIGGER face_profiles_set_updated_at
-  BEFORE UPDATE ON public.face_profiles
-  FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
-EXCEPTION WHEN OTHERS THEN
-  NULL;
-END $$;
+DROP TRIGGER IF EXISTS face_profiles_set_updated_at ON public.face_profiles;
+CREATE TRIGGER face_profiles_set_updated_at
+BEFORE UPDATE ON public.face_profiles
+FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 -- 14. ADMIN_ATTENDANCE_RANGE FUNKSIYASI
 DROP FUNCTION IF EXISTS public.admin_attendance_range(DATE, DATE, TEXT, TEXT);
@@ -421,20 +346,3 @@ BEGIN
   );
 END;
 $$;
-
--- 16. JORIY VA STANDART USERLARGA RUXSATLARNI BIRIKTIRISH
-DO $$
-BEGIN
-  EXECUTE 'GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO ' || quote_ident(CURRENT_USER);
-  EXECUTE 'GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO ' || quote_ident(CURRENT_USER);
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'aloqa_user') THEN
-    EXECUTE 'GRANT ALL PRIVILEGES ON SCHEMA public TO aloqa_user';
-    EXECUTE 'GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO aloqa_user';
-    EXECUTE 'GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO aloqa_user';
-    EXECUTE 'ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO aloqa_user';
-    EXECUTE 'ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO aloqa_user';
-  END IF;
-EXCEPTION WHEN OTHERS THEN
-  NULL;
-END $$;
-

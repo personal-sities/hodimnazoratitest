@@ -79,9 +79,6 @@ GRANT ALL PRIVILEGES ON DATABASE aloqapro TO aloqa_user;
 #### 3. Sxemani yuklash
 ```bash
 sudo -u postgres psql -d aloqapro -f /var/www/aloqapro/schema.sql
-
-# aloqa_user ga barcha jadvallar va sxemaga to'liq ruxsat berish (BU SHART):
-sudo -u postgres psql -d aloqapro -c "GRANT ALL ON SCHEMA public TO aloqa_user; GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO aloqa_user; GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO aloqa_user; ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO aloqa_user; ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO aloqa_user;"
 ```
 
 #### 4. Dependency'larni o'rnatish va sozlash

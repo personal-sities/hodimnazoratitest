@@ -79,62 +79,6 @@ function getDbPool() {
   return sharedPool;
 }
 
-async function ensureCallsTable(pool) {
-  if (!pool) return;
-  try {
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS public.calls (
-        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        call_id TEXT UNIQUE,
-        caller TEXT,
-        callee TEXT,
-        operator_number TEXT,
-        employee_id UUID,
-        employee_name TEXT,
-        direction TEXT DEFAULT 'in',
-        status TEXT NOT NULL DEFAULT 'missed',
-        duration INTEGER NOT NULL DEFAULT 0,
-        talk_time INTEGER NOT NULL DEFAULT 0,
-        record_url TEXT,
-        rating NUMERIC,
-        rating_comment TEXT,
-        raw_data JSONB,
-        call_date DATE NOT NULL DEFAULT CURRENT_DATE,
-        started_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-        created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-        updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
-      );
-      ALTER TABLE public.calls ADD COLUMN IF NOT EXISTS call_id TEXT;
-      ALTER TABLE public.calls ADD COLUMN IF NOT EXISTS caller TEXT;
-      ALTER TABLE public.calls ADD COLUMN IF NOT EXISTS callee TEXT;
-      ALTER TABLE public.calls ADD COLUMN IF NOT EXISTS operator_number TEXT;
-      ALTER TABLE public.calls ADD COLUMN IF NOT EXISTS employee_id UUID;
-      ALTER TABLE public.calls ADD COLUMN IF NOT EXISTS employee_name TEXT;
-      ALTER TABLE public.calls ADD COLUMN IF NOT EXISTS direction TEXT DEFAULT 'in';
-      ALTER TABLE public.calls ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'missed';
-      ALTER TABLE public.calls ADD COLUMN IF NOT EXISTS duration INTEGER DEFAULT 0;
-      ALTER TABLE public.calls ADD COLUMN IF NOT EXISTS talk_time INTEGER DEFAULT 0;
-      ALTER TABLE public.calls ADD COLUMN IF NOT EXISTS record_url TEXT;
-      ALTER TABLE public.calls ADD COLUMN IF NOT EXISTS rating NUMERIC;
-      ALTER TABLE public.calls ADD COLUMN IF NOT EXISTS rating_comment TEXT;
-      ALTER TABLE public.calls ADD COLUMN IF NOT EXISTS raw_data JSONB;
-      ALTER TABLE public.calls ADD COLUMN IF NOT EXISTS call_date DATE DEFAULT CURRENT_DATE;
-      ALTER TABLE public.calls ADD COLUMN IF NOT EXISTS started_at TIMESTAMPTZ DEFAULT now();
-      ALTER TABLE public.calls ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT now();
-      ALTER TABLE public.calls ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT now();
-      CREATE UNIQUE INDEX IF NOT EXISTS idx_calls_call_id ON public.calls(call_id);
-      CREATE INDEX IF NOT EXISTS idx_calls_call_date ON public.calls(call_date);
-      CREATE INDEX IF NOT EXISTS idx_calls_operator_number ON public.calls(operator_number);
-      CREATE INDEX IF NOT EXISTS idx_calls_employee_id ON public.calls(employee_id);
-      CREATE INDEX IF NOT EXISTS idx_calls_started_at ON public.calls(started_at);
-      CREATE INDEX IF NOT EXISTS idx_calls_caller ON public.calls(caller);
-      CREATE INDEX IF NOT EXISTS idx_calls_callee ON public.calls(callee);
-    `);
-  } catch (err) {
-    console.warn('[ensureCallsTable ogohlantirish]:', err.message);
-  }
-}
-
 async function ensureDatabaseSchema() {
   // 1. data/ papkasi va admins.json borligini kafolatlash
   try {
@@ -179,104 +123,19 @@ async function ensureDatabaseSchema() {
   const pool = getDbPool();
   if (!pool) return;
   try {
-    // 2.1 pgcrypto kengaytmasi
-    await pool.query('CREATE EXTENSION IF NOT EXISTS pgcrypto;').catch(() => {});
-
-    // 2.2 schema.sql ni alohida try-catch da chaqirish (boshqa jadvallar bloklanmasligi uchun)
     const schemaFile = path.join(ROOT, 'schema.sql');
     if (fs.existsSync(schemaFile)) {
-      try {
-        const schemaSql = fs.readFileSync(schemaFile, 'utf8');
-        await pool.query(schemaSql);
-        console.log('[PostgreSQL]: schema.sql bo\'yicha jadvallar tekshirildi.');
-      } catch (sqlErr) {
-        console.warn('[PostgreSQL schema.sql ogohlantirish]:', sqlErr.message);
-      }
+      const schemaSql = fs.readFileSync(schemaFile, 'utf8');
+      await pool.query(schemaSql);
+      console.log('[PostgreSQL]: schema.sql bo\'yicha barcha jadvallar va funksiyalar faollashtirildi.');
     }
 
-    // 2.3 employees jadvali ustunlari (updated_at, operator_number, pbx_extension va boshqalar)
     await pool.query(`
-      CREATE TABLE IF NOT EXISTS public.employees (
-        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        user_id UUID NOT NULL,
-        name TEXT NOT NULL,
-        login TEXT NOT NULL,
-        password TEXT,
-        kpi_type TEXT DEFAULT 'junior',
-        active BOOLEAN NOT NULL DEFAULT true,
-        face_registered BOOLEAN NOT NULL DEFAULT false,
-        responsible_course TEXT,
-        created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-        updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-        UNIQUE(user_id)
-      );
-      ALTER TABLE public.employees ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT now();
-      ALTER TABLE public.employees ADD COLUMN IF NOT EXISTS operator_number TEXT;
-      ALTER TABLE public.employees ADD COLUMN IF NOT EXISTS pbx_extension TEXT;
       ALTER TABLE public.employees ADD COLUMN IF NOT EXISTS password TEXT;
-      ALTER TABLE public.employees ADD COLUMN IF NOT EXISTS kpi_type TEXT DEFAULT 'junior';
-      ALTER TABLE public.employees ADD COLUMN IF NOT EXISTS active BOOLEAN DEFAULT true;
-      ALTER TABLE public.employees ADD COLUMN IF NOT EXISTS face_registered BOOLEAN DEFAULT false;
-      ALTER TABLE public.employees ADD COLUMN IF NOT EXISTS responsible_course TEXT;
-    `).catch(e => console.warn('[DB Init employees]:', e.message));
-
-    // 2.4 calls jadvali va barcha ustunlari (call_id, operator_number, employee_name, ...)
-    await ensureCallsTable(pool);
-
-    // 2.5 admins jadvali
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS public.admins (
-        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        user_id UUID NOT NULL,
-        name TEXT NOT NULL,
-        login TEXT,
-        password TEXT,
-        active BOOLEAN NOT NULL DEFAULT true,
-        created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-        UNIQUE(user_id)
-      );
       ALTER TABLE public.admins ADD COLUMN IF NOT EXISTS password TEXT;
-      ALTER TABLE public.admins ADD COLUMN IF NOT EXISTS active BOOLEAN DEFAULT true;
-    `).catch(e => console.warn('[DB Init admins]:', e.message));
-
-    // 2.6 attendance jadvali
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS public.attendance (
-        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        employee_id UUID NOT NULL,
-        work_date DATE NOT NULL,
-        start_time TIME,
-        end_time TIME,
-        lunch_start TIME,
-        lunch_end TIME,
-        work_seconds INTEGER NOT NULL DEFAULT 0,
-        worked_seconds INTEGER NOT NULL DEFAULT 0,
-        lunch_seconds INTEGER NOT NULL DEFAULT 0,
-        afk_seconds INTEGER NOT NULL DEFAULT 0,
-        afk_count INTEGER NOT NULL DEFAULT 0,
-        late_minutes INTEGER NOT NULL DEFAULT 0,
-        status TEXT NOT NULL DEFAULT 'kelmadi',
-        auto_ended BOOLEAN NOT NULL DEFAULT false,
-        employee_name TEXT,
-        created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-        updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-        UNIQUE(employee_id, work_date)
-      );
-      ALTER TABLE public.attendance ADD COLUMN IF NOT EXISTS employee_name TEXT;
-      ALTER TABLE public.attendance ADD COLUMN IF NOT EXISTS auto_ended BOOLEAN DEFAULT false;
-      ALTER TABLE public.attendance ADD COLUMN IF NOT EXISTS work_seconds INTEGER DEFAULT 0;
-      ALTER TABLE public.attendance ADD COLUMN IF NOT EXISTS worked_seconds INTEGER DEFAULT 0;
-      ALTER TABLE public.attendance ADD COLUMN IF NOT EXISTS lunch_seconds INTEGER DEFAULT 0;
-      ALTER TABLE public.attendance ADD COLUMN IF NOT EXISTS afk_seconds INTEGER DEFAULT 0;
-      ALTER TABLE public.attendance ADD COLUMN IF NOT EXISTS afk_count INTEGER DEFAULT 0;
-      ALTER TABLE public.attendance ADD COLUMN IF NOT EXISTS late_minutes INTEGER DEFAULT 0;
-      ALTER TABLE public.attendance ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT now();
-      CREATE INDEX IF NOT EXISTS idx_attendance_date ON public.attendance(work_date);
-      CREATE INDEX IF NOT EXISTS idx_attendance_emp_date ON public.attendance(employee_id, work_date);
-    `).catch(e => console.warn('[DB Init attendance]:', e.message));
-
-    // 2.7 Standart adminlar
-    await pool.query(`
+      ALTER TABLE public.calls ADD COLUMN IF NOT EXISTS employee_name TEXT;
+      CREATE INDEX IF NOT EXISTS idx_calls_caller ON public.calls(caller);
+      CREATE INDEX IF NOT EXISTS idx_calls_callee ON public.calls(callee);
       DO $$
       BEGIN
         IF NOT EXISTS (SELECT 1 FROM public.admins WHERE LOWER(login) = 'admin@aloqapro.uz') THEN
@@ -292,14 +151,13 @@ async function ensureDatabaseSchema() {
           VALUES (gen_random_uuid(), gen_random_uuid(), 'Administrator (Diyorbek)', 'umirbekovdiyorbek@gmail.com', true);
         END IF;
       END $$;
-    `).catch(() => {});
 
-    // 2.8 Inactive (ishdan ketgan) xodimlardan operator raqamlarini tozalash
-    await pool.query(`
+      -- 1. Inactive (ishdan ketgan) xodimlardan operator raqamlarini tozalash
       UPDATE public.employees
       SET operator_number = NULL, pbx_extension = NULL
       WHERE active = false AND (operator_number IS NOT NULL OR pbx_extension IS NOT NULL);
 
+      -- 2. Agar bitta operator raqamiga bir nechta active xodim birikib qolsa, faqat oxirgisida qoldirish
       UPDATE public.employees e1
       SET operator_number = NULL, pbx_extension = NULL
       WHERE active = true
@@ -309,12 +167,10 @@ async function ensureDatabaseSchema() {
           WHERE e2.active = true
             AND (e2.operator_number = e1.operator_number OR e2.pbx_extension = e1.operator_number)
             AND e2.id <> e1.id
-            AND (COALESCE(e2.updated_at, e2.created_at, now()) > COALESCE(e1.updated_at, e1.created_at, now()))
+            AND (COALESCE(e2.updated_at, e2.created_at) > COALESCE(e1.updated_at, e1.created_at))
         );
-    `).catch(() => {});
 
-    // 2.9 Dublikatlarni tozalash
-    await pool.query(`
+      -- 3. Mavjud dublikat xabar/fikrlarni tozalash (bir xil xodim, bir xil matn, 30 soniya ichida)
       DELETE FROM public.feedback f1
       USING public.feedback f2
       WHERE f1.employee_id = f2.employee_id
@@ -326,6 +182,7 @@ async function ensureDatabaseSchema() {
         )
         AND ABS(EXTRACT(EPOCH FROM (f1.created_at - f2.created_at))) < 30;
 
+      -- 4. Mavjud dublikat bildirishnomalarni tozalash
       DELETE FROM public.notifications n1
       USING public.notifications n2
       WHERE n1.employee_id = n2.employee_id
@@ -337,61 +194,7 @@ async function ensureDatabaseSchema() {
           OR (n1.sent_at = n2.sent_at AND n1.id > n2.id)
         )
         AND ABS(EXTRACT(EPOCH FROM (n1.sent_at - n2.sent_at))) < 30;
-    `).catch(() => {});
-
-    // 2.10 Agar start_time va end_time mavjud bo'lib, work_seconds 0 yoki null bo'lib qolgan bo'lsa, uni avtomatik hisoblab tiklash
-    await pool.query(`
-      UPDATE public.attendance
-      SET work_seconds = GREATEST(0, (EXTRACT(EPOCH FROM (end_time::time - start_time::time))::int - COALESCE(lunch_seconds, 0)))
-      WHERE start_time IS NOT NULL 
-        AND end_time IS NOT NULL 
-        AND end_time > start_time 
-        AND (work_seconds IS NULL OR work_seconds = 0);
-    `).catch(() => {});
-
-    // 2.11 Axmadova / Maftuna -> Qarshiyeva Durdona xodim va qo'ng'iroqlarini avtomatik to'g'rilash
-    await pool.query(`
-      DO $$
-      DECLARE
-        v_qarshiyeva_id TEXT;
-        v_axmadova_id TEXT;
-        v_axmadova_op TEXT;
-        v_axmadova_pbx TEXT;
-      BEGIN
-        SELECT id::text INTO v_qarshiyeva_id FROM public.employees 
-        WHERE (name ILIKE '%Qarshiyeva%Durdona%' OR name ILIKE '%Durdona%Qarshiyeva%')
-        ORDER BY (active = true) DESC, COALESCE(updated_at, created_at, now()) DESC LIMIT 1;
-
-        SELECT id::text, operator_number, pbx_extension INTO v_axmadova_id, v_axmadova_op, v_axmadova_pbx FROM public.employees 
-        WHERE (name ILIKE '%Qarshiyeva%Maftuna%' OR name ILIKE '%Maftuna%Qarshiyeva%' OR name ILIKE '%Axmadova%' OR name ILIKE '%Axmatova%' OR name ILIKE '%Maftuna%')
-        ORDER BY (active = true) DESC, COALESCE(updated_at, created_at, now()) DESC LIMIT 1;
-
-        IF v_qarshiyeva_id IS NOT NULL AND v_axmadova_id IS NOT NULL AND v_qarshiyeva_id <> v_axmadova_id THEN
-          IF v_axmadova_op IS NOT NULL THEN
-            UPDATE public.employees 
-            SET operator_number = v_axmadova_op, pbx_extension = COALESCE(v_axmadova_pbx, v_axmadova_op), active = true, updated_at = now() 
-            WHERE id::text = v_qarshiyeva_id;
-          END IF;
-          UPDATE public.employees SET active = false, operator_number = NULL, pbx_extension = NULL, updated_at = now() WHERE id::text = v_axmadova_id;
-          UPDATE public.calls SET employee_id = v_qarshiyeva_id::uuid, employee_name = 'Qarshiyeva Durdona', updated_at = now() WHERE employee_id::text = v_axmadova_id;
-        ELSIF v_axmadova_id IS NOT NULL THEN
-          UPDATE public.employees SET name = 'Qarshiyeva Durdona', updated_at = now() WHERE id::text = v_axmadova_id;
-        END IF;
-      END $$;
-
-      UPDATE public.employees
-      SET name = 'Qarshiyeva Durdona', updated_at = now()
-      WHERE (name ILIKE '%Axmadova%' OR name ILIKE '%Axmatova%' OR name ILIKE '%Qarshiyeva%Maftuna%' OR name ILIKE '%Maftuna%Qarshiyeva%');
-
-      UPDATE public.calls
-      SET employee_name = 'Qarshiyeva Durdona', updated_at = now()
-      WHERE (employee_name ILIKE '%Axmadova%' OR employee_name ILIKE '%Axmatova%' OR employee_name ILIKE '%Qarshiyeva%Maftuna%' OR employee_name ILIKE '%Maftuna%');
-
-      UPDATE public.attendance
-      SET employee_name = 'Qarshiyeva Durdona'
-      WHERE (employee_name ILIKE '%Axmadova%' OR employee_name ILIKE '%Axmatova%' OR employee_name ILIKE '%Qarshiyeva%Maftuna%' OR employee_name ILIKE '%Maftuna%');
-    `).catch(() => {});
-
+    `);
     console.log('[Database]: PostgreSQL sxemasi va administratorlar to\'liq tayyor.');
 
     // Lokal JSON dagi dublikatlarni tozalash
@@ -419,29 +222,6 @@ async function ensureDatabaseSchema() {
         }
       });
       if (uniqueNotif.length !== notifList.length) writeJsonData('notifications.json', uniqueNotif);
-
-      // Lokal JSON dagi xodimlar va qo'ng'iroqlarni tekshirib Axmadova / Maftuna nomlarini Qarshiyeva Durdonaga to'g'rilash
-      try {
-        const empList = readJsonData('employees.json', []);
-        let empMod = false;
-        empList.forEach(e => {
-          if (/axma[dt]ova/i.test(e.name || '') || /maftuna/i.test(e.name || '')) {
-            e.name = 'Qarshiyeva Durdona';
-            empMod = true;
-          }
-        });
-        if (empMod) writeJsonData('employees.json', empList);
-
-        const callList = readLocalCalls();
-        let callMod = false;
-        callList.forEach(c => {
-          if (/axma[dt]ova/i.test(c.employee_name || '') || /maftuna/i.test(c.employee_name || '')) {
-            c.employee_name = 'Qarshiyeva Durdona';
-            callMod = true;
-          }
-        });
-        if (callMod) writeLocalCalls(callList);
-      } catch (_) {}
     } catch (_) {}
 
     await relinkAllPbxCalls().catch((e) => {
@@ -571,10 +351,6 @@ const server = http.createServer(async (req, res) => {
       if (req.method === 'GET') return handleGetEmployees(req, res, reqUrl);
       if (req.method === 'POST') return handleCreateEmployeeApi(req, res);
       if (req.method === 'PATCH') return handleUpdateEmployeeApi(req, res);
-      if (req.method === 'DELETE') {
-        const body = await readJson(req);
-        return handleDeleteEmployee(res, body);
-      }
     }
     if (pathname.startsWith('/api/employees/')) {
       const empId = pathname.replace('/api/employees/', '').trim();
@@ -808,19 +584,10 @@ async function handleCreateEmployee(res, body) {
       const newEmp = result.rows[0];
       const newEmpId = newEmp?.id;
       if (newEmpId && operatorNumber) {
-        // Boshqa xodimlardan bu operator raqamini bo'shatamiz
         await pool.query(
-          'UPDATE public.employees SET operator_number = NULL, pbx_extension = NULL WHERE (operator_number = $1 OR pbx_extension = $1) AND id <> $2',
-          [operatorNumber, newEmpId]
+          'UPDATE public.calls SET employee_id = $1 WHERE operator_number = $2 AND employee_id IS NULL',
+          [newEmpId, operatorNumber]
         ).catch(() => { });
-
-        // Ushbu operator raqamidagi barcha qo'ng'iroqlarni yangi xodimga to'liq bog'laymiz
-        await pool.query(
-          'UPDATE public.calls SET employee_id = $1, employee_name = $2, updated_at = now() WHERE operator_number = $3',
-          [newEmpId, name, operatorNumber]
-        ).catch(() => { });
-
-        await relinkAllPbxCalls().catch(() => { });
       }
 
       // Lokal JSON zaxirasi
@@ -854,24 +621,17 @@ async function handleCreateEmployee(res, body) {
   writeJsonData('employees.json', emps);
 
   if (operatorNumber) {
-    emps.forEach(e => {
-      if (e.id !== newEmpId && (e.operator_number === operatorNumber || e.pbx_extension === operatorNumber)) {
-        e.operator_number = null;
-        e.pbx_extension = null;
-      }
-    });
     try {
       const calls = readLocalCalls();
       let callUpdated = false;
       calls.forEach(c => {
-        if (c.operator_number === operatorNumber) {
+        if (c.operator_number === operatorNumber && !c.employee_id) {
           c.employee_id = newEmpId;
           c.employee_name = name;
           callUpdated = true;
         }
       });
       if (callUpdated) writeLocalCalls(calls);
-      await relinkAllPbxCalls().catch(() => { });
     } catch (_) { }
   }
 
@@ -885,59 +645,30 @@ async function handleDeleteEmployee(res, body) {
   const pool = getDbPool();
   if (pool) {
     try {
-      // 1. Bog'liq jadvallardagi ma'lumotlarni tozalash yoki chetlatish (Foreign Key xatolarini oldini olish uchun)
-      await pool.query('UPDATE public.calls SET employee_id = NULL WHERE employee_id::text = $1', [String(employeeId)]).catch(() => {});
-      await pool.query('DELETE FROM public.face_profiles WHERE employee_id::text = $1', [String(employeeId)]).catch(() => {});
-      await pool.query('DELETE FROM public.lunch_plans WHERE employee_id::text = $1', [String(employeeId)]).catch(() => {});
-      await pool.query('DELETE FROM public.employee_leaves WHERE employee_id::text = $1', [String(employeeId)]).catch(() => {});
-      await pool.query('DELETE FROM public.notifications WHERE employee_id::text = $1', [String(employeeId)]).catch(() => {});
-      await pool.query('DELETE FROM public.feedback WHERE employee_id::text = $1', [String(employeeId)]).catch(() => {});
-      await pool.query('DELETE FROM public.kpi_bonuses WHERE employee_id::text = $1', [String(employeeId)]).catch(() => {});
-      await pool.query('DELETE FROM public.attendance WHERE employee_id::text = $1', [String(employeeId)]).catch(() => {});
-
-      // 2. Xodimni to'g'ridan-to'g'ri PostgreSQL bazasidan BUTUNLAY O'CHIRISH (id yoki user_id bo'yicha)
-      const delRes = await pool.query(
-        'DELETE FROM public.employees WHERE id::text = $1 OR user_id::text = $1',
-        [String(employeeId)]
+      // Ishdan ketgan xodim o'chirilganda: active=false qilish va operator raqamlarini tozalash!
+      await pool.query(
+        'UPDATE public.employees SET active = false, operator_number = NULL, pbx_extension = NULL, updated_at = now() WHERE id = $1',
+        [employeeId]
       );
-      console.log(`[handleDeleteEmployee]: Xodim (${employeeId}) PostgreSQL bazasidan to'liq o'chirildi (rowCount=${delRes.rowCount || 0}).`);
     } catch (dbErr) {
       console.error('handleDeleteEmployee DB xatosi:', dbErr.message);
     }
   }
 
-  // 3. Lokal data/employees.json faylidan butunlay olib tashlash
-  try {
-    let emps = readJsonData('employees.json', []);
-    const beforeCount = emps.length;
-    emps = emps.filter(e => String(e.id) !== String(employeeId) && String(e.user_id) !== String(employeeId));
-    if (emps.length !== beforeCount) {
-      writeJsonData('employees.json', emps);
-      console.log(`[handleDeleteEmployee]: Xodim (${employeeId}) data/employees.json faylidan o'chirildi.`);
-    }
-  } catch (err) {
-    console.error('handleDeleteEmployee JSON xatosi:', err.message);
+  const emps = readJsonData('employees.json', []);
+  const emp = emps.find(e => e.id === employeeId);
+  if (emp) {
+    emp.active = false;
+    emp.operator_number = null;
+    emp.pbx_extension = null;
+    emp.updated_at = new Date().toISOString();
+    writeJsonData('employees.json', emps);
   }
 
-  // 4. Boshqa lokal ma'lumotlarni ham tozalash
-  try {
-    let leaves = readJsonData('employee_leaves.json', []);
-    leaves = leaves.filter(l => String(l.employee_id) !== String(employeeId));
-    writeJsonData('employee_leaves.json', leaves);
-
-    let lunch = readJsonData('lunch_plans.json', []);
-    lunch = lunch.filter(lp => String(lp.employee_id) !== String(employeeId));
-    writeJsonData('lunch_plans.json', lunch);
-
-    let notifs = readJsonData('notifications.json', []);
-    notifs = notifs.filter(n => String(n.employee_id) !== String(employeeId));
-    writeJsonData('notifications.json', notifs);
-  } catch (_) {}
-
-  // 5. Barcha PBX qo'ng'iroqlarni va operatorlar bog'lanishini yangilaymiz
+  // Barcha PBX qo'ng'iroqlarni va operatorlar bog'lanishini yangilaymiz
   await relinkAllPbxCalls().catch(() => {});
 
-  return sendJson(res, 200, { ok: true, message: "Xodim bazadan to'liq o'chirildi" });
+  return sendJson(res, 200, { ok: true });
 }
 
 async function handleResetEmployeePassword(res, body) {
@@ -1101,18 +832,17 @@ async function readParsedBody(req, reqUrl) {
 async function saveCallRecord(call) {
   const pool = getDbPool();
   if (pool) {
-    const doInsert = async () => {
+    try {
       const query = `
         INSERT INTO public.calls (
-          call_id, caller, callee, operator_number, employee_id, employee_name, direction, status,
+          call_id, caller, callee, operator_number, employee_id, direction, status,
           duration, talk_time, record_url, raw_data, call_date, started_at, rating, rating_comment
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
         ON CONFLICT (call_id) DO UPDATE SET
           caller = COALESCE(NULLIF(EXCLUDED.caller, ''), public.calls.caller),
           callee = COALESCE(NULLIF(EXCLUDED.callee, ''), public.calls.callee),
           operator_number = COALESCE(NULLIF(EXCLUDED.operator_number, ''), public.calls.operator_number),
           employee_id = COALESCE(EXCLUDED.employee_id, public.calls.employee_id),
-          employee_name = COALESCE(NULLIF(EXCLUDED.employee_name, ''), public.calls.employee_name),
           direction = COALESCE(EXCLUDED.direction, public.calls.direction),
           status = EXCLUDED.status,
           duration = GREATEST(public.calls.duration, EXCLUDED.duration),
@@ -1124,13 +854,12 @@ async function saveCallRecord(call) {
           updated_at = now()
         RETURNING *;
       `;
-      return await pool.query(query, [
+      const res = await pool.query(query, [
         call.call_id,
         call.caller,
         call.callee,
         call.operator_number,
         call.employee_id,
-        call.employee_name || null,
         call.direction,
         call.status,
         call.duration,
@@ -1142,27 +871,11 @@ async function saveCallRecord(call) {
         call.rating !== undefined ? call.rating : null,
         call.rating_comment || null
       ]);
-    };
-
-    try {
-      const res = await doInsert();
       if (res.rows && res.rows[0]) {
         call = { ...call, ...res.rows[0] };
       }
     } catch (dbErr) {
-      if (dbErr.message && (dbErr.message.includes('does not exist') || dbErr.message.includes('column'))) {
-        await ensureCallsTable(pool);
-        try {
-          const retryRes = await doInsert();
-          if (retryRes.rows && retryRes.rows[0]) {
-            call = { ...call, ...retryRes.rows[0] };
-          }
-        } catch (retryErr) {
-          console.error('[saveCallRecord DB xatosi retry]:', retryErr.message);
-        }
-      } else {
-        console.error('[saveCallRecord DB xatosi]:', dbErr.message);
-      }
+      console.error('[saveCallRecord DB xatosi]:', dbErr.message);
     }
   }
 
@@ -1189,76 +902,19 @@ async function saveCallRecord(call) {
 // ============================================================
 //  ONLINEPBX QO'NG'IROQLARINI XODIMLARGA BIRIKTIRISH (RELINK)
 // ============================================================
-function normalizePbxEmpName(name) {
-  if (!name) return name;
-  const s = String(name).trim();
-  if (/axma[dt]ova/i.test(s) || /maftuna/i.test(s)) {
-    return 'Qarshiyeva Durdona';
-  }
-  return s;
-}
-
-const ALLOWED_PBX_OPERATORS = ['100', '101', '102', '103', '104', '105'];
+const ALLOWED_PBX_OPERATORS = ['100', '101', '102', '103', '104', '105', '5002'];
 
 async function relinkAllPbxCalls() {
   const pool = getDbPool();
   let updatedCount = 0;
 
-  // 0. Axmadova / Maftuna -> Qarshiyeva Durdona xodim va qo'ng'iroqlarini avtomatik to'g'rilash (DB va aloqalar)
-  if (pool) {
-    try {
-      await pool.query(`
-        DO $$
-        DECLARE
-          v_qarshiyeva_id TEXT;
-          v_axmadova_id TEXT;
-          v_axmadova_op TEXT;
-          v_axmadova_pbx TEXT;
-        BEGIN
-          SELECT id::text INTO v_qarshiyeva_id FROM public.employees 
-          WHERE (name ILIKE '%Qarshiyeva%Durdona%' OR name ILIKE '%Durdona%Qarshiyeva%')
-          ORDER BY (active = true) DESC, COALESCE(updated_at, created_at, now()) DESC LIMIT 1;
-
-          SELECT id::text, operator_number, pbx_extension INTO v_axmadova_id, v_axmadova_op, v_axmadova_pbx FROM public.employees 
-          WHERE (name ILIKE '%Qarshiyeva%Maftuna%' OR name ILIKE '%Maftuna%Qarshiyeva%' OR name ILIKE '%Axmadova%' OR name ILIKE '%Axmatova%' OR name ILIKE '%Maftuna%')
-          ORDER BY (active = true) DESC, COALESCE(updated_at, created_at, now()) DESC LIMIT 1;
-
-          IF v_qarshiyeva_id IS NOT NULL AND v_axmadova_id IS NOT NULL AND v_qarshiyeva_id <> v_axmadova_id THEN
-            IF v_axmadova_op IS NOT NULL THEN
-              UPDATE public.employees 
-              SET operator_number = v_axmadova_op, pbx_extension = COALESCE(v_axmadova_pbx, v_axmadova_op), active = true, updated_at = now() 
-              WHERE id::text = v_qarshiyeva_id;
-            END IF;
-            UPDATE public.employees SET active = false, operator_number = NULL, pbx_extension = NULL, updated_at = now() WHERE id::text = v_axmadova_id;
-            UPDATE public.calls SET employee_id = v_qarshiyeva_id::uuid, employee_name = 'Qarshiyeva Durdona', updated_at = now() WHERE employee_id::text = v_axmadova_id;
-          ELSIF v_axmadova_id IS NOT NULL THEN
-            UPDATE public.employees SET name = 'Qarshiyeva Durdona', updated_at = now() WHERE id::text = v_axmadova_id;
-          END IF;
-        END $$;
-
-        UPDATE public.employees
-        SET name = 'Qarshiyeva Durdona', updated_at = now()
-        WHERE (name ILIKE '%Axmadova%' OR name ILIKE '%Axmatova%' OR name ILIKE '%Qarshiyeva%Maftuna%' OR name ILIKE '%Maftuna%Qarshiyeva%');
-
-        UPDATE public.calls
-        SET employee_name = 'Qarshiyeva Durdona', updated_at = now()
-        WHERE (employee_name ILIKE '%Axmadova%' OR employee_name ILIKE '%Axmatova%' OR employee_name ILIKE '%Qarshiyeva%Maftuna%' OR employee_name ILIKE '%Maftuna%');
-      `);
-    } catch (_) {}
-  }
-
-  // 0.1 Inactive (ishdan ketgan) xodimlardan va 5002 (operator bo'lmagan) raqamlardan tozalash
+  // 0. Inactive (ishdan ketgan) xodimlardan operator raqamini tozalash
   if (pool) {
     try {
       await pool.query(`
         UPDATE public.employees
         SET operator_number = NULL, pbx_extension = NULL
-        WHERE (active = false AND (operator_number IS NOT NULL OR pbx_extension IS NOT NULL))
-           OR operator_number = '5002' OR pbx_extension = '5002';
-
-        UPDATE public.calls
-        SET operator_number = NULL, employee_id = NULL, employee_name = NULL, updated_at = now()
-        WHERE operator_number = '5002' OR operator_number = '5 2';
+        WHERE active = false AND (operator_number IS NOT NULL OR pbx_extension IS NOT NULL)
       `);
     } catch (_) {}
   }
@@ -1267,7 +923,7 @@ async function relinkAllPbxCalls() {
   let employees = [];
   if (pool) {
     try {
-      const empRes = await pool.query('SELECT id, name, operator_number, pbx_extension FROM public.employees WHERE active = true ORDER BY COALESCE(updated_at, created_at, now()) DESC');
+      const empRes = await pool.query('SELECT id, name, operator_number, pbx_extension FROM public.employees WHERE active = true ORDER BY updated_at DESC, created_at DESC');
       employees = empRes.rows || [];
     } catch (e) {
       console.warn('[relinkAllPbxCalls] Emp query xatosi:', e.message);
@@ -1280,7 +936,6 @@ async function relinkAllPbxCalls() {
   // Xodimlar xaritasi: faqat ruxsat berilgan 7 ta operator bo'yicha (eng yangi aktiv xodim)
   const empByOp = new Map();
   employees.forEach(emp => {
-    emp.name = normalizePbxEmpName(emp.name);
     const op = String(emp.operator_number || '').trim();
     const pbx = String(emp.pbx_extension || '').trim();
     if (op && ALLOWED_PBX_OPERATORS.includes(op) && !empByOp.has(op)) empByOp.set(op, emp);
@@ -1301,7 +956,6 @@ async function relinkAllPbxCalls() {
       if (empByOp.size > 0) {
         for (const [opNum, emp] of empByOp.entries()) {
           if (!opNum) continue;
-          const empName = normalizePbxEmpName(emp.name);
 
           // A. Ushbu operator raqamidagi BARCHA qo'ng'iroqlarni hozirgi faol xodimga to'liq yangilash
           const resExistingOp = await pool.query(`
@@ -1311,7 +965,7 @@ async function relinkAllPbxCalls() {
                 updated_at = now()
             WHERE operator_number = $1
               AND (employee_id IS NULL OR employee_id <> $2 OR employee_name IS NULL OR employee_name <> $3)
-          `, [opNum, emp.id, empName]);
+          `, [opNum, emp.id, emp.name]);
           updatedCount += (resExistingOp.rowCount || 0);
 
           // B. callee operator raqamiga to'g'ri keladigan kiruvchi qo'ng'iroqlar
@@ -1324,7 +978,7 @@ async function relinkAllPbxCalls() {
                 updated_at = now()
             WHERE (operator_number IS NULL OR operator_number = '' OR operator_number = '—' OR employee_id IS NULL OR employee_id <> $2)
               AND (callee = $1 OR callee = ('SIP/' || $1) OR callee LIKE ($1 || '@%') OR callee LIKE ('%/' || $1))
-          `, [opNum, emp.id, empName]);
+          `, [opNum, emp.id, emp.name]);
           updatedCount += (resCallee.rowCount || 0);
 
           // C. caller operator raqamiga to'g'ri keladigan chiquvchi qo'ng'iroqlar
@@ -1337,7 +991,7 @@ async function relinkAllPbxCalls() {
                 updated_at = now()
             WHERE (operator_number IS NULL OR operator_number = '' OR operator_number = '—' OR employee_id IS NULL OR employee_id <> $2)
               AND (caller = $1 OR caller = ('SIP/' || $1) OR caller LIKE ($1 || '@%') OR caller LIKE ('%/' || $1))
-          `, [opNum, emp.id, empName]);
+          `, [opNum, emp.id, emp.name]);
           updatedCount += (resCaller.rowCount || 0);
 
           // D. raw_data JSON ichida user/extension/agent mavjud bo'lgan holatlar
@@ -1356,7 +1010,7 @@ async function relinkAllPbxCalls() {
                 raw_data->>'operator' = $1 OR
                 raw_data->'user'->>'number' = $1
               )
-          `, [opNum, emp.id, empName]);
+          `, [opNum, emp.id, emp.name]);
           updatedCount += (resRaw.rowCount || 0);
         }
       }
@@ -1379,17 +1033,7 @@ async function relinkAllPbxCalls() {
         WHERE (operator_number IS NULL OR operator_number = '' OR operator_number = '—')
           AND caller = ANY($1::text[])
       `, [ALLOWED_PBX_OPERATORS]).catch(() => {});
-
-      // Qo'ng'iroqlardagi eski Axmadova / Maftuna nomlarini to'liq Qarshiyeva Durdonaga almashtirish
-      await pool.query(`
-        UPDATE public.calls
-        SET employee_name = 'Qarshiyeva Durdona', updated_at = now()
-        WHERE employee_name ILIKE '%Axmadova%' OR employee_name ILIKE '%Axmatova%' OR employee_name ILIKE '%Maftuna%';
-      `).catch(() => {});
     } catch (dbErr) {
-      if (dbErr.message && (dbErr.message.includes('does not exist') || dbErr.message.includes('column'))) {
-        await ensureCallsTable(pool);
-      }
       console.warn('[relinkAllPbxCalls DB]:', dbErr.message);
     }
   }
@@ -1426,20 +1070,12 @@ async function relinkAllPbxCalls() {
         c.operator_number = detectedOp;
         if (empByOp.has(detectedOp)) {
           const matchedEmp = empByOp.get(detectedOp);
-          const cleanMatchedName = normalizePbxEmpName(matchedEmp.name);
-          if (c.employee_id !== matchedEmp.id || c.employee_name !== cleanMatchedName) {
+          if (c.employee_id !== matchedEmp.id || c.employee_name !== matchedEmp.name) {
             c.employee_id = matchedEmp.id;
-            c.employee_name = cleanMatchedName;
+            c.employee_name = matchedEmp.name;
             localChanged = true;
             updatedCount++;
           }
-        }
-      }
-      if (c.employee_name) {
-        const normed = normalizePbxEmpName(c.employee_name);
-        if (normed !== c.employee_name) {
-          c.employee_name = normed;
-          localChanged = true;
         }
       }
     });
@@ -1456,7 +1092,7 @@ async function relinkAllPbxCalls() {
 
 async function getCallsStats(from, to, operator = 'all', status = 'all') {
   const allowedSet = new Set(ALLOWED_PBX_OPERATORS);
-  const OPERATOR_ACCOUNTS_COUNT = ALLOWED_PBX_OPERATORS.length; // Faqat 100, 101, 102, 103, 104, 105 (6 ta operator)
+  const OPERATOR_ACCOUNTS_COUNT = 5; // Foydalanuvchi talabi: qat'iy 5 ta akkaunt
   const pool = getDbPool();
   if (pool) {
     try {
@@ -1477,7 +1113,7 @@ async function getCallsStats(from, to, operator = 'all', status = 'all') {
 
       // X: Jami kiruvchilar soni (Kompaniyaga kelgan)
       const X = totalCompanyIncoming;
-      // Z: Har bir akkaunt uchun gaplashishi kerak bo'lgan norma soni (X / OPERATOR_ACCOUNTS_COUNT)
+      // Z: Har bir akkaunt uchun gaplashishi kerak bo'lgan norma soni (X / 5)
       const Z = OPERATOR_ACCOUNTS_COUNT > 0 ? (X / OPERATOR_ACCOUNTS_COUNT) : 0;
 
       let statsQuery = `
@@ -1515,40 +1151,18 @@ async function getCallsStats(from, to, operator = 'all', status = 'all') {
         SELECT id, name, operator_number, pbx_extension
         FROM public.employees
         WHERE active = true
-        ORDER BY COALESCE(updated_at, created_at, now()) DESC;
+        ORDER BY updated_at DESC, created_at DESC;
       `;
       const empRes = await pool.query(empQuery).catch(() => ({ rows: [] }));
-      let emps = (empRes.rows || []).map(e => ({
-        ...e,
-        name: normalizePbxEmpName(e.name)
-      }));
-      if (!emps.length) {
-        emps = readJsonData('employees.json', []).filter(e => e.active !== false).map(e => ({
-          ...e,
-          name: normalizePbxEmpName(e.name)
-        }));
-      }
-
-      // Agar PostgreSQL da xodimga operator raqami hali yozilmagan bo'lsa, employees.json dan birlashtirish
-      const localEmpsList = readJsonData('employees.json', []);
-      emps.forEach(e => {
-        if (!e.operator_number && !e.pbx_extension) {
-          const matched = localEmpsList.find(le => le.id === e.id || (le.login && le.login === e.login));
-          if (matched && (matched.operator_number || matched.pbx_extension)) {
-            e.operator_number = matched.operator_number || matched.pbx_extension;
-            e.pbx_extension = matched.pbx_extension || matched.operator_number;
-          }
-        }
-      });
+      const emps = empRes.rows || [];
 
       const opMap = new Map();
       ALLOWED_PBX_OPERATORS.forEach(opNum => {
         const emp = emps.find(e => (String(e.operator_number || '').trim() === opNum || String(e.pbx_extension || '').trim() === opNum));
-        const empName = emp?.name ? normalizePbxEmpName(emp.name) : null;
         opMap.set(opNum, {
           operator_number: opNum,
           employee_id: emp?.id || null,
-          employee_name: empName || '—',
+          employee_name: emp?.name || (opNum === '5002' ? '5002-operator' : '—'),
           total_calls: 0,
           answered_calls: 0,
           missed_calls: 0,
@@ -1615,18 +1229,12 @@ async function getCallsStats(from, to, operator = 'all', status = 'all') {
         operators
       };
     } catch (err) {
-      if (err.message && (err.message.includes('does not exist') || err.message.includes('column'))) {
-        await ensureCallsTable(pool);
-      }
       console.error('[getCallsStats DB xatosi]:', err.message);
     }
   }
 
   // Fallback: local calls.json va employees.json dan
-  const allEmployees = readJsonData('employees.json', []).map(e => ({
-    ...e,
-    name: normalizePbxEmpName(e.name)
-  }));
+  const allEmployees = readJsonData('employees.json', []);
   const allLocalCalls = readLocalCalls();
 
   const allCompanyIncoming = allLocalCalls.filter(c => {
@@ -1651,11 +1259,10 @@ async function getCallsStats(from, to, operator = 'all', status = 'all') {
   const opMap = new Map();
   ALLOWED_PBX_OPERATORS.forEach(opNum => {
     const emp = allEmployees.find(e => (String(e.operator_number || '').trim() === opNum || String(e.pbx_extension || '').trim() === opNum));
-    const empName = normalizePbxEmpName(emp?.name);
     opMap.set(opNum, {
       operator_number: opNum,
       employee_id: emp?.id || null,
-      employee_name: empName || '—',
+      employee_name: emp?.name || (opNum === '5002' ? '5002-operator' : '—'),
       total_calls: 0,
       answered_calls: 0,
       missed_calls: 0,
@@ -1769,7 +1376,7 @@ async function getCallsList(from, to, operator, status, limit = 50) {
               (c.operator_number IS NOT NULL AND c.operator_number <> '' AND (emp.operator_number = c.operator_number OR emp.pbx_extension = c.operator_number))
               OR emp.id = c.employee_id
             )
-          ORDER BY (emp.operator_number = c.operator_number) DESC, COALESCE(emp.updated_at, emp.created_at, now()) DESC
+          ORDER BY (emp.operator_number = c.operator_number) DESC, emp.updated_at DESC
           LIMIT 1
         ) e ON true
         WHERE c.operator_number = ANY($1::text[])
@@ -1795,15 +1402,8 @@ async function getCallsList(from, to, operator, status, limit = 50) {
       query += ` ORDER BY c.started_at DESC LIMIT $${params.length}`;
 
       const res = await pool.query(query, params);
-      const calls = (res.rows || []).map(r => ({
-        ...r,
-        employee_name: normalizePbxEmpName(r.employee_name)
-      }));
-      return { ok: true, calls };
+      return { ok: true, calls: res.rows || [] };
     } catch (err) {
-      if (err.message && (err.message.includes('does not exist') || err.message.includes('column'))) {
-        await ensureCallsTable(pool);
-      }
       console.error('[getCallsList DB xatosi]:', err.message);
     }
   }
@@ -1812,9 +1412,8 @@ async function getCallsList(from, to, operator, status, limit = 50) {
   const allEmployees = readJsonData('employees.json', []);
   const empMapByOp = new Map();
   allEmployees.forEach(e => {
-    const eName = normalizePbxEmpName(e.name);
-    if (e.operator_number) empMapByOp.set(String(e.operator_number).trim(), eName);
-    if (e.pbx_extension) empMapByOp.set(String(e.pbx_extension).trim(), eName);
+    if (e.operator_number) empMapByOp.set(String(e.operator_number).trim(), e.name);
+    if (e.pbx_extension) empMapByOp.set(String(e.pbx_extension).trim(), e.name);
   });
 
   calls = calls.filter(c => ALLOWED_PBX_OPERATORS.includes(String(c.operator_number || '').trim()));
@@ -1844,7 +1443,7 @@ async function getCallsList(from, to, operator, status, limit = 50) {
     return {
       ...c,
       operator_number: opNum || '—',
-      employee_name: normalizePbxEmpName(empName) || '—'
+      employee_name: empName || '—'
     };
   });
 
@@ -1869,18 +1468,12 @@ async function handleOnlinePbxWebhook(req, res, reqUrl) {
     const pool = getDbPool();
     if (pool) {
       try {
-        const empRes = await pool.query('SELECT id, name, operator_number, pbx_extension FROM public.employees WHERE active = true ORDER BY COALESCE(updated_at, created_at, now()) DESC');
-        allEmployees = (empRes.rows || []).map(e => ({
-          ...e,
-          name: normalizePbxEmpName(e.name)
-        }));
+        const empRes = await pool.query('SELECT id, name, operator_number, pbx_extension FROM public.employees WHERE active = true ORDER BY updated_at DESC, created_at DESC');
+        allEmployees = empRes.rows || [];
       } catch (e) { }
     }
     if (!allEmployees.length) {
-      allEmployees = readJsonData('employees.json', []).filter(e => e.active !== false).map(e => ({
-        ...e,
-        name: normalizePbxEmpName(e.name)
-      }));
+      allEmployees = readJsonData('employees.json', []).filter(e => e.active !== false);
     }
 
     const empByOp = new Map();
@@ -1956,7 +1549,7 @@ async function handleOnlinePbxWebhook(req, res, reqUrl) {
     }
 
     const employeeId = matchedEmployee ? matchedEmployee.id : null;
-    const employeeName = normalizePbxEmpName(matchedEmployee ? matchedEmployee.name : null);
+    const employeeName = matchedEmployee ? matchedEmployee.name : null;
 
     const duration = Math.max(0, parseInt(parsed.duration || parsed.call_duration || parsed.total_duration || 0, 10) || 0);
     const talkTime = Math.max(0, parseInt(parsed.billsec || parsed.dialog_duration || parsed.talk_time || parsed.conversation_duration || 0, 10) || 0);
@@ -2834,13 +2427,7 @@ async function handleDatabaseTableApi(req, res, table, reqUrl) {
         }
 
         const dbRes = await pool.query(query, params);
-        let rows = dbRes.rows || [];
-        if (table === 'employees') {
-          rows = rows.map(e => ({ ...e, name: normalizePbxEmpName(e.name) }));
-        } else if (table === 'calls') {
-          rows = rows.map(c => ({ ...c, employee_name: normalizePbxEmpName(c.employee_name) }));
-        }
-        return sendJson(res, 200, { ok: true, data: rows });
+        return sendJson(res, 200, { ok: true, data: dbRes.rows || [] });
       } catch (err) {
         console.warn(`[handleDatabaseTableApi GET ${table} DB xatosi]:`, err.message);
       }
@@ -2886,12 +2473,6 @@ async function handleDatabaseTableApi(req, res, table, reqUrl) {
     }
     if (limitParam && !isNaN(Number(limitParam))) {
       list = list.slice(0, Number(limitParam));
-    }
-
-    if (table === 'employees') {
-      list = list.map(e => ({ ...e, name: normalizePbxEmpName(e.name) }));
-    } else if (table === 'calls') {
-      list = list.map(c => ({ ...c, employee_name: normalizePbxEmpName(c.employee_name) }));
     }
 
     return sendJson(res, 200, { ok: true, data: list });
@@ -3314,27 +2895,11 @@ async function handleGetAttendance(req, res, reqUrl) {
       }
 
       let query = `
-        SELECT
-          a.id,
-          a.employee_id,
-          a.work_date,
-          a.start_time,
-          a.end_time,
-          a.lunch_start,
-          a.lunch_end,
-          COALESCE(a.work_seconds, 0)::int AS work_seconds,
-          COALESCE(a.work_seconds, 0)::int AS worked_seconds,
-          COALESCE(a.lunch_seconds, 0)::int AS lunch_seconds,
-          COALESCE(a.afk_seconds, 0)::int AS afk_seconds,
-          COALESCE(a.afk_count, 0)::int AS afk_count,
-          COALESCE(a.late_minutes, 0)::int AS late_minutes,
-          a.status,
-          COALESCE(a.auto_ended, false) AS auto_ended,
-          a.created_at,
-          a.updated_at,
+        SELECT a.*,
           e.name AS employee_name,
           e.login AS employee_login,
-          e.operator_number
+          e.operator_number,
+          COALESCE(a.work_seconds, 0)::int AS worked_seconds
         FROM public.attendance a
         LEFT JOIN public.employees e ON a.employee_id = e.id
         WHERE 1=1
@@ -3489,20 +3054,17 @@ async function handleSaveAttendance(req, res) {
           work_seconds, lunch_seconds, afk_seconds, afk_count, late_minutes, status, auto_ended, updated_at
         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, now())
         ON CONFLICT (employee_id, work_date) DO UPDATE SET
-          start_time = COALESCE(public.attendance.start_time, EXCLUDED.start_time),
+          start_time = COALESCE(EXCLUDED.start_time, public.attendance.start_time),
           end_time = COALESCE(EXCLUDED.end_time, public.attendance.end_time),
-          lunch_start = COALESCE(public.attendance.lunch_start, EXCLUDED.lunch_start),
+          lunch_start = COALESCE(EXCLUDED.lunch_start, public.attendance.lunch_start),
           lunch_end = COALESCE(EXCLUDED.lunch_end, public.attendance.lunch_end),
-          work_seconds = GREATEST(COALESCE(public.attendance.work_seconds, 0), EXCLUDED.work_seconds),
-          lunch_seconds = GREATEST(COALESCE(public.attendance.lunch_seconds, 0), EXCLUDED.lunch_seconds),
-          afk_seconds = GREATEST(COALESCE(public.attendance.afk_seconds, 0), EXCLUDED.afk_seconds),
-          afk_count = GREATEST(COALESCE(public.attendance.afk_count, 0), EXCLUDED.afk_count),
-          late_minutes = COALESCE(public.attendance.late_minutes, EXCLUDED.late_minutes),
-          status = CASE
-            WHEN public.attendance.end_time IS NOT NULL AND EXCLUDED.end_time IS NULL THEN public.attendance.status
-            ELSE EXCLUDED.status
-          END,
-          auto_ended = COALESCE(EXCLUDED.auto_ended, public.attendance.auto_ended),
+          work_seconds = GREATEST(EXCLUDED.work_seconds, public.attendance.work_seconds),
+          lunch_seconds = GREATEST(EXCLUDED.lunch_seconds, public.attendance.lunch_seconds),
+          afk_seconds = GREATEST(EXCLUDED.afk_seconds, public.attendance.afk_seconds),
+          afk_count = GREATEST(EXCLUDED.afk_count, public.attendance.afk_count),
+          late_minutes = EXCLUDED.late_minutes,
+          status = EXCLUDED.status,
+          auto_ended = EXCLUDED.auto_ended,
           updated_at = now()
         RETURNING *;
       `;
@@ -3533,19 +3095,7 @@ async function handleSaveAttendance(req, res) {
   const list = readJsonData('attendance.json', []);
   const idx = list.findIndex(r => r.employee_id === payload.employee_id && r.work_date === payload.work_date);
   if (idx >= 0) {
-    const existing = list[idx];
-    list[idx] = {
-      ...existing,
-      ...payload,
-      start_time: existing.start_time || payload.start_time,
-      end_time: payload.end_time || existing.end_time || null,
-      lunch_start: existing.lunch_start || payload.lunch_start || null,
-      lunch_end: payload.lunch_end || existing.lunch_end || null,
-      work_seconds: Math.max(Number(existing.work_seconds) || 0, Number(payload.work_seconds) || 0),
-      lunch_seconds: Math.max(Number(existing.lunch_seconds) || 0, Number(payload.lunch_seconds) || 0),
-      status: (existing.end_time && !payload.end_time) ? existing.status : (payload.status || existing.status)
-    };
-    Object.assign(payload, list[idx]);
+    list[idx] = { ...list[idx], ...payload };
   } else {
     payload.id = payload.id || `att_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
     list.push(payload);
@@ -3565,11 +3115,7 @@ async function handleGetEmployees(req, res, reqUrl) {
         ? 'SELECT * FROM public.employees WHERE active = true ORDER BY name ASC'
         : 'SELECT * FROM public.employees ORDER BY name ASC';
       const r = await pool.query(q);
-      const rows = (r.rows || []).map(e => ({
-        ...e,
-        name: normalizePbxEmpName(e.name)
-      }));
-      return sendJson(res, 200, { ok: true, data: rows });
+      return sendJson(res, 200, { ok: true, data: r.rows || [] });
     } catch (e) {
       console.warn('[handleGetEmployees DB]:', e.message);
     }
@@ -3577,10 +3123,6 @@ async function handleGetEmployees(req, res, reqUrl) {
 
   let list = readJsonData('employees.json', []);
   if (activeOnly) list = list.filter(e => e.active !== false);
-  list = list.map(e => ({
-    ...e,
-    name: normalizePbxEmpName(e.name)
-  }));
   list.sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
   return sendJson(res, 200, { ok: true, data: list });
 }
@@ -3690,8 +3232,6 @@ async function handleGetAdmins(req, res) {
 }
 
 // 5. SETTINGS
-let settingsPermissionWarned = false;
-
 async function handleGetSettings(req, res, reqUrl) {
   const key = reqUrl.searchParams.get('key');
   const pool = getDbPool();
@@ -3704,14 +3244,7 @@ async function handleGetSettings(req, res, reqUrl) {
       const r = await pool.query('SELECT key, value FROM public.settings');
       return sendJson(res, 200, { ok: true, data: r.rows || [] });
     } catch (e) {
-      if (e.message && e.message.includes('permission denied')) {
-        if (!settingsPermissionWarned) {
-          console.warn('[handleGetSettings]: settings jadvaliga ruxsat yo\'q. Sozlamalar lokal data/settings.json dan muvaffaqiyatli o\'qilmoqda.');
-          settingsPermissionWarned = true;
-        }
-      } else {
-        console.warn('[handleGetSettings DB]:', e.message);
-      }
+      console.warn('[handleGetSettings DB]:', e.message);
     }
   }
 
@@ -3738,14 +3271,7 @@ async function handleSaveSettings(req, res) {
         [key, value]
       );
     } catch (e) {
-      if (e.message && e.message.includes('permission denied')) {
-        if (!settingsPermissionWarned) {
-          console.warn('[handleSaveSettings]: settings jadvaliga ruxsat yo\'q, parametr data/settings.json da saqlanmoqda.');
-          settingsPermissionWarned = true;
-        }
-      } else {
-        console.warn('[handleSaveSettings DB]:', e.message);
-      }
+      console.warn('[handleSaveSettings DB]:', e.message);
     }
   }
 
