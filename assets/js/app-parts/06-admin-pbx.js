@@ -748,10 +748,23 @@ async function delEmp(id) {
   if (!confirm(t('del_c'))) return;
 
   try {
-    // 1. Server orqali o'chirish
+    // 1. Server orqali PostgreSQL bazasidan va lokal ombordan to'g'ridan-to'g'ri o'chirish
     try {
-      await serverApi(`/api/employees/${id}`, { method: 'DELETE' });
-    } catch (_) {}
+      const sRes = await serverApi(`/api/employees/${id}`, { method: 'DELETE' });
+      if (!sRes || !sRes.ok) {
+        await serverApi('/api/functions/delete-employee', {
+          method: 'POST',
+          body: JSON.stringify({ employee_id: id })
+        }).catch(() => {});
+      }
+    } catch (_) {
+      try {
+        await serverApi('/api/functions/delete-employee', {
+          method: 'POST',
+          body: JSON.stringify({ employee_id: id })
+        });
+      } catch (e2) {}
+    }
 
     // 2. Supabase function orqali ham o'chirishga urinish
     try {
@@ -768,15 +781,15 @@ async function delEmp(id) {
       }
     } catch(_) {}
 
-    // 3. To'g'ridan-to'g'ri Supabase bazasidan o'chirish yoki active=false qilish va operator raqamlarini tozalash
+    // 3. To'g'ridan-to'g'ri Supabase bazasidan butunlay o'chirish
     try {
-      await sb.from('employees').update({ active: false, operator_number: null, pbx_extension: null }).eq('id', id);
+      await sb.from('employees').delete().eq('id', id);
     } catch (_) {}
 
-    // 4. Lokal keshdan o'chirish
+    // 4. Lokal keshdan to'liq tozalash
     try {
       const localEmps = JSON.parse(localStorage.getItem('aloqa_local_employees') || '[]');
-      const filtered = localEmps.filter(e => e.id !== id);
+      const filtered = localEmps.filter(e => e.id !== id && e.user_id !== id);
       localStorage.setItem('aloqa_local_employees', JSON.stringify(filtered));
 
       const localOps = JSON.parse(localStorage.getItem('aloqa_operator_numbers') || '{}');

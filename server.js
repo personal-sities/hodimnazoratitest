@@ -615,6 +615,10 @@ const server = http.createServer(async (req, res) => {
       if (req.method === 'GET') return handleGetEmployees(req, res, reqUrl);
       if (req.method === 'POST') return handleCreateEmployeeApi(req, res);
       if (req.method === 'PATCH') return handleUpdateEmployeeApi(req, res);
+      if (req.method === 'DELETE') {
+        const body = await readJson(req);
+        return handleDeleteEmployee(res, body);
+      }
     }
     if (pathname.startsWith('/api/employees/')) {
       const empId = pathname.replace('/api/employees/', '').trim();
@@ -909,30 +913,59 @@ async function handleDeleteEmployee(res, body) {
   const pool = getDbPool();
   if (pool) {
     try {
-      // Ishdan ketgan xodim o'chirilganda: active=false qilish va operator raqamlarini tozalash!
-      await pool.query(
-        'UPDATE public.employees SET active = false, operator_number = NULL, pbx_extension = NULL, updated_at = now() WHERE id = $1',
-        [employeeId]
+      // 1. Bog'liq jadvallardagi ma'lumotlarni tozalash yoki chetlatish (Foreign Key xatolarini oldini olish uchun)
+      await pool.query('UPDATE public.calls SET employee_id = NULL WHERE employee_id::text = $1', [String(employeeId)]).catch(() => {});
+      await pool.query('DELETE FROM public.face_profiles WHERE employee_id::text = $1', [String(employeeId)]).catch(() => {});
+      await pool.query('DELETE FROM public.lunch_plans WHERE employee_id::text = $1', [String(employeeId)]).catch(() => {});
+      await pool.query('DELETE FROM public.employee_leaves WHERE employee_id::text = $1', [String(employeeId)]).catch(() => {});
+      await pool.query('DELETE FROM public.notifications WHERE employee_id::text = $1', [String(employeeId)]).catch(() => {});
+      await pool.query('DELETE FROM public.feedback WHERE employee_id::text = $1', [String(employeeId)]).catch(() => {});
+      await pool.query('DELETE FROM public.kpi_bonuses WHERE employee_id::text = $1', [String(employeeId)]).catch(() => {});
+      await pool.query('DELETE FROM public.attendance WHERE employee_id::text = $1', [String(employeeId)]).catch(() => {});
+
+      // 2. Xodimni to'g'ridan-to'g'ri PostgreSQL bazasidan BUTUNLAY O'CHIRISH (id yoki user_id bo'yicha)
+      const delRes = await pool.query(
+        'DELETE FROM public.employees WHERE id::text = $1 OR user_id::text = $1',
+        [String(employeeId)]
       );
+      console.log(`[handleDeleteEmployee]: Xodim (${employeeId}) PostgreSQL bazasidan to'liq o'chirildi (rowCount=${delRes.rowCount || 0}).`);
     } catch (dbErr) {
       console.error('handleDeleteEmployee DB xatosi:', dbErr.message);
     }
   }
 
-  const emps = readJsonData('employees.json', []);
-  const emp = emps.find(e => e.id === employeeId);
-  if (emp) {
-    emp.active = false;
-    emp.operator_number = null;
-    emp.pbx_extension = null;
-    emp.updated_at = new Date().toISOString();
-    writeJsonData('employees.json', emps);
+  // 3. Lokal data/employees.json faylidan butunlay olib tashlash
+  try {
+    let emps = readJsonData('employees.json', []);
+    const beforeCount = emps.length;
+    emps = emps.filter(e => String(e.id) !== String(employeeId) && String(e.user_id) !== String(employeeId));
+    if (emps.length !== beforeCount) {
+      writeJsonData('employees.json', emps);
+      console.log(`[handleDeleteEmployee]: Xodim (${employeeId}) data/employees.json faylidan o'chirildi.`);
+    }
+  } catch (err) {
+    console.error('handleDeleteEmployee JSON xatosi:', err.message);
   }
 
-  // Barcha PBX qo'ng'iroqlarni va operatorlar bog'lanishini yangilaymiz
+  // 4. Boshqa lokal ma'lumotlarni ham tozalash
+  try {
+    let leaves = readJsonData('employee_leaves.json', []);
+    leaves = leaves.filter(l => String(l.employee_id) !== String(employeeId));
+    writeJsonData('employee_leaves.json', leaves);
+
+    let lunch = readJsonData('lunch_plans.json', []);
+    lunch = lunch.filter(lp => String(lp.employee_id) !== String(employeeId));
+    writeJsonData('lunch_plans.json', lunch);
+
+    let notifs = readJsonData('notifications.json', []);
+    notifs = notifs.filter(n => String(n.employee_id) !== String(employeeId));
+    writeJsonData('notifications.json', notifs);
+  } catch (_) {}
+
+  // 5. Barcha PBX qo'ng'iroqlarni va operatorlar bog'lanishini yangilaymiz
   await relinkAllPbxCalls().catch(() => {});
 
-  return sendJson(res, 200, { ok: true });
+  return sendJson(res, 200, { ok: true, message: "Xodim bazadan to'liq o'chirildi" });
 }
 
 async function handleResetEmployeePassword(res, body) {
