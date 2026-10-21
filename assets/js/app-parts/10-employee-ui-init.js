@@ -18,30 +18,40 @@ function updateEmpBtns(){
 
   if(empState==='not_started'){
     dis(bsE,false);dis(blE,true);dis(bpE,true);dis(beE,true);
+    if(bsE){ bsE.style.opacity=''; bsE.style.cursor=''; bsE.title=''; }
     if(blE){setActionBtnContent(blE, 'utensils', t('bl'));blE.onclick=empLunch;}
     if(bpE){setActionBtnContent(bpE, 'compass', t('prayer_btn'));bpE.onclick=empPrayer;}
   }
   else if(empState==='working'){
     dis(bsE,true);dis(blE,false);dis(bpE,false);dis(beE,false);
+    if(bsE){ bsE.style.opacity='0.6'; bsE.style.cursor='not-allowed'; bsE.title='Ish boshlangan'; }
     if(blE){setActionBtnContent(blE, 'utensils', t('bl'));blE.onclick=empLunch;}
     if(bpE){setActionBtnContent(bpE, 'compass', t('prayer_btn'));bpE.onclick=empPrayer;}
   }
   else if(empState==='lunch'){
     dis(bsE,true);dis(blE,false);dis(bpE,true);dis(beE,true);
+    if(bsE){ bsE.style.opacity='0.6'; bsE.style.cursor='not-allowed'; bsE.title='Tushlikda'; }
     if(blE){setActionBtnContent(blE, 'arrow-left', t('bb'));blE.onclick=empBackLunch;}
     if(bpE){setActionBtnContent(bpE, 'compass', t('prayer_btn'));bpE.onclick=empPrayer;}
   }
   else if(empState==='prayer'){
     dis(bsE,true);dis(blE,true);dis(bpE,false);dis(beE,true);
+    if(bsE){ bsE.style.opacity='0.6'; bsE.style.cursor='not-allowed'; bsE.title='Namozda'; }
     if(bpE){setActionBtnContent(bpE, 'arrow-left', t('prayer_back'));bpE.onclick=empBackPrayer;}
   }
   else if(empState==='paused'){
     dis(bsE,true);dis(blE,true);dis(bpE,true);dis(beE,false);
+    if(bsE){ bsE.style.opacity='0.6'; bsE.style.cursor='not-allowed'; bsE.title='Tanaffusda'; }
     if(blE)setActionBtnContent(blE, 'utensils', t('bl'));
     if(bpE)setActionBtnContent(bpE, 'compass', t('prayer_btn'));
   }
   else if(empState==='ended'){
     dis(bsE,true);dis(blE,true);dis(bpE,true);dis(beE,true);
+    if(bsE){
+      bsE.style.opacity='0.4';
+      bsE.style.cursor='not-allowed';
+      bsE.title='Bugungi ish kuni yakunlangan (Qayta boshlash mumkin emas)';
+    }
     if(blE)setActionBtnContent(blE, 'utensils', t('bl'));
     if(bpE)setActionBtnContent(bpE, 'compass', t('prayer_btn'));
   }
@@ -71,14 +81,26 @@ async function loadHist(){
   let lc=0,totalAfkSec=0;
   if(!recs||recs.length===0){tbody.innerHTML=`<tr><td colspan="11" style="text-align:center;color:var(--text3);padding:20px">${t('no_data')}</td></tr>`;st('e_lc','0');st('e_afk_total','0 '+t('daqiqa'));return;}
   recs.forEach((r,i)=>{
-    // Agar bugungi kun bo'lsa va xodim hozir aktiv ishlayotgan bo'lsa (ish tugallanmagan)
-    if(r.work_date === todayISO() && typeof empState !== 'undefined' && empState !== 'ended'){
-      r.end_time = null;
-      r.auto_ended = false;
-      const curLs = document.getElementById('i_ls')?.textContent;
-      const curLe = document.getElementById('i_le')?.textContent;
-      if(!curLs || curLs === '-') r.lunch_start = null;
-      if(!curLe || curLe === '-') r.lunch_end = null;
+    // Agar bugungi kun bo'lsa
+    if(r.work_date === todayISO()){
+      if(r.end_time && r.end_time !== '-'){
+        // Bugun ish allaqachon yakunlangan: holatni 'ended' qilib qulflaymiz
+        if(typeof empState !== 'undefined' && empState !== 'ended'){
+          empState = 'ended';
+          st('i_e', r.end_time.substring(0, 5));
+          if(r.start_time) st('i_s', r.start_time.substring(0, 5));
+          if(typeof updateEmpBtns === 'function') updateEmpBtns();
+          if(typeof updateEmpStatusTag === 'function') updateEmpStatusTag();
+          if(typeof saveLS === 'function') saveLS();
+        }
+      } else if(typeof empState !== 'undefined' && empState !== 'ended'){
+        r.end_time = null;
+        r.auto_ended = false;
+        const curLs = document.getElementById('i_ls')?.textContent;
+        const curLe = document.getElementById('i_le')?.textContent;
+        if(!curLs || curLs === '-') r.lunch_start = null;
+        if(!curLe || curLe === '-') r.lunch_end = null;
+      }
     }
     if(r.late_minutes>0)lc++;
     totalAfkSec+=r.afk_seconds||0;

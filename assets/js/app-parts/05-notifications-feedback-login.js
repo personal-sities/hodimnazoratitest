@@ -730,8 +730,10 @@ async function doLogout(){
   window._manualLogoutInitiated = true;
   if(CU && CU.role==='employee'){
     try{
-      pauseWorkForPlatformExit();
-      await savePartial();
+      if(typeof empState !== 'undefined' && empState !== 'ended'){
+        pauseWorkForPlatformExit();
+        await savePartial();
+      }
     }catch(e){console.warn('logout pause save:',e.message||e);}
   }
   stopAll();
@@ -742,7 +744,15 @@ async function doLogout(){
 
   CU = null;
   localStorage.removeItem('aloqa_u');
-  localStorage.removeItem('aloqa_emp_state');
+  // Agar bugun ish yakunlangan bo'lsa, xodim qayta kirganda 'ended' holatini yo'qotmaslik uchun saqlab qolamiz
+  try {
+    const curState = (typeof getLS === 'function') ? getLS() : JSON.parse(localStorage.getItem('aloqa_emp_state') || 'null');
+    if (!curState || (curState.state !== 'ended' && (!curState.i_e || curState.i_e === '-'))) {
+      localStorage.removeItem('aloqa_emp_state');
+    }
+  } catch (_) {
+    localStorage.removeItem('aloqa_emp_state');
+  }
 
   showPage('login');
 }

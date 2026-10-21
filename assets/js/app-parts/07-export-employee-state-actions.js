@@ -184,6 +184,75 @@ function renderEmployeeHeaderInfo(){
 async function initEmp(){
   renderEmployeeHeaderInfo();
   await restoreLS();
+
+  // Serverdan / bazadan bugungi kun holatini tekshirish (qayta kirganda yoki kesh tozalanganda)
+  if(CU && CU.id){
+    try {
+      const today = todayISO();
+      let todayRec = null;
+      try {
+        const sRes = await serverApi(`/api/attendance?employee_id=${CU.id}&from=${today}&to=${today}`);
+        if (sRes.ok && Array.isArray(sRes.data) && sRes.data.length > 0) {
+          todayRec = sRes.data.find(r => r.work_date === today) || sRes.data[0];
+        }
+      } catch (_) {}
+      if (!todayRec) {
+        try {
+          const res = await sb.from('attendance').select('*').eq('employee_id', CU.id).eq('work_date', today).maybeSingle();
+          if (res && res.data) todayRec = res.data;
+        } catch (_) {}
+      }
+
+      if (todayRec) {
+        const sTime = todayRec.start_time ? todayRec.start_time.substring(0, 5) : null;
+        const eTime = todayRec.end_time ? todayRec.end_time.substring(0, 5) : null;
+        const lsTime = todayRec.lunch_start ? todayRec.lunch_start.substring(0, 5) : null;
+        const leTime = todayRec.lunch_end ? todayRec.lunch_end.substring(0, 5) : null;
+
+        // Agar bugungi kun bo'yicha ish yakunlangan bo'lsa (end_time mavjud)
+        if (eTime && eTime !== '-') {
+          empState = 'ended';
+          wStart = null;
+          lStart = null;
+          prayerStart = null;
+          wAccum = Number(todayRec.work_seconds || todayRec.worked_seconds) || wAccum || 0;
+          lAccum = Number(todayRec.lunch_seconds) || lAccum || 0;
+          afkSeconds = Number(todayRec.afk_seconds) || afkSeconds || 0;
+          afkCount = Number(todayRec.afk_count) || afkCount || 0;
+          stopWT();
+          stopLT();
+          stopPT();
+          st('i_s', sTime || '-');
+          st('i_e', eTime);
+          st('i_ls', lsTime || '-');
+          st('i_le', leTime || '-');
+          setTV(wAccum, 'tw');
+          setTV(lAccum, 'tl');
+          updateAfkDisplay();
+          updateEmpBtns();
+          updateEmpStatusTag();
+          saveLS();
+        } else if (sTime && sTime !== '-' && empState === 'not_started') {
+          // Agar xodim bugun ish boshlagan, lekin chiqib ketib qayta kirgan bo'lsa
+          empState = 'paused';
+          st('i_s', sTime);
+          st('i_e', '-');
+          if (lsTime) st('i_ls', lsTime);
+          if (leTime) st('i_le', leTime);
+          wAccum = Number(todayRec.work_seconds || todayRec.worked_seconds) || 0;
+          lAccum = Number(todayRec.lunch_seconds) || 0;
+          setTV(wAccum, 'tw');
+          setTV(lAccum, 'tl');
+          updateEmpBtns();
+          updateEmpStatusTag();
+          saveLS();
+        }
+      }
+    } catch (err) {
+      console.warn('initEmp remote attendance check error:', err);
+    }
+  }
+
   if(empState!=='ended'){
     const ss=getLS()||{};
     if(ss.i_e&&ss.i_e!=='-'){
@@ -214,7 +283,57 @@ function closeWelcome(){document.getElementById('m_welcome').classList.add('hidd
 //  EMPLOYEE ACTIONS
 // ============================================================
 async function empStart(){
-  if(empState!=='not_started')return;
+  if(empState!=='not_started'){
+    if(empState==='ended'){
+      toast('warn', t('be') || 'Yakunlangan', 'Bugungi ish kuni allaqachon yakunlangan! Kuniga faqat bir marta ish boshlash mumkin.');
+    }
+    return;
+  }
+  const today = todayISO();
+  const ss = getLS() || {};
+  if (ss.date === today && (ss.state === 'ended' || (ss.i_e && ss.i_e !== '-'))) {
+    empState = 'ended';
+    updateEmpBtns();
+    updateEmpStatusTag();
+    toast('warn', t('be') || 'Yakunlangan', 'Bugungi ish kuni allaqachon yakunlangan! Kuniga faqat bir marta ish boshlash mumkin.');
+    return;
+  }
+
+  // Serverdan / bazadan ham oxirgi marta tekshirib olamiz (kuniga bir marta boshlash)
+  if(CU && CU.id){
+    try {
+      const sRes = await serverApi(`/api/attendance?employee_id=${CU.id}&from=${today}&to=${today}`);
+      if (sRes.ok && Array.isArray(sRes.data) && sRes.data.length > 0) {
+        const rec = sRes.data.find(r => r.work_date === today) || sRes.data[0];
+        if (rec && rec.end_time && rec.end_time !== '-') {
+          empState = 'ended';
+          st('i_e', rec.end_time.substring(0, 5));
+          if (rec.start_time) st('i_s', rec.start_time.substring(0, 5));
+          updateEmpBtns();
+          updateEmpStatusTag();
+          saveLS();
+          toast('warn', t('be') || 'Yakunlangan', 'Bugungi ish kuni allaqachon yakunlangan! Kuniga faqat bir marta ish boshlash mumkin.');
+          return;
+        }
+        if (rec && rec.start_time && rec.start_time !== '-') {
+          wStart = tzNow();
+          empState = 'working';
+          st('i_s', rec.start_time.substring(0, 5));
+          wAccum = Number(rec.work_seconds || rec.worked_seconds) || 0;
+          lAccum = Number(rec.lunch_seconds) || 0;
+          updateEmpBtns();
+          updateEmpStatusTag();
+          startWT();
+          saveLS();
+          maybeStartFaceDetection();
+          await savePartial();
+          toast('info', t('bs'), 'Avval boshlangan ish kuni davom ettirilmoqda');
+          return;
+        }
+      }
+    } catch (_) {}
+  }
+
   const access=await checkRegionAccess('employee');
   if(!access.ok){
     showIPBlock(access.value, access.title, access.message);
@@ -231,8 +350,8 @@ async function empStart(){
   st('i_s',fmtHM(wStart));
   const lm=computeLateMinutesFromDate(wStart);
   const el=document.getElementById('e_ltag');if(el)el.textContent=t('lt_pre')+' '+lm+' '+t('lt_u');
-  const ss=getLS()||{};ss.lateMin=lm;ss.i_e='-';ss.i_ls='-';ss.i_le='-';
-  localStorage.setItem('aloqa_emp_state',JSON.stringify(ss));
+  const ssNew=getLS()||{};ssNew.lateMin=lm;ssNew.i_e='-';ssNew.i_ls='-';ssNew.i_le='-';
+  localStorage.setItem('aloqa_emp_state',JSON.stringify(ssNew));
   await loadFaceControlSettings();
   updateEmpBtns();updateEmpStatusTag();startWT();saveLS();maybeStartFaceDetection();
   await savePartial();

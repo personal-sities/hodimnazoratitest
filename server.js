@@ -3317,38 +3317,17 @@ async function handleGetAttendance(req, res, reqUrl) {
           a.employee_id,
           a.work_date,
           a.start_time,
-          CASE
-            WHEN a.work_date = CURRENT_DATE AND (a.end_time > CURRENT_TIME OR a.end_time = '17:50:00') THEN NULL
-            ELSE a.end_time
-          END AS end_time,
-          CASE
-            WHEN a.work_date = CURRENT_DATE AND (a.lunch_start > CURRENT_TIME OR a.lunch_start = '13:06:00') THEN NULL
-            ELSE a.lunch_start
-          END AS lunch_start,
-          CASE
-            WHEN a.work_date = CURRENT_DATE AND (a.lunch_end > CURRENT_TIME OR a.lunch_end = '13:57:00') THEN NULL
-            ELSE a.lunch_end
-          END AS lunch_end,
-          CASE
-            WHEN a.work_date = CURRENT_DATE AND (a.end_time > CURRENT_TIME OR a.end_time = '17:50:00') THEN 0
-            ELSE COALESCE(a.work_seconds, 0)::int
-          END AS work_seconds,
-          CASE
-            WHEN a.work_date = CURRENT_DATE AND (a.end_time > CURRENT_TIME OR a.end_time = '17:50:00') THEN 0
-            ELSE COALESCE(a.work_seconds, 0)::int
-          END AS worked_seconds,
-          CASE
-            WHEN a.work_date = CURRENT_DATE AND (a.lunch_start > CURRENT_TIME OR a.lunch_start = '13:06:00') THEN 0
-            ELSE COALESCE(a.lunch_seconds, 0)::int
-          END AS lunch_seconds,
+          a.end_time,
+          a.lunch_start,
+          a.lunch_end,
+          COALESCE(a.work_seconds, 0)::int AS work_seconds,
+          COALESCE(a.work_seconds, 0)::int AS worked_seconds,
+          COALESCE(a.lunch_seconds, 0)::int AS lunch_seconds,
           COALESCE(a.afk_seconds, 0)::int AS afk_seconds,
           COALESCE(a.afk_count, 0)::int AS afk_count,
           COALESCE(a.late_minutes, 0)::int AS late_minutes,
           a.status,
-          CASE
-            WHEN a.work_date = CURRENT_DATE AND (a.end_time > CURRENT_TIME OR a.end_time = '17:50:00') THEN false
-            ELSE COALESCE(a.auto_ended, false)
-          END AS auto_ended,
+          COALESCE(a.auto_ended, false) AS auto_ended,
           a.created_at,
           a.updated_at,
           e.name AS employee_name,
@@ -3508,17 +3487,20 @@ async function handleSaveAttendance(req, res) {
           work_seconds, lunch_seconds, afk_seconds, afk_count, late_minutes, status, auto_ended, updated_at
         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, now())
         ON CONFLICT (employee_id, work_date) DO UPDATE SET
-          start_time = COALESCE(EXCLUDED.start_time, public.attendance.start_time),
-          end_time = EXCLUDED.end_time,
-          lunch_start = EXCLUDED.lunch_start,
-          lunch_end = EXCLUDED.lunch_end,
-          work_seconds = EXCLUDED.work_seconds,
-          lunch_seconds = EXCLUDED.lunch_seconds,
-          afk_seconds = EXCLUDED.afk_seconds,
-          afk_count = EXCLUDED.afk_count,
-          late_minutes = EXCLUDED.late_minutes,
-          status = EXCLUDED.status,
-          auto_ended = EXCLUDED.auto_ended,
+          start_time = COALESCE(public.attendance.start_time, EXCLUDED.start_time),
+          end_time = COALESCE(EXCLUDED.end_time, public.attendance.end_time),
+          lunch_start = COALESCE(public.attendance.lunch_start, EXCLUDED.lunch_start),
+          lunch_end = COALESCE(EXCLUDED.lunch_end, public.attendance.lunch_end),
+          work_seconds = GREATEST(COALESCE(public.attendance.work_seconds, 0), EXCLUDED.work_seconds),
+          lunch_seconds = GREATEST(COALESCE(public.attendance.lunch_seconds, 0), EXCLUDED.lunch_seconds),
+          afk_seconds = GREATEST(COALESCE(public.attendance.afk_seconds, 0), EXCLUDED.afk_seconds),
+          afk_count = GREATEST(COALESCE(public.attendance.afk_count, 0), EXCLUDED.afk_count),
+          late_minutes = COALESCE(public.attendance.late_minutes, EXCLUDED.late_minutes),
+          status = CASE
+            WHEN public.attendance.end_time IS NOT NULL AND EXCLUDED.end_time IS NULL THEN public.attendance.status
+            ELSE EXCLUDED.status
+          END,
+          auto_ended = COALESCE(EXCLUDED.auto_ended, public.attendance.auto_ended),
           updated_at = now()
         RETURNING *;
       `;
@@ -3549,7 +3531,19 @@ async function handleSaveAttendance(req, res) {
   const list = readJsonData('attendance.json', []);
   const idx = list.findIndex(r => r.employee_id === payload.employee_id && r.work_date === payload.work_date);
   if (idx >= 0) {
-    list[idx] = { ...list[idx], ...payload };
+    const existing = list[idx];
+    list[idx] = {
+      ...existing,
+      ...payload,
+      start_time: existing.start_time || payload.start_time,
+      end_time: payload.end_time || existing.end_time || null,
+      lunch_start: existing.lunch_start || payload.lunch_start || null,
+      lunch_end: payload.lunch_end || existing.lunch_end || null,
+      work_seconds: Math.max(Number(existing.work_seconds) || 0, Number(payload.work_seconds) || 0),
+      lunch_seconds: Math.max(Number(existing.lunch_seconds) || 0, Number(payload.lunch_seconds) || 0),
+      status: (existing.end_time && !payload.end_time) ? existing.status : (payload.status || existing.status)
+    };
+    Object.assign(payload, list[idx]);
   } else {
     payload.id = payload.id || `att_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
     list.push(payload);
