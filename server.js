@@ -120,22 +120,204 @@ async function ensureDatabaseSchema() {
     console.warn('[ensureDatabaseSchema] admins.json yaratishda ogohlantirish:', err.message);
   }
 
+async function ensureCallsTable(pool) {
+  if (!pool) return;
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS public.calls (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        call_id TEXT UNIQUE,
+        caller TEXT,
+        callee TEXT,
+        operator_number TEXT,
+        employee_id UUID,
+        employee_name TEXT,
+        direction TEXT DEFAULT 'in',
+        status TEXT NOT NULL DEFAULT 'missed',
+        duration INTEGER NOT NULL DEFAULT 0,
+        talk_time INTEGER NOT NULL DEFAULT 0,
+        record_url TEXT,
+        rating NUMERIC,
+        rating_comment TEXT,
+        raw_data JSONB,
+        call_date DATE NOT NULL DEFAULT CURRENT_DATE,
+        started_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+      );
+      ALTER TABLE public.calls ADD COLUMN IF NOT EXISTS call_id TEXT;
+      ALTER TABLE public.calls ADD COLUMN IF NOT EXISTS caller TEXT;
+      ALTER TABLE public.calls ADD COLUMN IF NOT EXISTS callee TEXT;
+      ALTER TABLE public.calls ADD COLUMN IF NOT EXISTS operator_number TEXT;
+      ALTER TABLE public.calls ADD COLUMN IF NOT EXISTS employee_id UUID;
+      ALTER TABLE public.calls ADD COLUMN IF NOT EXISTS employee_name TEXT;
+      ALTER TABLE public.calls ADD COLUMN IF NOT EXISTS direction TEXT DEFAULT 'in';
+      ALTER TABLE public.calls ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'missed';
+      ALTER TABLE public.calls ADD COLUMN IF NOT EXISTS duration INTEGER DEFAULT 0;
+      ALTER TABLE public.calls ADD COLUMN IF NOT EXISTS talk_time INTEGER DEFAULT 0;
+      ALTER TABLE public.calls ADD COLUMN IF NOT EXISTS record_url TEXT;
+      ALTER TABLE public.calls ADD COLUMN IF NOT EXISTS rating NUMERIC;
+      ALTER TABLE public.calls ADD COLUMN IF NOT EXISTS rating_comment TEXT;
+      ALTER TABLE public.calls ADD COLUMN IF NOT EXISTS raw_data JSONB;
+      ALTER TABLE public.calls ADD COLUMN IF NOT EXISTS call_date DATE DEFAULT CURRENT_DATE;
+      ALTER TABLE public.calls ADD COLUMN IF NOT EXISTS started_at TIMESTAMPTZ DEFAULT now();
+      ALTER TABLE public.calls ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT now();
+      ALTER TABLE public.calls ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT now();
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_calls_call_id ON public.calls(call_id);
+      CREATE INDEX IF NOT EXISTS idx_calls_call_date ON public.calls(call_date);
+      CREATE INDEX IF NOT EXISTS idx_calls_operator_number ON public.calls(operator_number);
+      CREATE INDEX IF NOT EXISTS idx_calls_employee_id ON public.calls(employee_id);
+      CREATE INDEX IF NOT EXISTS idx_calls_started_at ON public.calls(started_at);
+      CREATE INDEX IF NOT EXISTS idx_calls_caller ON public.calls(caller);
+      CREATE INDEX IF NOT EXISTS idx_calls_callee ON public.calls(callee);
+    `);
+  } catch (err) {
+    console.warn('[ensureCallsTable ogohlantirish]:', err.message);
+  }
+}
+
+async function ensureDatabaseSchema() {
+  // 1. data/ papkasi va admins.json borligini kafolatlash
+  try {
+    const dataDir = path.join(ROOT, 'data');
+    if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
+    const adminsPath = path.join(dataDir, 'admins.json');
+    let currentAdmins = [];
+    if (fs.existsSync(adminsPath)) {
+      try { currentAdmins = JSON.parse(fs.readFileSync(adminsPath, 'utf8')) || []; } catch (_) { }
+    }
+    const hasAdminRoot = currentAdmins.some(a => String(a.login || '').toLowerCase() === 'admin@aloqapro.uz');
+    const hasAdminSimple = currentAdmins.some(a => String(a.login || '').toLowerCase() === 'admin');
+    let changed = false;
+    if (!hasAdminRoot) {
+      currentAdmins.push({
+        id: 'admin_root',
+        user_id: 'admin_root',
+        name: 'Administrator',
+        login: 'admin@aloqapro.uz',
+        role: 'admin'
+      });
+      changed = true;
+    }
+    if (!hasAdminSimple) {
+      currentAdmins.push({
+        id: 'admin_simple',
+        user_id: 'admin_simple',
+        name: 'Administrator',
+        login: 'admin',
+        role: 'admin'
+      });
+      changed = true;
+    }
+    if (changed) {
+      fs.writeFileSync(adminsPath, JSON.stringify(currentAdmins, null, 2), 'utf8');
+      console.log('[System]: data/admins.json avtomatik tayyorlandi (admin va admin@aloqapro.uz).');
+    }
+  } catch (err) {
+    console.warn('[ensureDatabaseSchema] admins.json yaratishda ogohlantirish:', err.message);
+  }
+
   const pool = getDbPool();
   if (!pool) return;
   try {
+    // 2.1 pgcrypto kengaytmasi
+    await pool.query('CREATE EXTENSION IF NOT EXISTS pgcrypto;').catch(() => {});
+
+    // 2.2 schema.sql ni alohida try-catch da chaqirish (boshqa jadvallar bloklanmasligi uchun)
     const schemaFile = path.join(ROOT, 'schema.sql');
     if (fs.existsSync(schemaFile)) {
-      const schemaSql = fs.readFileSync(schemaFile, 'utf8');
-      await pool.query(schemaSql);
-      console.log('[PostgreSQL]: schema.sql bo\'yicha barcha jadvallar va funksiyalar faollashtirildi.');
+      try {
+        const schemaSql = fs.readFileSync(schemaFile, 'utf8');
+        await pool.query(schemaSql);
+        console.log('[PostgreSQL]: schema.sql bo\'yicha jadvallar tekshirildi.');
+      } catch (sqlErr) {
+        console.warn('[PostgreSQL schema.sql ogohlantirish]:', sqlErr.message);
+      }
     }
 
+    // 2.3 employees jadvali ustunlari (updated_at, operator_number, pbx_extension va boshqalar)
     await pool.query(`
+      CREATE TABLE IF NOT EXISTS public.employees (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id UUID NOT NULL,
+        name TEXT NOT NULL,
+        login TEXT NOT NULL,
+        password TEXT,
+        kpi_type TEXT DEFAULT 'junior',
+        active BOOLEAN NOT NULL DEFAULT true,
+        face_registered BOOLEAN NOT NULL DEFAULT false,
+        responsible_course TEXT,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        UNIQUE(user_id)
+      );
+      ALTER TABLE public.employees ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT now();
+      ALTER TABLE public.employees ADD COLUMN IF NOT EXISTS operator_number TEXT;
+      ALTER TABLE public.employees ADD COLUMN IF NOT EXISTS pbx_extension TEXT;
       ALTER TABLE public.employees ADD COLUMN IF NOT EXISTS password TEXT;
+      ALTER TABLE public.employees ADD COLUMN IF NOT EXISTS kpi_type TEXT DEFAULT 'junior';
+      ALTER TABLE public.employees ADD COLUMN IF NOT EXISTS active BOOLEAN DEFAULT true;
+      ALTER TABLE public.employees ADD COLUMN IF NOT EXISTS face_registered BOOLEAN DEFAULT false;
+      ALTER TABLE public.employees ADD COLUMN IF NOT EXISTS responsible_course TEXT;
+    `).catch(e => console.warn('[DB Init employees]:', e.message));
+
+    // 2.4 calls jadvali va barcha ustunlari (call_id, operator_number, employee_name, ...)
+    await ensureCallsTable(pool);
+
+    // 2.5 admins jadvali
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS public.admins (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id UUID NOT NULL,
+        name TEXT NOT NULL,
+        login TEXT,
+        password TEXT,
+        active BOOLEAN NOT NULL DEFAULT true,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        UNIQUE(user_id)
+      );
       ALTER TABLE public.admins ADD COLUMN IF NOT EXISTS password TEXT;
-      ALTER TABLE public.calls ADD COLUMN IF NOT EXISTS employee_name TEXT;
-      CREATE INDEX IF NOT EXISTS idx_calls_caller ON public.calls(caller);
-      CREATE INDEX IF NOT EXISTS idx_calls_callee ON public.calls(callee);
+      ALTER TABLE public.admins ADD COLUMN IF NOT EXISTS active BOOLEAN DEFAULT true;
+    `).catch(e => console.warn('[DB Init admins]:', e.message));
+
+    // 2.6 attendance jadvali
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS public.attendance (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        employee_id UUID NOT NULL,
+        work_date DATE NOT NULL,
+        start_time TIME,
+        end_time TIME,
+        lunch_start TIME,
+        lunch_end TIME,
+        work_seconds INTEGER NOT NULL DEFAULT 0,
+        worked_seconds INTEGER NOT NULL DEFAULT 0,
+        lunch_seconds INTEGER NOT NULL DEFAULT 0,
+        afk_seconds INTEGER NOT NULL DEFAULT 0,
+        afk_count INTEGER NOT NULL DEFAULT 0,
+        late_minutes INTEGER NOT NULL DEFAULT 0,
+        status TEXT NOT NULL DEFAULT 'kelmadi',
+        auto_ended BOOLEAN NOT NULL DEFAULT false,
+        employee_name TEXT,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        UNIQUE(employee_id, work_date)
+      );
+      ALTER TABLE public.attendance ADD COLUMN IF NOT EXISTS employee_name TEXT;
+      ALTER TABLE public.attendance ADD COLUMN IF NOT EXISTS auto_ended BOOLEAN DEFAULT false;
+      ALTER TABLE public.attendance ADD COLUMN IF NOT EXISTS work_seconds INTEGER DEFAULT 0;
+      ALTER TABLE public.attendance ADD COLUMN IF NOT EXISTS worked_seconds INTEGER DEFAULT 0;
+      ALTER TABLE public.attendance ADD COLUMN IF NOT EXISTS lunch_seconds INTEGER DEFAULT 0;
+      ALTER TABLE public.attendance ADD COLUMN IF NOT EXISTS afk_seconds INTEGER DEFAULT 0;
+      ALTER TABLE public.attendance ADD COLUMN IF NOT EXISTS afk_count INTEGER DEFAULT 0;
+      ALTER TABLE public.attendance ADD COLUMN IF NOT EXISTS late_minutes INTEGER DEFAULT 0;
+      ALTER TABLE public.attendance ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT now();
+      CREATE INDEX IF NOT EXISTS idx_attendance_date ON public.attendance(work_date);
+      CREATE INDEX IF NOT EXISTS idx_attendance_emp_date ON public.attendance(employee_id, work_date);
+    `).catch(e => console.warn('[DB Init attendance]:', e.message));
+
+    // 2.7 Standart adminlar
+    await pool.query(`
       DO $$
       BEGIN
         IF NOT EXISTS (SELECT 1 FROM public.admins WHERE LOWER(login) = 'admin@aloqapro.uz') THEN
@@ -151,13 +333,14 @@ async function ensureDatabaseSchema() {
           VALUES (gen_random_uuid(), gen_random_uuid(), 'Administrator (Diyorbek)', 'umirbekovdiyorbek@gmail.com', true);
         END IF;
       END $$;
+    `).catch(() => {});
 
-      -- 1. Inactive (ishdan ketgan) xodimlardan operator raqamlarini tozalash
+    // 2.8 Inactive (ishdan ketgan) xodimlardan operator raqamlarini tozalash
+    await pool.query(`
       UPDATE public.employees
       SET operator_number = NULL, pbx_extension = NULL
       WHERE active = false AND (operator_number IS NOT NULL OR pbx_extension IS NOT NULL);
 
-      -- 2. Agar bitta operator raqamiga bir nechta active xodim birikib qolsa, faqat oxirgisida qoldirish
       UPDATE public.employees e1
       SET operator_number = NULL, pbx_extension = NULL
       WHERE active = true
@@ -167,10 +350,12 @@ async function ensureDatabaseSchema() {
           WHERE e2.active = true
             AND (e2.operator_number = e1.operator_number OR e2.pbx_extension = e1.operator_number)
             AND e2.id <> e1.id
-            AND (COALESCE(e2.updated_at, e2.created_at) > COALESCE(e1.updated_at, e1.created_at))
+            AND (COALESCE(e2.updated_at, e2.created_at, now()) > COALESCE(e1.updated_at, e1.created_at, now()))
         );
+    `).catch(() => {});
 
-      -- 3. Mavjud dublikat xabar/fikrlarni tozalash (bir xil xodim, bir xil matn, 30 soniya ichida)
+    // 2.9 Dublikatlarni tozalash
+    await pool.query(`
       DELETE FROM public.feedback f1
       USING public.feedback f2
       WHERE f1.employee_id = f2.employee_id
@@ -182,7 +367,6 @@ async function ensureDatabaseSchema() {
         )
         AND ABS(EXTRACT(EPOCH FROM (f1.created_at - f2.created_at))) < 30;
 
-      -- 4. Mavjud dublikat bildirishnomalarni tozalash
       DELETE FROM public.notifications n1
       USING public.notifications n2
       WHERE n1.employee_id = n2.employee_id
@@ -194,8 +378,10 @@ async function ensureDatabaseSchema() {
           OR (n1.sent_at = n2.sent_at AND n1.id > n2.id)
         )
         AND ABS(EXTRACT(EPOCH FROM (n1.sent_at - n2.sent_at))) < 30;
+    `).catch(() => {});
 
-      -- 5. Bugungi kun (CURRENT_DATE) uchun noto'g'ri/kelajakdagi vaqtlar yozilib qolgan bo'lsa (masalan kechagi kunning 17:50 yoki 13:06 vaqtlari), ularni tozalash
+    // 2.10 Bugungi kun (CURRENT_DATE) noto'g'ri vaqtlarini tozalash
+    await pool.query(`
       UPDATE public.attendance
       SET end_time = NULL,
           lunch_start = CASE WHEN lunch_start > CURRENT_TIME THEN NULL ELSE lunch_start END,
@@ -205,8 +391,10 @@ async function ensureDatabaseSchema() {
           auto_ended = false
       WHERE work_date = CURRENT_DATE
         AND (end_time > CURRENT_TIME OR lunch_start > CURRENT_TIME OR end_time = '17:50:00');
+    `).catch(() => {});
 
-      -- 6. Axmadova Maftuna -> Qarshiyeva Maftuna xodim va qo'ng'iroqlarini avtomatik to'g'rilash
+    // 2.11 Axmadova Maftuna -> Qarshiyeva Maftuna xodim va qo'ng'iroqlarini avtomatik to'g'rilash
+    await pool.query(`
       DO $$
       DECLARE
         v_qarshiyeva_id TEXT;
@@ -216,11 +404,11 @@ async function ensureDatabaseSchema() {
       BEGIN
         SELECT id::text INTO v_qarshiyeva_id FROM public.employees 
         WHERE (name ILIKE '%Qarshiyeva%Maftuna%' OR name ILIKE '%Maftuna%Qarshiyeva%')
-        ORDER BY (active = true) DESC, updated_at DESC LIMIT 1;
+        ORDER BY (active = true) DESC, COALESCE(updated_at, created_at, now()) DESC LIMIT 1;
 
         SELECT id::text, operator_number, pbx_extension INTO v_axmadova_id, v_axmadova_op, v_axmadova_pbx FROM public.employees 
         WHERE (name ILIKE '%Axmadova%Maftuna%' OR name ILIKE '%Maftuna%Axmadova%' OR name ILIKE '%Axmatova%Maftuna%' OR name ILIKE '%Maftuna%Axmatova%' OR name ILIKE '%Axmadova%' OR name ILIKE '%Axmatova%')
-        ORDER BY (active = true) DESC, updated_at DESC LIMIT 1;
+        ORDER BY (active = true) DESC, COALESCE(updated_at, created_at, now()) DESC LIMIT 1;
 
         IF v_qarshiyeva_id IS NOT NULL AND v_axmadova_id IS NOT NULL AND v_qarshiyeva_id <> v_axmadova_id THEN
           IF v_axmadova_op IS NOT NULL THEN
@@ -246,7 +434,8 @@ async function ensureDatabaseSchema() {
       UPDATE public.attendance
       SET employee_name = 'Qarshiyeva Maftuna'
       WHERE (employee_name ILIKE '%Axmadova%' OR employee_name ILIKE '%Axmatova%');
-    `);
+    `).catch(() => {});
+
     console.log('[Database]: PostgreSQL sxemasi va administratorlar to\'liq tayyor.');
 
     // Lokal JSON dagi dublikatlarni tozalash
@@ -907,17 +1096,18 @@ async function readParsedBody(req, reqUrl) {
 async function saveCallRecord(call) {
   const pool = getDbPool();
   if (pool) {
-    try {
+    const doInsert = async () => {
       const query = `
         INSERT INTO public.calls (
-          call_id, caller, callee, operator_number, employee_id, direction, status,
+          call_id, caller, callee, operator_number, employee_id, employee_name, direction, status,
           duration, talk_time, record_url, raw_data, call_date, started_at, rating, rating_comment
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
         ON CONFLICT (call_id) DO UPDATE SET
           caller = COALESCE(NULLIF(EXCLUDED.caller, ''), public.calls.caller),
           callee = COALESCE(NULLIF(EXCLUDED.callee, ''), public.calls.callee),
           operator_number = COALESCE(NULLIF(EXCLUDED.operator_number, ''), public.calls.operator_number),
           employee_id = COALESCE(EXCLUDED.employee_id, public.calls.employee_id),
+          employee_name = COALESCE(NULLIF(EXCLUDED.employee_name, ''), public.calls.employee_name),
           direction = COALESCE(EXCLUDED.direction, public.calls.direction),
           status = EXCLUDED.status,
           duration = GREATEST(public.calls.duration, EXCLUDED.duration),
@@ -929,12 +1119,13 @@ async function saveCallRecord(call) {
           updated_at = now()
         RETURNING *;
       `;
-      const res = await pool.query(query, [
+      return await pool.query(query, [
         call.call_id,
         call.caller,
         call.callee,
         call.operator_number,
         call.employee_id,
+        call.employee_name || null,
         call.direction,
         call.status,
         call.duration,
@@ -946,11 +1137,27 @@ async function saveCallRecord(call) {
         call.rating !== undefined ? call.rating : null,
         call.rating_comment || null
       ]);
+    };
+
+    try {
+      const res = await doInsert();
       if (res.rows && res.rows[0]) {
         call = { ...call, ...res.rows[0] };
       }
     } catch (dbErr) {
-      console.error('[saveCallRecord DB xatosi]:', dbErr.message);
+      if (dbErr.message && (dbErr.message.includes('does not exist') || dbErr.message.includes('column'))) {
+        await ensureCallsTable(pool);
+        try {
+          const retryRes = await doInsert();
+          if (retryRes.rows && retryRes.rows[0]) {
+            call = { ...call, ...retryRes.rows[0] };
+          }
+        } catch (retryErr) {
+          console.error('[saveCallRecord DB xatosi retry]:', retryErr.message);
+        }
+      } else {
+        console.error('[saveCallRecord DB xatosi]:', dbErr.message);
+      }
     }
   }
 
@@ -1005,11 +1212,11 @@ async function relinkAllPbxCalls() {
         BEGIN
           SELECT id::text INTO v_qarshiyeva_id FROM public.employees 
           WHERE (name ILIKE '%Qarshiyeva%Maftuna%' OR name ILIKE '%Maftuna%Qarshiyeva%')
-          ORDER BY (active = true) DESC, updated_at DESC LIMIT 1;
+          ORDER BY (active = true) DESC, COALESCE(updated_at, created_at, now()) DESC LIMIT 1;
 
           SELECT id::text, operator_number, pbx_extension INTO v_axmadova_id, v_axmadova_op, v_axmadova_pbx FROM public.employees 
           WHERE (name ILIKE '%Axmadova%Maftuna%' OR name ILIKE '%Maftuna%Axmadova%' OR name ILIKE '%Axmatova%Maftuna%' OR name ILIKE '%Maftuna%Axmatova%' OR name ILIKE '%Axmadova%' OR name ILIKE '%Axmatova%')
-          ORDER BY (active = true) DESC, updated_at DESC LIMIT 1;
+          ORDER BY (active = true) DESC, COALESCE(updated_at, created_at, now()) DESC LIMIT 1;
 
           IF v_qarshiyeva_id IS NOT NULL AND v_axmadova_id IS NOT NULL AND v_qarshiyeva_id <> v_axmadova_id THEN
             IF v_axmadova_op IS NOT NULL THEN
@@ -1050,7 +1257,7 @@ async function relinkAllPbxCalls() {
   let employees = [];
   if (pool) {
     try {
-      const empRes = await pool.query('SELECT id, name, operator_number, pbx_extension FROM public.employees WHERE active = true ORDER BY updated_at DESC, created_at DESC');
+      const empRes = await pool.query('SELECT id, name, operator_number, pbx_extension FROM public.employees WHERE active = true ORDER BY COALESCE(updated_at, created_at, now()) DESC');
       employees = empRes.rows || [];
     } catch (e) {
       console.warn('[relinkAllPbxCalls] Emp query xatosi:', e.message);
@@ -1170,6 +1377,9 @@ async function relinkAllPbxCalls() {
         WHERE employee_name ILIKE '%Axmadova%' OR employee_name ILIKE '%Axmatova%';
       `).catch(() => {});
     } catch (dbErr) {
+      if (dbErr.message && (dbErr.message.includes('does not exist') || dbErr.message.includes('column'))) {
+        await ensureCallsTable(pool);
+      }
       console.warn('[relinkAllPbxCalls DB]:', dbErr.message);
     }
   }
@@ -1295,7 +1505,7 @@ async function getCallsStats(from, to, operator = 'all', status = 'all') {
         SELECT id, name, operator_number, pbx_extension
         FROM public.employees
         WHERE active = true
-        ORDER BY updated_at DESC, created_at DESC;
+        ORDER BY COALESCE(updated_at, created_at, now()) DESC;
       `;
       const empRes = await pool.query(empQuery).catch(() => ({ rows: [] }));
       const emps = (empRes.rows || []).map(e => ({
@@ -1377,6 +1587,9 @@ async function getCallsStats(from, to, operator = 'all', status = 'all') {
         operators
       };
     } catch (err) {
+      if (err.message && (err.message.includes('does not exist') || err.message.includes('column'))) {
+        await ensureCallsTable(pool);
+      }
       console.error('[getCallsStats DB xatosi]:', err.message);
     }
   }
@@ -1531,7 +1744,7 @@ async function getCallsList(from, to, operator, status, limit = 50) {
               (c.operator_number IS NOT NULL AND c.operator_number <> '' AND (emp.operator_number = c.operator_number OR emp.pbx_extension = c.operator_number))
               OR emp.id = c.employee_id
             )
-          ORDER BY (emp.operator_number = c.operator_number) DESC, emp.updated_at DESC
+          ORDER BY (emp.operator_number = c.operator_number) DESC, COALESCE(emp.updated_at, emp.created_at, now()) DESC
           LIMIT 1
         ) e ON true
         WHERE c.operator_number = ANY($1::text[])
@@ -1563,6 +1776,9 @@ async function getCallsList(from, to, operator, status, limit = 50) {
       }));
       return { ok: true, calls };
     } catch (err) {
+      if (err.message && (err.message.includes('does not exist') || err.message.includes('column'))) {
+        await ensureCallsTable(pool);
+      }
       console.error('[getCallsList DB xatosi]:', err.message);
     }
   }
@@ -1628,7 +1844,7 @@ async function handleOnlinePbxWebhook(req, res, reqUrl) {
     const pool = getDbPool();
     if (pool) {
       try {
-        const empRes = await pool.query('SELECT id, name, operator_number, pbx_extension FROM public.employees WHERE active = true ORDER BY updated_at DESC, created_at DESC');
+        const empRes = await pool.query('SELECT id, name, operator_number, pbx_extension FROM public.employees WHERE active = true ORDER BY COALESCE(updated_at, created_at, now()) DESC');
         allEmployees = (empRes.rows || []).map(e => ({
           ...e,
           name: normalizePbxEmpName(e.name)
@@ -3455,6 +3671,8 @@ async function handleGetAdmins(req, res) {
 }
 
 // 5. SETTINGS
+let settingsPermissionWarned = false;
+
 async function handleGetSettings(req, res, reqUrl) {
   const key = reqUrl.searchParams.get('key');
   const pool = getDbPool();
@@ -3467,7 +3685,14 @@ async function handleGetSettings(req, res, reqUrl) {
       const r = await pool.query('SELECT key, value FROM public.settings');
       return sendJson(res, 200, { ok: true, data: r.rows || [] });
     } catch (e) {
-      console.warn('[handleGetSettings DB]:', e.message);
+      if (e.message && e.message.includes('permission denied')) {
+        if (!settingsPermissionWarned) {
+          console.warn('[handleGetSettings]: settings jadvaliga ruxsat yo\'q. Sozlamalar lokal data/settings.json dan muvaffaqiyatli o\'qilmoqda.');
+          settingsPermissionWarned = true;
+        }
+      } else {
+        console.warn('[handleGetSettings DB]:', e.message);
+      }
     }
   }
 
@@ -3494,7 +3719,14 @@ async function handleSaveSettings(req, res) {
         [key, value]
       );
     } catch (e) {
-      console.warn('[handleSaveSettings DB]:', e.message);
+      if (e.message && e.message.includes('permission denied')) {
+        if (!settingsPermissionWarned) {
+          console.warn('[handleSaveSettings]: settings jadvaliga ruxsat yo\'q, parametr data/settings.json da saqlanmoqda.');
+          settingsPermissionWarned = true;
+        }
+      } else {
+        console.warn('[handleSaveSettings DB]:', e.message);
+      }
     }
   }
 
