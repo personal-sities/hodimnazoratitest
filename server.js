@@ -79,47 +79,6 @@ function getDbPool() {
   return sharedPool;
 }
 
-async function ensureDatabaseSchema() {
-  // 1. data/ papkasi va admins.json borligini kafolatlash
-  try {
-    const dataDir = path.join(ROOT, 'data');
-    if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
-    const adminsPath = path.join(dataDir, 'admins.json');
-    let currentAdmins = [];
-    if (fs.existsSync(adminsPath)) {
-      try { currentAdmins = JSON.parse(fs.readFileSync(adminsPath, 'utf8')) || []; } catch (_) { }
-    }
-    const hasAdminRoot = currentAdmins.some(a => String(a.login || '').toLowerCase() === 'admin@aloqapro.uz');
-    const hasAdminSimple = currentAdmins.some(a => String(a.login || '').toLowerCase() === 'admin');
-    let changed = false;
-    if (!hasAdminRoot) {
-      currentAdmins.push({
-        id: 'admin_root',
-        user_id: 'admin_root',
-        name: 'Administrator',
-        login: 'admin@aloqapro.uz',
-        role: 'admin'
-      });
-      changed = true;
-    }
-    if (!hasAdminSimple) {
-      currentAdmins.push({
-        id: 'admin_simple',
-        user_id: 'admin_simple',
-        name: 'Administrator',
-        login: 'admin',
-        role: 'admin'
-      });
-      changed = true;
-    }
-    if (changed) {
-      fs.writeFileSync(adminsPath, JSON.stringify(currentAdmins, null, 2), 'utf8');
-      console.log('[System]: data/admins.json avtomatik tayyorlandi (admin va admin@aloqapro.uz).');
-    }
-  } catch (err) {
-    console.warn('[ensureDatabaseSchema] admins.json yaratishda ogohlantirish:', err.message);
-  }
-
 async function ensureCallsTable(pool) {
   if (!pool) return;
   try {
