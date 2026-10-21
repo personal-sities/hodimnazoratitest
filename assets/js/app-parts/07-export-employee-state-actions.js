@@ -55,6 +55,21 @@ let pendingAutoEndSave = false;
 
 function todayBreakSec(){return breakSeconds;}
 
+function resetEmpStateForNewDay(){
+  empState='not_started';
+  wStart=null;wAccum=0;
+  lStart=null;lAccum=0;
+  prayerStart=null;prayerAccum=0;
+  afkSeconds=0;afkCount=0;afkCurSec=0;
+  currentAfkStart=null;isAfk=false;
+  breakSeconds=0;
+  autoEndDone=false;
+  pendingAutoEndSave=false;
+  st('i_s','-');st('i_e','-');st('i_ls','-');st('i_le','-');st('i_ps','-');st('i_pe','-');
+  setTV(0,'tw');setTV(0,'tl');setTV(0,'tp');
+  updateAfkDisplay();updateBreakBar();updatePrayerInfo();updateEmpBtns();updateEmpStatusTag();
+}
+
 function getLS(){return JSON.parse(localStorage.getItem('aloqa_emp_state')||'null');}
 function saveLS(){
   const ss=getLS()||{};
@@ -68,7 +83,15 @@ function getTodayAutoEndDate(){
 }
 async function restoreLS(){
   const ss=getLS();
-  if(!ss||ss.date!==todayISO()){localStorage.removeItem('aloqa_emp_state');updateEmpBtns();return false;}
+  if(!ss||ss.date!==todayISO()){
+    localStorage.removeItem('aloqa_emp_state');
+    resetEmpStateForNewDay();
+    return false;
+  }
+  // Agar ish hali yakunlanmagan bo'lsa, lekin keshda i_e xato saqlangan bo'lsa, tozalaymiz
+  if(ss.state!=='ended' && ss.i_e && ss.i_e!=='-'){
+    ss.i_e = '-';
+  }
   empState=ss.state||'not_started';wAccum=ss.wAccum||0;lAccum=ss.lAccum||0;prayerAccum=ss.prayerAccum||0;afkSeconds=ss.afkSeconds||0;afkCount=ss.afkCount||0;breakSeconds=ss.breakSeconds||0;autoEndDone=ss.autoEndDone||false;
   if(ss.wStartISO)wStart=new Date(ss.wStartISO);
   if(ss.lStartISO)lStart=new Date(ss.lStartISO);
@@ -89,7 +112,7 @@ async function restoreLS(){
     }
   }
   if(ss.afkStartISO&&empState==='working'){currentAfkStart=new Date(ss.afkStartISO);isAfk=true;const elapsed=Math.floor((tzNow()-currentAfkStart)/1000);if(elapsed>0){afkSeconds+=elapsed;breakSeconds+=elapsed;}currentAfkStart=null;isAfk=false;}
-  st('i_s',ss.i_s||'-');st('i_e',ss.i_e||'-');st('i_ls',ss.i_ls||'-');st('i_le',ss.i_le||'-');st('i_ps',ss.i_ps||'-');st('i_pe',ss.i_pe||'-');
+  st('i_s',ss.i_s||'-');st('i_e',ss.state==='ended'?(ss.i_e||'-'):'-');st('i_ls',ss.i_ls||'-');st('i_le',ss.i_le||'-');st('i_ps',ss.i_ps||'-');st('i_pe',ss.i_pe||'-');
   const lt=document.getElementById('e_ltag');if(lt&&ss.lateMin!==undefined)lt.textContent=t('lt_pre')+' '+ss.lateMin+' '+t('lt_u');
   const displayWork=empState==='working'&&wStart?wAccum+Math.max(0,Math.floor((tzNow()-wStart)/1000)):wAccum;
   setTV(displayWork,'tw');setTV(lAccum,'tl');setTV(prayerAccum,'tp');updateAfkDisplay();updateBreakBar();updatePrayerInfo();updateEmpBtns();updateEmpStatusTag();
@@ -160,7 +183,16 @@ function renderEmployeeHeaderInfo(){
 // ============================================================
 async function initEmp(){
   renderEmployeeHeaderInfo();
-  await restoreLS();setEmpMonth();loadHist();updateDates();
+  await restoreLS();
+  if(empState!=='ended'){
+    const ss=getLS()||{};
+    if(ss.i_e&&ss.i_e!=='-'){
+      ss.i_e='-';
+      localStorage.setItem('aloqa_emp_state',JSON.stringify(ss));
+      st('i_e','-');
+    }
+  }
+  setEmpMonth();loadHist();updateDates();
   document.getElementById('m_welcome').classList.remove('hidden');
   const mt=document.getElementById('e_mtag');if(mt)mt.textContent=curM();
   await loadFaceControlSettings();
@@ -189,14 +221,22 @@ async function empStart(){
     await sb.auth.signOut();
     return;
   }
+  // Yangi ish kunini toza vaqtlar bilan boshlash
+  wAccum=0;lAccum=0;prayerAccum=0;
+  afkSeconds=0;afkCount=0;breakSeconds=0;
+  autoEndDone=false;pendingAutoEndSave=false;
+  st('i_e','-');st('i_ls','-');st('i_le','-');st('i_ps','-');st('i_pe','-');
+
   wStart=tzNow();empState='working';
   st('i_s',fmtHM(wStart));
   const lm=computeLateMinutesFromDate(wStart);
   const el=document.getElementById('e_ltag');if(el)el.textContent=t('lt_pre')+' '+lm+' '+t('lt_u');
-  const ss=getLS()||{};ss.lateMin=lm;localStorage.setItem('aloqa_emp_state',JSON.stringify(ss));
+  const ss=getLS()||{};ss.lateMin=lm;ss.i_e='-';ss.i_ls='-';ss.i_le='-';
+  localStorage.setItem('aloqa_emp_state',JSON.stringify(ss));
   await loadFaceControlSettings();
   updateEmpBtns();updateEmpStatusTag();startWT();saveLS();maybeStartFaceDetection();
   await savePartial();
+  if(typeof loadHist==='function') loadHist();
   toast('success',t('bs'),t('work_started_success'));
 }
 async function empLunch(){
@@ -205,6 +245,7 @@ async function empLunch(){
   lStart=tzNow();if(wStart)wAccum+=Math.floor((lStart-wStart)/1000);wStart=null;
   empState='lunch';st('i_ls',fmtHM(lStart));stopWT();pauseFaceMonitoringForBreak();updateEmpBtns();updateEmpStatusTag();startLT();saveLS();
   await savePartial();
+  if(typeof loadHist==='function') loadHist();
   toast('info',t('lunch_title'),t('lunch_rest_msg'));
 }
 async function empBackLunch(){
@@ -212,6 +253,7 @@ async function empBackLunch(){
   const now=tzNow();if(lStart)lAccum+=Math.floor((now-lStart)/1000);lStart=null;
   st('i_le',fmtHM(now));empState='working';wStart=now;stopLT();resumeFaceMonitoringAfterBreak();updateEmpBtns();updateEmpStatusTag();startWT();saveLS();
   await savePartial();
+  if(typeof loadHist==='function') loadHist();
   toast('success',t('lunch_title'),t('work_continues'));
 }
 async function empPrayer(){
@@ -334,26 +376,45 @@ async function savePartial(){
   let cw=wAccum;if(empState==='working'&&wStart)cw+=Math.floor((tzNow()-wStart)/1000);
   let cl=lAccum;if(empState==='lunch'&&lStart)cl+=Math.floor((tzNow()-lStart)/1000);
   let afkNow=afkSeconds;
-  const startHM = ss.i_s&&ss.i_s!=='-'?ss.i_s:null;
+  const startHM = ss.i_s&&ss.i_s!=='-'?ss.i_s:(wStart?fmtHM(wStart):null);
+  const endHM = empState==='ended'&&ss.i_e&&ss.i_e!=='-'?ss.i_e:null;
+  const lunchStartHM = ss.i_ls&&ss.i_ls!=='-'?ss.i_ls:null;
+  const lunchEndHM = ss.i_le&&ss.i_le!=='-'?ss.i_le:null;
   const payload={
     employee_id:CU.id,
     work_date:today,
     start_time:startHM?startHM+':00':null,
-    end_time:ss.i_e&&ss.i_e!=='-'?ss.i_e+':00':null,
-    lunch_start:ss.i_ls&&ss.i_ls!=='-'?ss.i_ls+':00':null,
-    lunch_end:ss.i_le&&ss.i_le!=='-'?ss.i_le+':00':null,
+    end_time:endHM?endHM+':00':null,
+    lunch_start:lunchStartHM?lunchStartHM+':00':null,
+    lunch_end:lunchEndHM?lunchEndHM+':00':null,
     work_seconds:cw,
     lunch_seconds:cl,
     afk_seconds:getPenaltyAfkSeconds(afkNow),
     afk_count:afkCount,
     late_minutes:lm,
-    status:computeStatusByTimes(startHM,ss.i_e&&ss.i_e!=='-'?ss.i_e:null,lm,cw),
-    auto_ended:false
+    status:computeStatusByTimes(startHM,endHM,lm,cw),
+    auto_ended:false,
+    is_partial:true
   };
   try{
     await serverApi('/api/attendance', { method:'POST', body: JSON.stringify(payload) });
     try { await sb.from('attendance').upsert(payload,{onConflict:'employee_id,work_date'}); }catch(e){}
   }catch(e){console.warn('savePartial error:',e);}
+  if(typeof loadHist==='function') loadHist();
 }
+
+// Yangi kun boshlanganda (00:00 dan o'tganda) holatni avtomatik 0 ga tushirish
+let lastDayIsoWatcher = todayISO();
+setInterval(()=>{
+  const curDayIso = todayISO();
+  if(lastDayIsoWatcher !== curDayIso){
+    lastDayIsoWatcher = curDayIso;
+    localStorage.removeItem('aloqa_emp_state');
+    resetEmpStateForNewDay();
+    if(typeof setEmpMonth==='function') setEmpMonth();
+    if(typeof loadHist==='function') loadHist();
+    if(typeof updateDates==='function') updateDates();
+  }
+}, 15000);
 
 // ============================================================

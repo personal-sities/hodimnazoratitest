@@ -194,6 +194,17 @@ async function ensureDatabaseSchema() {
           OR (n1.sent_at = n2.sent_at AND n1.id > n2.id)
         )
         AND ABS(EXTRACT(EPOCH FROM (n1.sent_at - n2.sent_at))) < 30;
+
+      -- 5. Bugungi kun (CURRENT_DATE) uchun noto'g'ri/kelajakdagi vaqtlar yozilib qolgan bo'lsa (masalan kechagi kunning 17:50 yoki 13:06 vaqtlari), ularni tozalash
+      UPDATE public.attendance
+      SET end_time = NULL,
+          lunch_start = CASE WHEN lunch_start > CURRENT_TIME THEN NULL ELSE lunch_start END,
+          lunch_end = CASE WHEN lunch_end > CURRENT_TIME THEN NULL ELSE lunch_end END,
+          work_seconds = CASE WHEN end_time IS NOT NULL AND (end_time > CURRENT_TIME OR end_time = '17:50:00') THEN 0 ELSE work_seconds END,
+          lunch_seconds = CASE WHEN lunch_start IS NOT NULL AND (lunch_start > CURRENT_TIME OR lunch_start = '13:06:00') THEN 0 ELSE lunch_seconds END,
+          auto_ended = false
+      WHERE work_date = CURRENT_DATE
+        AND (end_time > CURRENT_TIME OR lunch_start > CURRENT_TIME OR end_time = '17:50:00');
     `);
     console.log('[Database]: PostgreSQL sxemasi va administratorlar to\'liq tayyor.');
 
@@ -2895,11 +2906,48 @@ async function handleGetAttendance(req, res, reqUrl) {
       }
 
       let query = `
-        SELECT a.*,
+        SELECT
+          a.id,
+          a.employee_id,
+          a.work_date,
+          a.start_time,
+          CASE
+            WHEN a.work_date = CURRENT_DATE AND (a.end_time > CURRENT_TIME OR a.end_time = '17:50:00') THEN NULL
+            ELSE a.end_time
+          END AS end_time,
+          CASE
+            WHEN a.work_date = CURRENT_DATE AND (a.lunch_start > CURRENT_TIME OR a.lunch_start = '13:06:00') THEN NULL
+            ELSE a.lunch_start
+          END AS lunch_start,
+          CASE
+            WHEN a.work_date = CURRENT_DATE AND (a.lunch_end > CURRENT_TIME OR a.lunch_end = '13:57:00') THEN NULL
+            ELSE a.lunch_end
+          END AS lunch_end,
+          CASE
+            WHEN a.work_date = CURRENT_DATE AND (a.end_time > CURRENT_TIME OR a.end_time = '17:50:00') THEN 0
+            ELSE COALESCE(a.work_seconds, 0)::int
+          END AS work_seconds,
+          CASE
+            WHEN a.work_date = CURRENT_DATE AND (a.end_time > CURRENT_TIME OR a.end_time = '17:50:00') THEN 0
+            ELSE COALESCE(a.work_seconds, 0)::int
+          END AS worked_seconds,
+          CASE
+            WHEN a.work_date = CURRENT_DATE AND (a.lunch_start > CURRENT_TIME OR a.lunch_start = '13:06:00') THEN 0
+            ELSE COALESCE(a.lunch_seconds, 0)::int
+          END AS lunch_seconds,
+          COALESCE(a.afk_seconds, 0)::int AS afk_seconds,
+          COALESCE(a.afk_count, 0)::int AS afk_count,
+          COALESCE(a.late_minutes, 0)::int AS late_minutes,
+          a.status,
+          CASE
+            WHEN a.work_date = CURRENT_DATE AND (a.end_time > CURRENT_TIME OR a.end_time = '17:50:00') THEN false
+            ELSE COALESCE(a.auto_ended, false)
+          END AS auto_ended,
+          a.created_at,
+          a.updated_at,
           e.name AS employee_name,
           e.login AS employee_login,
-          e.operator_number,
-          COALESCE(a.work_seconds, 0)::int AS worked_seconds
+          e.operator_number
         FROM public.attendance a
         LEFT JOIN public.employees e ON a.employee_id = e.id
         WHERE 1=1
@@ -3055,13 +3103,13 @@ async function handleSaveAttendance(req, res) {
         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, now())
         ON CONFLICT (employee_id, work_date) DO UPDATE SET
           start_time = COALESCE(EXCLUDED.start_time, public.attendance.start_time),
-          end_time = COALESCE(EXCLUDED.end_time, public.attendance.end_time),
-          lunch_start = COALESCE(EXCLUDED.lunch_start, public.attendance.lunch_start),
-          lunch_end = COALESCE(EXCLUDED.lunch_end, public.attendance.lunch_end),
-          work_seconds = GREATEST(EXCLUDED.work_seconds, public.attendance.work_seconds),
-          lunch_seconds = GREATEST(EXCLUDED.lunch_seconds, public.attendance.lunch_seconds),
-          afk_seconds = GREATEST(EXCLUDED.afk_seconds, public.attendance.afk_seconds),
-          afk_count = GREATEST(EXCLUDED.afk_count, public.attendance.afk_count),
+          end_time = EXCLUDED.end_time,
+          lunch_start = EXCLUDED.lunch_start,
+          lunch_end = EXCLUDED.lunch_end,
+          work_seconds = EXCLUDED.work_seconds,
+          lunch_seconds = EXCLUDED.lunch_seconds,
+          afk_seconds = EXCLUDED.afk_seconds,
+          afk_count = EXCLUDED.afk_count,
           late_minutes = EXCLUDED.late_minutes,
           status = EXCLUDED.status,
           auto_ended = EXCLUDED.auto_ended,

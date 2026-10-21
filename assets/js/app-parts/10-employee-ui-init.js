@@ -71,16 +71,32 @@ async function loadHist(){
   let lc=0,totalAfkSec=0;
   if(!recs||recs.length===0){tbody.innerHTML=`<tr><td colspan="11" style="text-align:center;color:var(--text3);padding:20px">${t('no_data')}</td></tr>`;st('e_lc','0');st('e_afk_total','0 '+t('daqiqa'));return;}
   recs.forEach((r,i)=>{
+    // Agar bugungi kun bo'lsa va xodim hozir aktiv ishlayotgan bo'lsa (ish tugallanmagan)
+    if(r.work_date === todayISO() && typeof empState !== 'undefined' && empState !== 'ended'){
+      r.end_time = null;
+      r.auto_ended = false;
+      const curLs = document.getElementById('i_ls')?.textContent;
+      const curLe = document.getElementById('i_le')?.textContent;
+      if(!curLs || curLs === '-') r.lunch_start = null;
+      if(!curLe || curLe === '-') r.lunch_end = null;
+    }
     if(r.late_minutes>0)lc++;
     totalAfkSec+=r.afk_seconds||0;
-    const wh=Math.floor((r.work_seconds||0)/3600),wm=Math.floor(((r.work_seconds||0)%3600)/60);
-    const lh=Math.floor((r.lunch_seconds||0)/3600),lm2=Math.floor(((r.lunch_seconds||0)%3600)/60);
+    const isTodayActive = (r.work_date === todayISO() && typeof empState !== 'undefined' && empState !== 'ended');
+    const actualWorkSec = isTodayActive
+      ? ((typeof wAccum !== 'undefined' && wStart) ? (wAccum + Math.max(0, Math.floor((tzNow() - wStart) / 1000))) : (typeof wAccum !== 'undefined' ? wAccum : (r.work_seconds || 0)))
+      : (r.work_seconds || 0);
+    const actualLunchSec = isTodayActive
+      ? (typeof lAccum !== 'undefined' ? lAccum : (r.lunch_seconds || 0))
+      : (r.lunch_seconds || 0);
+    const wh=Math.floor(actualWorkSec/3600),wm=Math.floor((actualWorkSec%3600)/60);
+    const lh=Math.floor(actualLunchSec/3600),lm2=Math.floor((actualLunchSec%3600)/60);
     const afkMin=Math.floor((r.afk_seconds||0)/60);
     const status=computeStatusByTimes(
       r.start_time?r.start_time.substring(0,5):null,
       r.end_time?r.end_time.substring(0,5):null,
       r.late_minutes||0,
-      r.work_seconds||0
+      actualWorkSec
     );
     let bdg='';
     if(status==='keldi')bdg=`<span class="badge bg">${t('b_came')}</span>`;
