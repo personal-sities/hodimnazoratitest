@@ -339,17 +339,14 @@ async function ensureDatabaseSchema() {
         AND ABS(EXTRACT(EPOCH FROM (n1.sent_at - n2.sent_at))) < 30;
     `).catch(() => {});
 
-    // 2.10 Bugungi kun (CURRENT_DATE) noto'g'ri vaqtlarini tozalash
+    // 2.10 Agar start_time va end_time mavjud bo'lib, work_seconds 0 yoki null bo'lib qolgan bo'lsa, uni avtomatik hisoblab tiklash
     await pool.query(`
       UPDATE public.attendance
-      SET end_time = NULL,
-          lunch_start = CASE WHEN lunch_start > CURRENT_TIME THEN NULL ELSE lunch_start END,
-          lunch_end = CASE WHEN lunch_end > CURRENT_TIME THEN NULL ELSE lunch_end END,
-          work_seconds = CASE WHEN end_time IS NOT NULL AND (end_time > CURRENT_TIME OR end_time = '17:50:00') THEN 0 ELSE work_seconds END,
-          lunch_seconds = CASE WHEN lunch_start IS NOT NULL AND (lunch_start > CURRENT_TIME OR lunch_start = '13:06:00') THEN 0 ELSE lunch_seconds END,
-          auto_ended = false
-      WHERE work_date = CURRENT_DATE
-        AND (end_time > CURRENT_TIME OR lunch_start > CURRENT_TIME OR end_time = '17:50:00');
+      SET work_seconds = GREATEST(0, (EXTRACT(EPOCH FROM (end_time::time - start_time::time))::int - COALESCE(lunch_seconds, 0)))
+      WHERE start_time IS NOT NULL 
+        AND end_time IS NOT NULL 
+        AND end_time > start_time 
+        AND (work_seconds IS NULL OR work_seconds = 0);
     `).catch(() => {});
 
     // 2.11 Axmadova / Maftuna -> Qarshiyeva Durdona xodim va qo'ng'iroqlarini avtomatik to'g'rilash

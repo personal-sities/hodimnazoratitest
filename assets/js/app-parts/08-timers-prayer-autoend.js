@@ -105,7 +105,7 @@ async function fetchPrayerSchedule(force = false) {
 
   // 2. Server orqali (O'zbekiston Musulmonlar idorasi taqvimi)
   try {
-    const res = await fetch('/api/prayer-times?region=toshkent-shahri');
+    const res = await fetch(resolveApiUrl('/api/prayer-times?region=toshkent-shahri'));
     if (res.ok) {
       const json = await res.json();
       if (json && json.ok && json.times) {

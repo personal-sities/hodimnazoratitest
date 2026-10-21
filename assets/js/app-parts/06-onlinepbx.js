@@ -242,7 +242,7 @@ async function fetchAndRenderPbxStats(isBackground = false) {
   }
 
   try {
-    const url = `/api/pbx/stats?from=${encodeURIComponent(pbxDateFrom)}&to=${encodeURIComponent(pbxDateTo)}&operator=${encodeURIComponent(pbxFilterOperator)}&status=${encodeURIComponent(pbxFilterStatus)}`;
+    const url = resolveApiUrl(`/api/pbx/stats?from=${encodeURIComponent(pbxDateFrom)}&to=${encodeURIComponent(pbxDateTo)}&operator=${encodeURIComponent(pbxFilterOperator)}&status=${encodeURIComponent(pbxFilterStatus)}`);
     const res = await fetch(url);
     if (!res.ok) throw new Error('Stats API xatosi');
     const data = await res.json();
@@ -401,7 +401,7 @@ async function fetchAndRenderPbxCalls(isBackground = false) {
   }
 
   try {
-    const url = `/api/pbx/calls?from=${encodeURIComponent(pbxDateFrom)}&to=${encodeURIComponent(pbxDateTo)}&operator=${encodeURIComponent(pbxFilterOperator)}&status=${encodeURIComponent(pbxFilterStatus)}&limit=100`;
+    const url = resolveApiUrl(`/api/pbx/calls?from=${encodeURIComponent(pbxDateFrom)}&to=${encodeURIComponent(pbxDateTo)}&operator=${encodeURIComponent(pbxFilterOperator)}&status=${encodeURIComponent(pbxFilterStatus)}&limit=100`);
     const res = await fetch(url);
     if (!res.ok) throw new Error('Calls API xatosi');
     const data = await res.json();
@@ -520,7 +520,7 @@ async function relinkPbxCallsManual() {
 
   try {
     toast('info', 'OnlinePBX', "Qo'ng'iroqlar xodimlarga qayta biriktirilmoqda...");
-    const res = await fetch('/api/pbx/relink', { method: 'POST' });
+    const res = await fetch(resolveApiUrl('/api/pbx/relink'), { method: 'POST' });
     const data = await res.json();
     if (data.ok) {
       toast('success', 'OnlinePBX', `Muvaffaqiyatli! ${data.updated_count || 0} ta qo'ng'iroq xodimlarga biriktirildi.`);
@@ -654,7 +654,7 @@ async function sendTestPbxCall() {
   if (btn) btn.disabled = true;
 
   try {
-    const res = await fetch('/api/onlinepbx/test', {
+    const res = await fetch(resolveApiUrl('/api/onlinepbx/test'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -754,7 +754,7 @@ async function saveCallRating() {
   if (btn) btn.disabled = true;
 
   try {
-    const res = await fetch('/api/pbx/rate-call', {
+    const res = await fetch(resolveApiUrl('/api/pbx/rate-call'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ call_id: callId, rating, comment })

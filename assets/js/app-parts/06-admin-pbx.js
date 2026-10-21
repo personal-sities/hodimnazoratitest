@@ -770,7 +770,7 @@ async function delEmp(id) {
     try {
       const { data: sessData } = await sb.auth.getSession();
       if (sessData?.session?.access_token) {
-        await fetch(`${FUNCTIONS_BASE}/delete-employee`, {
+        await fetch(resolveApiUrl(`${FUNCTIONS_BASE}/delete-employee`), {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -801,7 +801,7 @@ async function delEmp(id) {
 
     // 5. Serverda qayta biriktirishni ishga tushirish
     try {
-      await fetch('/api/pbx/relink', { method: 'POST' });
+      await fetch(resolveApiUrl('/api/pbx/relink'), { method: 'POST' });
     } catch (_) {}
 
     toast('success', t('employee_title'), t('employee_removed'));
@@ -844,7 +844,7 @@ async function addEmp() {
     document.getElementById('ne_p').value = '';
     if (document.getElementById('ne_op')) document.getElementById('ne_op').value = '';
     await loadEmpList();
-    try { fetch('/api/pbx/relink', { method: 'POST' }); } catch (_) {}
+    try { fetch(resolveApiUrl('/api/pbx/relink'), { method: 'POST' }); } catch (_) {}
     if (typeof loadPbxDashboard === 'function') loadPbxDashboard();
     toast('success', t('employee_title'), t('employee_added'));
   };
@@ -1049,7 +1049,7 @@ async function saveEmployeeOperator() {
 
     // 4. Serverda barcha qo'ng'iroqlarni va statistikani yangilash
     try {
-      await fetch('/api/pbx/relink', { method: 'POST' });
+      await fetch(resolveApiUrl('/api/pbx/relink'), { method: 'POST' });
     } catch (_) {}
 
     closeEditOperatorModal();
@@ -1138,7 +1138,7 @@ async function savePass() {
     const { data: sessData } = await sb.auth.getSession();
     const token = sessData?.session?.access_token;
     if (token) {
-      const res = await fetch(`${FUNCTIONS_BASE}/reset-employee-password`, {
+      const res = await fetch(resolveApiUrl(`${FUNCTIONS_BASE}/reset-employee-password`), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
