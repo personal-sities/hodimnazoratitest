@@ -34,6 +34,20 @@ function setToday(){const today=todayISO();document.getElementById('fd_from').va
 function setCurMonth(){document.getElementById('fmonth').value=curM();onAdminMonthChange();}
 function onAdminMonthChange(){loadDashboard();loadMonthly();}
 function refreshAdminMain(){loadAtt();loadDashboard();loadMonthly();loadTodayWorkLeaveCard();}
+async function resetTodayAttendance(){
+  if(!confirm("Bugungi barcha davomat yozuvlarini tozalab, barcha xodimlarni boshlang'ich 'Kelmadi' holatiga qaytarishni xohlaysizmi?")) return;
+  try {
+    const res = await serverApi('/api/attendance/reset-today', { method: 'POST' });
+    if(res && res.ok) {
+      toast('success', "Davomat tozalandi", "Bugungi barcha xodimlar davomati muvaffaqiyatli tozalandi.");
+      refreshAdminMain();
+    } else {
+      toast('error', "Xatolik", res?.error || "Tozalab bo'lmadi");
+    }
+  } catch(e) {
+    toast('error', "Xatolik", e.message);
+  }
+}
 function setAttendanceTableMode(monthly){
   const dateRange=document.getElementById('att_date_range');
   const todayBtn=document.getElementById('b_today');

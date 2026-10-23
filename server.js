@@ -258,6 +258,23 @@ async function ensureDatabaseSchema() {
       console.warn('[Emp auto-migration error]:', migErr.message);
     }
 
+    // 6. Bugungi noto'g'ri/sinov davomat yozuvlarini tozalash (start_time bo'lmagan yoki bir vaqtda 09:03 da soxta yozilganlar)
+    try {
+      const cleanRes = await pool.query(`
+        DELETE FROM public.attendance
+        WHERE work_date = CURRENT_DATE
+          AND (
+            start_time IS NULL
+            OR (start_time = '09:03:00' AND work_seconds = 29056)
+          )
+      `);
+      if (cleanRes && cleanRes.rowCount > 0) {
+        console.log(`[Database]: Bugungi ${cleanRes.rowCount} ta xato/sinov davomat yozuvi tozalandi.`);
+      }
+    } catch (cleanErr) {
+      console.warn('[Attendance cleanup error]:', cleanErr.message);
+    }
+
     await relinkAllPbxCalls().catch((e) => {
       console.warn('[ensureDatabaseSchema relinkAllPbxCalls ogohlantirish]:', e.message);
     });
@@ -387,7 +404,10 @@ const server = http.createServer(async (req, res) => {
       return handleApiLogin(req, res);
     }
 
-    // 2. Attendance API (Davomat olish va saqlash)
+    // 2. Attendance API (Davomat olish, saqlash va tozalash)
+    if (pathname === '/api/attendance/reset-today' && req.method === 'POST') {
+      return handleResetTodayAttendance(req, res);
+    }
     if (pathname === '/api/attendance') {
       if (req.method === 'GET') return handleGetAttendance(req, res, reqUrl);
       if (req.method === 'POST') return handleSaveAttendance(req, res);
@@ -3144,6 +3164,27 @@ async function handleApiLogin(req, res) {
 }
 
 // 2. ATTENDANCE (Davomat)
+async function handleResetTodayAttendance(req, res) {
+  await readJson(req).catch(() => ({}));
+  const pool = getDbPool();
+  let deleted = 0;
+  if (pool) {
+    try {
+      const r = await pool.query('DELETE FROM public.attendance WHERE work_date = CURRENT_DATE');
+      deleted = r.rowCount || 0;
+      console.log(`[handleResetTodayAttendance]: Bugungi ${deleted} ta davomat o'chirildi.`);
+    } catch(e) {
+      console.error('[handleResetTodayAttendance DB xatosi]:', e.message);
+      return sendJson(res, 500, { ok: false, error: e.message });
+    }
+  }
+  const todayStr = new Date(Date.now() + (5 * 3600 * 1000)).toISOString().substring(0, 10);
+  let att = readJsonData('attendance.json', []);
+  att = att.filter(r => (r.work_date || '').substring(0, 10) !== todayStr);
+  writeJsonData('attendance.json', att);
+  return sendJson(res, 200, { ok: true, deleted, message: "Bugungi barcha davomat yozuvlari muvaffaqiyatli tozalandi." });
+}
+
 async function handleGetAttendance(req, res, reqUrl) {
   const from = reqUrl.searchParams.get('from');
   const to = reqUrl.searchParams.get('to');
@@ -3171,7 +3212,10 @@ async function handleGetAttendance(req, res, reqUrl) {
             COALESCE(a.work_seconds, 0)::int AS work_seconds,
             COALESCE(a.afk_seconds, 0)::int AS afk_seconds,
             COALESCE(a.afk_count, 0)::int AS afk_count,
-            COALESCE(a.status, 'kelmadi') AS status,
+            CASE 
+              WHEN a.start_time IS NOT NULL OR COALESCE(a.work_seconds, 0) > 0 THEN COALESCE(a.status, 'keldi')
+              ELSE 'kelmadi'
+            END AS status,
             COALESCE(a.auto_ended, false) AS auto_ended
           FROM public.employees e
           LEFT JOIN public.attendance a
@@ -3307,6 +3351,11 @@ async function handleSaveAttendance(req, res) {
     return sendJson(res, 400, { ok: false, error: 'employee_id kiritilishi shart' });
   }
 
+  let attStatus = body.status || 'kelmadi';
+  if (!body.start_time && (!body.work_seconds || Number(body.work_seconds) <= 0)) {
+    attStatus = 'kelmadi';
+  }
+
   const payload = {
     employee_id: employeeId,
     work_date: workDate,
@@ -3320,7 +3369,7 @@ async function handleSaveAttendance(req, res) {
     afk_seconds: Number(body.afk_seconds) || 0,
     afk_count: Number(body.afk_count) || 0,
     late_minutes: Number(body.late_minutes) || 0,
-    status: body.status || 'kelmadi',
+    status: attStatus,
     auto_ended: Boolean(body.auto_ended),
     updated_at: new Date().toISOString()
   };
@@ -3352,7 +3401,12 @@ async function handleSaveAttendance(req, res) {
           afk_seconds = GREATEST(EXCLUDED.afk_seconds, public.attendance.afk_seconds),
           afk_count = GREATEST(EXCLUDED.afk_count, public.attendance.afk_count),
           late_minutes = EXCLUDED.late_minutes,
-          status = EXCLUDED.status,
+          status = CASE 
+            WHEN COALESCE(EXCLUDED.start_time, public.attendance.start_time) IS NOT NULL 
+                 OR GREATEST(EXCLUDED.work_seconds, public.attendance.work_seconds) > 0 
+            THEN EXCLUDED.status
+            ELSE 'kelmadi'
+          END,
           auto_ended = EXCLUDED.auto_ended,
           updated_at = now()
         RETURNING *;

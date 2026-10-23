@@ -55,11 +55,40 @@ let pendingAutoEndSave = false;
 
 function todayBreakSec(){return breakSeconds;}
 
-function getLS(){return JSON.parse(localStorage.getItem('aloqa_emp_state')||'null');}
+function getLSKey(){
+  return (CU && CU.id) ? `aloqa_emp_state_${CU.id}` : 'aloqa_emp_state';
+}
+function getLS(){
+  return JSON.parse(localStorage.getItem(getLSKey())||'null');
+}
 function saveLS(){
+  if (!CU || !CU.id) return;
   const ss=getLS()||{};
-  const data={date:todayISO(),state:empState,wAccum,lAccum,prayerAccum,afkSeconds,afkCount,breakSeconds,wStartISO:wStart?wStart.toISOString():null,lStartISO:lStart?lStart.toISOString():null,prayerStartISO:prayerStart?prayerStart.toISOString():null,afkStartISO:currentAfkStart?currentAfkStart.toISOString():null,i_s:document.getElementById('i_s')?.textContent||'-',i_e:document.getElementById('i_e')?.textContent||'-',i_ls:document.getElementById('i_ls')?.textContent||'-',i_le:document.getElementById('i_le')?.textContent||'-',i_ps:document.getElementById('i_ps')?.textContent||'-',i_pe:document.getElementById('i_pe')?.textContent||'-',lateMin:ss.lateMin||0,autoEndDone:autoEndDone||false,lastSavedISO:tzNow().toISOString()};
-  localStorage.setItem('aloqa_emp_state',JSON.stringify(data));
+  const data={
+    employee_id: CU.id,
+    date: todayISO(),
+    state: empState,
+    wAccum,
+    lAccum,
+    prayerAccum,
+    afkSeconds,
+    afkCount,
+    breakSeconds,
+    wStartISO: wStart ? wStart.toISOString() : null,
+    lStartISO: lStart ? lStart.toISOString() : null,
+    prayerStartISO: prayerStart ? prayerStart.toISOString() : null,
+    afkStartISO: currentAfkStart ? currentAfkStart.toISOString() : null,
+    i_s: document.getElementById('i_s')?.textContent||'-',
+    i_e: document.getElementById('i_e')?.textContent||'-',
+    i_ls: document.getElementById('i_ls')?.textContent||'-',
+    i_le: document.getElementById('i_le')?.textContent||'-',
+    i_ps: document.getElementById('i_ps')?.textContent||'-',
+    i_pe: document.getElementById('i_pe')?.textContent||'-',
+    lateMin: ss.lateMin||0,
+    autoEndDone: autoEndDone||false,
+    lastSavedISO: tzNow().toISOString()
+  };
+  localStorage.setItem(getLSKey(), JSON.stringify(data));
 }
 function getTodayAutoEndDate(){
   const hh=String(AUTO_END_HOUR).padStart(2,'0');
@@ -67,15 +96,51 @@ function getTodayAutoEndDate(){
   return new Date(`${todayISO()}T${hh}:${mm}:00+05:00`);
 }
 async function restoreLS(){
-  const ss=getLS();
-  if(!ss||ss.date!==todayISO()){localStorage.removeItem('aloqa_emp_state');updateEmpBtns();return false;}
-  empState=ss.state||'not_started';wAccum=ss.wAccum||0;lAccum=ss.lAccum||0;prayerAccum=ss.prayerAccum||0;afkSeconds=ss.afkSeconds||0;afkCount=ss.afkCount||0;breakSeconds=ss.breakSeconds||0;autoEndDone=ss.autoEndDone||false;
-  if(ss.wStartISO)wStart=new Date(ss.wStartISO);
-  if(ss.lStartISO)lStart=new Date(ss.lStartISO);
-  if(ss.prayerStartISO)prayerStart=new Date(ss.prayerStartISO);
-  if(!autoEndDone&&['working','lunch','paused','prayer'].includes(empState)){
-    const autoEndAt=getTodayAutoEndDate();
-    if(tzNow()>=autoEndAt){
+  const key = getLSKey();
+  const ss = getLS();
+  try { localStorage.removeItem('aloqa_emp_state'); } catch(_) {}
+
+  if(!ss || ss.date !== todayISO() || (CU && CU.id && ss.employee_id && ss.employee_id !== CU.id)){
+    try { localStorage.removeItem(key); } catch(_) {}
+    empState = 'not_started';
+    wStart = null; wAccum = 0;
+    lStart = null; lAccum = 0;
+    prayerStart = null; prayerAccum = 0;
+    afkSeconds = 0; afkCount = 0; breakSeconds = 0;
+    autoEndDone = false;
+    pendingAutoEndSave = false;
+    st('i_s', '-'); st('i_e', '-'); st('i_ls', '-'); st('i_le', '-'); st('i_ps', '-'); st('i_pe', '-');
+    setTV(0, 'tw'); setTV(0, 'tl'); setTV(0, 'tp');
+    updateEmpBtns();
+    updateEmpStatusTag();
+    return false;
+  }
+
+  empState = ss.state || 'not_started';
+  wAccum = ss.wAccum || 0;
+  lAccum = ss.lAccum || 0;
+  prayerAccum = ss.prayerAccum || 0;
+  afkSeconds = ss.afkSeconds || 0;
+  afkCount = ss.afkCount || 0;
+  breakSeconds = ss.breakSeconds || 0;
+  autoEndDone = ss.autoEndDone || false;
+
+  // Agar xodim ishni boshlamagan bo'lsa (not_started yoki i_s yo'q), qat'iy not_started holatida qoladi
+  if (empState === 'not_started' || (!ss.wStartISO && (!ss.i_s || ss.i_s === '-'))) {
+    empState = 'not_started';
+    wStart = null;
+    lStart = null;
+    prayerStart = null;
+    pendingAutoEndSave = false;
+  } else {
+    if(ss.wStartISO) wStart = new Date(ss.wStartISO);
+    if(ss.lStartISO) lStart = new Date(ss.lStartISO);
+    if(ss.prayerStartISO) prayerStart = new Date(ss.prayerStartISO);
+  }
+
+  if(!autoEndDone && ['working','lunch','paused','prayer'].includes(empState) && (wStart || ss.wStartISO)){
+    const autoEndAt = getTodayAutoEndDate();
+    if(tzNow() >= autoEndAt){
       if(empState==='working'&&wStart)wAccum+=Math.max(0,Math.floor((autoEndAt-wStart)/1000));
       if(empState==='lunch'&&lStart)lAccum+=Math.max(0,Math.floor((autoEndAt-lStart)/1000));
       if(empState==='prayer'&&prayerStart)prayerAccum+=Math.max(0,Math.floor((autoEndAt-prayerStart)/1000));
@@ -84,11 +149,19 @@ async function restoreLS(){
       ss.wStartISO=null;ss.lStartISO=null;ss.prayerStartISO=null;ss.afkStartISO=null;
       ss.i_e=ss.i_e&&ss.i_e!=='-'?ss.i_e:fmtHM(autoEndAt);
       ss.autoEndDone=true;ss.lastSavedISO=tzNow().toISOString();
-      localStorage.setItem('aloqa_emp_state',JSON.stringify(ss));
+      localStorage.setItem(key,JSON.stringify(ss));
       pendingAutoEndSave=true;
     }
   }
-  if(ss.afkStartISO&&empState==='working'){currentAfkStart=new Date(ss.afkStartISO);isAfk=true;const elapsed=Math.floor((tzNow()-currentAfkStart)/1000);if(elapsed>0){afkSeconds+=elapsed;breakSeconds+=elapsed;}currentAfkStart=null;isAfk=false;}
+
+  if(ss.afkStartISO&&empState==='working'){
+    currentAfkStart=new Date(ss.afkStartISO);
+    isAfk=true;
+    const elapsed=Math.floor((tzNow()-currentAfkStart)/1000);
+    if(elapsed>0){afkSeconds+=elapsed;breakSeconds+=elapsed;}
+    currentAfkStart=null;isAfk=false;
+  }
+
   st('i_s',ss.i_s||'-');st('i_e',ss.i_e||'-');st('i_ls',ss.i_ls||'-');st('i_le',ss.i_le||'-');st('i_ps',ss.i_ps||'-');st('i_pe',ss.i_pe||'-');
   const lt=document.getElementById('e_ltag');if(lt&&ss.lateMin!==undefined)lt.textContent=t('lt_pre')+' '+ss.lateMin+' '+t('lt_u');
   const displayWork=empState==='working'&&wStart?wAccum+Math.max(0,Math.floor((tzNow()-wStart)/1000)):wAccum;
@@ -192,7 +265,35 @@ async function initEmp(){
           updateEmpBtns();
           updateEmpStatusTag();
           saveLS();
+        } else if (rec.start_time) {
+          // Xodim bugun ishni avvalroq boshlagan bo'lsa
+          if (empState === 'not_started') {
+            const [sh, sm] = String(rec.start_time).split(':').map(Number);
+            const sDate = new Date();
+            sDate.setHours(sh, sm, 0, 0);
+            wStart = sDate;
+            empState = 'working';
+            wAccum = rec.work_seconds || rec.worked_seconds || 0;
+            updateEmpBtns();
+            updateEmpStatusTag();
+            startWT();
+            saveLS();
+          }
+        } else {
+          // Serverda ham start_time yo'q -> QAT'IY not_started!
+          empState = 'not_started';
+          wStart = null;
+          wAccum = 0;
+          updateEmpBtns();
+          updateEmpStatusTag();
         }
+      } else {
+        // Serverda bugun xodim uchun hech qanday yozuv yo'q -> QAT'IY not_started!
+        empState = 'not_started';
+        wStart = null;
+        wAccum = 0;
+        updateEmpBtns();
+        updateEmpStatusTag();
       }
     }
   } catch (err) {
@@ -208,10 +309,15 @@ async function initEmp(){
   maybeStartFaceDetection();
   startAutoEndCheck();
   startPrayerClock();
-  if(pendingAutoEndSave){
+  
+  // Faqat haqiqatdan ham boshlangan va avtomatik yakunlanishi kerak bo'lganda saqlash
+  if(pendingAutoEndSave && empState === 'ended' && wAccum > 0){
     pendingAutoEndSave=false;
     saveAtt(true).catch(e=>console.warn('auto-end restore save:',e.message||e));
+  } else {
+    pendingAutoEndSave = false;
   }
+
   loadTodayLunchPlan().then(()=>ensureLunchShiftPrompt());
   scheduleReminders();
   subscribeEmployeeRealtime();
@@ -287,7 +393,7 @@ async function empStart(){
   st('i_s',fmtHM(wStart));
   const lm=computeLateMinutesFromDate(wStart);
   const el=document.getElementById('e_ltag');if(el)el.textContent=t('lt_pre')+' '+lm+' '+t('lt_u');
-  const ss=getLS()||{};ss.lateMin=lm;localStorage.setItem('aloqa_emp_state',JSON.stringify(ss));
+  const ss=getLS()||{};ss.lateMin=lm;ss.employee_id=CU.id;localStorage.setItem(getLSKey(),JSON.stringify(ss));
   await loadFaceControlSettings();
   updateEmpBtns();updateEmpStatusTag();startWT();saveLS();maybeStartFaceDetection();
   await savePartial();
@@ -397,57 +503,68 @@ async function empEnd(auto=false){
   saveLS();await saveAtt(auto);
 }
 async function saveAtt(autoEnded=false){
-  if(!CU)return;
-  const today=todayISO();const ss=getLS()||{};const lm=ss.lateMin||0;
-  const startHM = ss.i_s&&ss.i_s!=='-'?ss.i_s:null;
-  const endHM = ss.i_e&&ss.i_e!=='-'?ss.i_e:null;
-  const payload={
-    employee_id:CU.id,
-    work_date:today,
-    start_time:startHM?startHM+':00':null,
-    end_time:endHM?endHM+':00':null,
-    lunch_start:ss.i_ls&&ss.i_ls!=='-'?ss.i_ls+':00':null,
-    lunch_end:ss.i_le&&ss.i_le!=='-'?ss.i_le+':00':null,
-    work_seconds:wAccum,
-    lunch_seconds:lAccum,
-    afk_seconds:getPenaltyAfkSeconds(afkSeconds),
-    afk_count:afkCount,
-    late_minutes:lm,
-    status:computeStatusByTimes(startHM,endHM,lm,wAccum),
-    auto_ended:autoEnded
+  if(!CU || !CU.id) return;
+  const ss = getLS() || {};
+  const startHM = ss.i_s && ss.i_s !== '-' ? ss.i_s : (wStart ? fmtHM(wStart) : null);
+  // Agar xodim ishni boshlamagan bo'lsa va startHM bo'lmasa qat'iy saqlanmasin!
+  if(!startHM && !wStart && wAccum <= 0) return;
+  const today = todayISO();
+  const lm = ss.lateMin || 0;
+  const endHM = ss.i_e && ss.i_e !== '-' ? ss.i_e : (empState === 'ended' ? fmtHM(tzNow()) : null);
+  const payload = {
+    employee_id: CU.id,
+    work_date: today,
+    start_time: startHM ? (startHM.length === 5 ? startHM + ':00' : startHM) : null,
+    end_time: endHM ? (endHM.length === 5 ? endHM + ':00' : endHM) : null,
+    lunch_start: ss.i_ls && ss.i_ls !== '-' ? (ss.i_ls.length === 5 ? ss.i_ls + ':00' : ss.i_ls) : null,
+    lunch_end: ss.i_le && ss.i_le !== '-' ? (ss.i_le.length === 5 ? ss.i_le + ':00' : ss.i_le) : null,
+    work_seconds: wAccum,
+    lunch_seconds: lAccum,
+    afk_seconds: getPenaltyAfkSeconds(afkSeconds),
+    afk_count: afkCount,
+    late_minutes: lm,
+    status: computeStatusByTimes(startHM, endHM, lm, wAccum),
+    auto_ended: autoEnded
   };
   try{
     await serverApi('/api/attendance', { method:'POST', body: JSON.stringify(payload) });
     try { await sb.from('attendance').upsert(payload,{onConflict:'employee_id,work_date'}); }catch(e){}
-  }catch(e){console.warn('saveAtt error:',e);}
+  }catch(e){console.warn('saveAtt error:', e);}
   loadHist();
 }
 async function savePartial(){
-  if(!CU||empState==='not_started')return;
-  const today=todayISO();const ss=getLS()||{};const lm=ss.lateMin||0;
-  let cw=wAccum;if(empState==='working'&&wStart)cw+=Math.floor((tzNow()-wStart)/1000);
-  let cl=lAccum;if(empState==='lunch'&&lStart)cl+=Math.floor((tzNow()-lStart)/1000);
-  let afkNow=afkSeconds;
-  const startHM = ss.i_s&&ss.i_s!=='-'?ss.i_s:null;
-  const payload={
-    employee_id:CU.id,
-    work_date:today,
-    start_time:startHM?startHM+':00':null,
-    end_time:ss.i_e&&ss.i_e!=='-'?ss.i_e+':00':null,
-    lunch_start:ss.i_ls&&ss.i_ls!=='-'?ss.i_ls+':00':null,
-    lunch_end:ss.i_le&&ss.i_le!=='-'?ss.i_le+':00':null,
-    work_seconds:cw,
-    lunch_seconds:cl,
-    afk_seconds:getPenaltyAfkSeconds(afkNow),
-    afk_count:afkCount,
-    late_minutes:lm,
-    status:computeStatusByTimes(startHM,ss.i_e&&ss.i_e!=='-'?ss.i_e:null,lm,cw),
-    auto_ended:false
+  if(!CU || !CU.id || empState === 'not_started') return;
+  const ss = getLS() || {};
+  const startHM = ss.i_s && ss.i_s !== '-' ? ss.i_s : (wStart ? fmtHM(wStart) : null);
+  // Ish boshlanmagan bo'lsa hech qachon bazaga kirmasin!
+  if(!startHM && !wStart && wAccum <= 0) return;
+  const today = todayISO();
+  const lm = ss.lateMin || 0;
+  let cw = wAccum;
+  if(empState === 'working' && wStart) cw += Math.floor((tzNow() - wStart) / 1000);
+  let cl = lAccum;
+  if(empState === 'lunch' && lStart) cl += Math.floor((tzNow() - lStart) / 1000);
+  let afkNow = afkSeconds;
+
+  const payload = {
+    employee_id: CU.id,
+    work_date: today,
+    start_time: startHM ? (startHM.length === 5 ? startHM + ':00' : startHM) : null,
+    end_time: ss.i_e && ss.i_e !== '-' ? (ss.i_e.length === 5 ? ss.i_e + ':00' : ss.i_e) : null,
+    lunch_start: ss.i_ls && ss.i_ls !== '-' ? (ss.i_ls.length === 5 ? ss.i_ls + ':00' : ss.i_ls) : null,
+    lunch_end: ss.i_le && ss.i_le !== '-' ? (ss.i_le.length === 5 ? ss.i_le + ':00' : ss.i_le) : null,
+    work_seconds: cw,
+    lunch_seconds: cl,
+    afk_seconds: getPenaltyAfkSeconds(afkNow),
+    afk_count: afkCount,
+    late_minutes: lm,
+    status: computeStatusByTimes(startHM, ss.i_e && ss.i_e !== '-' ? ss.i_e : null, lm, cw),
+    auto_ended: false
   };
   try{
     await serverApi('/api/attendance', { method:'POST', body: JSON.stringify(payload) });
     try { await sb.from('attendance').upsert(payload,{onConflict:'employee_id,work_date'}); }catch(e){}
-  }catch(e){console.warn('savePartial error:',e);}
+  }catch(e){console.warn('savePartial error:', e);}
 }
 
 // ============================================================

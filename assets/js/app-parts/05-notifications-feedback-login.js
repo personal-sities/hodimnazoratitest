@@ -730,8 +730,10 @@ async function doLogout(){
   window._manualLogoutInitiated = true;
   if(CU && CU.role==='employee'){
     try{
-      pauseWorkForPlatformExit();
-      await savePartial();
+      if (typeof empState !== 'undefined' && empState !== 'not_started' && empState !== 'ended') {
+        pauseWorkForPlatformExit();
+        await savePartial();
+      }
     }catch(e){console.warn('logout pause save:',e.message||e);}
   }
   stopAll();
@@ -740,9 +742,22 @@ async function doLogout(){
 
   try { await sb.auth.signOut(); } catch(e){}
 
+  const prevUid = CU ? CU.id : null;
   CU = null;
   localStorage.removeItem('aloqa_u');
   localStorage.removeItem('aloqa_emp_state');
+  if(prevUid) {
+    try { localStorage.removeItem(`aloqa_emp_state_${prevUid}`); } catch(_) {}
+  }
+
+  if (typeof empState !== 'undefined') empState = 'not_started';
+  if (typeof wStart !== 'undefined') wStart = null;
+  if (typeof wAccum !== 'undefined') wAccum = 0;
+  if (typeof lStart !== 'undefined') lStart = null;
+  if (typeof lAccum !== 'undefined') lAccum = 0;
+  if (typeof prayerStart !== 'undefined') prayerStart = null;
+  if (typeof prayerAccum !== 'undefined') prayerAccum = 0;
+  if (typeof autoEndDone !== 'undefined') autoEndDone = false;
 
   showPage('login');
 }

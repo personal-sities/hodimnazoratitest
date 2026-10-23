@@ -50,6 +50,7 @@ function formatPenaltyAfk(sec=0){
   return mins>0 ? `${mins} ${t('daq')}` : '—';
 }
 function computeStatusByTimes(startHM,endHM,lateMin,workSec){
+  if(!startHM && (!workSec || workSec <= 0)) return 'kelmadi';
   if(isHalfDayByTimes(startHM,endHM)) return 'yarim_kun';
   if((lateMin||0)>0) return 'kechikkan';
   return 'keldi';

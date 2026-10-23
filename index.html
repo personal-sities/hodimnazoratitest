@@ -250,6 +250,7 @@ html.user-logged-in #loginPage {
               <input type="month" id="fmonth" onchange="onAdminMonthChange()" style="font-size:12px;padding:7px 9px;border:1.5px solid var(--border2);border-radius:var(--radius-sm);background:var(--input-bg);color:var(--text);">
               <button class="bg2" id="b_cm" onclick="setCurMonth()"><span class="btn-icon" data-lucide="calendar"></span> <span>Joriy oy</span></button>
               <button class="bb" id="b_ref" onclick="refreshAdminMain()"><span class="btn-icon" data-lucide="refresh-cw"></span> <span>Yangilash</span></button>
+              <button class="bg2" id="b_reset_today" onclick="resetTodayAttendance()" title="Bugungi davomatni tozalash" style="color:var(--danger);border-color:var(--danger);"><span class="btn-icon" data-lucide="trash-2"></span> <span>Tozalash</span></button>
             </div>
             <div class="tbl-wrap">
               <table class="tbl" style="min-width:720px;">
