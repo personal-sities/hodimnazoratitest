@@ -26,3 +26,5 @@ Thumbs.db
 .vscode/
 .idea/
 .codex/
+dist/
+.cleanup_last_run

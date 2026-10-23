@@ -42,6 +42,7 @@ function updateEmpBtns(){
   }
   else if(empState==='ended'){
     dis(bsE,true);dis(blE,true);dis(bpE,true);dis(beE,true);
+    if(bsE)bsE.title="Bugungi ish kuni yakunlangan (qayta boshlash mumkin emas)";
     if(blE)setActionBtnContent(blE, 'utensils', t('bl'));
     if(bpE)setActionBtnContent(bpE, 'compass', t('prayer_btn'));
   }

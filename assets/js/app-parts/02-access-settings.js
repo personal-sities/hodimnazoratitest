@@ -6,9 +6,23 @@ let userGeoPosition = null;
 
 async function getUserIP(){
   if (userPublicIP) return userPublicIP;
+  // 1. Avval o'z serverimizdan so'raymiz (1ms, tashqi internetga bog'liq emas)
+  try {
+    const sRes = await fetch('/api/my-ip');
+    if (sRes.ok) {
+      const data = await sRes.json();
+      if (data && data.ip) {
+        userPublicIP = data.ip;
+        sessionStorage.setItem('aloqa_ip', data.ip);
+        return userPublicIP;
+      }
+    }
+  } catch (_) {}
+
+  // 2. Tashqi xizmat orqali tekshirish
   try {
     const ctrl = new AbortController();
-    const timeout = setTimeout(() => ctrl.abort(), 1500);
+    const timeout = setTimeout(() => ctrl.abort(), 2000);
     const r = await fetch('https://api.ipify.org?format=json', { signal: ctrl.signal });
     clearTimeout(timeout);
     const d = await r.json();
@@ -48,9 +62,20 @@ async function saveAllowedIPs(arr){
 async function checkIPAccess(role){
   if(role==='admin')return true;
   const allowed=await getAllowedIPs();
-  if(allowed.length===0)return true;
+  if(!allowed || allowed.length===0)return true;
   if(!userPublicIP)userPublicIP=await getUserIP();
-  return allowed.includes(userPublicIP);
+  if(!userPublicIP)return false;
+
+  // Aniq moslik yoki maska (masalan, 84.54.* yoki 192.168.1.*)
+  const isAllowed = allowed.some(pattern => {
+    const p = String(pattern || '').trim();
+    if (!p) return false;
+    if (p === userPublicIP) return true;
+    if (p.endsWith('*') && userPublicIP.startsWith(p.slice(0, -1))) return true;
+    if (p === '127.0.0.1' && (userPublicIP === '127.0.0.1' || userPublicIP === '::1' || userPublicIP === 'localhost')) return true;
+    return false;
+  });
+  return isAllowed;
 }
 
 async function getGPSRegionSettings(){

@@ -87,9 +87,8 @@ html, body {
   min-height: 100vh;
   -webkit-text-size-adjust: 100%;
   transition: background .3s, color .3s;
-  -webkit-user-select: none;
-  user-select: none;
-  -webkit-touch-callout: none;
+  -webkit-user-select: auto;
+  user-select: auto;
 }
 input, textarea, select, [contenteditable="true"] { -webkit-user-select: text; user-select: text; }
 input, textarea, select, button { color-scheme: inherit; }

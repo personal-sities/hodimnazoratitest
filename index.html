@@ -12,13 +12,13 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <script src="./env.js"></script>
 <script src="./supabase.js"></script>
-<script src="assets/js/app-parts/00-lucide-icons.js?v=2.1"></script>
+<script src="assets/js/app-parts/00-lucide-icons.js?v=3.3"></script>
 <script>window.wasmPath = './';</script>
 <script defer src="./face-api.js"></script>
 <script defer src="./xlsx.full.min.js"></script>
 <script defer src="./jspdf.umd.min.js"></script>
 <script defer src="./jspdf.plugin.autotable.min.js"></script>
-<link rel="stylesheet" href="assets/css/style.css?v=2.2">
+<link rel="stylesheet" href="assets/css/style.css?v=3.3">
 <style>
 /* CRITICAL ICON SIZE RULES - ZERO CACHE DELAY */
 .lucide, svg.lucide, svg[class*="lucide-"] {
@@ -87,8 +87,6 @@
   max-width: 18px !important;
   max-height: 18px !important;
   flex-shrink: 0 !important;
-}
-<style>
 html.user-logged-in #loginPage {
   display: none !important;
 }
@@ -247,6 +245,7 @@ html.user-logged-in #loginPage {
                 <option value="keldi" id="o_came">Keldi</option>
                 <option value="kechikkan" id="o_late">Kechikkan</option>
                 <option value="kelmadi" id="o_abs">Kelmadi</option>
+                <option value="work_leave" id="o_leave">Ta'tilda</option>
               </select>
               <input type="month" id="fmonth" onchange="onAdminMonthChange()" style="font-size:12px;padding:7px 9px;border:1.5px solid var(--border2);border-radius:var(--radius-sm);background:var(--input-bg);color:var(--text);">
               <button class="bg2" id="b_cm" onclick="setCurMonth()"><span class="btn-icon" data-lucide="calendar"></span> <span>Joriy oy</span></button>
@@ -256,7 +255,7 @@ html.user-logged-in #loginPage {
               <table class="tbl" style="min-width:720px;">
                 <thead><tr>
                   <th>#</th><th id="th1">Ism familiya</th><th id="th2">Login</th>
-                  <th id="th4">O'zgartirish</th><th id="th5">Kelgan vaqti</th>
+                  <th id="th4">Parol</th><th id="th5">Kelgan vaqti</th>
                   <th id="th6">Kechikish</th><th id="th7">Ishlagan soat</th>
                   <th id="th_afk">AFK vaqti</th><th id="th8">Status</th>
                 </tr></thead>
@@ -723,6 +722,16 @@ html.user-logged-in #loginPage {
       <div class="ec">
         <h2 id="et_t"><span class="card-ico" data-lucide="calendar"></span> Bugungi ma'lumot</h2>
         <div class="igrid">
+          <div class="ii" style="grid-column: span 2; background: var(--bg2); border: 1.5px solid var(--accent); border-radius: var(--radius-sm); padding: 10px 14px; display: flex; align-items: center; justify-content: space-between;">
+            <div style="display:flex;align-items:center;gap:10px;">
+              <span data-lucide="phone-call" style="width:20px;height:20px;color:var(--accent);"></span>
+              <div>
+                <h4 style="color:var(--text2);font-size:11.5px;margin:0;">Bugun suhbatlashilgan qo'ng'iroqlar</h4>
+                <div style="font-size:18px;font-weight:800;color:var(--text);font-family:var(--mono);margin-top:2px;" id="emp_today_calls_cnt">0 ta</div>
+              </div>
+            </div>
+            <div id="emp_today_calls_sub" style="font-size:11.5px;color:var(--text3);font-family:var(--mono);font-weight:600;">Operator: —</div>
+          </div>
           <div class="ii"><h4 id="ei1">Ish boshlagan</h4><p id="i_s">-</p></div>
           <div class="ii"><h4 id="ei2">Ish tugagan</h4><p id="i_e">-</p></div>
           <div class="ii"><h4 id="ei3">Tushlik boshlangan</h4><p id="i_ls">-</p></div>
@@ -1058,17 +1067,17 @@ html.user-logged-in #loginPage {
   </div>
 </div>
 
-<script src="assets/js/app-parts/00-lucide-icons.js?v=3.2"></script>
-<script src="assets/js/app-parts/01-core.js?v=3.2" defer></script>
-<script src="assets/js/app-parts/02-access-settings.js?v=3.2" defer></script>
-<script src="assets/js/app-parts/03-translations.js?v=3.2" defer></script>
-<script src="assets/js/app-parts/04-time-attendance-utils.js?v=3.2" defer></script>
-<script src="assets/js/app-parts/05-notifications-feedback-login.js?v=3.2" defer></script>
-<script src="assets/js/app-parts/06-admin-pbx.js?v=3.2" defer></script>
-<script src="assets/js/app-parts/06-onlinepbx.js?v=3.2" defer></script>
-<script src="assets/js/app-parts/07-export-employee-state-actions.js?v=3.2" defer></script>
-<script src="assets/js/app-parts/08-timers-prayer-autoend.js?v=3.2" defer></script>
-<script src="assets/js/app-parts/09-face-detection.js?v=3.2" defer></script>
-<script src="assets/js/app-parts/10-employee-ui-init.js?v=3.2" defer></script>
+<script src="assets/js/app-parts/00-lucide-icons.js?v=3.3"></script>
+<script src="assets/js/app-parts/01-core.js?v=3.3" defer></script>
+<script src="assets/js/app-parts/02-access-settings.js?v=3.3" defer></script>
+<script src="assets/js/app-parts/03-translations.js?v=3.3" defer></script>
+<script src="assets/js/app-parts/04-time-attendance-utils.js?v=3.3" defer></script>
+<script src="assets/js/app-parts/05-notifications-feedback-login.js?v=3.3" defer></script>
+<script src="assets/js/app-parts/06-admin-pbx.js?v=3.3" defer></script>
+<script src="assets/js/app-parts/06-onlinepbx.js?v=3.3" defer></script>
+<script src="assets/js/app-parts/07-export-employee-state-actions.js?v=3.3" defer></script>
+<script src="assets/js/app-parts/08-timers-prayer-autoend.js?v=3.3" defer></script>
+<script src="assets/js/app-parts/09-face-detection.js?v=3.3" defer></script>
+<script src="assets/js/app-parts/10-employee-ui-init.js?v=3.3" defer></script>
 </body>
 </html>

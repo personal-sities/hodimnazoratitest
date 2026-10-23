@@ -133,29 +133,35 @@ async function loadEmployeeLeaveAdminList(){
   if(!tbody)return;
   tbody.innerHTML=`<tr><td colspan="6" style="text-align:center;color:var(--text3);padding:18px">${t('loading')}</td></tr>`;
   try{
-    const [{data:emps,error:empErr}, leaveRes] = await Promise.all([
-      sb.from('employees').select('id,name').eq('active',true).order('name'),
-      employeeLeavesTableAvailable
-        ? sb.from('employee_leaves').select('id,employee_id,leave_start_date,return_date,created_at').order('leave_start_date',{ascending:false})
-        : Promise.resolve({data:getLocalEmployeeLeaves(), error:null})
-    ]);
-    const empMap=new Map(((emps||[])).map(emp=>[emp.id, emp.name||'-']));
-    let rows=[];
-    if(!empErr){
-      if(leaveRes?.error){
-        if(/employee_leaves|relation/i.test(leaveRes.error.message||'')){
-          employeeLeavesTableAvailable=false;
-          toast('warn', t('work_leave'), t('leave_table_missing'));
-          rows=getLocalEmployeeLeaves();
-        }else{
-          throw leaveRes.error;
-        }
-      }else{
-        rows=(leaveRes?.data||[]);
-      }
-    }else{
-      throw empErr;
+    let emps = null;
+    let rows = null;
+
+    // 1. Server API orqali yuklash
+    try {
+      const [sEmps, sLeaves] = await Promise.all([
+        serverApi('/api/employees?active_only=true'),
+        serverApi('/api/employee-leaves')
+      ]);
+      if(sEmps.ok && Array.isArray(sEmps.data)) emps = sEmps.data;
+      if(sLeaves.ok && Array.isArray(sLeaves.data)) rows = sLeaves.data;
+    } catch (_) {}
+
+    // 2. Supabase fallback
+    if (!emps || !rows) {
+      const [{data:sbEmps}, leaveRes] = await Promise.all([
+        sb.from('employees').select('id,name').eq('active',true).order('name'),
+        employeeLeavesTableAvailable
+          ? sb.from('employee_leaves').select('id,employee_id,leave_start_date,return_date,created_at').order('leave_start_date',{ascending:false})
+          : Promise.resolve({data:getLocalEmployeeLeaves(), error:null})
+      ]);
+      if (!emps && sbEmps) emps = sbEmps;
+      if (!rows && leaveRes?.data) rows = leaveRes.data;
     }
+
+    if (!emps) emps = [];
+    if (!rows) rows = getLocalEmployeeLeaves();
+
+    const empMap=new Map((emps||[]).map(emp=>[emp.id, emp.name||'-']));
     rows=(rows||[])
       .filter(row=>row&&row.employee_id&&normalizeIsoDate(row.leave_start_date)&&normalizeIsoDate(row.return_date))
       .sort((a,b)=>(b.leave_start_date||'').localeCompare(a.leave_start_date||''));
@@ -168,8 +174,7 @@ async function loadEmployeeLeaveAdminList(){
     rows.forEach((row,i)=>{
       const tr=document.createElement('tr');
       const status=today<=row.return_date?t('on_work_leave'):t('returned');
-      const source = row.id && String(row.id).startsWith('local_') ? 'local' : 'remote';
-      tr.innerHTML=`<td>${i+1}</td><td>${empMap.get(row.employee_id)||'-'}</td><td style="font-family:var(--mono)">${row.leave_start_date}</td><td style="font-family:var(--mono)">${row.return_date}</td><td><span class="badge bauto">${status}</span></td><td><button class="brd" onclick="removeEmployeeLeave('${row.id}','${source}')">${t('delete')}</button></td>`;
+      tr.innerHTML=`<td>${i+1}</td><td>${empMap.get(row.employee_id)||'-'}</td><td style="font-family:var(--mono)">${row.leave_start_date}</td><td style="font-family:var(--mono)">${row.return_date}</td><td><span class="badge bauto">${status}</span></td><td><button class="brd" onclick="removeEmployeeLeave('${row.id}')">${t('delete')}</button></td>`;
       tbody.appendChild(tr);
     });
   }catch(e){
@@ -201,20 +206,22 @@ async function addEmployeeLeave(){
   }
   const payload={employee_id:employeeId, leave_start_date:leaveStart, return_date:returnDate};
   try{
-    if(employeeLeavesTableAvailable){
-      const {error}=await sb.from('employee_leaves').insert(payload);
-      if(error){
-        if(/employee_leaves|relation/i.test(error.message||'')){
-          employeeLeavesTableAvailable=false;
-          saveLocalEmployeeLeave(payload);
-          toast('warn', t('work_leave'), t('leave_table_missing'));
-        }else{
-          throw error;
-        }
+    // 1. Server API
+    try {
+      await serverApi('/api/employee-leaves', {
+        method: 'POST',
+        body: JSON.stringify(payload)
+      });
+    } catch (_) {}
+
+    // 2. Supabase fallback
+    try {
+      if(employeeLeavesTableAvailable){
+        await sb.from('employee_leaves').insert(payload);
       }
-    }else{
-      saveLocalEmployeeLeave(payload);
-    }
+    } catch (_) {}
+
+    saveLocalEmployeeLeave(payload);
     document.getElementById('leave_emp').value='';
     document.getElementById('leave_start').value='';
     document.getElementById('leave_return').value='';
@@ -228,24 +235,25 @@ async function addEmployeeLeave(){
     toast('error', t('work_leave'), e.message||t('leave_save_error'));
   }
 }
-async function removeEmployeeLeave(id, source='remote'){
+async function removeEmployeeLeave(id){
   if(!id)return;
   try{
-    if(source==='local' || String(id).startsWith('local_') || !employeeLeavesTableAvailable){
-      const rows=getLocalEmployeeLeaves().filter(row=>String(row.id)!==String(id));
-      setLocalEmployeeLeaves(rows);
-    }else{
-      const {error}=await sb.from('employee_leaves').delete().eq('id', id);
-      if(error){
-        if(/employee_leaves|relation/i.test(error.message||'')){
-          employeeLeavesTableAvailable=false;
-          const rows=getLocalEmployeeLeaves().filter(row=>String(row.id)!==String(id));
-          setLocalEmployeeLeaves(rows);
-        }else{
-          throw error;
-        }
+    // 1. Server API
+    try {
+      await serverApi(`/api/employee-leaves/${id}`, { method: 'DELETE' });
+    } catch (_) {}
+
+    // 2. Supabase fallback
+    try {
+      if(employeeLeavesTableAvailable && !String(id).startsWith('local_')){
+        await sb.from('employee_leaves').delete().eq('id', id);
       }
-    }
+    } catch (_) {}
+
+    // 3. Local cache
+    const rows=getLocalEmployeeLeaves().filter(row=>String(row.id)!==String(id));
+    setLocalEmployeeLeaves(rows);
+
     toast('success', t('work_leave'), t('leave_delete_success'));
     await loadEmployeeLeaveAdminList();
     await loadTodayWorkLeaveCard();
@@ -305,57 +313,9 @@ setInterval(updateDates,30000);
 function isEditableTarget(target){
   return !!target?.closest?.('input, textarea, select, [contenteditable="true"]');
 }
-function blockClipboardEvent(e){
-  e.preventDefault();
-  e.stopPropagation();
-  if(e.clipboardData){
-    try{e.clipboardData.setData('text/plain','');}catch(_){}
-  }
-  return false;
-}
 function disableClipboardFeatures(){
-  try{
-    if(navigator.clipboard){
-      navigator.clipboard.writeText = async () => false;
-      navigator.clipboard.readText = async () => '';
-      navigator.clipboard.write = async () => false;
-      navigator.clipboard.read = async () => [];
-    }
-  }catch(e){
-    console.warn('Clipboard override failed:', e.message);
-  }
-  if(!disableClipboardFeatures.bound){
-    document.addEventListener('copy', blockClipboardEvent, true);
-    document.addEventListener('cut', blockClipboardEvent, true);
-    document.addEventListener('contextmenu', e=>{
-      e.preventDefault();
-      e.stopPropagation();
-    }, true);
-    document.addEventListener('dragstart', e=>{
-      e.preventDefault();
-      e.stopPropagation();
-    }, true);
-    document.addEventListener('selectstart', e=>{
-      if(!isEditableTarget(e.target)){
-        e.preventDefault();
-        e.stopPropagation();
-      }
-    }, true);
-    document.addEventListener('keydown', e=>{
-      const key = (e.key || '').toLowerCase();
-      const blockedShortcut = (e.ctrlKey || e.metaKey) && (key === 'c' || key === 'x' || key === 'insert');
-      if(blockedShortcut){
-        e.preventDefault();
-        e.stopPropagation();
-      }
-    }, true);
-    disableClipboardFeatures.bound = true;
-  }
-  document.querySelectorAll('[data-copy],[data-action="copy"],.copy-btn,.copy-button,button[onclick*="copy"],button[onclick*="clipboard"]').forEach(btn=>{
-    btn.disabled = true;
-    btn.style.display = 'none';
-  });
+  // Foydalanuvchi talabi bo'yicha: brauzerda nusxalash (copy) to'liq ruxsat etilgan!
 }
-disableClipboardFeatures();
+// Clipboard to'siqlari o'chirildi
 
 // ============================================================

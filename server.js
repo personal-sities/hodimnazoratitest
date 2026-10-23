@@ -313,6 +313,12 @@ const server = http.createServer(async (req, res) => {
       return handleOnlinePbxWebhook(req, res, reqUrl);
     }
 
+    // IP aniqlash API (mijozning haqiqiy IP manzilini qaytaradi)
+    if (pathname === '/api/my-ip') {
+      const clientIp = getClientIp(req);
+      return sendJson(res, 200, { ok: true, ip: clientIp });
+    }
+
     // OnlinePBX Statistikalar API
     if (pathname === '/api/pbx/stats' && req.method === 'GET') {
       return handlePbxStats(req, res, reqUrl);
@@ -321,6 +327,13 @@ const server = http.createServer(async (req, res) => {
     // OnlinePBX Qo'ng'iroqlar jurnali API
     if (pathname === '/api/pbx/calls' && req.method === 'GET') {
       return handlePbxCalls(req, res, reqUrl);
+    }
+
+    // OnlinePBX Qo'ng'iroqlarni qo'lda / tezkor sinxronlash API
+    if (pathname === '/api/pbx/sync' && req.method === 'POST') {
+      const days = Number(reqUrl.searchParams.get('days') || 7);
+      const syncRes = await syncOnlinePbxCalls(days);
+      return sendJson(res, 200, syncRes);
     }
 
     // OnlinePBX Test / Sinov API
@@ -434,6 +447,10 @@ const server = http.createServer(async (req, res) => {
       if (req.method === 'GET') return handleGetEmployeeLeaves(req, res, reqUrl);
       if (req.method === 'POST') return handleSaveEmployeeLeave(req, res);
     }
+    if (pathname.startsWith('/api/employee-leaves/')) {
+      const leaveId = pathname.replace('/api/employee-leaves/', '').trim();
+      if (req.method === 'DELETE') return handleDeleteEmployeeLeave(req, res, leaveId);
+    }
 
     // Statik fayllarni tarqatish
     return serveStatic(pathname, res);
@@ -486,6 +503,9 @@ if (require.main === module) {
 
       // 18:30 avtomatik yakunlash va 17:55 eslatma rejalashtiruvchisi
       initAutoEndScheduler();
+
+      // OnlinePBX 7 kunlik qo'ng'iroqlarni yuklash va har 25 soniyada yangilab turish
+      initOnlinePbxSync();
     });
   }
 
@@ -595,7 +615,7 @@ async function handleFunction(req, res, name) {
 
 async function handleCreateEmployee(res, body) {
   const name = String(body.name || '').trim();
-  const email = String(body.email || '').trim().toLowerCase();
+  const email = String(body.email || body.login || '').trim().toLowerCase();
   const password = String(body.password || '').trim();
   const validRoles = ['manager', 'operator', 'sales_operator', 'intern', 'senior', 'junior'];
   const rawRole = String(body.role || body.kpi_type || 'operator').toLowerCase();
@@ -606,39 +626,32 @@ async function handleCreateEmployee(res, body) {
     return sendJson(res, 400, { ok: false, error: 'Ism, email va parol kiritilishi shart' });
   }
 
+  const newEmpId = `emp_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
   const pool = getDbPool();
+  let created = null;
+
   if (pool) {
     try {
       const query = `
-        INSERT INTO public.employees (user_id, name, login, password, kpi_type, operator_number, pbx_extension, active, face_registered)
-        VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $5, true, false)
-        RETURNING id, name, login, kpi_type, operator_number, active;
+        INSERT INTO public.employees (id, user_id, name, login, password, kpi_type, operator_number, pbx_extension, active, face_registered, created_at, updated_at)
+        VALUES ($1, $1, $2, $3, $4, $5, $6, $6, true, false, now(), now())
+        RETURNING id, name, login, password, kpi_type, operator_number, pbx_extension, active;
       `;
-      const result = await pool.query(query, [name, email, password, kpiType, operatorNumber]);
-      const newEmp = result.rows[0];
-      const newEmpId = newEmp?.id;
-      if (newEmpId && operatorNumber) {
+      const result = await pool.query(query, [newEmpId, name, email, password, kpiType, operatorNumber]);
+      created = result.rows[0];
+      if (created?.id && operatorNumber) {
         await pool.query(
-          'UPDATE public.calls SET employee_id = $1 WHERE operator_number = $2 AND employee_id IS NULL',
-          [newEmpId, operatorNumber]
-        ).catch(() => { });
+          'UPDATE public.calls SET employee_id = $1, employee_name = $2 WHERE operator_number = $3 AND (employee_id IS NULL OR employee_id <> $1)',
+          [created.id, name, operatorNumber]
+        ).catch(() => {});
+        await relinkAllPbxCalls().catch(() => {});
       }
-
-      // Lokal JSON zaxirasi
-      const emps = readJsonData('employees.json', []);
-      emps.push({ ...newEmp, password, created_at: new Date().toISOString() });
-      writeJsonData('employees.json', emps);
-
-      return sendJson(res, 200, { ok: true, employee_id: newEmpId, employee: newEmp });
     } catch (dbErr) {
       console.error('handleCreateEmployee DB xatosi:', dbErr.message);
     }
   }
 
-  // Fallback: Local employees.json ga saqlash
-  const emps = readJsonData('employees.json', []);
-  const newEmpId = `emp_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
-  const newEmp = {
+  const localItem = created || {
     id: newEmpId,
     user_id: newEmpId,
     name,
@@ -649,27 +662,15 @@ async function handleCreateEmployee(res, body) {
     pbx_extension: operatorNumber,
     active: true,
     face_registered: false,
-    created_at: new Date().toISOString()
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString()
   };
-  emps.push(newEmp);
+
+  const emps = readJsonData('employees.json', []);
+  emps.push(localItem);
   writeJsonData('employees.json', emps);
 
-  if (operatorNumber) {
-    try {
-      const calls = readLocalCalls();
-      let callUpdated = false;
-      calls.forEach(c => {
-        if (c.operator_number === operatorNumber && !c.employee_id) {
-          c.employee_id = newEmpId;
-          c.employee_name = name;
-          callUpdated = true;
-        }
-      });
-      if (callUpdated) writeLocalCalls(calls);
-    } catch (_) { }
-  }
-
-  return sendJson(res, 200, { ok: true, employee_id: newEmpId, employee: newEmp });
+  return sendJson(res, 200, { ok: true, employee_id: localItem.id, employee: localItem });
 }
 
 async function handleDeleteEmployee(res, body) {
@@ -938,6 +939,219 @@ async function saveCallRecord(call) {
 // ============================================================
 const ALLOWED_PBX_OPERATORS = ['100', '101', '102', '103', '104', '105', '5002'];
 
+function getClientIp(req) {
+  const forwarded = req.headers['x-forwarded-for'];
+  if (forwarded) {
+    const ips = String(forwarded).split(',').map(s => s.trim());
+    if (ips[0]) return ips[0];
+  }
+  const realIp = req.headers['x-real-ip'];
+  if (realIp) return String(realIp).trim();
+  const cfIp = req.headers['cf-connecting-ip'];
+  if (cfIp) return String(cfIp).trim();
+  let remote = req.socket?.remoteAddress || '';
+  if (remote.startsWith('::ffff:')) remote = remote.slice(7);
+  if (remote === '::1') remote = '127.0.0.1';
+  return remote || '127.0.0.1';
+}
+
+const ONLINEPBX_DOMAIN = process.env.ONLINEPBX_DOMAIN || 'pbx27644.onpbx.ru';
+const ONLINEPBX_TOKEN = process.env.ONLINEPBX_TOKEN || 'bmM5QkdtbmEya2RKODZlUmx1OUFoMldod3ZsWUlsYVk';
+
+let lastPbxSyncTime = 0;
+let isPbxSyncing = false;
+
+async function syncOnlinePbxCalls(daysBack = 7) {
+  if (isPbxSyncing) {
+    return { ok: false, message: 'Sync allaqachon bajarilmoqda' };
+  }
+  isPbxSyncing = true;
+  try {
+    const authUrl = `https://api2.onlinepbx.ru/${ONLINEPBX_DOMAIN}/auth.json`;
+    const authRes = await fetch(authUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ auth_key: ONLINEPBX_TOKEN })
+    });
+    const authData = await authRes.json();
+    if (!authData?.data?.key || !authData?.data?.key_id) {
+      console.warn('[OnlinePBX Sync]: Auth muvaffaqiyatsiz bo\'ldi:', authData);
+      return { ok: false, error: 'OnlinePBX auth error' };
+    }
+    const { key, key_id } = authData.data;
+
+    const fromStamp = Math.floor((Date.now() - daysBack * 24 * 3600 * 1000) / 1000);
+    const searchUrl = `https://api2.onlinepbx.ru/${ONLINEPBX_DOMAIN}/mongo_history/search.json`;
+    const searchRes = await fetch(searchUrl, {
+      method: 'POST',
+      headers: {
+        'x-pbx-authentication': `${key_id}:${key}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        start_stamp_from: fromStamp
+      })
+    });
+    const result = await searchRes.json();
+    const rawCalls = Array.isArray(result?.data) ? result.data : [];
+
+    const allowedSet = new Set(ALLOWED_PBX_OPERATORS);
+    const pool = getDbPool();
+    let savedCount = 0;
+
+    let employees = [];
+    if (pool) {
+      const eRes = await pool.query('SELECT id, name, operator_number, pbx_extension FROM public.employees WHERE active = true').catch(() => ({ rows: [] }));
+      employees = eRes.rows || [];
+    } else {
+      employees = readJsonData('employees.json', []).filter(e => e.active !== false);
+    }
+    const empByOp = new Map();
+    employees.forEach(emp => {
+      const op = String(emp.operator_number || '').trim();
+      const pbx = String(emp.pbx_extension || '').trim();
+      if (op && allowedSet.has(op) && !empByOp.has(op)) empByOp.set(op, emp);
+      if (pbx && allowedSet.has(pbx) && !empByOp.has(pbx)) empByOp.set(pbx, emp);
+    });
+
+    const localCalls = readLocalCalls();
+    const localCallMap = new Map(localCalls.map(c => [c.call_id, c]));
+    let localChanged = false;
+
+    for (const raw of rawCalls) {
+      const uuid = raw.uuid;
+      if (!uuid) continue;
+
+      const startStamp = Number(raw.start_stamp) || 0;
+      if (!startStamp) continue;
+      const startedAt = new Date(startStamp * 1000).toISOString();
+
+      // Ish vaqti: 08:00 - 18:00 (Toshkent vaqti UTC+5)
+      const startDate = new Date(startStamp * 1000);
+      const tashkentHour = (startDate.getUTCHours() + 5) % 24;
+      const tashkentMin = startDate.getUTCMinutes();
+      const timeMins = tashkentHour * 60 + tashkentMin;
+      if (timeMins < 8 * 60 || timeMins > 18 * 60) {
+        continue;
+      }
+
+      const duration = Number(raw.duration) || 0;
+      const talkTime = Number(raw.user_talk_time || raw.billsec) || 0;
+      const hangupCause = String(raw.hangup_cause || '').toUpperCase();
+      const isAnswered = (hangupCause === 'NORMAL_CLEARING' && talkTime > 0) || (raw.contacted === true && talkTime > 0);
+      const status = isAnswered ? 'answered' : 'missed';
+
+      // O'tkazib yuborilganlardan faqat >= 22s kutganlar
+      if (status === 'missed' && duration < 22) {
+        continue;
+      }
+
+      const caller = String(raw.caller_id_number || '').trim();
+      const callee = String(raw.destination_number || '').trim();
+
+      let operatorNumber = null;
+      if (Array.isArray(raw.events)) {
+        for (const ev of raw.events) {
+          const num = String(ev.number || ev.user || '').trim();
+          if (allowedSet.has(num)) {
+            operatorNumber = num;
+            if (ev.answered_stamp || ev.type === 'transfer') break;
+          }
+        }
+      }
+      if (!operatorNumber && allowedSet.has(callee)) operatorNumber = callee;
+      if (!operatorNumber && allowedSet.has(caller)) operatorNumber = caller;
+      if (!operatorNumber && raw.user && allowedSet.has(String(raw.user).trim())) operatorNumber = String(raw.user).trim();
+
+      if (!operatorNumber || !allowedSet.has(operatorNumber)) {
+        continue;
+      }
+
+      const direction = (operatorNumber === caller) ? 'out' : 'in';
+      const matchedEmp = empByOp.get(operatorNumber);
+      const employeeId = matchedEmp ? matchedEmp.id : null;
+      const employeeName = matchedEmp ? matchedEmp.name : (operatorNumber === '5002' ? '5002-operator' : null);
+
+      const tashkentDate = new Date(startStamp * 1000 + 5 * 3600 * 1000).toISOString().split('T')[0];
+
+      if (pool) {
+        try {
+          const insertQuery = `
+            INSERT INTO public.calls (
+              call_id, caller, callee, operator_number, employee_id, employee_name,
+              direction, status, duration, talk_time, raw_data, call_date, started_at, created_at, updated_at
+            ) VALUES (
+              $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12::date, $13::timestamptz, now(), now()
+            )
+            ON CONFLICT (call_id) DO UPDATE SET
+              operator_number = EXCLUDED.operator_number,
+              employee_id = COALESCE(EXCLUDED.employee_id, public.calls.employee_id),
+              employee_name = COALESCE(EXCLUDED.employee_name, public.calls.employee_name),
+              direction = EXCLUDED.direction,
+              status = EXCLUDED.status,
+              duration = EXCLUDED.duration,
+              talk_time = EXCLUDED.talk_time,
+              updated_at = now()
+            WHERE public.calls.status <> EXCLUDED.status OR public.calls.talk_time <> EXCLUDED.talk_time;
+          `;
+          await pool.query(insertQuery, [
+            uuid, caller, callee, operatorNumber, employeeId, employeeName,
+            direction, status, duration, talkTime, JSON.stringify(raw), tashkentDate, startedAt
+          ]);
+          savedCount++;
+        } catch (_) {}
+      }
+
+      const localItem = {
+        id: localCallMap.get(uuid)?.id || `call_${Date.now()}_${Math.random().toString(36).substring(2,6)}`,
+        call_id: uuid,
+        caller,
+        callee,
+        operator_number: operatorNumber,
+        employee_id: employeeId,
+        employee_name: employeeName,
+        direction,
+        status,
+        duration,
+        talk_time: talkTime,
+        call_date: tashkentDate,
+        started_at: startedAt,
+        updated_at: new Date().toISOString()
+      };
+      if (!localCallMap.has(uuid)) {
+        localCalls.push(localItem);
+        localCallMap.set(uuid, localItem);
+        localChanged = true;
+      }
+    }
+
+    if (localChanged) {
+      writeLocalCalls(localCalls);
+    }
+    lastPbxSyncTime = Date.now();
+    return { ok: true, total_fetched: rawCalls.length, saved_count: savedCount };
+  } catch (err) {
+    console.warn('[OnlinePBX Sync error]:', err.message);
+    return { ok: false, error: err.message };
+  } finally {
+    isPbxSyncing = false;
+  }
+}
+
+function initOnlinePbxSync() {
+  setTimeout(() => {
+    syncOnlinePbxCalls(7).then(res => {
+      console.log('[OnlinePBX Sync]: Dastlabki 7 kunlik sinxronizatsiya yakunlandi:', res);
+    }).catch(err => {
+      console.warn('[OnlinePBX Sync ogohlantirish]:', err.message);
+    });
+  }, 2000);
+
+  setInterval(() => {
+    syncOnlinePbxCalls(0.04).catch(() => {});
+  }, 25000);
+}
+
 async function relinkAllPbxCalls() {
   const pool = getDbPool();
   let updatedCount = 0;
@@ -1131,6 +1345,7 @@ async function getCallsStats(from, to, operator = 'all', status = 'all') {
   if (pool) {
     try {
       // 1. Kompaniyaga kelgan barcha umumiy kiruvchi qo'ng'iroqlar soni (X)
+      // Shart: ish vaqti 08:00 - 18:00 (Toshkent vaqti) va o'tkazib yuborilganlardan faqat >= 22s kutganlar
       const companyQuery = `
         SELECT
           COUNT(c.id)::int AS total_company_incoming,
@@ -1138,7 +1353,9 @@ async function getCallsStats(from, to, operator = 'all', status = 'all') {
           COUNT(c.id) FILTER (WHERE c.status = 'missed')::int AS total_company_missed
         FROM public.calls c
         WHERE c.call_date BETWEEN $1 AND $2
-          AND (LOWER(COALESCE(c.direction, 'in')) IN ('in', 'inbound', '') OR c.direction IS NULL);
+          AND (LOWER(COALESCE(c.direction, 'in')) IN ('in', 'inbound', '') OR c.direction IS NULL)
+          AND ((c.started_at AT TIME ZONE 'Asia/Tashkent')::time BETWEEN '08:00:00' AND '18:00:00')
+          AND (c.status = 'answered' OR (c.status = 'missed' AND COALESCE(c.duration, 0) >= 22));
       `;
       const companyRes = await pool.query(companyQuery, [from, to]).catch(() => ({ rows: [] }));
       const totalCompanyIncoming = Number(companyRes.rows[0]?.total_company_incoming) || 0;
@@ -1168,6 +1385,8 @@ async function getCallsStats(from, to, operator = 'all', status = 'all') {
         WHERE c.call_date BETWEEN $1 AND $2
           AND (LOWER(COALESCE(c.direction, 'in')) IN ('in', 'inbound', '') OR c.direction IS NULL)
           AND c.operator_number = ANY($3::text[])
+          AND ((c.started_at AT TIME ZONE 'Asia/Tashkent')::time BETWEEN '08:00:00' AND '18:00:00')
+          AND (c.status = 'answered' OR (c.status = 'missed' AND COALESCE(c.duration, 0) >= 22))
       `;
       const params = [from, to, ALLOWED_PBX_OPERATORS];
       if (operator && operator !== 'all') {
@@ -1277,7 +1496,17 @@ async function getCallsStats(from, to, operator = 'all', status = 'all') {
     const dir = String(c.direction || 'in').toLowerCase().trim();
     const isIncoming = (dir === 'in' || dir === 'inbound' || dir === '');
     const statusMatch = (!status || status === 'all' || c.status === status);
-    return dateMatch && isIncoming && statusMatch;
+    if (!dateMatch || !isIncoming || !statusMatch) return false;
+
+    if (c.started_at) {
+      const d = new Date(c.started_at);
+      const tashkentHour = (d.getUTCHours() + 5) % 24;
+      const tashkentMin = d.getUTCMinutes();
+      const timeMins = tashkentHour * 60 + tashkentMin;
+      if (timeMins < 8 * 60 || timeMins > 18 * 60) return false;
+    }
+    if (c.status === 'missed' && (Number(c.duration) || 0) < 22) return false;
+    return true;
   });
 
   const X = allCompanyIncoming.length;
@@ -1379,7 +1608,7 @@ async function getCallsStats(from, to, operator = 'all', status = 'all') {
   };
 }
 
-async function getCallsList(from, to, operator, status, limit = 50) {
+async function getCallsList(from, to, operator, status, limit = 50, employeeId = null) {
   limit = Math.min(300, Math.max(1, parseInt(limit, 10) || 50));
   const pool = getDbPool();
   if (pool) {
@@ -1414,6 +1643,8 @@ async function getCallsList(from, to, operator, status, limit = 50) {
           LIMIT 1
         ) e ON true
         WHERE c.operator_number = ANY($1::text[])
+          AND ((c.started_at AT TIME ZONE 'Asia/Tashkent')::time BETWEEN '08:00:00' AND '18:00:00')
+          AND (c.status = 'answered' OR (c.status = 'missed' AND COALESCE(c.duration, 0) >= 22))
       `;
       const params = [ALLOWED_PBX_OPERATORS];
       if (from) {
@@ -1431,6 +1662,10 @@ async function getCallsList(from, to, operator, status, limit = 50) {
       if (status && status !== 'all') {
         params.push(status);
         query += ` AND c.status = $${params.length}`;
+      }
+      if (employeeId) {
+        params.push(employeeId);
+        query += ` AND (c.employee_id = $${params.length} OR c.operator_number IN (SELECT operator_number FROM public.employees WHERE id = $${params.length} AND operator_number IS NOT NULL))`;
       }
       params.push(limit);
       query += ` ORDER BY c.started_at DESC LIMIT $${params.length}`;
@@ -1457,6 +1692,25 @@ async function getCallsList(from, to, operator, status, limit = 50) {
     calls = calls.filter(c => c.operator_number === operator);
   }
   if (status && status !== 'all') calls = calls.filter(c => c.status === status);
+
+  // 08:00 - 18:00 va missed >= 22s filtri
+  calls = calls.filter(c => {
+    if (c.started_at) {
+      const d = new Date(c.started_at);
+      const tashkentHour = (d.getUTCHours() + 5) % 24;
+      const tashkentMin = d.getUTCMinutes();
+      const timeMins = tashkentHour * 60 + tashkentMin;
+      if (timeMins < 8 * 60 || timeMins > 18 * 60) return false;
+    }
+    if (c.status === 'missed' && (Number(c.duration) || 0) < 22) return false;
+    if (employeeId) {
+      const emp = allEmployees.find(e => e.id === employeeId);
+      const op = emp?.operator_number || emp?.pbx_extension;
+      if (c.employee_id !== employeeId && (!op || c.operator_number !== op)) return false;
+    }
+    return true;
+  });
+
   calls.sort((a, b) => new Date(b.started_at || 0) - new Date(a.started_at || 0));
 
   const enriched = calls.slice(0, limit).map(c => {
@@ -1695,8 +1949,9 @@ async function handlePbxCalls(req, res, reqUrl) {
     const operator = reqUrl.searchParams.get('operator') || 'all';
     const status = reqUrl.searchParams.get('status') || 'all';
     const limit = reqUrl.searchParams.get('limit') || 50;
+    const employeeId = reqUrl.searchParams.get('employee_id') || null;
 
-    const result = await getCallsList(from, to, operator, status, limit);
+    const result = await getCallsList(from, to, operator, status, limit, employeeId);
     return sendJson(res, 200, result);
   } catch (e) {
     console.error('[handlePbxCalls error]:', e);
@@ -3196,7 +3451,7 @@ async function handleUpdateEmployeeByIdApi(req, res, empId, preBody = null) {
 
       const fields = [];
       const values = [];
-      const allowed = ['name', 'login', 'kpi_type', 'operator_number', 'pbx_extension', 'active', 'face_registered'];
+      const allowed = ['name', 'login', 'password', 'kpi_type', 'operator_number', 'pbx_extension', 'active', 'face_registered'];
       allowed.forEach(k => {
         if (body[k] !== undefined) {
           values.push(body[k]);
@@ -3205,7 +3460,7 @@ async function handleUpdateEmployeeByIdApi(req, res, empId, preBody = null) {
       });
       if (fields.length > 0) {
         values.push(empId);
-        await pool.query(`UPDATE public.employees SET ${fields.join(', ')}, updated_at = now() WHERE id = $${values.length}`);
+        await pool.query(`UPDATE public.employees SET ${fields.join(', ')}, updated_at = now() WHERE id = $${values.length}`, values);
       }
 
       // Agar operator yoki ism o'zgargan bo'lsa, calls jadvalini ham yangilaymiz
@@ -3406,8 +3661,8 @@ async function handleCreateNotification(req, res) {
     if (pool) {
       try {
         const r = await pool.query(
-          'INSERT INTO public.notifications (employee_id, title, body, type, is_read, sent_at) VALUES ($1, $2, $3, $4, false, now()) RETURNING *',
-          [notif.employee_id, notif.title, notif.body, notif.type]
+          'INSERT INTO public.notifications (id, employee_id, title, body, type, is_read, sent_at) VALUES ($1, $2, $3, $4, $5, false, now()) RETURNING *',
+          [notif.id, notif.employee_id, notif.title, notif.body, notif.type]
         );
         if (r.rows && r.rows[0]) Object.assign(notif, r.rows[0]);
       } catch (e) {
@@ -3526,8 +3781,8 @@ async function handleCreateFeedback(req, res) {
   if (pool) {
     try {
       const r = await pool.query(
-        'INSERT INTO public.feedback (employee_id, employee_name, type, message, status, created_at) VALUES ($1, $2, $3, $4, $5, now()) RETURNING *',
-        [fb.employee_id, fb.employee_name, fb.type, fb.message, fb.status]
+        'INSERT INTO public.feedback (id, employee_id, employee_name, type, message, status, created_at) VALUES ($1, $2, $3, $4, $5, $6, now()) RETURNING *',
+        [fb.id, fb.employee_id, fb.employee_name, fb.type, fb.message, fb.status]
       );
       if (r.rows && r.rows[0]) Object.assign(fb, r.rows[0]);
     } catch (e) {
@@ -3568,6 +3823,31 @@ async function handleReplyFeedback(req, res, fbId) {
     item.replied_at = new Date().toISOString();
     writeJsonData('feedback.json', list);
     updated = updated || item;
+  }
+
+  // Xodimga javob yozilgani haqida bildirishnoma yaratamiz
+  const targetEmployeeId = updated?.employee_id || item?.employee_id;
+  if (targetEmployeeId && reply) {
+    const notif = {
+      id: `notif_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      employee_id: targetEmployeeId,
+      title: "Murojaatingizga javob berildi",
+      body: reply,
+      type: 'admin',
+      is_read: false,
+      sent_at: new Date().toISOString()
+    };
+    if (pool) {
+      try {
+        await pool.query(
+          'INSERT INTO public.notifications (id, employee_id, title, body, type, is_read, sent_at) VALUES ($1, $2, $3, $4, $5, false, now())',
+          [notif.id, notif.employee_id, notif.title, notif.body, notif.type]
+        );
+      } catch (_) {}
+    }
+    const notifList = readJsonData('notifications.json', []);
+    notifList.unshift(notif);
+    writeJsonData('notifications.json', notifList.slice(0, 1000));
   }
 
   return sendJson(res, 200, { ok: true, data: updated });
@@ -3655,8 +3935,8 @@ async function handleSaveEmployeeLeave(req, res) {
   if (pool) {
     try {
       const r = await pool.query(
-        'INSERT INTO public.employee_leaves (employee_id, leave_start_date, return_date, created_at) VALUES ($1, $2, $3, now()) RETURNING *',
-        [leave.employee_id, leave.leave_start_date, leave.return_date]
+        'INSERT INTO public.employee_leaves (id, employee_id, leave_start_date, return_date, created_at) VALUES ($1, $2, $3, $4, now()) RETURNING *',
+        [leave.id, leave.employee_id, leave.leave_start_date, leave.return_date]
       );
       if (r.rows && r.rows[0]) Object.assign(leave, r.rows[0]);
     } catch (e) { }
@@ -3667,6 +3947,23 @@ async function handleSaveEmployeeLeave(req, res) {
   writeJsonData('employee_leaves.json', list);
 
   return sendJson(res, 200, { ok: true, data: leave });
+}
+
+async function handleDeleteEmployeeLeave(req, res, leaveId) {
+  const pool = getDbPool();
+  if (pool) {
+    try {
+      await pool.query('DELETE FROM public.employee_leaves WHERE id = $1', [leaveId]);
+    } catch (e) {
+      console.warn('[handleDeleteEmployeeLeave DB]:', e.message);
+    }
+  }
+
+  let list = readJsonData('employee_leaves.json', []);
+  list = list.filter(l => l.id !== leaveId);
+  writeJsonData('employee_leaves.json', list);
+
+  return sendJson(res, 200, { ok: true });
 }
 
 module.exports = {

@@ -414,7 +414,7 @@ function renderPbxCallsTable(calls) {
 
     const isAnswered = c.status === 'answered';
     const statusBadge = isAnswered
-      ? `<span class="badge bsm bg" style="display:inline-flex;align-items:center;gap:4px;">${getLucideIcon('check-circle', '', 12)} ${t('pbx_stat_answered') || 'Gaplashilgan'}</span>`
+      ? `<span class="badge bsm bg" style="display:inline-flex;align-items:center;gap:4px;">${getLucideIcon('phone-call', '', 12)} ${t('pbx_stat_answered') || 'Gaplashilgan'}</span>`
       : `<span class="badge bsm br" style="display:inline-flex;align-items:center;gap:4px;">${getLucideIcon('phone-missed', '', 12)} ${t('pbx_stat_missed') || 'Propushnniy'}</span>`;
 
     const talkStr = isAnswered
@@ -425,7 +425,7 @@ function renderPbxCallsTable(calls) {
     let ratingHtml = '';
     if (!isNaN(rVal) && rVal > 0) {
       const rc = getPbxRatingColor(rVal);
-      ratingHtml = `<button class="bsm" onclick="openRateCallModal('${c.call_id}','${escapePbxHtml(c.caller||'')}','${escapePbxHtml(c.employee_name||'')}',${rVal},'${escapePbxHtml(c.rating_comment||'')}')" style="background:${rc.bg};color:${rc.text};border:1px solid ${rc.border};font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:3px;border-radius:var(--radius-sm);padding:3px 8px;" title="${c.rating_comment ? escapePbxHtml(c.rating_comment) : 'Bahoni tahrirlash'}">★ ${rVal}</button>`;
+      ratingHtml = `<button class="bsm" onclick="openRateCallModal('${c.call_id}','${escapePbxHtml(c.caller||'')}','${escapePbxHtml(c.employee_name||'')}',${rVal},'${escapePbxHtml(c.rating_comment||'')}')" style="background:${rc.bg};color:${rc.text};border:1px solid ${rc.border};font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:4px;border-radius:var(--radius-sm);padding:3px 8px;" title="${c.rating_comment ? escapePbxHtml(c.rating_comment) : 'Bahoni tahrirlash'}">${getLucideIcon('star', '', 12)} ${rVal}</button>`;
     } else {
       ratingHtml = `<button class="bsm bg2" onclick="openRateCallModal('${c.call_id}','${escapePbxHtml(c.caller||'')}','${escapePbxHtml(c.employee_name||'')}',5,'')" style="font-size:11px;padding:3px 7px;cursor:pointer;" title="Baho qo'yish">+ Baholash</button>`;
     }
@@ -438,8 +438,8 @@ function renderPbxCallsTable(calls) {
     const clientPhone = isOut ? (c.callee || 'Noma\'lum') : (c.caller || 'Noma\'lum');
     const lineDisplay = isOut ? (c.caller || 'Chiquvchi') : (c.callee || '—');
     const dirBadge = isOut
-      ? `<span class="badge bsm bb" style="font-size:10px;padding:2px 6px;display:inline-flex;align-items:center;gap:3px;" title="Chiquvchi qo'ng'iroq">${getLucideIcon('arrow-up-right', '', 11)} Chiq.</span>`
-      : `<span class="badge bsm bg2" style="font-size:10px;padding:2px 6px;display:inline-flex;align-items:center;gap:3px;" title="Kiruvchi qo'ng'iroq">${getLucideIcon('arrow-down-left', '', 11)} Kir.</span>`;
+      ? `<span class="badge bsm bb" style="font-size:10.5px;padding:2px 7px;display:inline-flex;align-items:center;gap:4px;" title="Chiquvchi qo'ng'iroq">${getLucideIcon('phone-outgoing', '', 12)} Chiq.</span>`
+      : `<span class="badge bsm bg2" style="font-size:10.5px;padding:2px 7px;display:inline-flex;align-items:center;gap:4px;" title="Kiruvchi qo'ng'iroq">${getLucideIcon('phone-incoming', '', 12)} Kir.</span>`;
 
     const isCurrentOpSelected = (pbxFilterOperator && pbxFilterOperator !== 'all' && c.operator_number === pbxFilterOperator);
     const opBadge = (c.operator_number && c.operator_number !== '—' && c.operator_number !== 'other')

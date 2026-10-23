@@ -46,7 +46,7 @@ function setAttendanceTableMode(monthly){
     st('att_t', t('monthly_att_summary_title'));
     st('th1', t('mas_emp'));
     st('th2', t('th2'));
-    st('th4', t('mas_month'));
+    st('th4', t('th4'));
     st('th5', t('mas_worked_days'));
     st('th6', t('mas_late_count'));
     st('th7', t('mas_absent_days'));
@@ -425,7 +425,7 @@ async function loadAtt() {
         <td>${i + 1}</td>
         <td>${row.employee_name || '-'}</td>
         <td style="font-family:var(--mono)">${row.employee_login || '-'}</td>
-        <td><button class="bsm bsm-g" onclick="openEP('${row.employee_id}')">${t('change')}</button></td>
+        <td style="font-family:var(--mono);letter-spacing:2px;color:var(--text3);font-weight:600;">••••••</td>
         <td style="font-family:var(--mono)">${arr}</td>
         <td>${lm > 0 ? lm + ' ' + t('daq') : '-'}</td>
         <td style="font-family:var(--mono)">${hrs}</td>
@@ -475,7 +475,7 @@ async function loadAtt() {
         <td>${i + 1}</td>
         <td>${emp.employee_name || '-'}</td>
         <td>${emp.employee_login || '-'}</td>
-        <td><button class="bsm bsm-g" onclick="openEP('${emp.employee_id}')">${t('change')}</button></td>
+        <td style="font-family:var(--mono);letter-spacing:2px;color:var(--text3);font-weight:600;">••••••</td>
         <td>${emp.dayCount} ${t('kun')}</td>
         <td>${emp.totalLate > 0 ? emp.totalLate + ' ' + t('daq') : '-'}</td>
         <td>${hrs2}</td>
@@ -498,7 +498,12 @@ function filterAtt(){
   const s = document.getElementById('fstatus')?.value || '';
   document.querySelectorAll('#att_body tr').forEach(tr=>{
     const matchesName = (tr.dataset.name||'').includes(q) || (tr.dataset.login||'').includes(q);
-    const matchesStatus = mVisible ? true : (!s || tr.dataset.st === s);
+    const rowSt = tr.dataset.st || '';
+    let matchesStatus = true;
+    if (s) {
+      if (s === 'keldi') matchesStatus = (rowSt === 'keldi' || rowSt === 'auto_ended' || rowSt === 'yarim_kun');
+      else matchesStatus = (rowSt === s);
+    }
     tr.style.display = (matchesName && matchesStatus) ? '' : 'none';
   });
   document.querySelectorAll('#mbody tr').forEach(tr=>{
@@ -712,7 +717,7 @@ async function loadEmpList() {
       <td>${i + 1}</td>
       <td>${emp.name}</td>
       <td style="font-family:var(--mono)">${emp.login}</td>
-      <td style="font-family:var(--mono)">*****</td>
+      <td style="font-family:var(--mono);white-space:nowrap;">•••••• <button class="bsm bsm-g" style="margin-left:6px;padding:2px 7px;font-size:11px;" onclick="openEP('${emp.id}')">${t('change')}</button></td>
       <td>${faceStatus}</td>
       <td>${opDisplay}</td>
       <td><span class="role-badge role-${emp.kpi_type || 'operator'}" style="cursor:pointer;display:inline-flex;align-items:center;gap:4px;" onclick="openEditRoleModal('${emp.id}','${safeName}','${emp.kpi_type || 'operator'}')" title="Lavozimni o'zgartirish">${roleLabel} ${getLucideIcon('pencil', '', 11)}</span></td>
@@ -1055,17 +1060,31 @@ async function saveEmployeeRole() {
   if (!empId) return;
 
   try {
-    const { error } = await sb
-      .from('employees')
-      .update({ kpi_type: newRole })
-      .eq('id', empId);
+    // 1. Server API
+    try {
+      await serverApi(`/api/employees/${empId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ kpi_type: newRole })
+      });
+    } catch (_) {}
 
-    if (error) {
-      if (error.message && error.message.includes('employees_kpi_type_check')) {
-        throw new Error("Supabase bazasida cheklov mavjud: SQL Editor'da 'ALTER TABLE employees DROP CONSTRAINT employees_kpi_type_check;' buyrug'ini bajaring.");
+    // 2. Supabase fallback
+    try {
+      await sb
+        .from('employees')
+        .update({ kpi_type: newRole })
+        .eq('id', empId);
+    } catch (_) {}
+
+    // 3. Lokal keshni yangilash
+    try {
+      const localEmps = JSON.parse(localStorage.getItem('aloqa_local_employees') || '[]');
+      const emp = localEmps.find(e => e.id === empId);
+      if (emp) {
+        emp.kpi_type = newRole;
+        localStorage.setItem('aloqa_local_employees', JSON.stringify(localEmps));
       }
-      throw new Error(error.message);
-    }
+    } catch (_) {}
 
     closeEditRoleModal();
     toast('success', t('employee_title') || 'Xodim', 'Lavozim muvaffaqiyatli saqlandi');
@@ -1075,8 +1094,58 @@ async function saveEmployeeRole() {
     toast('error', t('error_title'), err.message || 'Xatolik yuz berdi', 6000);
   }
 }
-function addHol(){const d=document.getElementById('hol_d').value;if(!d)return;const h=JSON.parse(localStorage.getItem('aloqa_hols')||'[]');if(!h.includes(d))h.push(d);localStorage.setItem('aloqa_hols',JSON.stringify(h));document.getElementById('hol_d').value='';updateHolList();}
-function updateHolList(){const h=JSON.parse(localStorage.getItem('aloqa_hols')||'[]');const el=document.getElementById('hol_list');if(!el)return;el.textContent=h.length===0?t('hol_none'):`${t('off_days_prefix')} ${h.join(', ')}`;}
+async function addHol(){
+  const d=document.getElementById('hol_d').value;
+  if(!d)return;
+  const h=JSON.parse(localStorage.getItem('aloqa_hols')||'[]');
+  if(!h.includes(d))h.push(d);
+  localStorage.setItem('aloqa_hols',JSON.stringify(h));
+  document.getElementById('hol_d').value='';
+  try {
+    await serverApi('/api/settings', {
+      method: 'POST',
+      body: JSON.stringify({ key: 'holidays', value: JSON.stringify(h) })
+    });
+  } catch (_) {}
+  updateHolList();
+  loadAtt();
+  toast('success', t('hol_t'), t('saved'));
+}
+async function removeHol(d){
+  let h=JSON.parse(localStorage.getItem('aloqa_hols')||'[]');
+  h=h.filter(x=>x!==d);
+  localStorage.setItem('aloqa_hols',JSON.stringify(h));
+  try {
+    await serverApi('/api/settings', {
+      method: 'POST',
+      body: JSON.stringify({ key: 'holidays', value: JSON.stringify(h) })
+    });
+  } catch (_) {}
+  updateHolList();
+  loadAtt();
+  toast('info', t('hol_t'), 'Dam olish kuni o\'chirildi');
+}
+async function syncHolidaysFromServer(){
+  try {
+    const sRes = await serverApi('/api/settings?key=holidays');
+    if (sRes.ok && sRes.data?.value) {
+      const arr = JSON.parse(sRes.data.value || '[]');
+      localStorage.setItem('aloqa_hols', JSON.stringify(arr));
+      updateHolList();
+    }
+  } catch (_) {}
+}
+function updateHolList(){
+  const h=JSON.parse(localStorage.getItem('aloqa_hols')||'[]');
+  const el=document.getElementById('hol_list');
+  if(!el)return;
+  if(h.length===0){
+    el.innerHTML=`<span style="color:var(--text3);font-size:12px;">${t('hol_none')}</span>`;
+    return;
+  }
+  el.innerHTML=h.map(d=>`<span style="display:inline-flex;align-items:center;gap:4px;background:var(--bg3);border-radius:6px;padding:3px 9px;font-size:12px;margin:3px;font-family:var(--mono);"><strong>${d}</strong><button onclick="removeHol('${d}')" style="background:none;border:none;color:var(--danger);cursor:pointer;font-size:14px;line-height:1;" title="O'chirish">×</button></span>`).join(' ');
+}
+syncHolidaysFromServer();
 function openEP(id){document.getElementById('ep_id').value=id;document.getElementById('ep_np').value='';document.getElementById('m_ep').classList.remove('hidden');}
 function closeEP(){document.getElementById('m_ep').classList.add('hidden');}
 async function savePass() {

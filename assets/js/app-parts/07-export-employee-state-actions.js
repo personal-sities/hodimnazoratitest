@@ -160,12 +160,54 @@ function renderEmployeeHeaderInfo(){
 // ============================================================
 async function initEmp(){
   renderEmployeeHeaderInfo();
-  await restoreLS();setEmpMonth();loadHist();updateDates();
+  await restoreLS();
+  setEmpMonth();
+  loadHist();
+  updateDates();
   document.getElementById('m_welcome').classList.remove('hidden');
   const mt=document.getElementById('e_mtag');if(mt)mt.textContent=curM();
+
+  // Serverdagi bugungi davomat holatini tekshirish (agar ish yakunlangan bo'lsa, qayta boshlashni qat'iy bloklash)
+  try {
+    if (CU && CU.id) {
+      const today = todayISO();
+      const sRes = await serverApi(`/api/attendance?employee_id=${encodeURIComponent(CU.id)}&from=${today}&to=${today}`);
+      if (sRes.ok && Array.isArray(sRes.data) && sRes.data.length > 0) {
+        const rec = sRes.data[0];
+        if (rec.start_time) st('i_s', String(rec.start_time).substring(0, 5));
+        if (rec.end_time) st('i_e', String(rec.end_time).substring(0, 5));
+        if (rec.lunch_start) st('i_ls', String(rec.lunch_start).substring(0, 5));
+        if (rec.lunch_end) st('i_le', String(rec.lunch_end).substring(0, 5));
+
+        if (rec.end_time || rec.auto_ended) {
+          empState = 'ended';
+          autoEndDone = true;
+          wStart = null;
+          lStart = null;
+          prayerStart = null;
+          wAccum = rec.work_seconds || rec.worked_seconds || 0;
+          lAccum = rec.lunch_seconds || 0;
+          setTV(wAccum, 'tw');
+          setTV(lAccum, 'tl');
+          updateEmpBtns();
+          updateEmpStatusTag();
+          saveLS();
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('initEmp server check error:', err);
+  }
+
+  // Faqat shu xodimning bugungi suhbatlashgan qo'ng'iroqlari sonini ko'rsatish
+  loadEmployeeTodayCalls();
+  setInterval(loadEmployeeTodayCalls, 30000);
+
   await loadFaceControlSettings();
   startFaceControlPolling();
-  maybeStartFaceDetection();startAutoEndCheck();startPrayerClock();
+  maybeStartFaceDetection();
+  startAutoEndCheck();
+  startPrayerClock();
   if(pendingAutoEndSave){
     pendingAutoEndSave=false;
     saveAtt(true).catch(e=>console.warn('auto-end restore save:',e.message||e));
@@ -178,11 +220,63 @@ async function initEmp(){
 }
 function closeWelcome(){document.getElementById('m_welcome').classList.add('hidden');}
 
+async function loadEmployeeTodayCalls() {
+  if (!CU) return;
+  const cntEl = document.getElementById('emp_today_calls_cnt');
+  const subEl = document.getElementById('emp_today_calls_sub');
+  if (!cntEl) return;
+  try {
+    const today = todayISO();
+    const opNum = CU.operator_number || CU.pbx_extension;
+    if (subEl) subEl.textContent = opNum ? `Operator: #${opNum}` : 'Operator: —';
+
+    let count = 0;
+    if (CU.id) {
+      const res = await serverApi(`/api/pbx/calls?employee_id=${encodeURIComponent(CU.id)}&from=${today}&to=${today}&status=answered&limit=1000`);
+      if (res.ok && Array.isArray(res.calls)) {
+        count = res.calls.length;
+      }
+    }
+    if (count === 0 && opNum) {
+      const resOp = await serverApi(`/api/pbx/calls?operator=${encodeURIComponent(opNum)}&from=${today}&to=${today}&status=answered&limit=1000`);
+      if (resOp.ok && Array.isArray(resOp.calls)) {
+        count = resOp.calls.length;
+      }
+    }
+    cntEl.textContent = `${count} ta`;
+  } catch (_) {}
+}
+
 // ============================================================
 //  EMPLOYEE ACTIONS
 // ============================================================
 async function empStart(){
+  if(empState==='ended' || (getLS()?.state==='ended')){
+    toast('warn', t('be'), 'Siz bugungi ish kunini allaqachon yakunlagansiz!');
+    return;
+  }
   if(empState!=='not_started')return;
+
+  // Serverda bugungi ish yakunlanganini qo'shimcha tekshirish
+  try {
+    if (CU && CU.id) {
+      const today = todayISO();
+      const sRes = await serverApi(`/api/attendance?employee_id=${encodeURIComponent(CU.id)}&from=${today}&to=${today}`);
+      if (sRes.ok && Array.isArray(sRes.data) && sRes.data.length > 0) {
+        const rec = sRes.data[0];
+        if (rec.end_time || rec.auto_ended) {
+          empState = 'ended';
+          autoEndDone = true;
+          updateEmpBtns();
+          updateEmpStatusTag();
+          saveLS();
+          toast('warn', t('be'), 'Siz bugungi ish kunini allaqachon yakunlagansiz!');
+          return;
+        }
+      }
+    }
+  } catch (_) {}
+
   const access=await checkRegionAccess('employee');
   if(!access.ok){
     showIPBlock(access.value, access.title, access.message);
