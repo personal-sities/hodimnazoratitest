@@ -333,24 +333,25 @@ async function loadEmployeeTodayCalls() {
   if (!cntEl) return;
   try {
     const today = todayISO();
-    const opNum = CU.operator_number || CU.pbx_extension;
+    const opNum = String(CU.operator_number || CU.pbx_extension || '').trim();
     if (subEl) subEl.textContent = opNum ? `Operator: #${opNum}` : 'Operator: —';
 
-    let count = 0;
-    if (CU.id) {
-      const res = await serverApi(`/api/pbx/calls?employee_id=${encodeURIComponent(CU.id)}&from=${today}&to=${today}&status=answered&limit=1000`);
-      if (res.ok && Array.isArray(res.calls)) {
-        count = res.calls.length;
+    let answeredCount = 0;
+    // Admin statistikasidan aynan kiruvchi gaplashilganlar sonini olish
+    const res = await serverApi(`/api/pbx/stats?from=${encodeURIComponent(today)}&to=${encodeURIComponent(today)}`);
+    if (res && res.ok && Array.isArray(res.operators)) {
+      const myOp = res.operators.find(op => {
+        const oNum = String(op.operator_number || '').trim();
+        return (opNum && oNum === opNum) || (CU.id && op.employee_id === CU.id);
+      });
+      if (myOp) {
+        answeredCount = Number(myOp.answered_calls) || 0;
       }
     }
-    if (count === 0 && opNum) {
-      const resOp = await serverApi(`/api/pbx/calls?operator=${encodeURIComponent(opNum)}&from=${today}&to=${today}&status=answered&limit=1000`);
-      if (resOp.ok && Array.isArray(resOp.calls)) {
-        count = resOp.calls.length;
-      }
-    }
-    cntEl.textContent = `${count} ta`;
-  } catch (_) {}
+    cntEl.textContent = `${answeredCount} ta`;
+  } catch (err) {
+    console.warn('loadEmployeeTodayCalls xatosi:', err);
+  }
 }
 
 // ============================================================

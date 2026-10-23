@@ -136,6 +136,8 @@ async function ensureDatabaseSchema() {
       ALTER TABLE public.calls ADD COLUMN IF NOT EXISTS employee_name TEXT;
       CREATE INDEX IF NOT EXISTS idx_calls_caller ON public.calls(caller);
       CREATE INDEX IF NOT EXISTS idx_calls_callee ON public.calls(callee);
+      CREATE INDEX IF NOT EXISTS idx_calls_direction ON public.calls(direction);
+      CREATE INDEX IF NOT EXISTS idx_calls_stats_perf ON public.calls(call_date, status, duration);
       DO $$
       BEGIN
         IF NOT EXISTS (SELECT 1 FROM public.admins WHERE LOWER(login) = 'admin@aloqapro.uz') THEN
@@ -951,6 +953,7 @@ async function saveCallRecord(call) {
     writeLocalCalls(list);
   } catch (e) { }
 
+  try { pbxStatsCacheMap.clear(); } catch (_) {}
   return call;
 }
 
@@ -980,6 +983,8 @@ const ONLINEPBX_TOKEN = process.env.ONLINEPBX_TOKEN || 'bmM5QkdtbmEya2RKODZlUmx1
 
 let lastPbxSyncTime = 0;
 let isPbxSyncing = false;
+const pbxStatsCacheMap = new Map();
+const PBX_STATS_CACHE_TTL_MS = 15000; // 15 soniya kesh (server qotmasligi uchun)
 
 async function syncOnlinePbxCalls(daysBack = 7) {
   if (isPbxSyncing) {
@@ -991,7 +996,8 @@ async function syncOnlinePbxCalls(daysBack = 7) {
     const authRes = await fetch(authUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ auth_key: ONLINEPBX_TOKEN })
+      body: JSON.stringify({ auth_key: ONLINEPBX_TOKEN }),
+      signal: AbortSignal.timeout(12000)
     });
     const authData = await authRes.json();
     if (!authData?.data?.key || !authData?.data?.key_id) {
@@ -1010,7 +1016,8 @@ async function syncOnlinePbxCalls(daysBack = 7) {
       },
       body: JSON.stringify({
         start_stamp_from: fromStamp
-      })
+      }),
+      signal: AbortSignal.timeout(15000)
     });
     const result = await searchRes.json();
     const rawCalls = Array.isArray(result?.data) ? result.data : [];
@@ -1061,8 +1068,8 @@ async function syncOnlinePbxCalls(daysBack = 7) {
       const isAnswered = (hangupCause === 'NORMAL_CLEARING' && talkTime > 0) || (raw.contacted === true && talkTime > 0);
       const status = isAnswered ? 'answered' : 'missed';
 
-      // O'tkazib yuborilganlardan faqat >= 22s kutganlar
-      if (status === 'missed' && duration < 22) {
+      // O'tkazib yuborilganlardan faqat 22 soniyadan ko'p (> 22s) kutganlar
+      if (status === 'missed' && duration <= 22) {
         continue;
       }
 
@@ -1148,6 +1155,7 @@ async function syncOnlinePbxCalls(daysBack = 7) {
     if (localChanged) {
       writeLocalCalls(localCalls);
     }
+    pbxStatsCacheMap.clear();
     lastPbxSyncTime = Date.now();
     return { ok: true, total_fetched: rawCalls.length, saved_count: savedCount };
   } catch (err) {
@@ -1359,13 +1367,20 @@ async function relinkAllPbxCalls() {
 }
 
 async function getCallsStats(from, to, operator = 'all', status = 'all') {
+  const cacheKey = `${from}_${to}_${operator}_${status}`;
+  const now = Date.now();
+  const cached = pbxStatsCacheMap.get(cacheKey);
+  if (cached && (now - cached.timestamp < PBX_STATS_CACHE_TTL_MS)) {
+    return cached.data;
+  }
+
   const allowedSet = new Set(ALLOWED_PBX_OPERATORS);
-  const OPERATOR_ACCOUNTS_COUNT = 5; // Foydalanuvchi talabi: qat'iy 5 ta akkaunt
+  const OPERATOR_ACCOUNTS_COUNT = 5; // Foydalanuvchi talabi: qat'iy 5 ta inson operator akkaunti (5002 hisobga olinmaydi)
   const pool = getDbPool();
   if (pool) {
     try {
       // 1. Kompaniyaga kelgan barcha umumiy kiruvchi qo'ng'iroqlar soni (X)
-      // Shart: ish vaqti 08:00 - 18:00 (Toshkent vaqti) va o'tkazib yuborilganlardan faqat >= 22s kutganlar
+      // Shart: faqat kiruvchilar (vxod), 08:00 - 18:00 (Toshkent vaqti) va propushnniy > 22s
       const companyQuery = `
         SELECT
           COUNT(c.id)::int AS total_company_incoming,
@@ -1375,7 +1390,7 @@ async function getCallsStats(from, to, operator = 'all', status = 'all') {
         WHERE c.call_date BETWEEN $1 AND $2
           AND (LOWER(COALESCE(c.direction, 'in')) IN ('in', 'inbound', '') OR c.direction IS NULL)
           AND ((c.started_at AT TIME ZONE 'Asia/Tashkent')::time BETWEEN '08:00:00' AND '18:00:00')
-          AND (c.status = 'answered' OR (c.status = 'missed' AND COALESCE(c.duration, 0) >= 22));
+          AND (c.status = 'answered' OR (c.status = 'missed' AND COALESCE(c.duration, 0) > 22));
       `;
       const companyRes = await pool.query(companyQuery, [from, to]).catch(() => ({ rows: [] }));
       const totalCompanyIncoming = Number(companyRes.rows[0]?.total_company_incoming) || 0;
@@ -1384,19 +1399,19 @@ async function getCallsStats(from, to, operator = 'all', status = 'all') {
 
       // X: Jami kiruvchilar soni (Kompaniyaga kelgan)
       const X = totalCompanyIncoming;
-      // Z: Har bir akkaunt uchun gaplashishi kerak bo'lgan norma soni (X / 5)
+      // Z: Har bir akkaunt uchun norma: X / 5 (faqat inson operatorlar uchun, 5002 ga norma qo'shilmaydi)
       const Z = OPERATOR_ACCOUNTS_COUNT > 0 ? (X / OPERATOR_ACCOUNTS_COUNT) : 0;
 
       let statsQuery = `
         SELECT
           c.operator_number,
-          COUNT(c.id)::int AS total_calls,
+          COUNT(c.id)::int AS assigned_calls,
           COUNT(c.id) FILTER (WHERE c.status = 'answered')::int AS answered_calls,
           COUNT(c.id) FILTER (WHERE c.status = 'missed')::int AS missed_calls,
           COALESCE(SUM(c.talk_time), 0)::int AS total_talk_seconds,
           CASE
-            WHEN COUNT(c.id) > 0
-            THEN ROUND(COALESCE(SUM(c.talk_time), 0) / COUNT(c.id))::int
+            WHEN COUNT(c.id) FILTER (WHERE c.status = 'answered') > 0
+            THEN ROUND(COALESCE(SUM(c.talk_time), 0) / COUNT(c.id) FILTER (WHERE c.status = 'answered'))::int
             ELSE 0
           END AS avg_talk_seconds,
           ROUND(COALESCE(AVG(c.rating) FILTER (WHERE c.rating IS NOT NULL AND c.rating > 0), 0)::numeric, 1)::float AS avg_rating,
@@ -1406,7 +1421,7 @@ async function getCallsStats(from, to, operator = 'all', status = 'all') {
           AND (LOWER(COALESCE(c.direction, 'in')) IN ('in', 'inbound', '') OR c.direction IS NULL)
           AND c.operator_number = ANY($3::text[])
           AND ((c.started_at AT TIME ZONE 'Asia/Tashkent')::time BETWEEN '08:00:00' AND '18:00:00')
-          AND (c.status = 'answered' OR (c.status = 'missed' AND COALESCE(c.duration, 0) >= 22))
+          AND (c.status = 'answered' OR (c.status = 'missed' AND COALESCE(c.duration, 0) > 22))
       `;
       const params = [from, to, ALLOWED_PBX_OPERATORS];
       if (operator && operator !== 'all') {
@@ -1417,7 +1432,7 @@ async function getCallsStats(from, to, operator = 'all', status = 'all') {
         params.push(status);
         statsQuery += ` AND c.status = $${params.length}`;
       }
-      statsQuery += ` GROUP BY c.operator_number ORDER BY total_calls DESC;`;
+      statsQuery += ` GROUP BY c.operator_number ORDER BY answered_calls DESC, assigned_calls DESC;`;
       const statsRes = await pool.query(statsQuery, params);
 
       const empQuery = `
@@ -1432,15 +1447,17 @@ async function getCallsStats(from, to, operator = 'all', status = 'all') {
       const opMap = new Map();
       ALLOWED_PBX_OPERATORS.forEach(opNum => {
         const emp = emps.find(e => (String(e.operator_number || '').trim() === opNum || String(e.pbx_extension || '').trim() === opNum));
+        const is5002 = (opNum === '5002');
         opMap.set(opNum, {
           operator_number: opNum,
           employee_id: emp?.id || null,
-          employee_name: emp?.name || (opNum === '5002' ? '5002-operator' : '—'),
-          total_calls: 0,
+          employee_name: emp?.name || (is5002 ? '5002-operator' : '—'),
+          total_calls: X, // Barcha akkauntlar uchun bir xil (PBX umumiy kiruvchilar)
+          assigned_calls: 0,
           answered_calls: 0,
           missed_calls: 0,
-          target_quota: Math.round(Z * 10) / 10,
-          answered_percent: 0,
+          target_quota: is5002 ? null : (Math.round(Z * 10) / 10),
+          answered_percent: is5002 ? null : 0,
           total_talk_seconds: 0,
           avg_talk_seconds: 0,
           avg_rating: null,
@@ -1452,12 +1469,19 @@ async function getCallsStats(from, to, operator = 'all', status = 'all') {
         const rawOp = String(r.operator_number || '').trim();
         if (opMap.has(rawOp)) {
           const item = opMap.get(rawOp);
-          item.total_calls = Number(r.total_calls) || 0;
+          const is5002 = (rawOp === '5002');
+          item.total_calls = X; // Barcha akkauntlar uchun bir xil kompaniya kiruvchi qo'ng'iroqlari
+          item.assigned_calls = Number(r.assigned_calls) || 0;
           item.answered_calls = Number(r.answered_calls) || 0;
           item.missed_calls = Number(r.missed_calls) || 0;
-          item.target_quota = Math.round(Z * 10) / 10;
-          // FORMULA: Y / Z * 100% (Y: gaplashilgan qo'ng'iroqlar, Z: har bir akkaunt normasi X/5)
-          item.answered_percent = Z > 0 ? Math.round((item.answered_calls / Z) * 100 * 10) / 10 : 0;
+          if (is5002) {
+            item.target_quota = null; // 5002 ga norma qo'shilmaydi
+            item.answered_percent = null;
+          } else {
+            item.target_quota = Math.round(Z * 10) / 10;
+            // FORMULA: Y / Z * 100% (Y: gaplashilgan qo'ng'iroqlar, Z: har bir akkaunt normasi X/5)
+            item.answered_percent = Z > 0 ? Math.round((item.answered_calls / Z) * 100 * 10) / 10 : 0;
+          }
           item.total_talk_seconds = Number(r.total_talk_seconds) || 0;
           item.avg_talk_seconds = Number(r.avg_talk_seconds) || 0;
           item.avg_rating = r.rated_calls_count > 0 ? Number(r.avg_rating) : null;
@@ -1465,23 +1489,27 @@ async function getCallsStats(from, to, operator = 'all', status = 'all') {
         }
       });
 
-      let operators = Array.from(opMap.values()).sort((a, b) => b.total_calls - a.total_calls);
+      let operators = Array.from(opMap.values()).sort((a, b) => {
+        if (a.operator_number === '5002') return 1;
+        if (b.operator_number === '5002') return -1;
+        return b.answered_calls - a.answered_calls;
+      });
       if (operator && operator !== 'all') {
         operators = operators.filter(o => o.operator_number === operator);
       }
 
-      const totalCalls = X > 0 ? X : operators.reduce((s, x) => s + x.total_calls, 0);
+      const totalCalls = X;
       const answeredCalls = totalCompanyAnswered > 0 ? totalCompanyAnswered : operators.reduce((s, x) => s + x.answered_calls, 0);
       const missedCalls = totalCompanyMissed > 0 ? totalCompanyMissed : Math.max(0, totalCalls - answeredCalls);
       const totalTalkSec = operators.reduce((s, x) => s + x.total_talk_seconds, 0);
-      const avgTalkSec = totalCalls > 0 ? Math.round(totalTalkSec / totalCalls) : 0;
+      const avgTalkSec = answeredCalls > 0 ? Math.round(totalTalkSec / answeredCalls) : 0;
       const answeredPercent = totalCalls > 0 ? Math.round((answeredCalls / totalCalls) * 100 * 10) / 10 : 0;
 
       const totalRatedCount = operators.reduce((s, x) => s + (x.rated_calls_count || 0), 0);
       const totalWeightedRating = operators.reduce((s, x) => s + ((x.avg_rating || 0) * (x.rated_calls_count || 0)), 0);
       const avgRating = totalRatedCount > 0 ? Math.round((totalWeightedRating / totalRatedCount) * 10) / 10 : null;
 
-      return {
+      const responseData = {
         ok: true,
         from,
         to,
@@ -1501,6 +1529,9 @@ async function getCallsStats(from, to, operator = 'all', status = 'all') {
         },
         operators
       };
+
+      pbxStatsCacheMap.set(cacheKey, { timestamp: Date.now(), data: responseData });
+      return responseData;
     } catch (err) {
       console.error('[getCallsStats DB xatosi]:', err.message);
     }
@@ -1525,7 +1556,8 @@ async function getCallsStats(from, to, operator = 'all', status = 'all') {
       const timeMins = tashkentHour * 60 + tashkentMin;
       if (timeMins < 8 * 60 || timeMins > 18 * 60) return false;
     }
-    if (c.status === 'missed' && (Number(c.duration) || 0) < 22) return false;
+    // Propushnniy faqat 22 sekunddan ko'p (> 22) kutganlar
+    if (c.status === 'missed' && (Number(c.duration) || 0) <= 22) return false;
     return true;
   });
 
@@ -1542,16 +1574,19 @@ async function getCallsStats(from, to, operator = 'all', status = 'all') {
   const opMap = new Map();
   ALLOWED_PBX_OPERATORS.forEach(opNum => {
     const emp = allEmployees.find(e => (String(e.operator_number || '').trim() === opNum || String(e.pbx_extension || '').trim() === opNum));
+    const is5002 = (opNum === '5002');
     opMap.set(opNum, {
       operator_number: opNum,
       employee_id: emp?.id || null,
-      employee_name: emp?.name || (opNum === '5002' ? '5002-operator' : '—'),
-      total_calls: 0,
+      employee_name: emp?.name || (is5002 ? '5002-operator' : '—'),
+      total_calls: X, // Barcha akkauntlar uchun bir xil
+      assigned_calls: 0,
       answered_calls: 0,
       missed_calls: 0,
-      target_quota: Math.round(Z * 10) / 10,
-      answered_percent: 0,
+      target_quota: is5002 ? null : (Math.round(Z * 10) / 10),
+      answered_percent: is5002 ? null : 0,
       total_talk_seconds: 0,
+      avg_talk_seconds: 0,
       total_rating_sum: 0,
       rated_calls_count: 0
     });
@@ -1561,12 +1596,21 @@ async function getCallsStats(from, to, operator = 'all', status = 'all') {
     const op = String(c.operator_number || '').trim();
     if (opMap.has(op)) {
       const item = opMap.get(op);
-      item.total_calls++;
+      const is5002 = (op === '5002');
+      item.total_calls = X;
+      item.assigned_calls = (item.assigned_calls || 0) + 1;
       if (c.status === 'answered') {
         item.answered_calls++;
         item.total_talk_seconds += (c.talk_time || 0);
       } else {
         item.missed_calls++;
+      }
+      if (is5002) {
+        item.target_quota = null;
+        item.answered_percent = null;
+      } else {
+        item.target_quota = Math.round(Z * 10) / 10;
+        item.answered_percent = Z > 0 ? Math.round((item.answered_calls / Z) * 100 * 10) / 10 : 0;
       }
 
       const r = parseFloat(c.rating);
@@ -1581,16 +1625,21 @@ async function getCallsStats(from, to, operator = 'all', status = 'all') {
     operator_number: x.operator_number,
     employee_id: x.employee_id,
     employee_name: x.employee_name,
-    total_calls: x.total_calls,
+    total_calls: X,
+    assigned_calls: x.assigned_calls,
     answered_calls: x.answered_calls,
     missed_calls: x.missed_calls,
-    target_quota: Math.round(Z * 10) / 10,
-    answered_percent: Z > 0 ? Math.round((x.answered_calls / Z) * 100 * 10) / 10 : 0,
+    target_quota: x.operator_number === '5002' ? null : Math.round(Z * 10) / 10,
+    answered_percent: x.operator_number === '5002' ? null : (Z > 0 ? Math.round((x.answered_calls / Z) * 100 * 10) / 10 : 0),
     total_talk_seconds: x.total_talk_seconds,
-    avg_talk_seconds: x.total_calls > 0 ? Math.round(x.total_talk_seconds / x.total_calls) : 0,
+    avg_talk_seconds: x.answered_calls > 0 ? Math.round(x.total_talk_seconds / x.answered_calls) : 0,
     avg_rating: x.rated_calls_count > 0 ? Math.round((x.total_rating_sum / x.rated_calls_count) * 10) / 10 : null,
     rated_calls_count: x.rated_calls_count
-  })).sort((a, b) => b.total_calls - a.total_calls);
+  })).sort((a, b) => {
+    if (a.operator_number === '5002') return 1;
+    if (b.operator_number === '5002') return -1;
+    return b.answered_calls - a.answered_calls;
+  });
 
   if (operator && operator !== 'all') {
     operators = operators.filter(o => o.operator_number === operator);
@@ -1600,13 +1649,13 @@ async function getCallsStats(from, to, operator = 'all', status = 'all') {
   const answeredCalls = allCompanyIncoming.filter(c => c.status === 'answered').length;
   const missedCalls = allCompanyIncoming.filter(c => c.status === 'missed').length;
   const totalTalkSec = calls.reduce((s, c) => s + (c.talk_time || 0), 0);
-  const avgTalkSec = totalCalls > 0 ? Math.round(totalTalkSec / totalCalls) : 0;
+  const avgTalkSec = answeredCalls > 0 ? Math.round(totalTalkSec / answeredCalls) : 0;
 
   const allRatedCalls = calls.filter(c => parseFloat(c.rating) > 0);
   const totalRatingSum = allRatedCalls.reduce((s, c) => s + parseFloat(c.rating), 0);
   const avgRating = allRatedCalls.length > 0 ? Math.round((totalRatingSum / allRatedCalls.length) * 10) / 10 : null;
 
-  return {
+  const responseData = {
     ok: true,
     from,
     to,
@@ -1626,6 +1675,9 @@ async function getCallsStats(from, to, operator = 'all', status = 'all') {
     },
     operators
   };
+
+  pbxStatsCacheMap.set(cacheKey, { timestamp: Date.now(), data: responseData });
+  return responseData;
 }
 
 async function getCallsList(from, to, operator, status, limit = 50, employeeId = null) {
@@ -1663,8 +1715,9 @@ async function getCallsList(from, to, operator, status, limit = 50, employeeId =
           LIMIT 1
         ) e ON true
         WHERE c.operator_number = ANY($1::text[])
+          AND (LOWER(COALESCE(c.direction, 'in')) IN ('in', 'inbound', '') OR c.direction IS NULL)
           AND ((c.started_at AT TIME ZONE 'Asia/Tashkent')::time BETWEEN '08:00:00' AND '18:00:00')
-          AND (c.status = 'answered' OR (c.status = 'missed' AND COALESCE(c.duration, 0) >= 22))
+          AND (c.status = 'answered' OR (c.status = 'missed' AND COALESCE(c.duration, 0) > 22))
       `;
       const params = [ALLOWED_PBX_OPERATORS];
       if (from) {
@@ -1706,6 +1759,11 @@ async function getCallsList(from, to, operator, status, limit = 50, employeeId =
   });
 
   calls = calls.filter(c => ALLOWED_PBX_OPERATORS.includes(String(c.operator_number || '').trim()));
+  // Faqat kiruvchi qo'ng'iroqlar (direction != 'out')
+  calls = calls.filter(c => {
+    const dir = String(c.direction || 'in').toLowerCase().trim();
+    return dir !== 'out';
+  });
   if (from) calls = calls.filter(c => (c.call_date || '').substring(0, 10) >= from);
   if (to) calls = calls.filter(c => (c.call_date || '').substring(0, 10) <= to);
   if (operator && operator !== 'all') {
@@ -1713,7 +1771,7 @@ async function getCallsList(from, to, operator, status, limit = 50, employeeId =
   }
   if (status && status !== 'all') calls = calls.filter(c => c.status === status);
 
-  // 08:00 - 18:00 va missed >= 22s filtri
+  // 08:00 - 18:00 va missed > 22s filtri
   calls = calls.filter(c => {
     if (c.started_at) {
       const d = new Date(c.started_at);
@@ -1722,7 +1780,7 @@ async function getCallsList(from, to, operator, status, limit = 50, employeeId =
       const timeMins = tashkentHour * 60 + tashkentMin;
       if (timeMins < 8 * 60 || timeMins > 18 * 60) return false;
     }
-    if (c.status === 'missed' && (Number(c.duration) || 0) < 22) return false;
+    if (c.status === 'missed' && (Number(c.duration) || 0) <= 22) return false;
     if (employeeId) {
       const emp = allEmployees.find(e => e.id === employeeId);
       const op = emp?.operator_number || emp?.pbx_extension;
@@ -1906,6 +1964,11 @@ async function handleOnlinePbxWebhook(req, res, reqUrl) {
     }
     const callDate = startedAt.toISOString().split('T')[0];
 
+    // O'tkazib yuborilganlardan faqat 22 soniyadan ko'p (> 22s) kutganlar
+    if (status === 'missed' && duration <= 22) {
+      return sendJson(res, 200, { ok: true, ignored: true, reason: 'Missed duration <= 22s' });
+    }
+
     const saved = await saveCallRecord({
       call_id: callId,
       caller,
@@ -1949,9 +2012,6 @@ async function handlePbxStats(req, res, reqUrl) {
     const to = reqUrl.searchParams.get('to') || today;
     const operator = reqUrl.searchParams.get('operator') || 'all';
     const status = reqUrl.searchParams.get('status') || 'all';
-
-    // Har safar statistikani olishdan oldin yangi kelgan biriktirilmagan qo'ng'iroqlarni tekshirib avtomatik bog'laymiz
-    await relinkAllPbxCalls().catch(() => {});
 
     const result = await getCallsStats(from, to, operator, status);
     return sendJson(res, 200, result);
