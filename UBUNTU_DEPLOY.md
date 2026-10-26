@@ -104,7 +104,109 @@ pm2 startup
 
 ---
 
-## 3. Ma'lumotlar Tozalash Siyosati (Data Retention)
+## 3. Domen ulash (`workmeter.uz`) va Bepul SSL (HTTPS) o'rnatish
+
+Saytda **kamera (Face-ID yuzni tanish)** va **PWA (ilovadek o'rnatish)** to'liq ishlashi uchun brauzerlar **HTTPS (SSL)** sertifikatini talab qiladi.
+
+### 1-qadam: DNS sozlamalari (Domen boshqaruv panelida)
+Domen sotib olgan joyingizda (masalan, Eskiz.uz, Reg.uz, GoDaddy, Cloudflare yoki Webname):
+**DNS Records** bo'limiga kiring va 2 ta **A Record** qo'shing:
+- **Type**: `A` | **Name/Host**: `@` | **Value/Points to**: `SERVER_IP` (serveringizning ommaviy IP manzili)
+- **Type**: `A` | **Name/Host**: `www` | **Value/Points to**: `SERVER_IP`
+
+*(DNS yangilanishi odatda 5-15 daqiqa vaqt oladi).*
+
+---
+
+### 2-qadam: Nginx va Certbot o'rnatish
+Server terminalida quyidagilarni bajaring:
+```bash
+sudo apt update
+sudo apt install -y nginx certbot python3-certbot-nginx
+```
+
+---
+
+### 3-qadam: Nginx konfiguratsiyasini o'rnatish
+Loyiha papkasidagi tayyor `nginx-workmeter.uz.conf` faylidan foydalanishingiz yoki yangi fayl ochishingiz mumkin:
+```bash
+sudo nano /etc/nginx/sites-available/workmeter.uz
+```
+Ushbu konfiguratsiyani nusxalab qo'ying:
+```nginx
+server {
+    listen 80;
+    listen [::]:80;
+    server_name workmeter.uz www.workmeter.uz;
+
+    client_max_body_size 50M;
+
+    location / {
+        proxy_pass http://127.0.0.1:3000;
+        proxy_http_version 1.1;
+
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        proxy_connect_timeout 60s;
+        proxy_send_timeout 60s;
+        proxy_read_timeout 60s;
+    }
+}
+```
+Saqlash: `Ctrl + O` -> `Enter`, chiqish: `Ctrl + X`.
+
+---
+
+### 4-qadam: Konfiguratsiyani faollashtirish
+```bash
+# Saytni faollashtirish
+sudo ln -s /etc/nginx/sites-available/workmeter.uz /etc/nginx/sites-enabled/
+
+# Standart default saytni o'chirish (agar mavjud bo'lsa)
+sudo rm -f /etc/nginx/sites-enabled/default
+
+# Nginx sintaksisini tekshirish
+sudo nginx -t
+
+# Nginx'ni qayta yuklash
+sudo systemctl reload nginx
+```
+
+---
+
+### 5-qadam: Xavfsizlik devori (Firewall / UFW)ni sozlash
+```bash
+sudo ufw allow 'Nginx Full'
+sudo ufw allow OpenSSH
+sudo ufw enable
+```
+
+---
+
+### 6-qadam: Bepul SSL (HTTPS) sertifikatini olish (Let's Encrypt)
+```bash
+sudo certbot --nginx -d workmeter.uz -d www.workmeter.uz
+```
+- Sizdan e-pochta so'raydi (xabarnomalar uchun kiriting).
+- Shartlarga `Y` (ha) deb javob bering.
+- Certbot avtomatik ravishda SSL sertifikatini ulab, barcha HTTP so'rovlarni HTTPS ga yo'naltiradi.
+
+SSL sertifikati avtomatik yangilanishini tekshirish:
+```bash
+sudo certbot renew --dry-run
+```
+
+Endi saytingiz to'liq **https://workmeter.uz** manzili orqali xavfsiz ishlaydi!
+
+---
+
+## 4. Ma'lumotlar Tozalash Siyosati (Data Retention)
 
 Talab bo'yicha: **Har 2 oyda 3 oydan eski ma'lumotlar o'chib boradi**.
 
@@ -131,7 +233,7 @@ curl -X POST http://localhost:3000/api/admin/cleanup \
 
 ---
 
-## 4. Google Sheets integratsiyasi
+## 5. Google Sheets integratsiyasi
 
 - Google Sheet'ga har qanday ma'lumot jo'natilishi to'liq to'xtatilgan.
 - `.env` da `ENABLE_GOOGLE_SHEETS=false` qo'yilgan.
@@ -146,11 +248,17 @@ curl -X POST http://localhost:3000/api/admin/cleanup \
 # Server holatini tekshirish
 curl http://localhost:3000/api/health
 
+# Nginx holatini tekshirish va qayta ishga tushirish
+sudo nginx -t
+sudo systemctl status nginx
+sudo systemctl reload nginx
+
 # PM2 loglarini ko'rish
 pm2 logs aloqapro
 
 # Serverni qayta ishga tushirish
 pm2 restart aloqapro
 ```
+
 
 

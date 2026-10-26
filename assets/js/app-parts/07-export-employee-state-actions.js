@@ -133,9 +133,9 @@ async function restoreLS(){
     prayerStart = null;
     pendingAutoEndSave = false;
   } else {
-    if(ss.wStartISO) wStart = new Date(ss.wStartISO);
-    if(ss.lStartISO) lStart = new Date(ss.lStartISO);
-    if(ss.prayerStartISO) prayerStart = new Date(ss.prayerStartISO);
+    if(ss.wStartISO) wStart = tzNow();
+    if(ss.lStartISO) lStart = tzNow();
+    if(ss.prayerStartISO) prayerStart = tzNow();
   }
 
   if(!autoEndDone && ['working','lunch','paused','prayer'].includes(empState) && (wStart || ss.wStartISO)){
@@ -268,16 +268,31 @@ async function initEmp(){
         } else if (rec.start_time) {
           // Xodim bugun ishni avvalroq boshlagan bo'lsa
           if (empState === 'not_started') {
-            const [sh, sm] = String(rec.start_time).split(':').map(Number);
-            const sDate = new Date();
-            sDate.setHours(sh, sm, 0, 0);
-            wStart = sDate;
-            empState = 'working';
             wAccum = rec.work_seconds || rec.worked_seconds || 0;
+            lAccum = rec.lunch_seconds || 0;
+            const lm = rec.late_minutes !== undefined ? rec.late_minutes : 0;
+            const el = document.getElementById('e_ltag');
+            if (el) el.textContent = t('lt_pre') + ' ' + lm + ' ' + t('lt_u');
+            setTV(wAccum, 'tw');
+            setTV(lAccum, 'tl');
+
+            if (rec.lunch_start && !rec.lunch_end) {
+              lStart = tzNow();
+              empState = 'lunch';
+              startLT();
+            } else {
+              wStart = tzNow();
+              empState = 'working';
+              startWT();
+            }
             updateEmpBtns();
             updateEmpStatusTag();
-            startWT();
             saveLS();
+          } else {
+            if (rec.work_seconds && rec.work_seconds > wAccum) {
+              wAccum = rec.work_seconds;
+              setTV(wAccum, 'tw');
+            }
           }
         } else {
           // Serverda ham start_time yo'q -> QAT'IY not_started!
@@ -486,6 +501,19 @@ function pauseWorkForPlatformExit({saveRemote=false}={}){
 }
 function syncWorkWhileAway({saveRemote=false}={}){
   if(!CU||CU.role!=='employee'||empState==='not_started')return;
+  const now = tzNow();
+  if(empState==='working'&&wStart){
+    wAccum+=Math.floor((now-wStart)/1000);
+    wStart=now;
+  }
+  if(empState==='lunch'&&lStart){
+    lAccum+=Math.floor((now-lStart)/1000);
+    lStart=now;
+  }
+  if(empState==='prayer'&&prayerStart){
+    prayerAccum+=Math.floor((now-prayerStart)/1000);
+    prayerStart=now;
+  }
   saveLS();
   if(saveRemote&&empState!=='ended')savePartial().catch(e=>console.warn('platform sync save:',e.message||e));
 }
