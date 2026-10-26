@@ -268,12 +268,12 @@ async function initEmp(){
         } else if (rec.start_time) {
           // Xodim bugun ishni avvalroq boshlagan bo'lsa
           if (empState === 'not_started') {
-            const [sh, sm] = String(rec.start_time).split(':').map(Number);
-            const sDate = new Date();
-            sDate.setHours(sh, sm, 0, 0);
-            wStart = sDate;
+            wStart = tzNow();
             empState = 'working';
             wAccum = rec.work_seconds || rec.worked_seconds || 0;
+            lAccum = rec.lunch_seconds || 0;
+            setTV(wAccum, 'tw');
+            setTV(lAccum, 'tl');
             updateEmpBtns();
             updateEmpStatusTag();
             startWT();
