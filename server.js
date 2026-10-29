@@ -978,22 +978,24 @@ async function saveCallRecord(call) {
     }
   }
 
-  try {
-    const list = readLocalCalls();
-    const idx = list.findIndex(c => c.call_id === call.call_id);
-    if (idx >= 0) {
-      list[idx] = {
-        ...list[idx],
-        ...call,
-        rating: call.rating !== undefined ? call.rating : list[idx].rating,
-        rating_comment: call.rating_comment !== undefined ? call.rating_comment : list[idx].rating_comment,
-        updated_at: new Date().toISOString()
-      };
-    } else {
-      list.push({ ...call, created_at: new Date().toISOString() });
-    }
-    writeLocalCalls(list);
-  } catch (e) { }
+  if (!pool) {
+    try {
+      const list = readLocalCalls();
+      const idx = list.findIndex(c => c.call_id === call.call_id);
+      if (idx >= 0) {
+        list[idx] = {
+          ...list[idx],
+          ...call,
+          rating: call.rating !== undefined ? call.rating : list[idx].rating,
+          rating_comment: call.rating_comment !== undefined ? call.rating_comment : list[idx].rating_comment,
+          updated_at: new Date().toISOString()
+        };
+      } else {
+        list.push({ ...call, created_at: new Date().toISOString() });
+      }
+      writeLocalCalls(list);
+    } catch (e) { }
+  }
 
   try { pbxStatsCacheMap.clear(); } catch (_) {}
   return call;
@@ -1128,6 +1130,7 @@ async function syncOnlinePbxCalls(daysOrOptions = 7) {
       if (pbx && allowedSet.has(pbx) && !empByOp.has(pbx)) empByOp.set(pbx, emp);
     });
 
+    const preparedCalls = [];
     for (const raw of rawCalls) {
       const uuid = raw.uuid;
       if (!uuid) continue;
@@ -1190,29 +1193,83 @@ async function syncOnlinePbxCalls(daysOrOptions = 7) {
         }
       }
 
-      // Xavfsiz saqlash (audio yozuv kerak emas, record_url: null)
-      try {
-        await saveCallRecord({
-          call_id: uuid,
-          caller,
-          callee,
-          operator_number: operatorNumber,
-          employee_id: employeeId,
-          employee_name: employeeName,
-          direction,
-          status,
-          duration,
-          talk_time: talkTime,
-          record_url: null,
-          rating,
-          rating_comment: rating ? 'OnlinePBX bahosi' : null,
-          raw_data: raw,
-          call_date: tashkentDate,
-          started_at: startedAt
+      preparedCalls.push({
+        call_id: uuid,
+        caller,
+        callee,
+        operator_number: operatorNumber,
+        employee_id: employeeId,
+        employee_name: employeeName,
+        direction,
+        status,
+        duration,
+        talk_time: talkTime,
+        record_url: null,
+        rating,
+        rating_comment: rating ? 'OnlinePBX bahosi' : null,
+        raw_data: raw,
+        call_date: tashkentDate,
+        started_at: startedAt
+      });
+    }
+
+    // Tezkor batch saqlash (PostgreSQL da 100 tadan jamlab yozish)
+    if (pool && preparedCalls.length > 0) {
+      const BATCH_SIZE = 100;
+      for (let i = 0; i < preparedCalls.length; i += BATCH_SIZE) {
+        const chunk = preparedCalls.slice(i, i + BATCH_SIZE);
+        const valuePlaceholders = [];
+        const params = [];
+        chunk.forEach((c, idx) => {
+          const offset = idx * 15;
+          valuePlaceholders.push(`($${offset + 1}, $${offset + 2}, $${offset + 3}, $${offset + 4}, $${offset + 5}, $${offset + 6}, $${offset + 7}, $${offset + 8}, $${offset + 9}, $${offset + 10}, NULL, $${offset + 11}, $${offset + 12}, $${offset + 13}, $${offset + 14}, $${offset + 15})`);
+          params.push(
+            c.call_id, c.caller, c.callee, c.operator_number, c.employee_id, c.employee_name,
+            c.direction, c.status, c.duration, c.talk_time,
+            JSON.stringify(c.raw_data || {}), c.call_date, c.started_at, c.rating, c.rating_comment
+          );
         });
-        savedCount++;
-      } catch (saveErr) {
-        console.warn(`[syncOnlinePbxCalls save error]:`, saveErr.message);
+
+        const batchQuery = `
+          INSERT INTO public.calls (
+            call_id, caller, callee, operator_number, employee_id, employee_name, direction, status,
+            duration, talk_time, record_url, raw_data, call_date, started_at, rating, rating_comment
+          ) VALUES ${valuePlaceholders.join(', ')}
+          ON CONFLICT (call_id) DO UPDATE SET
+            caller = COALESCE(NULLIF(EXCLUDED.caller, ''), public.calls.caller),
+            callee = COALESCE(NULLIF(EXCLUDED.callee, ''), public.calls.callee),
+            operator_number = COALESCE(NULLIF(EXCLUDED.operator_number, ''), public.calls.operator_number),
+            employee_id = COALESCE(EXCLUDED.employee_id, public.calls.employee_id),
+            employee_name = COALESCE(EXCLUDED.employee_name, public.calls.employee_name),
+            direction = COALESCE(EXCLUDED.direction, public.calls.direction),
+            status = EXCLUDED.status,
+            duration = GREATEST(public.calls.duration, EXCLUDED.duration),
+            talk_time = GREATEST(public.calls.talk_time, EXCLUDED.talk_time),
+            rating = COALESCE(EXCLUDED.rating, public.calls.rating),
+            rating_comment = COALESCE(EXCLUDED.rating_comment, public.calls.rating_comment),
+            call_date = COALESCE(EXCLUDED.call_date, public.calls.call_date),
+            started_at = COALESCE(EXCLUDED.started_at, public.calls.started_at),
+            raw_data = EXCLUDED.raw_data,
+            updated_at = now();
+        `;
+        try {
+          await pool.query(batchQuery, params);
+          savedCount += chunk.length;
+        } catch (bErr) {
+          for (const c of chunk) {
+            try {
+              await saveCallRecord(c);
+              savedCount++;
+            } catch (_) {}
+          }
+        }
+      }
+    } else {
+      for (const c of preparedCalls) {
+        try {
+          await saveCallRecord(c);
+          savedCount++;
+        } catch (_) {}
       }
     }
 
