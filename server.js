@@ -913,6 +913,8 @@ async function saveCallRecord(call) {
           talk_time = GREATEST(public.calls.talk_time, EXCLUDED.talk_time),
           rating = COALESCE(EXCLUDED.rating, public.calls.rating),
           rating_comment = COALESCE(EXCLUDED.rating_comment, public.calls.rating_comment),
+          call_date = COALESCE(EXCLUDED.call_date, public.calls.call_date),
+          started_at = COALESCE(EXCLUDED.started_at, public.calls.started_at),
           raw_data = EXCLUDED.raw_data,
           updated_at = now()
         RETURNING *;
@@ -1148,14 +1150,23 @@ async function syncOnlinePbxCalls(daysOrOptions = 7) {
       if (Array.isArray(raw.events)) {
         for (const ev of raw.events) {
           const num = String(ev.number || ev.user || '').trim();
-          if (allowedSet.has(num)) {
+          if (ev.answered_stamp && allowedSet.has(num)) {
             operatorNumber = num;
-            if (ev.answered_stamp || ev.type === 'transfer') break;
+            break;
           }
         }
       }
       if (!operatorNumber && allowedSet.has(callee)) operatorNumber = callee;
       if (!operatorNumber && allowedSet.has(caller)) operatorNumber = caller;
+      if (!operatorNumber && Array.isArray(raw.events)) {
+        for (const ev of raw.events) {
+          const num = String(ev.number || ev.user || '').trim();
+          if (allowedSet.has(num)) {
+            operatorNumber = num;
+            break;
+          }
+        }
+      }
       if (!operatorNumber && raw.user && allowedSet.has(String(raw.user).trim())) operatorNumber = String(raw.user).trim();
 
       // Yo'nalish
