@@ -1284,19 +1284,99 @@ async function syncOnlinePbxCalls(daysOrOptions = 7) {
   }
 }
 
+function readPreloadedCallsFromJsOrJson() {
+  const localCalls = readLocalCalls();
+  if (Array.isArray(localCalls) && localCalls.length > 0) return localCalls;
+
+  try {
+    const jsPath = path.join(ROOT, 'assets', 'js', 'app-parts', '06-pbx-preloaded-data.js');
+    if (fs.existsSync(jsPath)) {
+      const txt = fs.readFileSync(jsPath, 'utf8');
+      const startIdx = txt.indexOf('[');
+      const endIdx = txt.lastIndexOf(']');
+      if (startIdx >= 0 && endIdx > startIdx) {
+        const jsonStr = txt.substring(startIdx, endIdx + 1);
+        const parsed = JSON.parse(jsonStr);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          writeLocalCalls(parsed);
+          return parsed;
+        }
+      }
+    }
+  } catch (e) {
+    console.warn('[readPreloadedCallsFromJsOrJson error]:', e.message);
+  }
+  return [];
+}
+
+async function seedCallsFromJsonIfEmpty() {
+  const pool = getDbPool();
+  if (!pool) return;
+  try {
+    const countRes = await pool.query('SELECT count(*)::int AS count FROM public.calls');
+    const dbCount = countRes.rows[0]?.count || 0;
+    if (dbCount < 1000) {
+      console.log(`[Seed Calls]: PostgreSQL calls jadvalida ${dbCount} ta qo'ng'iroq bor. data/calls.json va JS keshdan 13-oktabrdan bugungacha bo'lgan ma'lumotlar yuklanmoqda...`);
+      const list = readPreloadedCallsFromJsOrJson();
+      if (Array.isArray(list) && list.length > 0) {
+        const chunkSize = 200;
+        for (let i = 0; i < list.length; i += chunkSize) {
+          const chunk = list.slice(i, i + chunkSize);
+          const values = [];
+          const params = [];
+          chunk.forEach(c => {
+            const base = params.length;
+            params.push(
+              c.call_id,
+              c.caller,
+              c.callee,
+              c.operator_number,
+              c.employee_id,
+              c.employee_name,
+              c.direction || 'in',
+              c.status || 'answered',
+              c.duration || 0,
+              c.talk_time || 0,
+              null, // record_url
+              c.rating,
+              c.rating_comment,
+              c.call_date,
+              c.started_at ? new Date(c.started_at) : new Date()
+            );
+            values.push(`($${base + 1}, $${base + 2}, $${base + 3}, $${base + 4}, $${base + 5}, $${base + 6}, $${base + 7}, $${base + 8}, $${base + 9}, $${base + 10}, $${base + 11}, $${base + 12}, $${base + 13}, $${base + 14}, $${base + 15})`);
+          });
+          const query = `
+            INSERT INTO public.calls (
+              call_id, caller, callee, operator_number, employee_id, employee_name,
+              direction, status, duration, talk_time, record_url, rating, rating_comment,
+              call_date, started_at
+            ) VALUES ${values.join(', ')}
+            ON CONFLICT (call_id) DO UPDATE SET
+              operator_number = EXCLUDED.operator_number,
+              employee_id = EXCLUDED.employee_id,
+              employee_name = EXCLUDED.employee_name,
+              talk_time = EXCLUDED.talk_time,
+              status = EXCLUDED.status,
+              rating = COALESCE(EXCLUDED.rating, public.calls.rating),
+              call_date = COALESCE(EXCLUDED.call_date, public.calls.call_date),
+              started_at = COALESCE(EXCLUDED.started_at, public.calls.started_at),
+              updated_at = now();
+          `;
+          await pool.query(query, params).catch(e => console.warn('[Seed chunk error]:', e.message));
+        }
+        console.log(`[Seed Calls]: PostgreSQL calls jadvaliga ${list.length} ta qo'ng'iroq muvaffaqiyatli yuklandi.`);
+        await relinkAllPbxCalls().catch(() => {});
+      }
+    }
+  } catch (err) {
+    console.warn('[seedCallsFromJsonIfEmpty error]:', err.message);
+  }
+}
+
 function initOnlinePbxSync() {
   setTimeout(() => {
-    // 13-oktabrdan buyog'ini to'liq tortish (2026-10-13 dan hozirgacha)
-    syncOnlinePbxCalls('2026-10-13').then(res => {
-      console.log('[OnlinePBX Sync]: 13-oktabrdan buyog\'i bo\'yicha sinxronizatsiya yakunlandi:', res);
-    }).catch(err => {
-      console.warn('[OnlinePBX Sync ogohlantirish]:', err.message);
-    });
-  }, 2000);
-
-  setInterval(() => {
-    syncOnlinePbxCalls(0.04).catch(() => {});
-  }, 25000);
+    seedCallsFromJsonIfEmpty().catch(() => {});
+  }, 1000);
 }
 
 async function relinkAllPbxCalls() {

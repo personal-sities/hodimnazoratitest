@@ -20,39 +20,251 @@ function initOnlinePbx() {
   pbxDateTo = toEl?.value || todayISO();
 }
 
-async function loadPbxDashboard() {
-  initOnlinePbx();
-  startPbxAutoRefresh();
-  await Promise.all([
-    loadPbxOperatorFilterOptions(),
-    fetchAndRenderPbxStats(),
-    fetchAndRenderPbxCalls()
-  ]);
+const DEFAULT_PBX_OPERATOR_NAMES = {
+  '100': 'Qarshiyeva Durdona',
+  '101': 'Ergashbayeva Donoxon',
+  '102': 'Abdullayeva Shaxzoda',
+  '103': 'Mamarajabova Mohinur',
+  '104': 'Zakirova Ra\'no',
+  '105': 'Ismatullayeva Parizod',
+  '5002': '5002-operator'
+};
+
+function getCallDateAndTashkentTime(call) {
+  let callDate = call.call_date;
+  let hour = -1;
+  let minute = 0;
+  if (call.started_at) {
+    try {
+      const d = new Date(call.started_at);
+      if (!isNaN(d.getTime())) {
+        // Toshkent UTC+5
+        const utcMs = d.getTime() + (d.getTimezoneOffset() * 60000);
+        const tDate = new Date(utcMs + (5 * 3600000));
+        hour = tDate.getHours();
+        minute = tDate.getMinutes();
+        if (!callDate) {
+          callDate = tDate.toISOString().split('T')[0];
+        }
+      }
+    } catch (_) {}
+  }
+  return { callDate, hour, minute };
+}
+
+function computePbxStatsFromCalls(calls, from, to, operatorFilter = 'all', statusFilter = 'all') {
+  const allowedSet = new Set(ALLOWED_PBX_OPERATORS);
+  const OPERATOR_ACCOUNTS_COUNT = 5;
+
+  // 1. Kompaniyaga kelgan kiruvchi qo'ng'iroqlar (08:00 - 18:00 Toshkent vaqti, answered yoki missed > 22s)
+  const companyIncomingCalls = (calls || []).filter(c => {
+    const { callDate, hour, minute } = getCallDateAndTashkentTime(c);
+    if (!callDate || callDate < from || callDate > to) return false;
+    const dir = String(c.direction || 'in').toLowerCase();
+    if (dir !== 'in' && dir !== 'inbound' && dir !== '') return false;
+    if (hour < 8 || hour > 18 || (hour === 18 && minute > 0)) return false;
+    const isAnswered = c.status === 'answered';
+    const isMissedOver22 = c.status === 'missed' && ((c.duration || 0) > 22);
+    return isAnswered || isMissedOver22;
+  });
+
+  const X = companyIncomingCalls.length;
+  const Z = OPERATOR_ACCOUNTS_COUNT > 0 ? (X / OPERATOR_ACCOUNTS_COUNT) : 0;
+  const targetQuota = Math.round(Z * 10) / 10;
+
+  // Operatorlar bo'yicha hisob
+  const opMap = new Map();
+  ALLOWED_PBX_OPERATORS.forEach(opNum => {
+    const is5002 = (opNum === '5002');
+    opMap.set(opNum, {
+      operator_number: opNum,
+      employee_id: null,
+      employee_name: DEFAULT_PBX_OPERATOR_NAMES[opNum] || (is5002 ? '5002-operator' : 'Operator'),
+      total_calls: X,
+      assigned_calls: 0,
+      answered_calls: 0,
+      missed_calls: 0,
+      target_quota: is5002 ? null : targetQuota,
+      answered_percent: is5002 ? null : 0,
+      total_talk_seconds: 0,
+      avg_talk_seconds: 0,
+      avg_rating: null,
+      rated_calls_count: 0,
+      total_rating_sum: 0
+    });
+  });
+
+  companyIncomingCalls.forEach(c => {
+    const op = String(c.operator_number || '').trim();
+    if (opMap.has(op)) {
+      const item = opMap.get(op);
+      item.assigned_calls++;
+      if (c.employee_name && c.employee_name !== '—' && c.employee_name !== 'Biriktirilmagan') {
+        item.employee_name = c.employee_name;
+      }
+      if (c.employee_id) {
+        item.employee_id = c.employee_id;
+      }
+      if (c.status === 'answered') {
+        item.answered_calls++;
+        item.total_talk_seconds += (c.talk_time || c.duration || 0);
+      } else {
+        item.missed_calls++;
+      }
+      const r = parseFloat(c.rating);
+      if (!isNaN(r) && r > 0) {
+        item.total_rating_sum += r;
+        item.rated_calls_count++;
+      }
+    }
+  });
+
+  const operatorsList = Array.from(opMap.values()).map(item => {
+    const is5002 = (item.operator_number === '5002');
+    const ansPct = is5002 ? null : (Z > 0 ? Math.round((item.answered_calls / Z) * 100 * 10) / 10 : 0);
+    const avgTalk = item.answered_calls > 0 ? Math.round(item.total_talk_seconds / item.answered_calls) : 0;
+    const avgRat = item.rated_calls_count > 0 ? Math.round((item.total_rating_sum / item.rated_calls_count) * 10) / 10 : null;
+    return {
+      operator_number: item.operator_number,
+      employee_id: item.employee_id,
+      employee_name: item.employee_name,
+      total_calls: X,
+      assigned_calls: item.assigned_calls,
+      answered_calls: item.answered_calls,
+      missed_calls: item.missed_calls,
+      target_quota: is5002 ? null : targetQuota,
+      answered_percent: ansPct,
+      total_talk_seconds: item.total_talk_seconds,
+      avg_talk_seconds: avgTalk,
+      avg_rating: avgRat,
+      rated_calls_count: item.rated_calls_count
+    };
+  }).sort((a, b) => {
+    if (a.operator_number === '5002') return 1;
+    if (b.operator_number === '5002') return -1;
+    return b.answered_calls - a.answered_calls;
+  });
+
+  let filteredOperators = operatorsList;
+  if (operatorFilter && operatorFilter !== 'all') {
+    filteredOperators = operatorsList.filter(o => o.operator_number === operatorFilter);
+  }
+
+  const answeredTotal = companyIncomingCalls.filter(c => c.status === 'answered').length;
+  const missedTotal = companyIncomingCalls.filter(c => c.status === 'missed').length;
+  const totalTalkSec = companyIncomingCalls.filter(c => c.status === 'answered').reduce((sum, c) => sum + (c.talk_time || c.duration || 0), 0);
+  const avgTalkSec = answeredTotal > 0 ? Math.round(totalTalkSec / answeredTotal) : 0;
+  const answeredPercent = X > 0 ? Math.round((answeredTotal / X) * 100 * 10) / 10 : 0;
+
+  const ratedCalls = companyIncomingCalls.filter(c => {
+    const r = parseFloat(c.rating);
+    return !isNaN(r) && r > 0;
+  });
+  const avgRating = ratedCalls.length > 0 
+    ? Math.round((ratedCalls.reduce((sum, c) => sum + parseFloat(c.rating), 0) / ratedCalls.length) * 10) / 10 
+    : null;
+
+  return {
+    ok: true,
+    from,
+    to,
+    operator: operatorFilter,
+    status: statusFilter,
+    summary: {
+      total_calls: X,
+      accounts_count: OPERATOR_ACCOUNTS_COUNT,
+      target_quota: targetQuota,
+      answered_calls: answeredTotal,
+      missed_calls: missedTotal,
+      answered_percent: answeredPercent,
+      total_talk_seconds: totalTalkSec,
+      avg_talk_seconds: avgTalkSec,
+      avg_rating: avgRating,
+      rated_calls_count: ratedCalls.length
+    },
+    operators: filteredOperators
+  };
+}
+
+function filterPbxCallsArray(calls, from, to, operatorFilter = 'all', statusFilter = 'all') {
+  return (calls || []).filter(c => {
+    const { callDate } = getCallDateAndTashkentTime(c);
+    if (!callDate || callDate < from || callDate > to) return false;
+    const op = String(c.operator_number || '').trim();
+    if (operatorFilter && operatorFilter !== 'all' && op !== operatorFilter) return false;
+    if (statusFilter && statusFilter !== 'all' && c.status !== statusFilter) return false;
+    return true;
+  }).sort((a, b) => new Date(b.started_at || 0) - new Date(a.started_at || 0));
+}
+
+function renderPbxFromPreloadedData() {
+  if (!window.PBX_PRELOADED_CALLS || !Array.isArray(window.PBX_PRELOADED_CALLS) || window.PBX_PRELOADED_CALLS.length === 0) {
+    return false;
+  }
+  const data = computePbxStatsFromCalls(window.PBX_PRELOADED_CALLS, pbxDateFrom, pbxDateTo, pbxFilterOperator, pbxFilterStatus);
+  pbxStatsCache = data;
+  renderPbxStatsUI(data);
+
+  const filtered = filterPbxCallsArray(window.PBX_PRELOADED_CALLS, pbxDateFrom, pbxDateTo, pbxFilterOperator, pbxFilterStatus);
+  pbxCallsCache = filtered.slice(0, 150);
+  renderPbxCallsTable(pbxCallsCache);
+
   if (typeof hydrateLucideIcons === 'function') {
     hydrateLucideIcons(document.getElementById('tab_pbx'));
   }
+  return true;
+}
 
-  // Orqa fonda OnlinePBX dan yetishmayotgan/yangi qo'ng'iroqlarni sinxronlash
-  fetch(`/api/pbx/sync?from=${encodeURIComponent(pbxDateFrom)}`, { method: 'POST' })
-    .then(r => r.json())
-    .then(data => {
-      if (data && data.saved_count > 0) {
-        fetchAndRenderPbxStats(true);
-        fetchAndRenderPbxCalls(true);
+async function syncNewPbxCallsInBackground(showFallbackSpinner = false) {
+  if (showFallbackSpinner) {
+    fetchAndRenderPbxStats(false);
+    fetchAndRenderPbxCalls(false);
+    return;
+  }
+
+  try {
+    const url = `/api/pbx/calls?from=${encodeURIComponent(pbxDateFrom)}&to=${encodeURIComponent(pbxDateTo)}&operator=${encodeURIComponent(pbxFilterOperator)}&status=${encodeURIComponent(pbxFilterStatus)}&limit=150`;
+    const res = await fetch(url);
+    if (!res.ok) return;
+    const data = await res.json();
+    if (data && Array.isArray(data.calls) && data.calls.length > 0) {
+      if (!window.PBX_PRELOADED_CALLS) window.PBX_PRELOADED_CALLS = [];
+      let hasNew = false;
+      data.calls.forEach(nc => {
+        if (!nc || !nc.call_id) return;
+        const exists = window.PBX_PRELOADED_CALLS.some(c => c.call_id === nc.call_id);
+        if (!exists) {
+          window.PBX_PRELOADED_CALLS.unshift(nc);
+          hasNew = true;
+        }
+      });
+      if (hasNew) {
+        renderPbxFromPreloadedData();
       }
-    })
-    .catch(() => {});
+    }
+  } catch (_) {}
+}
+
+async function loadPbxDashboard() {
+  initOnlinePbx();
+  startPbxAutoRefresh();
+  loadPbxOperatorFilterOptions();
+
+  // 1. ZUMRAD TEZLIKDA (0 MILLISEKUND): Agar JS preloaded data bo'lsa, bir zumda chizish
+  const rendered = renderPbxFromPreloadedData();
+
+  // 2. Orqa fonda yangi qo'ng'iroqlarni (webhook orqali kelgan) tekshirib yangilash
+  syncNewPbxCallsInBackground(!rendered);
 }
 
 function startPbxAutoRefresh() {
   if (pbxAutoRefreshTimer) clearInterval(pbxAutoRefreshTimer);
-  // Har 25 soniyada yangilab turish (faqat PBX bo'limida bo'lsa)
+  // Har 30 soniyada yangi webhook qo'ng'iroqlarini orqa fonda tekshirish
   pbxAutoRefreshTimer = setInterval(() => {
-    if (currentAdminTab === 'pbx') {
-      fetchAndRenderPbxStats(true);
-      fetchAndRenderPbxCalls(true);
+    if (typeof currentAdminTab !== 'undefined' && currentAdminTab === 'pbx') {
+      syncNewPbxCallsInBackground(false);
     }
-  }, 25000);
+  }, 30000);
 }
 
 function setPbxDatePreset(preset) {
@@ -85,7 +297,9 @@ function setPbxDatePreset(preset) {
 
   if (fromEl) fromEl.value = pbxDateFrom;
   if (toEl) toEl.value = pbxDateTo;
-  loadPbxDashboard();
+
+  const rendered = renderPbxFromPreloadedData();
+  syncNewPbxCallsInBackground(!rendered);
 }
 
 function onPbxDateChange() {
@@ -97,7 +311,8 @@ function onPbxDateChange() {
     pbxDateTo = pbxDateFrom;
     if (toEl) toEl.value = pbxDateTo;
   }
-  loadPbxDashboard();
+  const rendered = renderPbxFromPreloadedData();
+  syncNewPbxCallsInBackground(!rendered);
 }
 
 function onPbxFilterChange() {
@@ -105,8 +320,8 @@ function onPbxFilterChange() {
   const stEl = document.getElementById('pbx_filter_status');
   pbxFilterOperator = opEl?.value || 'all';
   pbxFilterStatus = stEl?.value || 'all';
-  fetchAndRenderPbxStats();
-  fetchAndRenderPbxCalls();
+  const rendered = renderPbxFromPreloadedData();
+  syncNewPbxCallsInBackground(!rendered);
 }
 
 function selectPbxOperator(opNum) {
@@ -212,12 +427,75 @@ function getPbxRatingColor(score) {
   };
 }
 
-async function fetchAndRenderPbxStats(isBackground = false) {
+function renderPbxStatsUI(data) {
+  if (!data) return;
   const totalEl = document.getElementById('pbx_stat_total');
   const ansEl = document.getElementById('pbx_stat_answered');
   const missEl = document.getElementById('pbx_stat_missed');
   const durEl = document.getElementById('pbx_stat_duration');
   const ratingEl = document.getElementById('pbx_stat_rating');
+
+  const summary = data.summary || {
+    total_calls: 0,
+    answered_calls: 0,
+    missed_calls: 0,
+    answered_percent: 0,
+    total_talk_seconds: 0,
+    avg_talk_seconds: 0,
+    avg_rating: null,
+    rated_calls_count: 0
+  };
+
+  if (totalEl) totalEl.textContent = (summary.total_calls || 0).toLocaleString();
+  if (ansEl) ansEl.textContent = `${(summary.answered_calls || 0).toLocaleString()} (${summary.answered_percent || 0}%)`;
+  if (missEl) missEl.textContent = (summary.missed_calls || 0).toLocaleString();
+  if (durEl) {
+    const totHm = fmtPbxSeconds(summary.total_talk_seconds || 0);
+    const avgHm = fmtPbxSeconds(summary.avg_talk_seconds || 0);
+    durEl.textContent = `${totHm} / ${avgHm}`;
+    durEl.title = `Jami: ${totHm}, O'rtacha (umumiy qo'ng'iroqlarga nisbatan): ${avgHm}`;
+  }
+
+  const formulaX = document.getElementById('pbx_formula_x');
+  const formulaZ = document.getElementById('pbx_formula_z');
+  if (formulaX) formulaX.textContent = (summary.total_calls || 0).toLocaleString();
+  if (formulaZ) {
+    const zVal = summary.target_quota != null ? summary.target_quota : (Math.round(((summary.total_calls || 0) / 5) * 10) / 10);
+    formulaZ.textContent = (zVal || 0).toLocaleString();
+  }
+  if (ratingEl) {
+    const cardEl = ratingEl.closest('.scard');
+    const titleEl = document.getElementById('pbx_card_rating_title');
+    const iconEl = cardEl ? cardEl.querySelector('.scard-icon') : null;
+
+    if (summary.avg_rating) {
+      const rc = getPbxRatingColor(summary.avg_rating);
+      ratingEl.textContent = `★ ${summary.avg_rating}`;
+      ratingEl.style.color = rc.text;
+      ratingEl.title = `${summary.rated_calls_count || 0} ta baholangan qo'ng'iroq`;
+      if (cardEl) {
+        cardEl.style.borderColor = rc.border;
+        cardEl.style.background = `linear-gradient(135deg, var(--card-bg) 0%, ${rc.bg} 100%)`;
+      }
+      if (titleEl) titleEl.style.color = rc.text;
+      if (iconEl) iconEl.style.color = rc.text;
+    } else {
+      ratingEl.textContent = '—';
+      ratingEl.style.color = 'var(--text3)';
+      ratingEl.title = 'Hozircha baholanmagan';
+      if (cardEl) {
+        cardEl.style.borderColor = 'rgba(234,179,8,0.35)';
+        cardEl.style.background = 'var(--card-bg)';
+      }
+      if (titleEl) titleEl.style.color = '#ca8a04';
+      if (iconEl) iconEl.style.color = '#eab308';
+    }
+  }
+
+  renderPbxOperatorsTable(data.operators || []);
+}
+
+async function fetchAndRenderPbxStats(isBackground = false) {
   const tbody = document.getElementById('pbx_operators_body');
 
   if (!isBackground && tbody && (!tbody.children.length || tbody.innerHTML.includes('skeleton'))) {
@@ -230,65 +508,7 @@ async function fetchAndRenderPbxStats(isBackground = false) {
     if (!res.ok) throw new Error('Stats API xatosi');
     const data = await res.json();
     pbxStatsCache = data;
-
-    const summary = data.summary || {
-      total_calls: 0,
-      answered_calls: 0,
-      missed_calls: 0,
-      answered_percent: 0,
-      total_talk_seconds: 0,
-      avg_talk_seconds: 0,
-      avg_rating: null,
-      rated_calls_count: 0
-    };
-
-    if (totalEl) totalEl.textContent = summary.total_calls.toLocaleString();
-    if (ansEl) ansEl.textContent = `${summary.answered_calls.toLocaleString()} (${summary.answered_percent}%)`;
-    if (missEl) missEl.textContent = summary.missed_calls.toLocaleString();
-    if (durEl) {
-      const totHm = fmtPbxSeconds(summary.total_talk_seconds);
-      const avgHm = fmtPbxSeconds(summary.avg_talk_seconds);
-      durEl.textContent = `${totHm} / ${avgHm}`;
-      durEl.title = `Jami: ${totHm}, O'rtacha (umumiy qo'ng'iroqlarga nisbatan): ${avgHm}`;
-    }
-
-    const formulaX = document.getElementById('pbx_formula_x');
-    const formulaZ = document.getElementById('pbx_formula_z');
-    if (formulaX) formulaX.textContent = (summary.total_calls || 0).toLocaleString();
-    if (formulaZ) {
-      const zVal = summary.target_quota != null ? summary.target_quota : (Math.round(((summary.total_calls || 0) / 5) * 10) / 10);
-      formulaZ.textContent = zVal.toLocaleString();
-    }
-    if (ratingEl) {
-      const cardEl = ratingEl.closest('.scard');
-      const titleEl = document.getElementById('pbx_card_rating_title');
-      const iconEl = cardEl ? cardEl.querySelector('.scard-icon') : null;
-
-      if (summary.avg_rating) {
-        const rc = getPbxRatingColor(summary.avg_rating);
-        ratingEl.textContent = `★ ${summary.avg_rating}`;
-        ratingEl.style.color = rc.text;
-        ratingEl.title = `${summary.rated_calls_count} ta baholangan qo'ng'iroq`;
-        if (cardEl) {
-          cardEl.style.borderColor = rc.border;
-          cardEl.style.background = `linear-gradient(135deg, var(--card-bg) 0%, ${rc.bg} 100%)`;
-        }
-        if (titleEl) titleEl.style.color = rc.text;
-        if (iconEl) iconEl.style.color = rc.text;
-      } else {
-        ratingEl.textContent = '—';
-        ratingEl.style.color = 'var(--text3)';
-        ratingEl.title = 'Hozircha baholanmagan';
-        if (cardEl) {
-          cardEl.style.borderColor = 'rgba(234,179,8,0.35)';
-          cardEl.style.background = 'var(--card-bg)';
-        }
-        if (titleEl) titleEl.style.color = '#ca8a04';
-        if (iconEl) iconEl.style.color = '#eab308';
-      }
-    }
-
-    renderPbxOperatorsTable(data.operators || []);
+    renderPbxStatsUI(data);
   } catch (err) {
     console.error('fetchAndRenderPbxStats error:', err);
     if (!isBackground && tbody) {
@@ -743,6 +963,14 @@ async function saveCallRating() {
     if (result.ok) {
       toast('success', 'Baholash', `Qo'ng'iroqqa baho saqlandi: ★ ${rating}`);
       closeRateCallModal();
+      if (window.PBX_PRELOADED_CALLS) {
+        const found = window.PBX_PRELOADED_CALLS.find(c => c.call_id === callId);
+        if (found) {
+          found.rating = rating;
+          found.rating_comment = comment;
+        }
+      }
+      renderPbxFromPreloadedData();
       fetchAndRenderPbxStats(true);
       fetchAndRenderPbxCalls(true);
     } else {
