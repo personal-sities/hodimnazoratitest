@@ -824,6 +824,7 @@ Object.assign(TR.uz,{
   pbx_th_callee:'Liniya',
   pbx_th_status:'Holat',
   pbx_th_duration:'Suhbat davomiyligi',
+  pbx_th_rating:'Qo\'yilgan baho',
   pbx_th_record:'Yozuv',
   pbx_filter_all_ops:'Barcha operatorlar',
   pbx_filter_all_status:'Barcha holatlar',
@@ -868,6 +869,7 @@ Object.assign(TR.ru,{
   pbx_th_callee:'Линия',
   pbx_th_status:'Статус',
   pbx_th_duration:'Длительность разговора',
+  pbx_th_rating:'Оценка',
   pbx_th_record:'Запись',
   pbx_filter_all_ops:'Все операторы',
   pbx_filter_all_status:'Все статусы',
@@ -989,7 +991,7 @@ function refreshPbxStaticLabels(){
     pbx_log_th_emp: t('pbx_th_emp'),
     pbx_log_th_status: t('pbx_th_status'),
     pbx_log_th_duration: t('pbx_th_duration'),
-    pbx_log_th_rec: t('pbx_th_record'),
+    pbx_log_th_rating: t('pbx_th_rating'),
     et_op: t('et_op'),
     b_export_pbx_excel: t('export_excel_btn')
   };

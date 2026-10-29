@@ -31,6 +31,17 @@ async function loadPbxDashboard() {
   if (typeof hydrateLucideIcons === 'function') {
     hydrateLucideIcons(document.getElementById('tab_pbx'));
   }
+
+  // Orqa fonda OnlinePBX dan yetishmayotgan/yangi qo'ng'iroqlarni sinxronlash
+  fetch(`/api/pbx/sync?from=${encodeURIComponent(pbxDateFrom)}`, { method: 'POST' })
+    .then(r => r.json())
+    .then(data => {
+      if (data && data.saved_count > 0) {
+        fetchAndRenderPbxStats(true);
+        fetchAndRenderPbxCalls(true);
+      }
+    })
+    .catch(() => {});
 }
 
 function startPbxAutoRefresh() {
@@ -376,11 +387,11 @@ function renderPbxOperatorsTable(operators) {
 async function fetchAndRenderPbxCalls(isBackground = false) {
   const tbody = document.getElementById('pbx_calls_body');
   if (!isBackground && tbody && (!tbody.children.length || tbody.innerHTML.includes('skeleton'))) {
-    tbody.innerHTML = `<tr><td colspan="10" style="text-align:center;padding:24px;color:var(--text3);">${t('loading') || 'Yuklanmoqda...'}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:24px;color:var(--text3);">${t('loading') || 'Yuklanmoqda...'}</td></tr>`;
   }
 
   try {
-    const url = `/api/pbx/calls?from=${encodeURIComponent(pbxDateFrom)}&to=${encodeURIComponent(pbxDateTo)}&operator=${encodeURIComponent(pbxFilterOperator)}&status=${encodeURIComponent(pbxFilterStatus)}&limit=100`;
+    const url = `/api/pbx/calls?from=${encodeURIComponent(pbxDateFrom)}&to=${encodeURIComponent(pbxDateTo)}&operator=${encodeURIComponent(pbxFilterOperator)}&status=${encodeURIComponent(pbxFilterStatus)}&limit=150`;
     const res = await fetch(url);
     if (!res.ok) throw new Error('Calls API xatosi');
     const data = await res.json();
@@ -389,7 +400,7 @@ async function fetchAndRenderPbxCalls(isBackground = false) {
   } catch (err) {
     console.error('fetchAndRenderPbxCalls error:', err);
     if (!isBackground && tbody) {
-      tbody.innerHTML = `<tr><td colspan="10" style="text-align:center;padding:20px;color:var(--danger);">${err.message || 'Xatolik yuz berdi'}</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:20px;color:var(--danger);">${err.message || 'Xatolik yuz berdi'}</td></tr>`;
     }
   }
 }
@@ -413,7 +424,7 @@ function renderPbxCallsTable(calls) {
   });
 
   if (!filtered.length) {
-    tbody.innerHTML = `<tr><td colspan="10" style="text-align:center;padding:24px;color:var(--text3);">${t('no_data') || 'Qo\'ng\'iroqlar topilmadi'}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:24px;color:var(--text3);">${t('no_data') || 'Qo\'ng\'iroqlar topilmadi'}</td></tr>`;
     return;
   }
 
@@ -436,20 +447,16 @@ function renderPbxCallsTable(calls) {
 
     const talkStr = isAnswered
       ? fmtPbxSeconds(c.talk_time || c.duration || 0)
-      : '<span style="color:var(--text3);">0s</span>';
+      : '<span style="color:var(--text3);">0 daq</span>';
 
     const rVal = parseFloat(c.rating);
     let ratingHtml = '';
     if (!isNaN(rVal) && rVal > 0) {
       const rc = getPbxRatingColor(rVal);
-      ratingHtml = `<button class="bsm" onclick="openRateCallModal('${c.call_id}','${escapePbxHtml(c.caller||'')}','${escapePbxHtml(c.employee_name||'')}',${rVal},'${escapePbxHtml(c.rating_comment||'')}')" style="background:${rc.bg};color:${rc.text};border:1px solid ${rc.border};font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:4px;border-radius:var(--radius-sm);padding:3px 8px;" title="${c.rating_comment ? escapePbxHtml(c.rating_comment) : 'Bahoni tahrirlash'}">${getLucideIcon('star', '', 12)} ${rVal}</button>`;
+      ratingHtml = `<button class="bsm" onclick="openRateCallModal('${c.call_id}','${escapePbxHtml(c.caller||'')}','${escapePbxHtml(c.employee_name||'')}',${rVal},'${escapePbxHtml(c.rating_comment||'')}')" style="background:${rc.bg};color:${rc.text};border:1px solid ${rc.border};font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:4px;border-radius:var(--radius-sm);padding:3px 8px;" title="${c.rating_comment ? escapePbxHtml(c.rating_comment) : 'Mijoz bahosi'}">★ ${rVal}</button>`;
     } else {
-      ratingHtml = `<button class="bsm bg2" onclick="openRateCallModal('${c.call_id}','${escapePbxHtml(c.caller||'')}','${escapePbxHtml(c.employee_name||'')}',5,'')" style="font-size:11px;padding:3px 7px;cursor:pointer;" title="Baho qo'yish">+ Baholash</button>`;
+      ratingHtml = `<button class="bsm bg2" onclick="openRateCallModal('${c.call_id}','${escapePbxHtml(c.caller||'')}','${escapePbxHtml(c.employee_name||'')}',5,'')" style="font-size:11px;padding:3px 7px;cursor:pointer;opacity:0.75;" title="Baho qo'yish">+ Baholash</button>`;
     }
-
-    const recHtml = c.record_url
-      ? `<button class="bsm bg2" onclick="playPbxAudio('${escapePbxHtml(c.record_url)}')" title="Yozuvni tinglash" style="display:inline-flex;align-items:center;gap:4px;">${getLucideIcon('play', '', 12)} ${t('pbx_th_record') || 'Yozuv'}</button>`
-      : '<span style="color:var(--text3);font-size:11px;">—</span>';
 
     const isOut = (c.direction === 'out' || (c.caller && String(c.caller).length <= 4 && c.callee && String(c.callee).length > 4));
     const clientPhone = isOut ? (c.callee || 'Noma\'lum') : (c.caller || 'Noma\'lum');
@@ -480,9 +487,8 @@ function renderPbxCallsTable(calls) {
       <td>${opBadge}</td>
       <td>${empNameHtml}</td>
       <td>${statusBadge}</td>
-      <td style="font-family:var(--mono);">${talkStr}</td>
+      <td style="font-family:var(--mono);font-weight:600;">${talkStr}</td>
       <td>${ratingHtml}</td>
-      <td>${recHtml}</td>
     `;
     tbody.appendChild(tr);
   });
@@ -519,13 +525,14 @@ function filterPbxCallsLocally() {
 
 function fmtPbxSeconds(sec) {
   sec = Math.max(0, parseInt(sec, 10) || 0);
-  if (sec === 0) return '0s';
+  if (sec === 0) return '0 daq';
   const h = Math.floor(sec / 3600);
   const m = Math.floor((sec % 3600) / 60);
-  const s = sec % 60;
-  if (h > 0) return `${h}h ${m}m ${s}s`;
-  if (m > 0) return `${m}m ${s}s`;
-  return `${s}s`;
+  if (h > 0) {
+    return m > 0 ? `${h} soat ${m} daq` : `${h} soat`;
+  }
+  if (m > 0) return `${m} daq`;
+  return '< 1 daq';
 }
 
 function escapePbxHtml(str) {

@@ -133,7 +133,11 @@ async function ensureDatabaseSchema() {
     await pool.query(`
       ALTER TABLE public.employees ADD COLUMN IF NOT EXISTS password TEXT;
       ALTER TABLE public.admins ADD COLUMN IF NOT EXISTS password TEXT;
+      ALTER TABLE public.calls DROP CONSTRAINT IF EXISTS calls_employee_id_fkey;
+      DO $$ BEGIN ALTER TABLE public.calls ALTER COLUMN employee_id TYPE TEXT; EXCEPTION WHEN OTHERS THEN NULL; END; $$;
       ALTER TABLE public.calls ADD COLUMN IF NOT EXISTS employee_name TEXT;
+      ALTER TABLE public.calls ADD COLUMN IF NOT EXISTS rating NUMERIC;
+      ALTER TABLE public.calls ADD COLUMN IF NOT EXISTS rating_comment TEXT;
       CREATE INDEX IF NOT EXISTS idx_calls_caller ON public.calls(caller);
       CREATE INDEX IF NOT EXISTS idx_calls_callee ON public.calls(callee);
       CREATE INDEX IF NOT EXISTS idx_calls_direction ON public.calls(direction);
@@ -893,19 +897,19 @@ async function saveCallRecord(call) {
     try {
       const query = `
         INSERT INTO public.calls (
-          call_id, caller, callee, operator_number, employee_id, direction, status,
+          call_id, caller, callee, operator_number, employee_id, employee_name, direction, status,
           duration, talk_time, record_url, raw_data, call_date, started_at, rating, rating_comment
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NULL, $11, $12, $13, $14, $15)
         ON CONFLICT (call_id) DO UPDATE SET
           caller = COALESCE(NULLIF(EXCLUDED.caller, ''), public.calls.caller),
           callee = COALESCE(NULLIF(EXCLUDED.callee, ''), public.calls.callee),
           operator_number = COALESCE(NULLIF(EXCLUDED.operator_number, ''), public.calls.operator_number),
           employee_id = COALESCE(EXCLUDED.employee_id, public.calls.employee_id),
+          employee_name = COALESCE(EXCLUDED.employee_name, public.calls.employee_name),
           direction = COALESCE(EXCLUDED.direction, public.calls.direction),
           status = EXCLUDED.status,
           duration = GREATEST(public.calls.duration, EXCLUDED.duration),
           talk_time = GREATEST(public.calls.talk_time, EXCLUDED.talk_time),
-          record_url = COALESCE(EXCLUDED.record_url, public.calls.record_url),
           rating = COALESCE(EXCLUDED.rating, public.calls.rating),
           rating_comment = COALESCE(EXCLUDED.rating_comment, public.calls.rating_comment),
           raw_data = EXCLUDED.raw_data,
@@ -918,11 +922,11 @@ async function saveCallRecord(call) {
         call.callee,
         call.operator_number,
         call.employee_id,
+        call.employee_name || null,
         call.direction,
         call.status,
         call.duration,
         call.talk_time,
-        call.record_url,
         JSON.stringify(call.raw_data || {}),
         call.call_date,
         call.started_at,
@@ -933,7 +937,41 @@ async function saveCallRecord(call) {
         call = { ...call, ...res.rows[0] };
       }
     } catch (dbErr) {
-      console.error('[saveCallRecord DB xatosi]:', dbErr.message);
+      if (dbErr.message && dbErr.message.includes('employee_name')) {
+        try {
+          const fallbackQuery = `
+            INSERT INTO public.calls (
+              call_id, caller, callee, operator_number, employee_id, direction, status,
+              duration, talk_time, record_url, raw_data, call_date, started_at, rating, rating_comment
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NULL, $10, $11, $12, $13, $14)
+            ON CONFLICT (call_id) DO UPDATE SET
+              caller = COALESCE(NULLIF(EXCLUDED.caller, ''), public.calls.caller),
+              callee = COALESCE(NULLIF(EXCLUDED.callee, ''), public.calls.callee),
+              operator_number = COALESCE(NULLIF(EXCLUDED.operator_number, ''), public.calls.operator_number),
+              employee_id = COALESCE(EXCLUDED.employee_id, public.calls.employee_id),
+              direction = COALESCE(EXCLUDED.direction, public.calls.direction),
+              status = EXCLUDED.status,
+              duration = GREATEST(public.calls.duration, EXCLUDED.duration),
+              talk_time = GREATEST(public.calls.talk_time, EXCLUDED.talk_time),
+              rating = COALESCE(EXCLUDED.rating, public.calls.rating),
+              rating_comment = COALESCE(EXCLUDED.rating_comment, public.calls.rating_comment),
+              raw_data = EXCLUDED.raw_data,
+              updated_at = now()
+            RETURNING *;
+          `;
+          const res2 = await pool.query(fallbackQuery, [
+            call.call_id, call.caller, call.callee, call.operator_number, call.employee_id,
+            call.direction, call.status, call.duration, call.talk_time,
+            JSON.stringify(call.raw_data || {}), call.call_date, call.started_at,
+            call.rating !== undefined ? call.rating : null, call.rating_comment || null
+          ]);
+          if (res2.rows && res2.rows[0]) call = { ...call, ...res2.rows[0] };
+        } catch (e2) {
+          console.error('[saveCallRecord fallback xatosi]:', e2.message);
+        }
+      } else {
+        console.error('[saveCallRecord DB xatosi]:', dbErr.message);
+      }
     }
   }
 
@@ -980,7 +1018,7 @@ function getClientIp(req) {
 }
 
 const ONLINEPBX_DOMAIN = process.env.ONLINEPBX_DOMAIN || 'pbx27644.onpbx.ru';
-const ONLINEPBX_TOKEN = process.env.ONLINEPBX_TOKEN || 'bmM5QkdtbmEya2RKODZlUmx1OUFoMldod3ZsWUlsYVk';
+const ONLINEPBX_TOKEN = process.env.ONLINEPBX_TOKEN || 'd3JUS3ZpNHVndlVWdXgwVXh4Wk8wR3QzSWpldjc0a1U';
 
 let lastPbxSyncTime = 0;
 let isPbxSyncing = false;
@@ -1087,10 +1125,6 @@ async function syncOnlinePbxCalls(daysOrOptions = 7) {
       if (pbx && allowedSet.has(pbx) && !empByOp.has(pbx)) empByOp.set(pbx, emp);
     });
 
-    const localCalls = readLocalCalls();
-    const localCallMap = new Map(localCalls.map(c => [c.call_id, c]));
-    let localChanged = false;
-
     for (const raw of rawCalls) {
       const uuid = raw.uuid;
       if (!uuid) continue;
@@ -1098,29 +1132,16 @@ async function syncOnlinePbxCalls(daysOrOptions = 7) {
       const startStamp = Number(raw.start_stamp) || 0;
       if (!startStamp) continue;
       const startedAt = new Date(startStamp * 1000).toISOString();
-
-      // Ish vaqti: 08:00 - 18:00 (Toshkent vaqti UTC+5)
-      const startDate = new Date(startStamp * 1000);
-      const tashkentHour = (startDate.getUTCHours() + 5) % 24;
-      const tashkentMin = startDate.getUTCMinutes();
-      const timeMins = tashkentHour * 60 + tashkentMin;
-      if (timeMins < 8 * 60 || timeMins > 18 * 60) {
-        continue;
-      }
+      const tashkentDate = new Date(startStamp * 1000 + 5 * 3600 * 1000).toISOString().split('T')[0];
 
       const duration = Number(raw.duration) || 0;
       const talkTime = Number(raw.user_talk_time || raw.billsec) || 0;
       const hangupCause = String(raw.hangup_cause || '').toUpperCase();
-      const isAnswered = (hangupCause === 'NORMAL_CLEARING' && talkTime > 0) || (raw.contacted === true && talkTime > 0);
+      const isAnswered = (hangupCause === 'NORMAL_CLEARING' && talkTime > 0) || (raw.contacted === true && talkTime > 0) || (talkTime > 0);
       const status = isAnswered ? 'answered' : 'missed';
 
-      // O'tkazib yuborilganlardan faqat 22 soniyadan ko'p (> 22s) kutganlar
-      if (status === 'missed' && duration <= 22) {
-        continue;
-      }
-
-      const caller = String(raw.caller_id_number || '').trim();
-      const callee = String(raw.destination_number || '').trim();
+      const caller = String(raw.caller_id_number || raw.caller || '').trim();
+      const callee = String(raw.destination_number || raw.callee || '').trim();
 
       let operatorNumber = null;
       if (Array.isArray(raw.events)) {
@@ -1136,71 +1157,53 @@ async function syncOnlinePbxCalls(daysOrOptions = 7) {
       if (!operatorNumber && allowedSet.has(caller)) operatorNumber = caller;
       if (!operatorNumber && raw.user && allowedSet.has(String(raw.user).trim())) operatorNumber = String(raw.user).trim();
 
-      if (!operatorNumber || !allowedSet.has(operatorNumber)) {
-        continue;
+      // Yo'nalish
+      let direction = 'in';
+      const acct = String(raw.accountcode || '').toLowerCase();
+      if (acct.includes('out') || (operatorNumber && caller === operatorNumber)) {
+        direction = 'out';
       }
 
-      const direction = (operatorNumber === caller) ? 'out' : 'in';
-      const matchedEmp = empByOp.get(operatorNumber);
+      const matchedEmp = operatorNumber ? empByOp.get(operatorNumber) : null;
       const employeeId = matchedEmp ? matchedEmp.id : null;
       const employeeName = matchedEmp ? matchedEmp.name : (operatorNumber === '5002' ? '5002-operator' : null);
 
-      const tashkentDate = new Date(startStamp * 1000 + 5 * 3600 * 1000).toISOString().split('T')[0];
-
-      if (pool) {
-        try {
-          const insertQuery = `
-            INSERT INTO public.calls (
-              call_id, caller, callee, operator_number, employee_id, employee_name,
-              direction, status, duration, talk_time, raw_data, call_date, started_at, created_at, updated_at
-            ) VALUES (
-              $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12::date, $13::timestamptz, now(), now()
-            )
-            ON CONFLICT (call_id) DO UPDATE SET
-              operator_number = EXCLUDED.operator_number,
-              employee_id = COALESCE(EXCLUDED.employee_id, public.calls.employee_id),
-              employee_name = COALESCE(EXCLUDED.employee_name, public.calls.employee_name),
-              direction = EXCLUDED.direction,
-              status = EXCLUDED.status,
-              duration = EXCLUDED.duration,
-              talk_time = EXCLUDED.talk_time,
-              updated_at = now()
-            WHERE public.calls.status <> EXCLUDED.status OR public.calls.talk_time <> EXCLUDED.talk_time;
-          `;
-          await pool.query(insertQuery, [
-            uuid, caller, callee, operatorNumber, employeeId, employeeName,
-            direction, status, duration, talkTime, JSON.stringify(raw), tashkentDate, startedAt
-          ]);
-          savedCount++;
-        } catch (_) {}
+      // Mijoz bahosi (OnlinePBX quality_score)
+      const rawScore = raw.quality_score ?? raw.rating ?? raw.score;
+      let rating = null;
+      if (rawScore !== undefined && rawScore !== null && rawScore !== '') {
+        const num = parseFloat(rawScore);
+        if (!isNaN(num) && num >= 1 && num <= 5) {
+          rating = Math.round(num * 10) / 10;
+        }
       }
 
-      const localItem = {
-        id: localCallMap.get(uuid)?.id || `call_${Date.now()}_${Math.random().toString(36).substring(2,6)}`,
-        call_id: uuid,
-        caller,
-        callee,
-        operator_number: operatorNumber,
-        employee_id: employeeId,
-        employee_name: employeeName,
-        direction,
-        status,
-        duration,
-        talk_time: talkTime,
-        call_date: tashkentDate,
-        started_at: startedAt,
-        updated_at: new Date().toISOString()
-      };
-      if (!localCallMap.has(uuid)) {
-        localCalls.push(localItem);
-        localCallMap.set(uuid, localItem);
-        localChanged = true;
+      // Xavfsiz saqlash (audio yozuv kerak emas, record_url: null)
+      try {
+        await saveCallRecord({
+          call_id: uuid,
+          caller,
+          callee,
+          operator_number: operatorNumber,
+          employee_id: employeeId,
+          employee_name: employeeName,
+          direction,
+          status,
+          duration,
+          talk_time: talkTime,
+          record_url: null,
+          rating,
+          rating_comment: rating ? 'OnlinePBX bahosi' : null,
+          raw_data: raw,
+          call_date: tashkentDate,
+          started_at: startedAt
+        });
+        savedCount++;
+      } catch (saveErr) {
+        console.warn(`[syncOnlinePbxCalls save error]:`, saveErr.message);
       }
     }
 
-    if (localChanged) {
-      writeLocalCalls(localCalls);
-    }
     pbxStatsCacheMap.clear();
     lastPbxSyncTime = Date.now();
     return { ok: true, total_fetched: rawCalls.length, saved_count: savedCount };
@@ -1762,7 +1765,6 @@ async function getCallsList(from, to, operator, status, limit = 50, employeeId =
           LIMIT 1
         ) e ON true
         WHERE c.operator_number = ANY($1::text[])
-          AND (LOWER(COALESCE(c.direction, 'in')) IN ('in', 'inbound', '') OR c.direction IS NULL)
           AND ((c.started_at AT TIME ZONE 'Asia/Tashkent')::time BETWEEN '08:00:00' AND '18:00:00')
           AND (c.status = 'answered' OR (c.status = 'missed' AND COALESCE(c.duration, 0) > 22))
       `;
@@ -1806,11 +1808,6 @@ async function getCallsList(from, to, operator, status, limit = 50, employeeId =
   });
 
   calls = calls.filter(c => ALLOWED_PBX_OPERATORS.includes(String(c.operator_number || '').trim()));
-  // Faqat kiruvchi qo'ng'iroqlar (direction != 'out')
-  calls = calls.filter(c => {
-    const dir = String(c.direction || 'in').toLowerCase().trim();
-    return dir !== 'out';
-  });
   if (from) calls = calls.filter(c => (c.call_date || '').substring(0, 10) >= from);
   if (to) calls = calls.filter(c => (c.call_date || '').substring(0, 10) <= to);
   if (operator && operator !== 'all') {
@@ -1990,11 +1987,9 @@ async function handleOnlinePbxWebhook(req, res, reqUrl) {
       status = talkTime > 0 ? 'answered' : 'missed';
     }
 
-    const recordUrl = String(parsed.recording || parsed.record || parsed.download_url || parsed.link || parsed.record_url || parsed.audio || '').trim() || null;
-
-    // Baho (rating / score / evaluation)
+    // Baho (rating / quality_score / evaluation)
     let rating = null;
-    const rawRating = parsed.rating ?? parsed.score ?? parsed.evaluation ?? parsed.mark ?? parsed.rate ?? parsed.client_rating ?? parsed.ivr_rating ?? parsed.user_rate ?? null;
+    const rawRating = parsed.quality_score ?? parsed.rating ?? parsed.score ?? parsed.evaluation ?? parsed.mark ?? parsed.rate ?? parsed.client_rating ?? parsed.ivr_rating ?? parsed.user_rate ?? null;
     if (rawRating !== null && rawRating !== undefined && rawRating !== '') {
       const num = parseFloat(rawRating);
       if (!isNaN(num) && num >= 1 && num <= 5) {
@@ -2004,12 +1999,20 @@ async function handleOnlinePbxWebhook(req, res, reqUrl) {
     const ratingComment = String(parsed.rating_comment || parsed.comment || parsed.review || parsed.note || '').trim() || null;
 
     let startedAt = new Date();
-    const dateStr = parsed.date || parsed.start_time || parsed.call_start || parsed.call_date || parsed.time;
-    if (dateStr) {
-      const parsedDate = new Date(dateStr);
-      if (!isNaN(parsedDate.getTime())) startedAt = parsedDate;
+    if (parsed.start_stamp) {
+      startedAt = new Date(Number(parsed.start_stamp) * 1000);
+    } else {
+      const dateStr = parsed.date || parsed.start_time || parsed.call_start || parsed.call_date || parsed.time;
+      if (dateStr) {
+        const cleanStr = String(dateStr).trim().replace(' ', 'T');
+        const hasTz = cleanStr.endsWith('Z') || cleanStr.includes('+') || (cleanStr.length > 19 && cleanStr.includes('-'));
+        const parseable = hasTz ? cleanStr : (cleanStr + '+05:00');
+        const parsedDate = new Date(parseable);
+        if (!isNaN(parsedDate.getTime())) startedAt = parsedDate;
+      }
     }
-    const callDate = startedAt.toISOString().split('T')[0];
+    const tashkentDate = new Date(startedAt.getTime() + 5 * 3600 * 1000).toISOString().split('T')[0];
+    const callDate = tashkentDate;
 
     // O'tkazib yuborilganlardan faqat 22 soniyadan ko'p (> 22s) kutganlar
     if (status === 'missed' && duration <= 22) {
@@ -2027,7 +2030,7 @@ async function handleOnlinePbxWebhook(req, res, reqUrl) {
       status,
       duration,
       talk_time: talkTime,
-      record_url: recordUrl,
+      record_url: null,
       rating,
       rating_comment: ratingComment,
       raw_data: parsed,
