@@ -133,9 +133,9 @@ async function restoreLS(){
     prayerStart = null;
     pendingAutoEndSave = false;
   } else {
-    if(ss.wStartISO) wStart = new Date(ss.wStartISO);
-    if(ss.lStartISO) lStart = new Date(ss.lStartISO);
-    if(ss.prayerStartISO) prayerStart = new Date(ss.prayerStartISO);
+    if(ss.wStartISO) wStart = tzNow();
+    if(ss.lStartISO) lStart = tzNow();
+    if(ss.prayerStartISO) prayerStart = tzNow();
   }
 
   if(!autoEndDone && ['working','lunch','paused','prayer'].includes(empState) && (wStart || ss.wStartISO)){
@@ -276,8 +276,12 @@ async function initEmp(){
             setTV(lAccum, 'tl');
             updateEmpBtns();
             updateEmpStatusTag();
-            startWT();
             saveLS();
+          } else {
+            if (rec.work_seconds && rec.work_seconds > wAccum) {
+              wAccum = rec.work_seconds;
+              setTV(wAccum, 'tw');
+            }
           }
         } else {
           // Serverda ham start_time yo'q -> QAT'IY not_started!
@@ -486,6 +490,19 @@ function pauseWorkForPlatformExit({saveRemote=false}={}){
 }
 function syncWorkWhileAway({saveRemote=false}={}){
   if(!CU||CU.role!=='employee'||empState==='not_started')return;
+  const now = tzNow();
+  if(empState==='working'&&wStart){
+    wAccum+=Math.floor((now-wStart)/1000);
+    wStart=now;
+  }
+  if(empState==='lunch'&&lStart){
+    lAccum+=Math.floor((now-lStart)/1000);
+    lStart=now;
+  }
+  if(empState==='prayer'&&prayerStart){
+    prayerAccum+=Math.floor((now-prayerStart)/1000);
+    prayerStart=now;
+  }
   saveLS();
   if(saveRemote&&empState!=='ended')savePartial().catch(e=>console.warn('platform sync save:',e.message||e));
 }

@@ -350,8 +350,9 @@ const server = http.createServer(async (req, res) => {
 
     // OnlinePBX Qo'ng'iroqlarni qo'lda / tezkor sinxronlash API
     if (pathname === '/api/pbx/sync' && req.method === 'POST') {
+      const fromParam = reqUrl.searchParams.get('from');
       const days = Number(reqUrl.searchParams.get('days') || 7);
-      const syncRes = await syncOnlinePbxCalls(days);
+      const syncRes = await syncOnlinePbxCalls(fromParam || days);
       return sendJson(res, 200, syncRes);
     }
 
@@ -847,7 +848,7 @@ function writeLocalCalls(calls) {
   try {
     const dataDir = path.join(ROOT, 'data');
     if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
-    const trimmed = (calls || []).slice(-5000);
+    const trimmed = (calls || []).slice(-50000);
     fs.writeFileSync(CALLS_DATA_FILE, JSON.stringify(trimmed, null, 2), 'utf8');
   } catch (e) {
     console.warn('[writeLocalCalls xatosi]:', e.message);
@@ -986,41 +987,86 @@ let isPbxSyncing = false;
 const pbxStatsCacheMap = new Map();
 const PBX_STATS_CACHE_TTL_MS = 15000; // 15 soniya kesh (server qotmasligi uchun)
 
-async function syncOnlinePbxCalls(daysBack = 7) {
+async function syncOnlinePbxCalls(daysOrOptions = 7) {
   if (isPbxSyncing) {
     return { ok: false, message: 'Sync allaqachon bajarilmoqda' };
   }
   isPbxSyncing = true;
   try {
     const authUrl = `https://api2.onlinepbx.ru/${ONLINEPBX_DOMAIN}/auth.json`;
-    const authRes = await fetch(authUrl, {
+    let authRes = await fetch(authUrl, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ auth_key: ONLINEPBX_TOKEN }),
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: `auth_key=${encodeURIComponent(ONLINEPBX_TOKEN)}`,
       signal: AbortSignal.timeout(12000)
-    });
-    const authData = await authRes.json();
+    }).catch(() => null);
+
+    if (!authRes || !authRes.ok) {
+      authRes = await fetch(authUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ auth_key: ONLINEPBX_TOKEN }),
+        signal: AbortSignal.timeout(12000)
+      }).catch(() => null);
+    }
+
+    const authData = authRes ? await authRes.json().catch(() => ({})) : null;
     if (!authData?.data?.key || !authData?.data?.key_id) {
       console.warn('[OnlinePBX Sync]: Auth muvaffaqiyatsiz bo\'ldi:', authData);
       return { ok: false, error: 'OnlinePBX auth error' };
     }
     const { key, key_id } = authData.data;
 
-    const fromStamp = Math.floor((Date.now() - daysBack * 24 * 3600 * 1000) / 1000);
+    let startStampFrom = null;
+    let endStampTo = Math.floor(Date.now() / 1000);
+
+    if (typeof daysOrOptions === 'object' && daysOrOptions !== null) {
+      if (daysOrOptions.fromStamp) startStampFrom = Number(daysOrOptions.fromStamp);
+      if (daysOrOptions.fromDate) startStampFrom = Math.floor(new Date(daysOrOptions.fromDate).getTime() / 1000);
+      if (daysOrOptions.toStamp) endStampTo = Number(daysOrOptions.toStamp);
+    } else if (typeof daysOrOptions === 'string' && daysOrOptions.includes('-')) {
+      startStampFrom = Math.floor(new Date(daysOrOptions + 'T00:00:00+05:00').getTime() / 1000);
+    } else {
+      const daysBack = Number(daysOrOptions) || 7;
+      startStampFrom = Math.floor((Date.now() - daysBack * 24 * 3600 * 1000) / 1000);
+    }
+
+    // OnlinePBX da 1 so'rovda maksimal oraliq 7 kun. Shuning uchun 5 kunlik intervallarga bo'lib chaqiramiz.
+    const CHUNK_SECONDS = 5 * 24 * 3600;
+    const intervals = [];
+    if (!startStampFrom || (endStampTo - startStampFrom) <= CHUNK_SECONDS) {
+      intervals.push({ from: startStampFrom || Math.floor((Date.now() - 7 * 24 * 3600 * 1000) / 1000), to: endStampTo });
+    } else {
+      let curr = startStampFrom;
+      while (curr < endStampTo) {
+        let nxt = curr + CHUNK_SECONDS;
+        if (nxt > endStampTo) nxt = endStampTo;
+        intervals.push({ from: curr, to: nxt });
+        curr = nxt;
+      }
+    }
+
     const searchUrl = `https://api2.onlinepbx.ru/${ONLINEPBX_DOMAIN}/mongo_history/search.json`;
-    const searchRes = await fetch(searchUrl, {
-      method: 'POST',
-      headers: {
-        'x-pbx-authentication': `${key_id}:${key}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        start_stamp_from: fromStamp
-      }),
-      signal: AbortSignal.timeout(15000)
-    });
-    const result = await searchRes.json();
-    const rawCalls = Array.isArray(result?.data) ? result.data : [];
+    const rawCalls = [];
+    for (const interval of intervals) {
+      try {
+        const searchRes = await fetch(searchUrl, {
+          method: 'POST',
+          headers: {
+            'x-pbx-authentication': `${key_id}:${key}`,
+            'Content-Type': 'application/x-www-form-urlencoded'
+          },
+          body: `start_stamp_from=${interval.from}&start_stamp_to=${interval.to}`,
+          signal: AbortSignal.timeout(20000)
+        });
+        const result = await searchRes.json().catch(() => ({}));
+        if (Array.isArray(result?.data)) {
+          rawCalls.push(...result.data);
+        }
+      } catch (chunkErr) {
+        console.warn(`[OnlinePBX Sync chunk error (${interval.from}..${interval.to})]:`, chunkErr.message);
+      }
+    }
 
     const allowedSet = new Set(ALLOWED_PBX_OPERATORS);
     const pool = getDbPool();
@@ -1168,8 +1214,9 @@ async function syncOnlinePbxCalls(daysBack = 7) {
 
 function initOnlinePbxSync() {
   setTimeout(() => {
-    syncOnlinePbxCalls(7).then(res => {
-      console.log('[OnlinePBX Sync]: Dastlabki 7 kunlik sinxronizatsiya yakunlandi:', res);
+    // 13-oktabrdan buyog'ini to'liq tortish (2026-10-13 dan hozirgacha)
+    syncOnlinePbxCalls('2026-10-13').then(res => {
+      console.log('[OnlinePBX Sync]: 13-oktabrdan buyog\'i bo\'yicha sinxronizatsiya yakunlandi:', res);
     }).catch(err => {
       console.warn('[OnlinePBX Sync ogohlantirish]:', err.message);
     });
