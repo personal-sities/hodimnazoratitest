@@ -330,6 +330,7 @@ const server = http.createServer(async (req, res) => {
     // OnlinePBX Webhook (POST & GET, JSON & x-www-form-urlencoded)
     if (
       pathname === '/api/onlinepbx/webhook' ||
+      pathname === '/api/pbx/webhook' ||
       pathname === '/webhook/onlinepbx' ||
       pathname === '/api/functions/v1/onlinepbx-webhook'
     ) {
