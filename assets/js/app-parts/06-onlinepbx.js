@@ -212,12 +212,23 @@ function computePbxStatsFromCalls(calls, from, to, operatorFilter = 'all', statu
   const allowedSet = new Set(ALLOWED_PBX_OPERATORS);
   const OPERATOR_ACCOUNTS_COUNT = 5;
 
-  // 2. Barcha kiruvchi qo'ng'iroqlarni hisoblash
+  // 2. Foydalanuvchi talabi bo'yicha Dashboard statistikasi:
+  // - Baza barcha qo'ng'iroqlarni qabul qiladi, lekin Dashboardda:
+  // - Faqat kiruvchilar (direction == 'in')
+  // - Faqat Toshkent vaqti bilan 08:00 dan 18:00 gacha bo'lgan ish vaqti
+  // - Propushnniylardan faqat 22 soniyadan ko'p kutganlar (> 22 soniya)
   const companyIncomingCalls = (calls || []).filter(c => {
-    const { callDate } = getCallDateAndTashkentTime(c);
+    const { callDate, hour, minute } = getCallDateAndTashkentTime(c);
     if (!callDate || callDate < from || callDate > to) return false;
     const dir = String(c.direction || 'in').toLowerCase();
     if (dir !== 'in' && dir !== 'inbound' && dir !== '') return false;
+
+    // Ish vaqti: Toshkent vaqti bilan 08:00 dan 18:00 gacha
+    if (hour >= 0 && (hour < 8 || hour > 18 || (hour === 18 && minute > 0))) return false;
+
+    // Propushnniylardan faqat 22 soniyadan ko'p kutganlar (> 22s)
+    if (c.status === 'missed' && ((c.duration || 0) <= 22)) return false;
+
     return true;
   });
 
@@ -341,8 +352,16 @@ function computePbxStatsFromCalls(calls, from, to, operatorFilter = 'all', statu
 
 function filterPbxCallsArray(calls, from, to, operatorFilter = 'all', statusFilter = 'all') {
   return (calls || []).filter(c => {
-    const { callDate } = getCallDateAndTashkentTime(c);
+    const { callDate, hour, minute } = getCallDateAndTashkentTime(c);
     if (!callDate || callDate < from || callDate > to) return false;
+
+    // Jonli kunlarda dashboard talabi:
+    // Faqat 08:00 dan 18:00 gacha va propushnniylardan > 22s kutganlar
+    if (to >= todayISO()) {
+      if (hour >= 0 && (hour < 8 || hour > 18 || (hour === 18 && minute > 0))) return false;
+      if (c.status === 'missed' && ((c.duration || 0) <= 22)) return false;
+    }
+
     const op = String(c.operator_number || '').trim();
     if (operatorFilter && operatorFilter !== 'all' && op !== operatorFilter) return false;
     if (statusFilter && statusFilter !== 'all' && c.status !== statusFilter) return false;
