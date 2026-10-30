@@ -53,9 +53,9 @@ DEFAULT_PBX_OPERATOR_NAMES = {
     '5002': '5002-operator'
 }
 
-# 3. 13.10.2026 dan 29.10.2026 gacha kunma-kun yuklash
+# 3. 13.10.2026 dan 30.10.2026 gacha kunma-kun yuklash
 start_date = datetime.date(2026, 10, 13)
-end_date = datetime.date(2026, 10, 29)
+end_date = datetime.date(2026, 10, 30)
 
 cur = start_date
 search_url = f"https://api2.onlinepbx.ru/{domain}/mongo_history/search.json"
@@ -270,19 +270,17 @@ stats_json_path = os.path.join(data_dir, 'pbx_historical_stats.json')
 
 with open(stats_json_path, 'w', encoding='utf-8') as f:
     json.dump({
-        'period': {'from': '2026-10-13', 'to': '2026-10-29'},
+        'period': {'from': '2026-10-13', 'to': '2026-10-30'},
         'daily': daily_stats_table
     }, f, ensure_ascii=False, indent=2)
 
 print(f"\n[1] data/pbx_historical_stats.json ga muvaffaqiyatli saqlandi!")
 
 # 6. assets/js/app-parts/06-pbx-preloaded-data.js ga saqlash
-# Eslatma: Bugungi (30.10.2026) va keyingi kunlar BU YERGA KIRMAYDI!
 preloaded_js_path = os.path.join(ROOT, 'assets', 'js', 'app-parts', '06-pbx-preloaded-data.js')
 
 js_content = f'''// ============================================================
-//  ONLINEPBX HISTORICAL DATA (13.10.2026 - 29.10.2026 23:59:59)
-//  Bugungi (30.10.2026 va keyingilari) bu yerga KIRMAYDI, jonli olinadi
+//  ONLINEPBX HISTORICAL DATA (13.10.2026 - 30.10.2026)
 // ============================================================
 window.PBX_HISTORICAL_STATS = {json.dumps(daily_stats_table, ensure_ascii=False, indent=2)};
 
@@ -293,3 +291,45 @@ with open(preloaded_js_path, 'w', encoding='utf-8') as f:
     f.write(js_content)
 
 print(f"[2] assets/js/app-parts/06-pbx-preloaded-data.js ga muvaffaqiyatli saqlandi! ({len(all_prepared_calls)} ta qo'ng'iroq)")
+
+# 7. data/calls.json faylini ham yangilaymiz
+calls_json_path = os.path.join(data_dir, 'calls.json')
+try:
+    existing_calls = []
+    if os.path.exists(calls_json_path):
+        with open(calls_json_path, 'r', encoding='utf-8') as f:
+            existing_calls = json.load(f)
+    existing_ids = {c.get('call_id') for c in existing_calls if c.get('call_id')}
+    added = 0
+    for c in all_prepared_calls:
+        if c.get('call_id') not in existing_ids:
+            existing_calls.append(c)
+            existing_ids.add(c.get('call_id'))
+            added += 1
+    with open(calls_json_path, 'w', encoding='utf-8') as f:
+        json.dump(existing_calls, f, ensure_ascii=False, indent=2)
+    print(f"[3] data/calls.json ga {added} ta yangi qo'ng'iroq qo'shildi (Jami: {len(existing_calls)} ta)")
+except Exception as e:
+    print(f"data/calls.json yangilash xatosi: {e}")
+
+# 8. workmeter.uz ga bugungi qo'ng'iroqlarni yuklash
+today_calls = [c for c in all_prepared_calls if c.get('call_date') == '2026-10-30']
+print(f"\n[4] workmeter.uz ga bugungi ({len(today_calls)} ta) qo'ng'iroqlar saqlanmoqda...")
+saved = 0
+BATCH = 30
+for i in range(0, len(today_calls), BATCH):
+    chunk = today_calls[i:i+BATCH]
+    try:
+        post_req = urllib.request.Request(
+            'https://workmeter.uz/api/db/calls?on_conflict=call_id',
+            data=json.dumps(chunk).encode(),
+            headers={'Content-Type': 'application/json'},
+            method='POST'
+        )
+        with urllib.request.urlopen(post_req, timeout=20) as p_resp:
+            r_data = json.loads(p_resp.read().decode())
+            if r_data.get('ok'):
+                saved += len(chunk)
+    except Exception as err:
+        pass
+print(f"    workmeter.uz ga jami {saved} ta qo'ng'iroq saqlandi.")

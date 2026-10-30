@@ -1,7 +1,7 @@
 {
   "period": {
     "from": "2026-10-13",
-    "to": "2026-10-29"
+    "to": "2026-10-30"
   },
   "daily": {
     "2026-10-13": {
@@ -1916,6 +1916,119 @@
           "assigned_calls": 43,
           "answered_calls": 0,
           "missed_calls": 43,
+          "target_quota": null,
+          "answered_percent": null,
+          "total_talk_seconds": 0,
+          "avg_talk_seconds": 0,
+          "avg_rating": null,
+          "rated_calls_count": 0
+        }
+      ]
+    },
+    "2026-10-30": {
+      "total_calls": 455,
+      "incoming_calls": 455,
+      "outgoing_calls": 341,
+      "all_calls_total": 796,
+      "accounts_count": 5,
+      "target_quota": 91.0,
+      "answered_calls": 389,
+      "missed_calls": 66,
+      "answered_percent": 85.5,
+      "total_talk_seconds": 40352,
+      "avg_talk_seconds": 104,
+      "operators": [
+        {
+          "operator_number": "100",
+          "employee_name": "Qarshiyeva Durdona",
+          "total_calls": 455,
+          "assigned_calls": 116,
+          "answered_calls": 114,
+          "missed_calls": 2,
+          "target_quota": 91.0,
+          "answered_percent": 125.3,
+          "total_talk_seconds": 13361,
+          "avg_talk_seconds": 117,
+          "avg_rating": 5.0,
+          "rated_calls_count": 15
+        },
+        {
+          "operator_number": "103",
+          "employee_name": "Mamarajabova Mohinur",
+          "total_calls": 455,
+          "assigned_calls": 108,
+          "answered_calls": 106,
+          "missed_calls": 2,
+          "target_quota": 91.0,
+          "answered_percent": 116.5,
+          "total_talk_seconds": 11037,
+          "avg_talk_seconds": 104,
+          "avg_rating": 5.0,
+          "rated_calls_count": 26
+        },
+        {
+          "operator_number": "102",
+          "employee_name": "Abdullayeva Shaxzoda",
+          "total_calls": 455,
+          "assigned_calls": 103,
+          "answered_calls": 96,
+          "missed_calls": 7,
+          "target_quota": 91.0,
+          "answered_percent": 105.5,
+          "total_talk_seconds": 9253,
+          "avg_talk_seconds": 96,
+          "avg_rating": 4.8,
+          "rated_calls_count": 10
+        },
+        {
+          "operator_number": "101",
+          "employee_name": "Ergashbayeva Donoxon",
+          "total_calls": 455,
+          "assigned_calls": 78,
+          "answered_calls": 73,
+          "missed_calls": 5,
+          "target_quota": 91.0,
+          "answered_percent": 80.2,
+          "total_talk_seconds": 6701,
+          "avg_talk_seconds": 92,
+          "avg_rating": 5.0,
+          "rated_calls_count": 6
+        },
+        {
+          "operator_number": "104",
+          "employee_name": "Zakirova Ra'no",
+          "total_calls": 455,
+          "assigned_calls": 0,
+          "answered_calls": 0,
+          "missed_calls": 0,
+          "target_quota": 91.0,
+          "answered_percent": 0.0,
+          "total_talk_seconds": 0,
+          "avg_talk_seconds": 0,
+          "avg_rating": null,
+          "rated_calls_count": 0
+        },
+        {
+          "operator_number": "105",
+          "employee_name": "Ismatullayeva Parizod",
+          "total_calls": 455,
+          "assigned_calls": 4,
+          "answered_calls": 0,
+          "missed_calls": 4,
+          "target_quota": 91.0,
+          "answered_percent": 0.0,
+          "total_talk_seconds": 0,
+          "avg_talk_seconds": 0,
+          "avg_rating": null,
+          "rated_calls_count": 0
+        },
+        {
+          "operator_number": "5002",
+          "employee_name": "5002-operator",
+          "total_calls": 455,
+          "assigned_calls": 9,
+          "answered_calls": 0,
+          "missed_calls": 9,
           "target_quota": null,
           "answered_percent": null,
           "total_talk_seconds": 0,

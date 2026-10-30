@@ -377,11 +377,7 @@ function renderPbxFromPreloadedData() {
     return false;
   }
 
-  // Agar so'ralgan sana butunlay bugun yoki kelajak bo'lsa (pbxDateFrom >= todayISO()),
-  // ma'lumot jonli server / webhook orqali olinadi
-  if (pbxDateFrom >= todayISO()) {
-    return false;
-  }
+  // Agar ma'lumot PBX_HISTORICAL_STATS yoki preloaded calls ichida mavjud bo'lsa darhol chizamiz
 
   let data = null;
   if (hasHistStats) {
@@ -730,9 +726,8 @@ function renderPbxStatsUI(data) {
 }
 
 async function fetchAndRenderPbxStats(isBackground = false) {
-  // Tarixiy sanalar uchun serverga bormaymiz, preloaded ma'lumotdan chizamiz
-  if (pbxDateTo < todayISO()) {
-    renderPbxFromPreloadedData();
+  // Preloaded mavjud bo'lsa (tarixiy yoki 30.10.2026 kiritilgan kun)
+  if (renderPbxFromPreloadedData()) {
     return;
   }
 
@@ -746,15 +741,10 @@ async function fetchAndRenderPbxStats(isBackground = false) {
     const url = `/api/pbx/stats?from=${encodeURIComponent(pbxDateFrom)}&to=${encodeURIComponent(pbxDateTo)}&operator=${encodeURIComponent(pbxFilterOperator)}&status=${encodeURIComponent(pbxFilterStatus)}`;
     const res = await fetch(url);
     const data = await res.json();
-    if (pbxDateTo < todayISO()) {
-      renderPbxFromPreloadedData();
-      return;
-    }
     pbxStatsCache = data;
     renderPbxStatsUI(data);
   } catch (err) {
-    if (pbxDateTo < todayISO()) {
-      renderPbxFromPreloadedData();
+    if (renderPbxFromPreloadedData()) {
       return;
     }
     console.error('fetchAndRenderPbxStats error:', err);
@@ -852,9 +842,8 @@ function renderPbxOperatorsTable(operators) {
 }
 
 async function fetchAndRenderPbxCalls(isBackground = false) {
-  // Tarixiy sanalar uchun preloaded ma'lumotdan chizamiz
-  if (pbxDateTo < todayISO()) {
-    renderPbxFromPreloadedData();
+  // Preloaded mavjud bo'lsa darhol chizamiz
+  if (renderPbxFromPreloadedData()) {
     return;
   }
 
@@ -867,15 +856,10 @@ async function fetchAndRenderPbxCalls(isBackground = false) {
     const url = `/api/pbx/calls?from=${encodeURIComponent(pbxDateFrom)}&to=${encodeURIComponent(pbxDateTo)}&operator=${encodeURIComponent(pbxFilterOperator)}&status=${encodeURIComponent(pbxFilterStatus)}&limit=150`;
     const res = await fetch(url);
     const data = await res.json();
-    if (pbxDateTo < todayISO()) {
-      renderPbxFromPreloadedData();
-      return;
-    }
     pbxCallsCache = data.calls || [];
     renderPbxCallsTable(pbxCallsCache);
   } catch (err) {
-    if (pbxDateTo < todayISO()) {
-      renderPbxFromPreloadedData();
+    if (renderPbxFromPreloadedData()) {
       return;
     }
     console.error('fetchAndRenderPbxCalls error:', err);

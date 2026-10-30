@@ -1597,8 +1597,8 @@ async function relinkAllPbxCalls() {
 }
 
 async function getCallsStats(from, to, operator = 'all', status = 'all') {
-  // 1. Agar so'ralgan oraliq tarixiy bo'lsa (to <= '2026-10-29'), statik tasdiqlangan data/pbx_historical_stats.json dan o'qish
-  if (to <= '2026-10-29') {
+  // 1. Agar so'ralgan oraliq tarixiy bo'lsa (to <= '2026-10-30'), statik tasdiqlangan data/pbx_historical_stats.json dan o'qish
+  if (to <= '2026-10-30') {
     const histData = readJsonData('pbx_historical_stats.json', null);
     if (histData && histData.daily) {
       if (from === to && histData.daily[from]) {

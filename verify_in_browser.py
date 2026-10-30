@@ -10,7 +10,7 @@ import websockets
 CHROME_PATH = r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe"
 URL = "http://localhost:8080/index.html"
 PORT = 9222
-TMP_PROFILE = r"C:\Users\Diyor\AppData\Local\Temp\chrome_pbx_verify"
+TMP_PROFILE = os.path.join(r"C:\Users\Diyor\AppData\Local\Temp", f"chrome_pbx_{int(time.time())}")
 
 async def cdp_call(ws, method, params=None, msg_id=1):
     req = {"id": msg_id, "method": method, "params": params or {}}
@@ -60,37 +60,35 @@ async def main():
         print(f"Connecting to Chrome DevTools at {ws_url}...")
 
         async with websockets.connect(ws_url) as ws:
-            # Enable Page and Runtime
-            await cdp_call(ws, "Page.enable", {}, 1)
-            await cdp_call(ws, "Runtime.enable", {}, 2)
+            # Wait for page scripts to load and showPage to be defined
+            for _ in range(30):
+                chk = await cdp_call(ws, "Runtime.evaluate", {"expression": "typeof showPage === 'function' && typeof setPbxDatePreset === 'function'", "returnByValue": True})
+                if chk.get("result", {}).get("value") is True:
+                    break
+                await asyncio.sleep(0.5)
 
-            # Wait 2 seconds for scripts to load
-            await asyncio.sleep(2)
-
-            # Switch to admin and PBX tab, select yesterday
-            setup_script = """
+            # 1. Switch to admin and PBX tab, select TODAY (30.10.2026)
+            setup_script_today = """
             (() => {
                 try {
                     showPage('admin');
                     adminTab('pbx');
-                    setPbxDatePreset('yesterday');
+                    setPbxDatePreset('today');
                     return { ok: true };
                 } catch(e) {
                     return { ok: false, error: e.message };
                 }
             })()
             """
-            res = await cdp_call(ws, "Runtime.evaluate", {
-                "expression": setup_script,
+            res_td = await cdp_call(ws, "Runtime.evaluate", {
+                "expression": setup_script_today,
                 "returnByValue": True
             }, 3)
-            print("Setup script result:", res.get("result", {}).get("value"))
+            print("Setup script today result:", res_td.get("result", {}).get("value"))
 
-            # Wait 1.5 seconds for UI render
             await asyncio.sleep(1.5)
 
-            # Inspect elements
-            inspect_script = """
+            inspect_script_today = """
             (() => {
                 const total = document.getElementById('pbx_stat_total')?.textContent?.trim();
                 const answered = document.getElementById('pbx_stat_answered')?.textContent?.trim();
@@ -98,7 +96,8 @@ async def main():
                 const duration = document.getElementById('pbx_stat_duration')?.textContent?.trim();
                 const fromVal = document.getElementById('pbx_date_from')?.value;
                 const toVal = document.getElementById('pbx_date_to')?.value;
-                const hist29 = window.PBX_HISTORICAL_STATS ? window.PBX_HISTORICAL_STATS['2026-10-29'] : null;
+                const quota = document.getElementById('pbx_formula_z')?.textContent?.trim();
+                const hist30 = window.PBX_HISTORICAL_STATS ? window.PBX_HISTORICAL_STATS['2026-10-30'] : null;
 
                 const rows = [];
                 const tbody = document.getElementById('pbx_operators_body');
@@ -116,44 +115,115 @@ async def main():
                     duration,
                     fromVal,
                     toVal,
-                    hist29,
+                    quota,
+                    hist30,
                     rows
                 };
             })()
             """
-            eval_res = await cdp_call(ws, "Runtime.evaluate", {
-                "expression": inspect_script,
+            eval_res_td = await cdp_call(ws, "Runtime.evaluate", {
+                "expression": inspect_script_today,
                 "returnByValue": True
             }, 4)
-            val = eval_res.get("result", {}).get("value", {})
+            val_td = eval_res_td.get("result", {}).get("value", {})
 
+            print("\n==================================================")
+            print("   [1] BUGUNGI KUN (30.10.2026) UI NATIJALARI     ")
             print("==================================================")
-            print("       BRAUZER UI TEKSHIRUVI NATIJALARI           ")
-            print("==================================================")
-            print(f"Tanlangan sana oralig'i: {val.get('fromVal')} dan {val.get('toVal')} gacha (Kecha)")
-            print(f"UI Kiruvchi (pbx_stat_total)   : {val.get('total')}")
-            print(f"UI Gaplashilgan (pbx_stat_ans) : {val.get('answered')}")
-            print(f"UI Propushnniy (pbx_stat_miss) : {val.get('missed')}")
-            print(f"UI Suhbat vaqti (pbx_stat_dur) : {val.get('duration')}")
+            print(f"Tanlangan sana: {val_td.get('fromVal')} dan {val_td.get('toVal')} gacha (Bugun)")
+            print(f"UI Kiruvchi (pbx_stat_total)   : {val_td.get('total')}")
+            print(f"UI Gaplashilgan (pbx_stat_ans) : {val_td.get('answered')}")
+            print(f"UI Propushnniy (pbx_stat_miss) : {val_td.get('missed')}")
+            print(f"UI Suhbat vaqti (pbx_stat_dur) : {val_td.get('duration')}")
+            print(f"UI Norma Z (pbx_formula_z)     : {val_td.get('quota')}")
+            print(f"window.PBX_HISTORICAL_STATS['2026-10-30']: {json.dumps(val_td.get('hist30'), indent=2, ensure_ascii=False)}")
             print("--------------------------------------------------")
-            print("window.PBX_HISTORICAL_STATS['2026-10-29']:")
-            print(json.dumps(val.get('hist29'), indent=2, ensure_ascii=False))
-            print("--------------------------------------------------")
-            print("Operatorlar jadvali (UI dagi satrlar):")
-            for r in val.get('rows', []):
+            print("Operatorlar jadvali (Bugun):")
+            for r in val_td.get('rows', []):
                 line = " | ".join(r)
                 print(line.encode("ascii", "replace").decode("ascii"))
             print("==================================================")
 
-            # Capture screenshot
-            ss = await cdp_call(ws, "Page.captureScreenshot", {"format": "png"}, 5)
-            img_data = ss.get("data")
-            if img_data:
+            # Capture today screenshot
+            ss_td = await cdp_call(ws, "Page.captureScreenshot", {"format": "png"}, 5)
+            img_data_td = ss_td.get("data")
+            if img_data_td:
                 artifact_dir = r"C:\Users\Diyor\.gemini\antigravity-ide\brain\228c720f-3433-4e28-bb81-09a8e5f01308"
-                out_path = os.path.join(artifact_dir, "pbx_yesterday_verified.png")
-                with open(out_path, "wb") as f:
-                    f.write(base64.b64decode(img_data))
-                print(f"Screenshot saved to: {out_path}")
+                out_path_td = os.path.join(artifact_dir, "pbx_today_verified.png")
+                with open(out_path_td, "wb") as f:
+                    f.write(base64.b64decode(img_data_td))
+                print(f"Bugungi screenshot saqlandi: {out_path_td}")
+
+            # 2. Select YESTERDAY (29.10.2026)
+            setup_script_yest = """
+            (() => {
+                try {
+                    setPbxDatePreset('yesterday');
+                    return { ok: true };
+                } catch(e) {
+                    return { ok: false, error: e.message };
+                }
+            })()
+            """
+            await cdp_call(ws, "Runtime.evaluate", {
+                "expression": setup_script_yest,
+                "returnByValue": True
+            }, 6)
+            await asyncio.sleep(1.5)
+
+            inspect_script_yest = """
+            (() => {
+                const total = document.getElementById('pbx_stat_total')?.textContent?.trim();
+                const answered = document.getElementById('pbx_stat_answered')?.textContent?.trim();
+                const missed = document.getElementById('pbx_stat_missed')?.textContent?.trim();
+                const duration = document.getElementById('pbx_stat_duration')?.textContent?.trim();
+                const fromVal = document.getElementById('pbx_date_from')?.value;
+                const toVal = document.getElementById('pbx_date_to')?.value;
+                const quota = document.getElementById('pbx_formula_z')?.textContent?.trim();
+
+                const rows = [];
+                const tbody = document.getElementById('pbx_operators_body');
+                if (tbody) {
+                    Array.from(tbody.querySelectorAll('tr')).forEach(tr => {
+                        const cells = Array.from(tr.querySelectorAll('td')).map(td => td.textContent.trim().replace(/\\s+/g, ' '));
+                        if (cells.length > 0) rows.push(cells);
+                    });
+                }
+
+                return { total, answered, missed, duration, fromVal, toVal, quota, rows };
+            })()
+            """
+            eval_res_yest = await cdp_call(ws, "Runtime.evaluate", {
+                "expression": inspect_script_yest,
+                "returnByValue": True
+            }, 7)
+            val_yest = eval_res_yest.get("result", {}).get("value", {})
+
+            print("\n==================================================")
+            print("   [2] KECHAGI KUN (29.10.2026) UI NATIJALARI    ")
+            print("==================================================")
+            print(f"Tanlangan sana: {val_yest.get('fromVal')} dan {val_yest.get('toVal')} gacha (Kecha)")
+            print(f"UI Kiruvchi (pbx_stat_total)   : {val_yest.get('total')}")
+            print(f"UI Gaplashilgan (pbx_stat_ans) : {val_yest.get('answered')}")
+            print(f"UI Propushnniy (pbx_stat_miss) : {val_yest.get('missed')}")
+            print(f"UI Suhbat vaqti (pbx_stat_dur) : {val_yest.get('duration')}")
+            print(f"UI Norma Z (pbx_formula_z)     : {val_yest.get('quota')}")
+            print("--------------------------------------------------")
+            print("Operatorlar jadvali (Kecha):")
+            for r in val_yest.get('rows', []):
+                line = " | ".join(r)
+                print(line.encode("ascii", "replace").decode("ascii"))
+            print("==================================================")
+
+            # Capture yesterday screenshot
+            ss_yest = await cdp_call(ws, "Page.captureScreenshot", {"format": "png"}, 8)
+            img_data_yest = ss_yest.get("data")
+            if img_data_yest:
+                artifact_dir = r"C:\Users\Diyor\.gemini\antigravity-ide\brain\228c720f-3433-4e28-bb81-09a8e5f01308"
+                out_path_yest = os.path.join(artifact_dir, "pbx_yesterday_verified.png")
+                with open(out_path_yest, "wb") as f:
+                    f.write(base64.b64decode(img_data_yest))
+                print(f"Kechagi screenshot saqlandi: {out_path_yest}")
 
     finally:
         proc.terminate()
