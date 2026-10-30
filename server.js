@@ -18,6 +18,12 @@ const ROOT = __dirname;
 const PORT = Number(process.env.PORT || 3000);
 const HOST = process.env.HOST || '0.0.0.0';
 
+function todayISO() {
+  const d = new Date();
+  const tashkentMs = d.getTime() + (5 * 3600000);
+  return new Date(tashkentMs).toISOString().split('T')[0];
+}
+
 
 const MIME = {
   '.html': 'text/html; charset=utf-8',
@@ -1006,6 +1012,15 @@ async function saveCallRecord(call) {
 //  ONLINEPBX QO'NG'IROQLARINI XODIMLARGA BIRIKTIRISH (RELINK)
 // ============================================================
 const ALLOWED_PBX_OPERATORS = ['100', '101', '102', '103', '104', '105', '5002'];
+const DEFAULT_PBX_OPERATOR_NAMES = {
+  '100': "O'rinova Durdona",
+  '101': 'Ergashbayeva Donoxon',
+  '102': 'Ergasheva Shaxzoda',
+  '103': 'Mamarajabova Mohinur',
+  '104': "Zakirova Ra'no",
+  '105': 'Ismatullayeva Parizod',
+  '5002': '5002-operator'
+};
 
 function getClientIp(req) {
   const forwarded = req.headers['x-forwarded-for'];
@@ -1401,13 +1416,7 @@ async function seedCallsFromJsonIfEmpty() {
 function initOnlinePbxSync() {
   setTimeout(() => {
     seedCallsFromJsonIfEmpty().catch(() => {});
-    syncOnlinePbxCalls(1).catch(() => {});
   }, 2000);
-
-  // Har 45 soniyada bugungi yangi qo'ng'iroqlarni OnlinePBX dan avtomatik yangilab turish (Webhook bilan parallel)
-  setInterval(() => {
-    syncOnlinePbxCalls(1).catch(() => {});
-  }, 45000);
 }
 
 async function relinkAllPbxCalls() {
@@ -1597,8 +1606,8 @@ async function relinkAllPbxCalls() {
 }
 
 async function getCallsStats(from, to, operator = 'all', status = 'all') {
-  // 1. Agar so'ralgan oraliq tarixiy bo'lsa (to <= '2026-10-30'), statik tasdiqlangan data/pbx_historical_stats.json dan o'qish
-  if (to <= '2026-10-30') {
+  // 1. Agar so'ralgan oraliq to'liq o'tgan tarixiy kunlar bo'lsa (to < todayISO()), statik tasdiqlangan data/pbx_historical_stats.json dan o'qish
+  if (to < todayISO()) {
     const histData = readJsonData('pbx_historical_stats.json', null);
     if (histData && histData.daily) {
       if (from === to && histData.daily[from]) {
@@ -1736,7 +1745,7 @@ async function getCallsStats(from, to, operator = 'all', status = 'all') {
   if (pool) {
     try {
       // 1. Kompaniyaga kelgan barcha umumiy kiruvchi qo'ng'iroqlar soni (X)
-      // Shart: faqat kiruvchilar (vxod), 08:00 - 18:00 (Toshkent vaqti) va propushnniy > 22s
+      // Shart: faqat kiruvchilar (vxod) va propushnniy > 22s
       const companyQuery = `
         SELECT
           COUNT(c.id)::int AS total_company_incoming,
@@ -1745,7 +1754,6 @@ async function getCallsStats(from, to, operator = 'all', status = 'all') {
         FROM public.calls c
         WHERE c.call_date BETWEEN $1 AND $2
           AND (LOWER(COALESCE(c.direction, 'in')) IN ('in', 'inbound', '') OR c.direction IS NULL)
-          AND ((c.started_at AT TIME ZONE 'Asia/Tashkent')::time BETWEEN '08:00:00' AND '18:00:00')
           AND (c.status = 'answered' OR (c.status = 'missed' AND COALESCE(c.duration, 0) > 22));
       `;
       const companyRes = await pool.query(companyQuery, [from, to]).catch(() => ({ rows: [] }));
@@ -1776,7 +1784,6 @@ async function getCallsStats(from, to, operator = 'all', status = 'all') {
         WHERE c.call_date BETWEEN $1 AND $2
           AND (LOWER(COALESCE(c.direction, 'in')) IN ('in', 'inbound', '') OR c.direction IS NULL)
           AND c.operator_number = ANY($3::text[])
-          AND ((c.started_at AT TIME ZONE 'Asia/Tashkent')::time BETWEEN '08:00:00' AND '18:00:00')
           AND (c.status = 'answered' OR (c.status = 'missed' AND COALESCE(c.duration, 0) > 22))
       `;
       const params = [from, to, ALLOWED_PBX_OPERATORS];
@@ -1804,10 +1811,11 @@ async function getCallsStats(from, to, operator = 'all', status = 'all') {
       ALLOWED_PBX_OPERATORS.forEach(opNum => {
         const emp = emps.find(e => (String(e.operator_number || '').trim() === opNum || String(e.pbx_extension || '').trim() === opNum));
         const is5002 = (opNum === '5002');
+        const defaultName = DEFAULT_PBX_OPERATOR_NAMES[opNum] || (is5002 ? '5002-operator' : '—');
         opMap.set(opNum, {
           operator_number: opNum,
           employee_id: emp?.id || null,
-          employee_name: emp?.name || (is5002 ? '5002-operator' : '—'),
+          employee_name: emp?.name || defaultName,
           total_calls: X, // Barcha akkauntlar uchun bir xil (PBX umumiy kiruvchilar)
           assigned_calls: 0,
           answered_calls: 0,
@@ -1905,13 +1913,6 @@ async function getCallsStats(from, to, operator = 'all', status = 'all') {
     const statusMatch = (!status || status === 'all' || c.status === status);
     if (!dateMatch || !isIncoming || !statusMatch) return false;
 
-    if (c.started_at) {
-      const d = new Date(c.started_at);
-      const tashkentHour = (d.getUTCHours() + 5) % 24;
-      const tashkentMin = d.getUTCMinutes();
-      const timeMins = tashkentHour * 60 + tashkentMin;
-      if (timeMins < 8 * 60 || timeMins > 18 * 60) return false;
-    }
     // Propushnniy faqat 22 sekunddan ko'p (> 22) kutganlar
     if (c.status === 'missed' && (Number(c.duration) || 0) <= 22) return false;
     return true;
@@ -1931,10 +1932,11 @@ async function getCallsStats(from, to, operator = 'all', status = 'all') {
   ALLOWED_PBX_OPERATORS.forEach(opNum => {
     const emp = allEmployees.find(e => (String(e.operator_number || '').trim() === opNum || String(e.pbx_extension || '').trim() === opNum));
     const is5002 = (opNum === '5002');
+    const defaultName = DEFAULT_PBX_OPERATOR_NAMES[opNum] || (is5002 ? '5002-operator' : '—');
     opMap.set(opNum, {
       operator_number: opNum,
       employee_id: emp?.id || null,
-      employee_name: emp?.name || (is5002 ? '5002-operator' : '—'),
+      employee_name: emp?.name || defaultName,
       total_calls: X, // Barcha akkauntlar uchun bir xil
       assigned_calls: 0,
       answered_calls: 0,
@@ -2071,7 +2073,6 @@ async function getCallsList(from, to, operator, status, limit = 50, employeeId =
           LIMIT 1
         ) e ON true
         WHERE c.operator_number = ANY($1::text[])
-          AND ((c.started_at AT TIME ZONE 'Asia/Tashkent')::time BETWEEN '08:00:00' AND '18:00:00')
           AND (c.status = 'answered' OR (c.status = 'missed' AND COALESCE(c.duration, 0) > 22))
       `;
       const params = [ALLOWED_PBX_OPERATORS];
@@ -2121,15 +2122,8 @@ async function getCallsList(from, to, operator, status, limit = 50, employeeId =
   }
   if (status && status !== 'all') calls = calls.filter(c => c.status === status);
 
-  // 08:00 - 18:00 va missed > 22s filtri
+  // Missed > 22s filtri
   calls = calls.filter(c => {
-    if (c.started_at) {
-      const d = new Date(c.started_at);
-      const tashkentHour = (d.getUTCHours() + 5) % 24;
-      const tashkentMin = d.getUTCMinutes();
-      const timeMins = tashkentHour * 60 + tashkentMin;
-      if (timeMins < 8 * 60 || timeMins > 18 * 60) return false;
-    }
     if (c.status === 'missed' && (Number(c.duration) || 0) <= 22) return false;
     if (employeeId) {
       const emp = allEmployees.find(e => e.id === employeeId);

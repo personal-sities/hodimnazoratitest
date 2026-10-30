@@ -55,6 +55,9 @@ function getCallDateAndTashkentTime(call) {
 function getPbxStatsFromHistorical(from, to, operatorFilter = 'all', statusFilter = 'all') {
   if (!window.PBX_HISTORICAL_STATS || typeof window.PBX_HISTORICAL_STATS !== 'object') return null;
 
+  // Faqat o'tgan tarixiy kunlar uchun statik keshdan foydalanish. Bugungi va kelgusi kunlar faqat jonli webhook/server orqali olinadi
+  if (to >= todayISO()) return null;
+
   // 1. Bir kunlik tarixiy so'rov (masalan: 2026-10-29 dan 2026-10-29 gacha - "Kecha")
   if (from === to && window.PBX_HISTORICAL_STATS[from]) {
     const dayStat = window.PBX_HISTORICAL_STATS[from];
@@ -223,9 +226,6 @@ function computePbxStatsFromCalls(calls, from, to, operatorFilter = 'all', statu
     const dir = String(c.direction || 'in').toLowerCase();
     if (dir !== 'in' && dir !== 'inbound' && dir !== '') return false;
 
-    // Ish vaqti: Toshkent vaqti bilan 08:00 dan 18:00 gacha
-    if (hour >= 0 && (hour < 8 || hour > 18 || (hour === 18 && minute > 0))) return false;
-
     // Propushnniylardan faqat 22 soniyadan ko'p kutganlar (> 22s)
     if (c.status === 'missed' && ((c.duration || 0) <= 22)) return false;
 
@@ -356,9 +356,8 @@ function filterPbxCallsArray(calls, from, to, operatorFilter = 'all', statusFilt
     if (!callDate || callDate < from || callDate > to) return false;
 
     // Jonli kunlarda dashboard talabi:
-    // Faqat 08:00 dan 18:00 gacha va propushnniylardan > 22s kutganlar
+    // Faqat propushnniylardan > 22s kutganlar
     if (to >= todayISO()) {
-      if (hour >= 0 && (hour < 8 || hour > 18 || (hour === 18 && minute > 0))) return false;
       if (c.status === 'missed' && ((c.duration || 0) <= 22)) return false;
     }
 
@@ -720,8 +719,8 @@ function renderPbxStatsUI(data) {
 }
 
 async function fetchAndRenderPbxStats(isBackground = false) {
-  // Preloaded mavjud bo'lsa (tarixiy yoki 30.10.2026 kiritilgan kun)
-  if (renderPbxFromPreloadedData()) {
+  // Faqat o'tgan tarixiy kunlar uchun preloaded keshdan o'qish. Bugungi kun esa jonli server / webhookdan olinadi
+  if (pbxDateTo < todayISO() && renderPbxFromPreloadedData()) {
     return;
   }
 
