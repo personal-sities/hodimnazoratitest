@@ -135,6 +135,17 @@ function subscribeAdminRealtime(){
       const tab=document.getElementById('tab_feedback');
       if(tab&&!tab.classList.contains('hidden'))await loadFeedbackAdmin();
     })
+    .on('postgres_changes',{
+      event:'*',
+      schema:REALTIME_SCHEMA,
+      table:'calls'
+    }, async () => {
+      if (typeof currentAdminTab !== 'undefined' && currentAdminTab === 'pbx' && typeof pbxDateTo !== 'undefined' && pbxDateTo >= todayISO()) {
+        if (typeof syncNewPbxCallsInBackground === 'function') {
+          syncNewPbxCallsInBackground(false);
+        }
+      }
+    })
     .subscribe();
 }
 

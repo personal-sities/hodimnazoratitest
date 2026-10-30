@@ -468,12 +468,12 @@ async function syncPbxFromApiManual() {
 
 function startPbxAutoRefresh() {
   if (pbxAutoRefreshTimer) clearInterval(pbxAutoRefreshTimer);
-  // Har 25 soniyada yangi qo'ng'iroqlarni orqa fonda tekshirish
+  // Har 10 soniyada yangi qo'ng'iroqlarni jonli orqa fonda yangilash
   pbxAutoRefreshTimer = setInterval(() => {
-    if (typeof currentAdminTab !== 'undefined' && currentAdminTab === 'pbx') {
+    if (typeof currentAdminTab !== 'undefined' && currentAdminTab === 'pbx' && pbxDateTo >= todayISO()) {
       syncNewPbxCallsInBackground(false);
     }
-  }, 25000);
+  }, 10000);
 }
 
 function setPbxDatePreset(preset) {

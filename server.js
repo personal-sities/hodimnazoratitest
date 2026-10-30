@@ -1401,7 +1401,13 @@ async function seedCallsFromJsonIfEmpty() {
 function initOnlinePbxSync() {
   setTimeout(() => {
     seedCallsFromJsonIfEmpty().catch(() => {});
-  }, 1000);
+    syncOnlinePbxCalls(1).catch(() => {});
+  }, 2000);
+
+  // Har 45 soniyada bugungi yangi qo'ng'iroqlarni OnlinePBX dan avtomatik yangilab turish (Webhook bilan parallel)
+  setInterval(() => {
+    syncOnlinePbxCalls(1).catch(() => {});
+  }, 45000);
 }
 
 async function relinkAllPbxCalls() {
@@ -2313,11 +2319,6 @@ async function handleOnlinePbxWebhook(req, res, reqUrl) {
     }
     const tashkentDate = new Date(startedAt.getTime() + 5 * 3600 * 1000).toISOString().split('T')[0];
     const callDate = tashkentDate;
-
-    // O'tkazib yuborilganlardan faqat 22 soniyadan ko'p (> 22s) kutganlar
-    if (status === 'missed' && duration <= 22) {
-      return sendJson(res, 200, { ok: true, ignored: true, reason: 'Missed duration <= 22s' });
-    }
 
     const saved = await saveCallRecord({
       call_id: callId,
