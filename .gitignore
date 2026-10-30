@@ -15,7 +15,8 @@ yarn-debug.log*
 yarn-error.log*
 
 # Ma'lumotlar bazasi va keshlar
-data/
+data/*
+!data/pbx_historical_stats.json
 *.sqlite
 *.db
 .cache/
