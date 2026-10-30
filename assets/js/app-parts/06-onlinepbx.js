@@ -38,11 +38,11 @@ function getCallDateAndTashkentTime(call) {
     try {
       const d = new Date(call.started_at);
       if (!isNaN(d.getTime())) {
-        // Toshkent UTC+5
-        const utcMs = d.getTime() + (d.getTimezoneOffset() * 60000);
-        const tDate = new Date(utcMs + (5 * 3600000));
-        hour = tDate.getHours();
-        minute = tDate.getMinutes();
+        // Toshkent UTC+5 doimiy
+        const tashkentMs = d.getTime() + (5 * 3600000);
+        const tDate = new Date(tashkentMs);
+        hour = tDate.getUTCHours();
+        minute = tDate.getUTCMinutes();
         if (!callDate) {
           callDate = tDate.toISOString().split('T')[0];
         }
@@ -201,6 +201,12 @@ function renderPbxFromPreloadedData() {
   if (!window.PBX_PRELOADED_CALLS || !Array.isArray(window.PBX_PRELOADED_CALLS) || window.PBX_PRELOADED_CALLS.length === 0) {
     return false;
   }
+  // Agar bugungi kun bo'lsa (pbxDateTo >= todayISO()),
+  // preloaded data faqat kechagacha (13.10 dan 29.10 23:59 gacha) bo'lgani sababli,
+  // bugungi kun ma'lumotlari jonli server / webhook orqali olinadi.
+  if (pbxDateTo >= todayISO()) {
+    return false;
+  }
   const filtered = filterPbxCallsArray(window.PBX_PRELOADED_CALLS, pbxDateFrom, pbxDateTo, pbxFilterOperator, pbxFilterStatus);
   if (!filtered || filtered.length === 0) {
     return false;
@@ -225,20 +231,6 @@ async function syncNewPbxCallsInBackground(showFallbackSpinner = false) {
       fetchAndRenderPbxStats(!showFallbackSpinner),
       fetchAndRenderPbxCalls(!showFallbackSpinner)
     ]);
-
-    // Olingan yangi qo'ng'iroqlarni preloaded xotiraga ham qo'shib qo'yamiz
-    if (Array.isArray(pbxCallsCache) && pbxCallsCache.length > 0) {
-      if (!window.PBX_PRELOADED_CALLS) window.PBX_PRELOADED_CALLS = [];
-      let added = false;
-      pbxCallsCache.forEach(nc => {
-        if (!nc || !nc.call_id) return;
-        const exists = window.PBX_PRELOADED_CALLS.some(c => c.call_id === nc.call_id);
-        if (!exists) {
-          window.PBX_PRELOADED_CALLS.unshift(nc);
-          added = true;
-        }
-      });
-    }
   } catch (_) {}
 }
 

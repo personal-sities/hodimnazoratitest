@@ -978,23 +978,24 @@ async function saveCallRecord(call) {
     }
   }
 
-  if (!pool) {
-    try {
-      const list = readLocalCalls();
-      const idx = list.findIndex(c => c.call_id === call.call_id);
-      if (idx >= 0) {
-        list[idx] = {
-          ...list[idx],
-          ...call,
-          rating: call.rating !== undefined ? call.rating : list[idx].rating,
-          rating_comment: call.rating_comment !== undefined ? call.rating_comment : list[idx].rating_comment,
-          updated_at: new Date().toISOString()
-        };
-      } else {
-        list.push({ ...call, created_at: new Date().toISOString() });
-      }
-      writeLocalCalls(list);
-    } catch (e) { }
+  // Har doim data/calls.json ga ham saqlash (zaxira va real-time monitoring uchun)
+  try {
+    const list = readLocalCalls();
+    const idx = list.findIndex(c => c.call_id === call.call_id);
+    if (idx >= 0) {
+      list[idx] = {
+        ...list[idx],
+        ...call,
+        rating: call.rating !== undefined ? call.rating : list[idx].rating,
+        rating_comment: call.rating_comment !== undefined ? call.rating_comment : list[idx].rating_comment,
+        updated_at: new Date().toISOString()
+      };
+    } else {
+      list.push({ ...call, created_at: new Date().toISOString() });
+    }
+    writeLocalCalls(list);
+  } catch (e) {
+    console.warn('[saveCallRecord local write error]:', e.message);
   }
 
   try { pbxStatsCacheMap.clear(); } catch (_) {}
