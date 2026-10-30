@@ -201,11 +201,14 @@ function renderPbxFromPreloadedData() {
   if (!window.PBX_PRELOADED_CALLS || !Array.isArray(window.PBX_PRELOADED_CALLS) || window.PBX_PRELOADED_CALLS.length === 0) {
     return false;
   }
+  const filtered = filterPbxCallsArray(window.PBX_PRELOADED_CALLS, pbxDateFrom, pbxDateTo, pbxFilterOperator, pbxFilterStatus);
+  if (!filtered || filtered.length === 0) {
+    return false;
+  }
   const data = computePbxStatsFromCalls(window.PBX_PRELOADED_CALLS, pbxDateFrom, pbxDateTo, pbxFilterOperator, pbxFilterStatus);
   pbxStatsCache = data;
   renderPbxStatsUI(data);
 
-  const filtered = filterPbxCallsArray(window.PBX_PRELOADED_CALLS, pbxDateFrom, pbxDateTo, pbxFilterOperator, pbxFilterStatus);
   pbxCallsCache = filtered.slice(0, 150);
   renderPbxCallsTable(pbxCallsCache);
 
@@ -216,31 +219,25 @@ function renderPbxFromPreloadedData() {
 }
 
 async function syncNewPbxCallsInBackground(showFallbackSpinner = false) {
-  if (showFallbackSpinner) {
-    fetchAndRenderPbxStats(false);
-    fetchAndRenderPbxCalls(false);
-    return;
-  }
-
   try {
-    const url = `/api/pbx/calls?from=${encodeURIComponent(pbxDateFrom)}&to=${encodeURIComponent(pbxDateTo)}&operator=${encodeURIComponent(pbxFilterOperator)}&status=${encodeURIComponent(pbxFilterStatus)}&limit=150`;
-    const res = await fetch(url);
-    if (!res.ok) return;
-    const data = await res.json();
-    if (data && Array.isArray(data.calls) && data.calls.length > 0) {
+    // Serverdan yangi jonli statistikani va qo'ng'iroqlar jadvalini har doim yangilash
+    await Promise.all([
+      fetchAndRenderPbxStats(!showFallbackSpinner),
+      fetchAndRenderPbxCalls(!showFallbackSpinner)
+    ]);
+
+    // Olingan yangi qo'ng'iroqlarni preloaded xotiraga ham qo'shib qo'yamiz
+    if (Array.isArray(pbxCallsCache) && pbxCallsCache.length > 0) {
       if (!window.PBX_PRELOADED_CALLS) window.PBX_PRELOADED_CALLS = [];
-      let hasNew = false;
-      data.calls.forEach(nc => {
+      let added = false;
+      pbxCallsCache.forEach(nc => {
         if (!nc || !nc.call_id) return;
         const exists = window.PBX_PRELOADED_CALLS.some(c => c.call_id === nc.call_id);
         if (!exists) {
           window.PBX_PRELOADED_CALLS.unshift(nc);
-          hasNew = true;
+          added = true;
         }
       });
-      if (hasNew) {
-        renderPbxFromPreloadedData();
-      }
     }
   } catch (_) {}
 }
@@ -253,18 +250,68 @@ async function loadPbxDashboard() {
   // 1. ZUMRAD TEZLIKDA (0 MILLISEKUND): Agar JS preloaded data bo'lsa, bir zumda chizish
   const rendered = renderPbxFromPreloadedData();
 
-  // 2. Orqa fonda yangi qo'ng'iroqlarni (webhook orqali kelgan) tekshirib yangilash
+  // 2. Serverdan yangi jonli ma'lumotlarni (stats + calls) orqa fonda olish
   syncNewPbxCallsInBackground(!rendered);
+
+  // 3. Agar bugungi kun bo'lsa va preloaded ma'lumot bo'lmagan bo'lsa, API dan avtomatik yangilash
+  if (!rendered && pbxDateTo >= todayISO()) {
+    triggerPbxServerSync();
+  }
+}
+
+async function triggerPbxServerSync() {
+  try {
+    const res = await fetch('/api/pbx/sync?days=1', { method: 'POST' });
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.ok) {
+        fetchAndRenderPbxStats(true);
+        fetchAndRenderPbxCalls(true);
+      }
+    }
+  } catch (_) {}
+}
+
+async function syncPbxFromApiManual() {
+  const btn = document.getElementById('pbx_sync_api_btn');
+  const origHtml = btn ? btn.innerHTML : '';
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = `<span class="btn-icon spin" data-lucide="loader-2"></span><span>Sinxronlanmoqda...</span>`;
+    if (typeof hydrateLucideIcons === 'function') hydrateLucideIcons(btn);
+  }
+  try {
+    if (typeof toast === 'function') toast('info', 'OnlinePBX', 'OnlinePBX dan bugungi qo\'ng\'iroqlar yuklanmoqda...');
+    const res = await fetch('/api/pbx/sync?days=1', { method: 'POST' });
+    const data = await res.json();
+    if (data && data.ok) {
+      if (typeof toast === 'function') toast('success', 'OnlinePBX', `Muvaffaqiyatli sinxronlandi: ${data.total_fetched || 0} ta qo'ng'iroq olindi`);
+    } else {
+      if (typeof toast === 'function') toast('warn', 'OnlinePBX', (data && data.error) ? data.error : 'Sinxronlash kutilmoqda');
+    }
+    await fetchAndRenderPbxStats(false);
+    await fetchAndRenderPbxCalls(false);
+  } catch (err) {
+    if (typeof toast === 'function') toast('error', 'OnlinePBX', 'Serverga ulanish xatosi: ' + err.message);
+    await fetchAndRenderPbxStats(false);
+    await fetchAndRenderPbxCalls(false);
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = origHtml;
+      if (typeof hydrateLucideIcons === 'function') hydrateLucideIcons(btn);
+    }
+  }
 }
 
 function startPbxAutoRefresh() {
   if (pbxAutoRefreshTimer) clearInterval(pbxAutoRefreshTimer);
-  // Har 30 soniyada yangi webhook qo'ng'iroqlarini orqa fonda tekshirish
+  // Har 25 soniyada yangi qo'ng'iroqlarni orqa fonda tekshirish
   pbxAutoRefreshTimer = setInterval(() => {
     if (typeof currentAdminTab !== 'undefined' && currentAdminTab === 'pbx') {
       syncNewPbxCallsInBackground(false);
     }
-  }, 30000);
+  }, 25000);
 }
 
 function setPbxDatePreset(preset) {

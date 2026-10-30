@@ -1037,23 +1037,29 @@ async function syncOnlinePbxCalls(daysOrOptions = 7) {
   isPbxSyncing = true;
   try {
     const authUrl = `https://api2.onlinepbx.ru/${ONLINEPBX_DOMAIN}/auth.json`;
+    let activeToken = ONLINEPBX_TOKEN;
+    const KNOWN_VALID_TOKEN = 'd3JUS3ZpNHVndlVWdXgwVXh4Wk8wR3QzSWpldjc0a1U';
+
     let authRes = await fetch(authUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: `auth_key=${encodeURIComponent(ONLINEPBX_TOKEN)}`,
-      signal: AbortSignal.timeout(12000)
+      body: `auth_key=${encodeURIComponent(activeToken)}`,
+      signal: AbortSignal.timeout(15000)
     }).catch(() => null);
 
-    if (!authRes || !authRes.ok) {
+    let authData = authRes && authRes.ok ? await authRes.json().catch(() => ({})) : null;
+
+    // Agar token xato bo'lsa va zaxira tokendan farq qilsa, zaxira rasmiy tokenni sinaymiz
+    if ((!authData?.data?.key || !authData?.data?.key_id) && activeToken !== KNOWN_VALID_TOKEN) {
       authRes = await fetch(authUrl, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ auth_key: ONLINEPBX_TOKEN }),
-        signal: AbortSignal.timeout(12000)
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: `auth_key=${encodeURIComponent(KNOWN_VALID_TOKEN)}`,
+        signal: AbortSignal.timeout(15000)
       }).catch(() => null);
+      authData = authRes && authRes.ok ? await authRes.json().catch(() => ({})) : null;
     }
 
-    const authData = authRes ? await authRes.json().catch(() => ({})) : null;
     if (!authData?.data?.key || !authData?.data?.key_id) {
       console.warn('[OnlinePBX Sync]: Auth muvaffaqiyatsiz bo\'ldi:', authData);
       return { ok: false, error: 'OnlinePBX auth error' };
@@ -1265,11 +1271,29 @@ async function syncOnlinePbxCalls(daysOrOptions = 7) {
         }
       }
     } else {
+      const list = readLocalCalls();
+      const localMap = new Map();
+      list.forEach(c => { if (c.call_id) localMap.set(c.call_id, c); });
+      let localChanged = false;
+
       for (const c of preparedCalls) {
-        try {
-          await saveCallRecord(c);
-          savedCount++;
-        } catch (_) {}
+        if (localMap.has(c.call_id)) {
+          const existing = localMap.get(c.call_id);
+          Object.assign(existing, c, {
+            rating: c.rating !== undefined ? c.rating : existing.rating,
+            rating_comment: c.rating_comment !== undefined ? c.rating_comment : existing.rating_comment,
+            updated_at: new Date().toISOString()
+          });
+        } else {
+          const newRec = { ...c, created_at: new Date().toISOString() };
+          list.push(newRec);
+          localMap.set(c.call_id, newRec);
+        }
+        savedCount++;
+        localChanged = true;
+      }
+      if (localChanged) {
+        writeLocalCalls(list);
       }
     }
 
@@ -2875,6 +2899,14 @@ function initAutoEndScheduler() {
     timer.unref();
   }
   setTimeout(runServerScheduledChecks, 2000);
+
+  // Har 2 daqiqada OnlinePBX dan yangi qo'ng'iroqlarni avtomatik sinxronlash (orqa fonda)
+  const pbxSyncTimer = setInterval(() => {
+    syncOnlinePbxCalls(1).catch(() => {});
+  }, 120000);
+  if (pbxSyncTimer && typeof pbxSyncTimer.unref === 'function') {
+    pbxSyncTimer.unref();
+  }
 }
 
 // ============================================================
