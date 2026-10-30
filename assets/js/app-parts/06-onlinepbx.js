@@ -412,10 +412,7 @@ async function syncNewPbxCallsInBackground(showFallbackSpinner = false) {
   }
   try {
     // Serverdan faqat bugungi jonli yangi ma'lumotlarni olish
-    await Promise.all([
-      fetchAndRenderPbxStats(!showFallbackSpinner),
-      fetchAndRenderPbxCalls(!showFallbackSpinner)
-    ]);
+    await fetchAndRenderPbxStats(!showFallbackSpinner);
   } catch (_) {}
 }
 
@@ -443,7 +440,6 @@ async function triggerPbxServerSync() {
       const data = await res.json();
       if (data && data.ok) {
         fetchAndRenderPbxStats(true);
-        fetchAndRenderPbxCalls(true);
       }
     }
   } catch (_) {}
@@ -467,11 +463,9 @@ async function syncPbxFromApiManual() {
       if (typeof toast === 'function') toast('warn', 'OnlinePBX', (data && data.error) ? data.error : 'Sinxronlash kutilmoqda');
     }
     await fetchAndRenderPbxStats(false);
-    await fetchAndRenderPbxCalls(false);
   } catch (err) {
     if (typeof toast === 'function') toast('error', 'OnlinePBX', 'Serverga ulanish xatosi: ' + err.message);
     await fetchAndRenderPbxStats(false);
-    await fetchAndRenderPbxCalls(false);
   } finally {
     if (btn) {
       btn.disabled = false;

@@ -284,7 +284,7 @@ js_content = f'''// ============================================================
 // ============================================================
 window.PBX_HISTORICAL_STATS = {json.dumps(daily_stats_table, ensure_ascii=False, indent=2)};
 
-window.PBX_PRELOADED_CALLS = {json.dumps(all_prepared_calls, ensure_ascii=False, indent=2)};
+window.PBX_PRELOADED_CALLS = [];
 '''
 
 with open(preloaded_js_path, 'w', encoding='utf-8') as f:

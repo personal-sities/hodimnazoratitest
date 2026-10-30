@@ -442,38 +442,6 @@ html.user-logged-in #loginPage {
             </div>
           </div>
 
-          <!-- Qo'ng'iroqlar jurnali (Calls log) -->
-          <div class="box">
-            <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:14px;">
-              <span class="btitle" id="pbx_logs_box_title" style="margin:0;">
-                <span data-lucide="list-filter" style="width:18px;height:18px;color:var(--accent);"></span>
-                Qo'ng'iroqlar jurnali
-              </span>
-              <div style="display:flex;align-items:center;gap:8px;">
-                <input type="text" id="pbx_search_input" placeholder="Mijoz yoki operator qidirish..." oninput="filterPbxCallsLocally()" style="min-width:240px;font-size:12px;padding:6px 10px;border:1.5px solid var(--border2);border-radius:var(--radius-sm);background:var(--input-bg);color:var(--text);">
-              </div>
-            </div>
-            <div class="tbl-wrap">
-              <table class="tbl" style="min-width:920px;">
-                <thead>
-                  <tr>
-                    <th>#</th>
-                    <th id="pbx_log_th_date">Vaqt / Sana</th>
-                    <th id="pbx_log_th_caller">Mijoz raqami</th>
-                    <th id="pbx_log_th_callee">Liniya</th>
-                    <th id="pbx_log_th_op">Operator</th>
-                    <th id="pbx_log_th_emp">Mas'ul xodim</th>
-                    <th id="pbx_log_th_status">Holat</th>
-                    <th id="pbx_log_th_duration">Suhbat davomiyligi</th>
-                    <th id="pbx_log_th_rating">Qo'yilgan baho</th>
-                  </tr>
-                </thead>
-                <tbody id="pbx_calls_body">
-                  <tr><td colspan="9" style="text-align:center;padding:24px;color:var(--text3);">Yuklanmoqda...</td></tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
         </div>
 
         <div id="tab_notif" class="hidden">
@@ -1077,8 +1045,8 @@ html.user-logged-in #loginPage {
 <script src="assets/js/app-parts/04-time-attendance-utils.js?v=3.3" defer></script>
 <script src="assets/js/app-parts/05-notifications-feedback-login.js?v=3.3" defer></script>
 <script src="assets/js/app-parts/06-admin-pbx.js?v=3.3" defer></script>
-<script src="assets/js/app-parts/06-pbx-preloaded-data.js?v=3.7" defer></script>
-<script src="assets/js/app-parts/06-onlinepbx.js?v=3.7" defer></script>
+<script src="assets/js/app-parts/06-pbx-preloaded-data.js?v=3.8" defer></script>
+<script src="assets/js/app-parts/06-onlinepbx.js?v=3.8" defer></script>
 <script src="assets/js/app-parts/07-export-employee-state-actions.js?v=3.4" defer></script>
 <script src="assets/js/app-parts/08-timers-prayer-autoend.js?v=3.3" defer></script>
 <script src="assets/js/app-parts/09-face-detection.js?v=3.3" defer></script>
