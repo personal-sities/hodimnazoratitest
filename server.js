@@ -1194,13 +1194,17 @@ async function syncOnlinePbxCalls(daysOrOptions = 7) {
       }
       if (!operatorNumber && raw.user && allowedSet.has(String(raw.user).trim())) operatorNumber = String(raw.user).trim();
 
-      // Yo'nalish
-      let direction = 'in';
+      // FILTERS (only these two, NO other filters):
+      // 1) Incoming calls only:
       const acct = String(raw.accountcode || '').toLowerCase();
-      if (acct.includes('out') || (operatorNumber && caller === operatorNumber)) {
-        direction = 'out';
-      }
+      const isOutbound = acct.includes('out') || (operatorNumber && caller === operatorNumber);
+      if (isOutbound) continue;
+      const direction = 'in';
 
+      // 2) Only calls with duration greater than 22 seconds (> 22 s):
+      if (duration <= 22) continue;
+
+      // Do not add any other filter (operator, status, number, rating, etc.)
       const matchedEmp = operatorNumber ? empByOp.get(operatorNumber) : null;
       const employeeId = matchedEmp ? matchedEmp.id : null;
       const employeeName = matchedEmp ? matchedEmp.name : (operatorNumber === '5002' ? '5002-operator' : null);
@@ -1233,6 +1237,13 @@ async function syncOnlinePbxCalls(daysOrOptions = 7) {
         call_date: tashkentDate,
         started_at: startedAt
       });
+    }
+
+    if (daysOrOptions && daysOrOptions.isInitial) {
+      if (pool) {
+        await pool.query('DELETE FROM public.calls;').catch(() => {});
+      }
+      writeLocalCalls([]);
     }
 
     // Tezkor batch saqlash (PostgreSQL da 100 tadan jamlab yozish)
@@ -1313,9 +1324,13 @@ async function syncOnlinePbxCalls(daysOrOptions = 7) {
       }
     }
 
+    const byDay = {};
+    for (const c of preparedCalls) {
+      byDay[c.call_date] = (byDay[c.call_date] || 0) + 1;
+    }
     pbxStatsCacheMap.clear();
     lastPbxSyncTime = Date.now();
-    return { ok: true, total_fetched: rawCalls.length, saved_count: savedCount };
+    return { ok: true, total_fetched: rawCalls.length, saved_count: savedCount, filtered_count: preparedCalls.length, by_day: byDay };
   } catch (err) {
     console.warn('[OnlinePBX Sync error]:', err.message);
     return { ok: false, error: err.message };
@@ -1414,17 +1429,35 @@ async function seedCallsFromJsonIfEmpty() {
 }
 
 function initOnlinePbxSync() {
-  // 1. Dastlabki sinxronlash (2 soniyadan so'ng)
-  setTimeout(() => {
-    seedCallsFromJsonIfEmpty().catch(() => {});
-    console.log('[OnlinePBX API Sync]: Dastlabki sinxronlash boshlandi...');
-    syncOnlinePbxCalls(7).catch(e => console.warn('[PBX init sync error]:', e.message));
-  }, 2000);
+  // 1. Startup: fetch everything from 13.10.2026 up to now once (API token orqali)
+  setTimeout(async () => {
+    console.log('[OnlinePBX API Sync]: Startup sinxronlash boshlandi (13.10.2026 00:00:00 dan hozirgacha)...');
+    try {
+      const res = await syncOnlinePbxCalls({
+        fromDate: '2026-10-13T00:00:00+05:00',
+        toStamp: Math.floor(Date.now() / 1000),
+        isInitial: true
+      });
+      console.log('[OnlinePBX API Sync]: Startup sinxronlash yakunlandi. Jami saqlangan:', res?.saved_count);
+    } catch (e) {
+      console.warn('[PBX init sync error]:', e.message);
+    }
+  }, 1000);
 
-  // 2. Har 30 daqiqada OnlinePBX API dan ma'lumotlarni avtomatik olib turish (Foydalanuvchi talabi)
-  setInterval(() => {
+  // 2. Har 30 daqiqada OnlinePBX API dan yangi ma'lumotlarni olib, mavjudlariga birlashtirish (duplicatesiz)
+  setInterval(async () => {
     console.log('[OnlinePBX API 30-min Sync]: 30 daqiqalik davriy sinxronlash boshlandi...');
-    syncOnlinePbxCalls(3).catch(e => console.warn('[PBX 30-min sync error]:', e.message));
+    try {
+      const daysBackSeconds = 2 * 24 * 3600;
+      const fromStamp = Math.floor((Date.now() - daysBackSeconds * 1000) / 1000);
+      const res = await syncOnlinePbxCalls({
+        fromStamp,
+        toStamp: Math.floor(Date.now() / 1000)
+      });
+      console.log('[OnlinePBX API 30-min Sync]: Yangilanish yakunlandi:', res);
+    } catch (e) {
+      console.warn('[PBX 30-min sync error]:', e.message);
+    }
   }, 30 * 60 * 1000);
 }
 
@@ -2036,10 +2069,9 @@ async function getCallsList(from, to, operator, status, limit = 50, employeeId =
 }
 
 async function handleOnlinePbxWebhook(req, res, reqUrl) {
+  // SOURCE: Data must come only from the OnlinePBX API, using the API token.
+  return sendJson(res, 200, { ok: true, message: 'Webhooks disabled: calls are fetched only from OnlinePBX API via token' });
   try {
-    const { parsed } = await readParsedBody(req, reqUrl);
-    console.log('[OnlinePBX Webhook qabul qilindi]:', JSON.stringify(parsed));
-
     const callId = String(
       parsed.uuid || parsed.call_id || parsed.id || parsed.callId || parsed.session_id ||
       `call_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`
