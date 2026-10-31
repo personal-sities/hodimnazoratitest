@@ -1,2 +1,0 @@
-window.PBX_HISTORICAL_STATS = {};
-window.PBX_PRELOADED_CALLS = [];

@@ -30,182 +30,6 @@ const DEFAULT_PBX_OPERATOR_NAMES = {
   '5002': '5002-operator'
 };
 
-function getCallDateAndTashkentTime(call) {
-  let callDate = call.call_date;
-  let hour = -1;
-  let minute = 0;
-  if (call.started_at) {
-    try {
-      const d = new Date(call.started_at);
-      if (!isNaN(d.getTime())) {
-        // Toshkent UTC+5 doimiy
-        const tashkentMs = d.getTime() + (5 * 3600000);
-        const tDate = new Date(tashkentMs);
-        hour = tDate.getUTCHours();
-        minute = tDate.getUTCMinutes();
-        if (!callDate) {
-          callDate = tDate.toISOString().split('T')[0];
-        }
-      }
-    } catch (_) {}
-  }
-  return { callDate, hour, minute };
-}
-
-function getPbxStatsFromHistorical(from, to, operatorFilter = 'all', statusFilter = 'all') {
-  return null;
-}
-
-
-function computePbxStatsFromCalls(calls, from, to, operatorFilter = 'all', statusFilter = 'all') {
-  // 1. Agar sana oralig'i to'liq tarixiy bo'lsa, PBX_HISTORICAL_STATS dan tezkor va aniq hisoblash
-  const hist = getPbxStatsFromHistorical(from, to, operatorFilter, statusFilter);
-  if (hist) return hist;
-
-  const allowedSet = new Set(ALLOWED_PBX_OPERATORS);
-  const OPERATOR_ACCOUNTS_COUNT = 5;
-
-  // PBX dagi barcha kiruvchi qo'ng'iroqlar (filtrsiz)
-  const companyIncomingCalls = (calls || []).filter(c => {
-    const { callDate } = getCallDateAndTashkentTime(c);
-    if (!callDate || callDate < from || callDate > to) return false;
-    const dir = String(c.direction || 'in').toLowerCase();
-    if (dir !== 'in' && dir !== 'inbound' && dir !== '') return false;
-    return true;
-  });
-
-  const X = companyIncomingCalls.length;
-  const Z = OPERATOR_ACCOUNTS_COUNT > 0 ? (X / OPERATOR_ACCOUNTS_COUNT) : 0;
-  const targetQuota = Math.round(Z * 10) / 10;
-
-  // Operatorlar bo'yicha hisob
-  const opMap = new Map();
-  ALLOWED_PBX_OPERATORS.forEach(opNum => {
-    const is5002 = (opNum === '5002');
-    opMap.set(opNum, {
-      operator_number: opNum,
-      employee_id: null,
-      employee_name: DEFAULT_PBX_OPERATOR_NAMES[opNum] || (is5002 ? '5002-operator' : 'Operator'),
-      total_calls: X,
-      assigned_calls: 0,
-      answered_calls: 0,
-      missed_calls: 0,
-      target_quota: is5002 ? null : targetQuota,
-      answered_percent: is5002 ? null : 0,
-      total_talk_seconds: 0,
-      avg_talk_seconds: 0,
-      avg_rating: null,
-      rated_calls_count: 0,
-      total_rating_sum: 0
-    });
-  });
-
-  companyIncomingCalls.forEach(c => {
-    const op = String(c.operator_number || '').trim();
-    if (opMap.has(op)) {
-      const item = opMap.get(op);
-      item.assigned_calls++;
-      if (c.employee_name && c.employee_name !== '—' && c.employee_name !== 'Biriktirilmagan') {
-        item.employee_name = c.employee_name;
-      }
-      if (c.employee_id) {
-        item.employee_id = c.employee_id;
-      }
-      if (c.status === 'answered') {
-        item.answered_calls++;
-        item.total_talk_seconds += (c.talk_time || c.duration || 0);
-      } else {
-        item.missed_calls++;
-      }
-      const r = parseFloat(c.rating);
-      if (!isNaN(r) && r > 0) {
-        item.total_rating_sum += r;
-        item.rated_calls_count++;
-      }
-    }
-  });
-
-  const operatorsList = Array.from(opMap.values()).map(item => {
-    const is5002 = (item.operator_number === '5002');
-    const ansPct = is5002 ? null : (Z > 0 ? Math.round((item.answered_calls / Z) * 100 * 10) / 10 : 0);
-    const avgTalk = item.answered_calls > 0 ? Math.round(item.total_talk_seconds / item.answered_calls) : 0;
-    const avgRat = item.rated_calls_count > 0 ? Math.round((item.total_rating_sum / item.rated_calls_count) * 10) / 10 : null;
-    return {
-      operator_number: item.operator_number,
-      employee_id: item.employee_id,
-      employee_name: item.employee_name,
-      total_calls: X,
-      assigned_calls: item.assigned_calls,
-      answered_calls: item.answered_calls,
-      missed_calls: item.missed_calls,
-      target_quota: is5002 ? null : targetQuota,
-      answered_percent: ansPct,
-      total_talk_seconds: item.total_talk_seconds,
-      avg_talk_seconds: avgTalk,
-      avg_rating: avgRat,
-      rated_calls_count: item.rated_calls_count
-    };
-  }).sort((a, b) => {
-    if (a.operator_number === '5002') return 1;
-    if (b.operator_number === '5002') return -1;
-    return b.answered_calls - a.answered_calls;
-  });
-
-  let filteredOperators = operatorsList;
-  if (operatorFilter && operatorFilter !== 'all') {
-    filteredOperators = operatorsList.filter(o => o.operator_number === operatorFilter);
-  }
-
-  const answeredTotal = companyIncomingCalls.filter(c => c.status === 'answered').length;
-  const missedTotal = companyIncomingCalls.filter(c => c.status === 'missed').length;
-  const totalTalkSec = companyIncomingCalls.filter(c => c.status === 'answered').reduce((sum, c) => sum + (c.talk_time || c.duration || 0), 0);
-  const avgTalkSec = answeredTotal > 0 ? Math.round(totalTalkSec / answeredTotal) : 0;
-  const answeredPercent = X > 0 ? Math.round((answeredTotal / X) * 100 * 10) / 10 : 0;
-
-  const ratedCalls = companyIncomingCalls.filter(c => {
-    const r = parseFloat(c.rating);
-    return !isNaN(r) && r > 0;
-  });
-  const avgRating = ratedCalls.length > 0 
-    ? Math.round((ratedCalls.reduce((sum, c) => sum + parseFloat(c.rating), 0) / ratedCalls.length) * 10) / 10 
-    : null;
-
-  return {
-    ok: true,
-    from,
-    to,
-    operator: operatorFilter,
-    status: statusFilter,
-    summary: {
-      total_calls: X,
-      accounts_count: OPERATOR_ACCOUNTS_COUNT,
-      target_quota: targetQuota,
-      answered_calls: answeredTotal,
-      missed_calls: missedTotal,
-      answered_percent: answeredPercent,
-      total_talk_seconds: totalTalkSec,
-      avg_talk_seconds: avgTalkSec,
-      avg_rating: avgRating,
-      rated_calls_count: ratedCalls.length
-    },
-    operators: filteredOperators
-  };
-}
-
-function filterPbxCallsArray(calls, from, to, operatorFilter = 'all', statusFilter = 'all') {
-  return (calls || []).filter(c => {
-    const { callDate } = getCallDateAndTashkentTime(c);
-    if (!callDate || callDate < from || callDate > to) return false;
-    const op = String(c.operator_number || '').trim();
-    if (operatorFilter && operatorFilter !== 'all' && op !== operatorFilter) return false;
-    if (statusFilter && statusFilter !== 'all' && c.status !== statusFilter) return false;
-    return true;
-  }).sort((a, b) => new Date(b.started_at || 0) - new Date(a.started_at || 0));
-}
-
-function renderPbxFromPreloadedData() {
-  return false;
-}
 
 
 async function syncNewPbxCallsInBackground(showFallbackSpinner = false) {
@@ -618,11 +442,6 @@ function renderPbxOperatorsTable(operators) {
 }
 
 async function fetchAndRenderPbxCalls(isBackground = false) {
-  // Preloaded mavjud bo'lsa darhol chizamiz
-  if (renderPbxFromPreloadedData()) {
-    return;
-  }
-
   const tbody = document.getElementById('pbx_calls_body');
   if (!isBackground && tbody && (!tbody.children.length || tbody.innerHTML.includes('skeleton'))) {
     tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:24px;color:var(--text3);">${t('loading') || 'Yuklanmoqda...'}</td></tr>`;
@@ -635,9 +454,6 @@ async function fetchAndRenderPbxCalls(isBackground = false) {
     pbxCallsCache = data.calls || [];
     renderPbxCallsTable(pbxCallsCache);
   } catch (err) {
-    if (renderPbxFromPreloadedData()) {
-      return;
-    }
     console.error('fetchAndRenderPbxCalls error:', err);
     if (!isBackground && tbody) {
       tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:20px;color:var(--danger);">${err.message || 'Xatolik yuz berdi'}</td></tr>`;
@@ -983,14 +799,6 @@ async function saveCallRating() {
     if (result.ok) {
       toast('success', 'Baholash', `Qo'ng'iroqqa baho saqlandi: ★ ${rating}`);
       closeRateCallModal();
-      if (window.PBX_PRELOADED_CALLS) {
-        const found = window.PBX_PRELOADED_CALLS.find(c => c.call_id === callId);
-        if (found) {
-          found.rating = rating;
-          found.rating_comment = comment;
-        }
-      }
-      renderPbxFromPreloadedData();
       fetchAndRenderPbxStats(true);
       fetchAndRenderPbxCalls(true);
     } else {
