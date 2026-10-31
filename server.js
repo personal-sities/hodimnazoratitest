@@ -1414,9 +1414,18 @@ async function seedCallsFromJsonIfEmpty() {
 }
 
 function initOnlinePbxSync() {
+  // 1. Dastlabki sinxronlash (2 soniyadan so'ng)
   setTimeout(() => {
     seedCallsFromJsonIfEmpty().catch(() => {});
+    console.log('[OnlinePBX API Sync]: Dastlabki sinxronlash boshlandi...');
+    syncOnlinePbxCalls(7).catch(e => console.warn('[PBX init sync error]:', e.message));
   }, 2000);
+
+  // 2. Har 30 daqiqada OnlinePBX API dan ma'lumotlarni avtomatik olib turish (Foydalanuvchi talabi)
+  setInterval(() => {
+    console.log('[OnlinePBX API 30-min Sync]: 30 daqiqalik davriy sinxronlash boshlandi...');
+    syncOnlinePbxCalls(3).catch(e => console.warn('[PBX 30-min sync error]:', e.message));
+  }, 30 * 60 * 1000);
 }
 
 async function relinkAllPbxCalls() {
@@ -1606,132 +1615,6 @@ async function relinkAllPbxCalls() {
 }
 
 async function getCallsStats(from, to, operator = 'all', status = 'all') {
-  // 1. Agar so'ralgan oraliq to'liq o'tgan tarixiy kunlar bo'lsa (to < todayISO()), statik tasdiqlangan data/pbx_historical_stats.json dan o'qish
-  if (to < todayISO()) {
-    const histData = readJsonData('pbx_historical_stats.json', null);
-    if (histData && histData.daily) {
-      if (from === to && histData.daily[from]) {
-        const ds = histData.daily[from];
-        let ops = (ds.operators || []).map(o => ({ ...o }));
-        if (operator && operator !== 'all') {
-          ops = ops.filter(o => String(o.operator_number || '').trim() === String(operator).trim());
-        }
-        return {
-          ok: true,
-          from,
-          to,
-          operator,
-          status,
-          summary: {
-            total_calls: ds.incoming_calls || ds.total_calls,
-            accounts_count: ds.accounts_count || 5,
-            target_quota: ds.target_quota,
-            answered_calls: ds.answered_calls,
-            missed_calls: ds.missed_calls,
-            answered_percent: ds.answered_percent,
-            total_talk_seconds: ds.total_talk_seconds,
-            avg_talk_seconds: ds.avg_talk_seconds,
-            avg_rating: 4.8,
-            rated_calls_count: (ds.operators || []).reduce((s, o) => s + (o.rated_calls_count || 0), 0)
-          },
-          operators: ops
-        };
-      }
-      const daysInRange = Object.keys(histData.daily).filter(d => d >= from && d <= to).sort();
-      if (daysInRange.length > 0) {
-        let totalInc = 0;
-        let totalAns = 0;
-        let totalMiss = 0;
-        let totalTalk = 0;
-        const opMap = new Map();
-        ALLOWED_PBX_OPERATORS.forEach(opNum => {
-          const is5002 = (opNum === '5002');
-          opMap.set(opNum, {
-            operator_number: opNum,
-            employee_id: null,
-            employee_name: is5002 ? '5002-operator' : 'Operator',
-            total_calls: 0,
-            assigned_calls: 0,
-            answered_calls: 0,
-            missed_calls: 0,
-            target_quota: is5002 ? null : 0,
-            answered_percent: is5002 ? null : 0,
-            total_talk_seconds: 0,
-            avg_talk_seconds: 0,
-            avg_rating: null,
-            rated_calls_count: 0
-          });
-        });
-        daysInRange.forEach(d => {
-          const ds = histData.daily[d];
-          if (!ds) return;
-          totalInc += (ds.incoming_calls || ds.total_calls || 0);
-          totalAns += (ds.answered_calls || 0);
-          totalMiss += (ds.missed_calls || 0);
-          totalTalk += (ds.total_talk_seconds || 0);
-          (ds.operators || []).forEach(o => {
-            const opKey = String(o.operator_number || '').trim();
-            if (opMap.has(opKey)) {
-              const item = opMap.get(opKey);
-              item.assigned_calls += (o.assigned_calls || 0);
-              item.answered_calls += (o.answered_calls || 0);
-              item.missed_calls += (o.missed_calls || 0);
-              item.total_talk_seconds += (o.total_talk_seconds || 0);
-              item.rated_calls_count += (o.rated_calls_count || 0);
-              if (o.employee_name && (!item.employee_name || item.employee_name === 'Operator')) {
-                item.employee_name = o.employee_name;
-              }
-            }
-          });
-        });
-        const targetQuota = Math.round((totalInc / 5) * 10) / 10;
-        const ansPct = totalInc > 0 ? Math.round((totalAns / totalInc) * 100 * 10) / 10 : 0;
-        const avgTalkSec = totalAns > 0 ? Math.round(totalTalk / totalAns) : 0;
-        const operatorsList = Array.from(opMap.values()).map(item => {
-          const is5002 = (item.operator_number === '5002');
-          const opAnsPct = is5002 ? null : (targetQuota > 0 ? Math.round((item.answered_calls / targetQuota) * 100 * 10) / 10 : 0);
-          const opAvgTalk = item.answered_calls > 0 ? Math.round(item.total_talk_seconds / item.answered_calls) : 0;
-          return {
-            ...item,
-            total_calls: totalInc,
-            target_quota: is5002 ? null : targetQuota,
-            answered_percent: opAnsPct,
-            avg_talk_seconds: opAvgTalk
-          };
-        }).sort((a, b) => {
-          if (a.operator_number === '5002') return 1;
-          if (b.operator_number === '5002') return -1;
-          return b.answered_calls - a.answered_calls;
-        });
-
-        let ops = operatorsList;
-        if (operator && operator !== 'all') {
-          ops = ops.filter(o => o.operator_number === operator);
-        }
-        return {
-          ok: true,
-          from,
-          to,
-          operator,
-          status,
-          summary: {
-            total_calls: totalInc,
-            accounts_count: 5,
-            target_quota: targetQuota,
-            answered_calls: totalAns,
-            missed_calls: totalMiss,
-            answered_percent: ansPct,
-            total_talk_seconds: totalTalk,
-            avg_talk_seconds: avgTalkSec,
-            avg_rating: 4.8,
-            rated_calls_count: 0
-          },
-          operators: ops
-        };
-      }
-    }
-  }
-
   const cacheKey = `${from}_${to}_${operator}_${status}`;
   const now = Date.now();
   const cached = pbxStatsCacheMap.get(cacheKey);
@@ -1745,7 +1628,7 @@ async function getCallsStats(from, to, operator = 'all', status = 'all') {
   if (pool) {
     try {
       // 1. Kompaniyaga kelgan barcha umumiy kiruvchi qo'ng'iroqlar soni (X)
-      // Shart: faqat kiruvchilar (vxod) va propushnniy > 22s
+      // PBX dagi bor ma'lumot (hech qanday filtrsiz)
       const companyQuery = `
         SELECT
           COUNT(c.id)::int AS total_company_incoming,
@@ -1753,8 +1636,7 @@ async function getCallsStats(from, to, operator = 'all', status = 'all') {
           COUNT(c.id) FILTER (WHERE c.status = 'missed')::int AS total_company_missed
         FROM public.calls c
         WHERE c.call_date BETWEEN $1 AND $2
-          AND (LOWER(COALESCE(c.direction, 'in')) IN ('in', 'inbound', '') OR c.direction IS NULL)
-          AND (c.status = 'answered' OR (c.status = 'missed' AND COALESCE(c.duration, 0) > 22));
+          AND (LOWER(COALESCE(c.direction, 'in')) IN ('in', 'inbound', '') OR c.direction IS NULL);
       `;
       const companyRes = await pool.query(companyQuery, [from, to]).catch(() => ({ rows: [] }));
       const totalCompanyIncoming = Number(companyRes.rows[0]?.total_company_incoming) || 0;
@@ -1784,7 +1666,6 @@ async function getCallsStats(from, to, operator = 'all', status = 'all') {
         WHERE c.call_date BETWEEN $1 AND $2
           AND (LOWER(COALESCE(c.direction, 'in')) IN ('in', 'inbound', '') OR c.direction IS NULL)
           AND c.operator_number = ANY($3::text[])
-          AND (c.status = 'answered' OR (c.status = 'missed' AND COALESCE(c.duration, 0) > 22))
       `;
       const params = [from, to, ALLOWED_PBX_OPERATORS];
       if (operator && operator !== 'all') {
@@ -1911,11 +1792,7 @@ async function getCallsStats(from, to, operator = 'all', status = 'all') {
     const dir = String(c.direction || 'in').toLowerCase().trim();
     const isIncoming = (dir === 'in' || dir === 'inbound' || dir === '');
     const statusMatch = (!status || status === 'all' || c.status === status);
-    if (!dateMatch || !isIncoming || !statusMatch) return false;
-
-    // Propushnniy faqat 22 sekunddan ko'p (> 22) kutganlar
-    if (c.status === 'missed' && (Number(c.duration) || 0) <= 22) return false;
-    return true;
+    return dateMatch && isIncoming && statusMatch;
   });
 
   const X = allCompanyIncoming.length;
@@ -2073,7 +1950,6 @@ async function getCallsList(from, to, operator, status, limit = 50, employeeId =
           LIMIT 1
         ) e ON true
         WHERE c.operator_number = ANY($1::text[])
-          AND (c.status = 'answered' OR (c.status = 'missed' AND COALESCE(c.duration, 0) > 22))
       `;
       const params = [ALLOWED_PBX_OPERATORS];
       if (from) {
@@ -2122,9 +1998,8 @@ async function getCallsList(from, to, operator, status, limit = 50, employeeId =
   }
   if (status && status !== 'all') calls = calls.filter(c => c.status === status);
 
-  // Missed > 22s filtri
+  // Operatorlar bo'yicha filtrlash
   calls = calls.filter(c => {
-    if (c.status === 'missed' && (Number(c.duration) || 0) <= 22) return false;
     if (employeeId) {
       const emp = allEmployees.find(e => e.id === employeeId);
       const op = emp?.operator_number || emp?.pbx_extension;
