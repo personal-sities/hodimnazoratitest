@@ -80,7 +80,8 @@ async function syncPbxFromApiManual() {
     if (data && data.ok) {
       if (typeof toast === 'function') toast('success', 'OnlinePBX', `Muvaffaqiyatli sinxronlandi: ${data.total_fetched || 0} ta qo'ng'iroq olindi`);
     } else {
-      if (typeof toast === 'function') toast('warn', 'OnlinePBX', (data && data.error) ? data.error : 'Sinxronlash kutilmoqda');
+      const msg = data?.message || data?.error || 'Sinxronlash kutilmoqda';
+      if (typeof toast === 'function') toast('warn', 'OnlinePBX', msg);
     }
     await fetchAndRenderPbxStats(false);
   } catch (err) {
@@ -99,7 +100,8 @@ function startPbxAutoRefresh() {
   if (pbxAutoRefreshTimer) clearInterval(pbxAutoRefreshTimer);
   // Har 10 soniyada yangi qo'ng'iroqlarni jonli orqa fonda yangilash
   pbxAutoRefreshTimer = setInterval(() => {
-    if (typeof currentAdminTab !== 'undefined' && currentAdminTab === 'pbx' && pbxDateTo >= todayISO()) {
+    const isPbxTabVisible = !document.getElementById('tab_pbx')?.classList.contains('hidden');
+    if ((isPbxTabVisible || (typeof currentAdminTab !== 'undefined' && currentAdminTab === 'pbx')) && pbxDateTo >= todayISO()) {
       syncNewPbxCallsInBackground(false);
     }
   }, 10000);
