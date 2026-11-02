@@ -295,7 +295,7 @@ function renderPbxStatsUI(data) {
   const formulaZ = document.getElementById('pbx_formula_z');
   if (formulaX) formulaX.textContent = (summary.total_calls || 0).toLocaleString();
   if (formulaZ) {
-    const zVal = summary.target_quota != null ? summary.target_quota : (Math.round(((summary.total_calls || 0) / 5) * 10) / 10);
+    const zVal = summary.target_quota != null ? summary.target_quota : (Math.round(((summary.total_calls || 0) / (summary.accounts_count || 6)) * 10) / 10);
     formulaZ.textContent = (zVal || 0).toLocaleString();
   }
   if (ratingEl) {
@@ -370,9 +370,10 @@ function renderPbxOperatorsTable(operators) {
   }
 
   const totalX = pbxStatsCache?.summary?.total_calls || 0;
+  const accountsCount = pbxStatsCache?.summary?.accounts_count || 6;
   const targetQuotaPerAccount = pbxStatsCache?.summary?.target_quota != null 
     ? pbxStatsCache.summary.target_quota 
-    : (Math.round((totalX / 5) * 10) / 10);
+    : (Math.round((totalX / accountsCount) * 10) / 10);
 
   list.forEach((op, idx) => {
     const tr = document.createElement('tr');
@@ -403,7 +404,7 @@ function renderPbxOperatorsTable(operators) {
     // 5002 ga norma qo'shilmaydi
     const normaSubtitle = is5002
       ? ''
-      : `<div style="font-size:10.5px;color:var(--text3);margin-top:2px;" title="Har bir akkaunt normasi: Z = X (${totalX}) / 5 = ${targetQuota}">norma: ${targetQuota}</div>`;
+      : `<div style="font-size:10.5px;color:var(--text3);margin-top:2px;" title="Har bir akkaunt normasi: Z = X (${totalX}) / 6 = ${targetQuota}">norma: ${targetQuota}</div>`;
 
     // Qabul foizi: 5002 uchun norma yo'q, shuning uchun '—'
     let percentColHtml = '';
@@ -827,16 +828,17 @@ function exportPbxExcel() {
   }
 
   const totalX = pbxStatsCache?.summary?.total_calls || 0;
+  const accountsCount = pbxStatsCache?.summary?.accounts_count || 6;
   const targetQuota = pbxStatsCache?.summary?.target_quota != null 
     ? pbxStatsCache.summary.target_quota 
-    : (Math.round((totalX / 5) * 10) / 10);
+    : (Math.round((totalX / accountsCount) * 10) / 10);
 
   const headers = [
     '#',
     t('pbx_th_op') || 'Operator',
     t('pbx_th_emp') || 'Mas\'ul xodim',
     'Kiruvchi (Operatorga tushgan)',
-    'Har biriga norma (Z = X/5)',
+    'Har biriga norma (Z = X/6)',
     t('pbx_th_answered') || 'Gaplashilgan (Y)',
     t('pbx_th_missed') || 'Propushnniy',
     'Qabul foizi (Y/Z*100%)',
