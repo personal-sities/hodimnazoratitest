@@ -148,6 +148,9 @@ async function ensureDatabaseSchema() {
       CREATE INDEX IF NOT EXISTS idx_calls_callee ON public.calls(callee);
       CREATE INDEX IF NOT EXISTS idx_calls_direction ON public.calls(direction);
       CREATE INDEX IF NOT EXISTS idx_calls_stats_perf ON public.calls(call_date, status, duration);
+      CREATE INDEX IF NOT EXISTS idx_calls_call_date ON public.calls(call_date);
+      CREATE INDEX IF NOT EXISTS idx_calls_operator_number ON public.calls(operator_number);
+      CREATE INDEX IF NOT EXISTS idx_calls_status ON public.calls(status);
       DO $$
       BEGIN
         IF NOT EXISTS (SELECT 1 FROM public.admins WHERE LOWER(login) = 'admin@aloqapro.uz') THEN
@@ -351,10 +354,9 @@ const server = http.createServer(async (req, res) => {
 
     // OnlinePBX Qo'ng'iroqlarni qo'lda / tezkor sinxronlash API
     if (pathname === '/api/pbx/sync' && req.method === 'POST') {
-      const fromParam = reqUrl.searchParams.get('from');
-      const days = Number(reqUrl.searchParams.get('days') || 7);
-      const syncRes = await syncOnlinePbxCalls(fromParam || days);
-      return sendJson(res, 200, syncRes);
+      const syncRes = await syncOnlinePbxCalls();
+      const statusCode = syncRes.busy ? 429 : (syncRes.ok ? 200 : 500);
+      return sendJson(res, statusCode, syncRes);
     }
 
     // OnlinePBX Qo'ng'iroqlarni xodimlarga qayta biriktirish (Relink) API
@@ -1263,53 +1265,56 @@ async function fetchPbxRangeChunkWithPagination(interval, auth, allowedSet, empB
       }
     }
 
-    if (rawCalls.length < PAGE_LIMIT) {
-      break;
-    }
-    page++;
-    await new Promise(r => setTimeout(r, 200));
+    // OnlinePBX da so'rov berilgan barcha qo'ng'iroqlar to'liq bitta javobda qaytadi
+    break;
   }
 
   return { fetched: totalFetched, saved: totalSaved };
 }
 
-async function syncOnlinePbxCalls(daysOrOptions = 7) {
+async function syncOnlinePbxCalls(options = {}) {
   if (isPbxSyncing) {
-    return { ok: false, message: 'Sync allaqachon bajarilmoqda' };
+    return { ok: false, busy: true, message: "Sinxronlash allaqachon bajarilmoqda" };
   }
   isPbxSyncing = true;
   try {
     const auth = await authenticateOnlinePbx();
     if (!auth) {
-      return { ok: false, error: 'OnlinePBX auth error' };
+      return { ok: false, error: "OnlinePBX auth error" };
     }
 
-    let startStampFrom = null;
-    let endStampTo = Math.floor(Date.now() / 1000);
+    const nowSec = Math.floor(Date.now() / 1000);
+    const SAFETY_OVERLAP_SEC = 10 * 60; // 10 daqiqalik xavfsizlik oraliq
 
-    if (typeof daysOrOptions === 'object' && daysOrOptions !== null) {
-      if (daysOrOptions.fromStamp) startStampFrom = Number(daysOrOptions.fromStamp);
-      if (daysOrOptions.fromDate) startStampFrom = Math.floor(new Date(daysOrOptions.fromDate).getTime() / 1000);
-      if (daysOrOptions.toStamp) endStampTo = Number(daysOrOptions.toStamp);
-    } else if (typeof daysOrOptions === 'string' && daysOrOptions.includes('-')) {
-      startStampFrom = Math.floor(new Date(daysOrOptions + 'T00:00:00+05:00').getTime() / 1000);
-    } else {
-      const daysBack = Number(daysOrOptions) || 7;
-      startStampFrom = Math.floor((Date.now() - daysBack * 24 * 3600 * 1000) / 1000);
+    let startStampFrom = null;
+    let endStampTo = nowSec;
+
+    if (typeof options === "object" && options !== null) {
+      if (options.fromStamp) startStampFrom = Number(options.fromStamp);
+      if (options.toStamp) endStampTo = Number(options.toStamp);
+    }
+
+    if (!startStampFrom) {
+      const lastSync = await getSyncState("last_sync_at");
+      if (lastSync && !isNaN(Number(lastSync)) && Number(lastSync) > 0) {
+        startStampFrom = Math.max(0, Number(lastSync) - SAFETY_OVERLAP_SEC);
+      } else {
+        startStampFrom = nowSec - (24 * 3600);
+      }
+    }
+
+    if (startStampFrom >= endStampTo) {
+      startStampFrom = endStampTo - SAFETY_OVERLAP_SEC;
     }
 
     const CHUNK_SECONDS = 2 * 24 * 3600;
     const intervals = [];
-    if (!startStampFrom || (endStampTo - startStampFrom) <= CHUNK_SECONDS) {
-      intervals.push({ from: startStampFrom || Math.floor((Date.now() - 7 * 24 * 3600 * 1000) / 1000), to: endStampTo });
-    } else {
-      let curr = startStampFrom;
-      while (curr < endStampTo) {
-        let nxt = curr + CHUNK_SECONDS;
-        if (nxt > endStampTo) nxt = endStampTo;
-        intervals.push({ from: curr, to: nxt });
-        curr = nxt;
-      }
+    let curr = startStampFrom;
+    while (curr < endStampTo) {
+      let nxt = curr + CHUNK_SECONDS;
+      if (nxt > endStampTo) nxt = endStampTo;
+      intervals.push({ from: curr, to: nxt });
+      curr = nxt;
     }
 
     const allowedSet = new Set(ALLOWED_PBX_OPERATORS);
@@ -1319,22 +1324,22 @@ async function syncOnlinePbxCalls(daysOrOptions = 7) {
 
     let employees = [];
     if (pool) {
-      const eRes = await pool.query('SELECT id, name, operator_number, pbx_extension FROM public.employees WHERE active = true').catch(() => ({ rows: [] }));
+      const eRes = await pool.query("SELECT id, name, operator_number, pbx_extension FROM public.employees WHERE active = true").catch(() => ({ rows: [] }));
       employees = eRes.rows || [];
     } else {
-      employees = readJsonData('employees.json', []).filter(e => e.active !== false);
+      employees = readJsonData("employees.json", []).filter(e => e.active !== false);
     }
     const empByOp = new Map();
     employees.forEach(emp => {
-      const op = String(emp.operator_number || '').trim();
-      const pbx = String(emp.pbx_extension || '').trim();
+      const op = String(emp.operator_number || "").trim();
+      const pbx = String(emp.pbx_extension || "").trim();
       if (op && allowedSet.has(op) && !empByOp.has(op)) empByOp.set(op, emp);
       if (pbx && allowedSet.has(pbx) && !empByOp.has(pbx)) empByOp.set(pbx, emp);
     });
 
     for (const interval of intervals) {
-      const fromDateStr = new Date(interval.from * 1000 + 5 * 3600 * 1000).toISOString().split('T')[0];
-      const toDateStr = new Date(interval.to * 1000 + 5 * 3600 * 1000).toISOString().split('T')[0];
+      const fromDateStr = new Date(interval.from * 1000 + 5 * 3600 * 1000).toISOString().split("T")[0];
+      const toDateStr = new Date(interval.to * 1000 + 5 * 3600 * 1000).toISOString().split("T")[0];
 
       const res = await fetchPbxRangeChunkWithPagination(interval, auth, allowedSet, empByOp, pool);
       totalFetched += res.fetched;
@@ -1342,13 +1347,21 @@ async function syncOnlinePbxCalls(daysOrOptions = 7) {
       console.log(`[OnlinePBX Sync] ${fromDateStr} → ${toDateStr}: ${res.saved} calls`);
     }
 
+    const syncFinishTime = Math.floor(Date.now() / 1000);
+    await setSyncState("last_sync_at", syncFinishTime);
     lastPbxSyncTime = Date.now();
-    await setSyncState('last_pbx_sync_timestamp', Math.floor(lastPbxSyncTime / 1000));
     pbxStatsCacheMap.clear();
 
-    return { ok: true, total_fetched: totalFetched, saved_count: totalSaved };
+    return {
+      ok: true,
+      total_fetched: totalFetched,
+      saved_count: totalSaved,
+      from_stamp: startStampFrom,
+      to_stamp: endStampTo,
+      last_sync_at: syncFinishTime
+    };
   } catch (err) {
-    console.warn('[OnlinePBX Sync error]:', err.message);
+    console.warn("[OnlinePBX Sync error]:", err.message);
     return { ok: false, error: err.message };
   } finally {
     isPbxSyncing = false;
@@ -1356,118 +1369,129 @@ async function syncOnlinePbxCalls(daysOrOptions = 7) {
 }
 
 async function runInitialPbxBackfillIfNeeded() {
-  const isCompleted = await getSyncState('pbx_backfill_completed');
-  if (isCompleted === 'true' || isCompleted === true) {
-    console.log('[OnlinePBX Backfill]: Avval to\'liq bajarilgan (pbx_backfill_completed=true). Qayta o\'tkazilmaydi.');
+  if (isPbxSyncing) {
+    console.log("[OnlinePBX Backfill]: Boshqa sinxronlash jarayoni faol, kutib turamiz...");
     return;
   }
 
-  if (isPbxSyncing) {
-    console.log('[OnlinePBX Backfill]: Boshqa sinxronlash jarayoni faol, kutib turamiz...');
+  const pool = getDbPool();
+  const existingDaysSet = new Set();
+  if (pool) {
+    try {
+      const r = await pool.query("SELECT to_char(call_date, 'YYYY-MM-DD') as day, count(*) as cnt FROM public.calls GROUP BY call_date");
+      (r.rows || []).forEach(row => {
+        if (Number(row.cnt) > 0 && row.day) existingDaysSet.add(row.day);
+      });
+    } catch (e) {
+      console.warn("[Backfill DB query check]:", e.message);
+    }
+  }
+
+  const missingDays = [];
+  const startDay = new Date("2026-10-13T00:00:00+05:00");
+  const endDay = new Date("2026-11-05T00:00:00+05:00");
+
+  let curDay = new Date(startDay);
+  while (curDay <= endDay) {
+    const y = curDay.getFullYear();
+    const m = String(curDay.getMonth() + 1).padStart(2, "0");
+    const d = String(curDay.getDate()).padStart(2, "0");
+    const dayStr = `${y}-${m}-${d}`;
+    if (!existingDaysSet.has(dayStr)) {
+      missingDays.push(dayStr);
+    }
+    curDay.setDate(curDay.getDate() + 1);
+  }
+
+  if (missingDays.length === 0) {
+    console.log("[OnlinePBX Backfill]: Barcha kunlar mavjud (bo'sh kunlar topilmadi). To'liq backfill o'tkazilmaydi.");
     return;
   }
+
+  console.log(`[OnlinePBX Backfill]: Topilgan bo'sh kunlar (${missingDays.length} ta): ${missingDays.join(", ")}`);
 
   isPbxSyncing = true;
-  console.log('[OnlinePBX Backfill]: Boshlang\'ich to\'liq sinxronlash boshlandi (Oct 13, 2026 dan Nov 5, 2026 gacha)...');
-
   try {
     const auth = await authenticateOnlinePbx();
     if (!auth) {
-      console.warn('[OnlinePBX Backfill]: Auth muvaffaqiyatsiz bo\'ldi, keyingi server qayta ishga tushganda davom ettiriladi.');
+      console.warn("[OnlinePBX Backfill]: Auth muvaffaqiyatsiz bo'ldi.");
       return;
     }
 
-    // 13.10.2026 00:00:00 Toshkent vaqti
-    const BACKFILL_START_STAMP = Math.floor(new Date('2026-10-13T00:00:00+05:00').getTime() / 1000);
-    // 05.11.2026 23:59:59 Toshkent vaqti
-    const BACKFILL_END_STAMP = Math.floor(new Date('2026-11-05T23:59:59+05:00').getTime() / 1000);
-
-    const savedLastChunk = await getSyncState('pbx_backfill_last_chunk_to');
-    let resumeFromStamp = savedLastChunk ? Number(savedLastChunk) : BACKFILL_START_STAMP;
-    if (isNaN(resumeFromStamp) || resumeFromStamp < BACKFILL_START_STAMP) {
-      resumeFromStamp = BACKFILL_START_STAMP;
-    }
-
-    const CHUNK_SECONDS = 2 * 24 * 3600; // 2 kunlik oynalar
     const intervals = [];
-    let curr = resumeFromStamp;
-    while (curr < BACKFILL_END_STAMP) {
-      let nxt = curr + CHUNK_SECONDS;
-      if (nxt > BACKFILL_END_STAMP) nxt = BACKFILL_END_STAMP;
-      intervals.push({ from: curr, to: nxt });
-      curr = nxt;
+    let i = 0;
+    while (i < missingDays.length) {
+      const fromStr = missingDays[i];
+      let toStr = fromStr;
+      if (i + 1 < missingDays.length) {
+        const d1 = new Date(fromStr + "T00:00:00+05:00");
+        const d2 = new Date(missingDays[i + 1] + "T00:00:00+05:00");
+        if (Math.round((d2 - d1) / (24 * 3600 * 1000)) === 1) {
+          toStr = missingDays[i + 1];
+          i++;
+        }
+      }
+      const fromStamp = Math.floor(new Date(fromStr + "T00:00:00+05:00").getTime() / 1000);
+      const toStamp = Math.floor(new Date(toStr + "T23:59:59+05:00").getTime() / 1000);
+      intervals.push({ from: fromStamp, to: toStamp, fromStr, toStr });
+      i++;
     }
 
     const allowedSet = new Set(ALLOWED_PBX_OPERATORS);
-    const pool = getDbPool();
-
     let employees = [];
     if (pool) {
-      const eRes = await pool.query('SELECT id, name, operator_number, pbx_extension FROM public.employees WHERE active = true').catch(() => ({ rows: [] }));
+      const eRes = await pool.query("SELECT id, name, operator_number, pbx_extension FROM public.employees WHERE active = true").catch(() => ({ rows: [] }));
       employees = eRes.rows || [];
     } else {
-      employees = readJsonData('employees.json', []).filter(e => e.active !== false);
+      employees = readJsonData("employees.json", []).filter(e => e.active !== false);
     }
     const empByOp = new Map();
     employees.forEach(emp => {
-      const op = String(emp.operator_number || '').trim();
-      const pbx = String(emp.pbx_extension || '').trim();
+      const op = String(emp.operator_number || "").trim();
+      const pbx = String(emp.pbx_extension || "").trim();
       if (op && allowedSet.has(op) && !empByOp.has(op)) empByOp.set(op, emp);
       if (pbx && allowedSet.has(pbx) && !empByOp.has(pbx)) empByOp.set(pbx, emp);
     });
 
     let totalBackfilled = 0;
     for (const interval of intervals) {
-      const fromDateStr = new Date(interval.from * 1000 + 5 * 3600 * 1000).toISOString().split('T')[0];
-      const toDateStr = new Date(interval.to * 1000 + 5 * 3600 * 1000).toISOString().split('T')[0];
-
       const res = await fetchPbxRangeChunkWithPagination(interval, auth, allowedSet, empByOp, pool);
       totalBackfilled += res.saved;
-      console.log(`[OnlinePBX Backfill] ${fromDateStr} → ${toDateStr}: ${res.saved} calls`);
-
-      // Har bir interval muvaffaqiyatli tugagach holatni saqlab qo'yamiz (resumable)
-      await setSyncState('pbx_backfill_last_chunk_to', interval.to);
+      console.log(`[OnlinePBX Backfill] ${interval.fromStr} → ${interval.toStr}: ${res.saved} calls`);
     }
 
-    // Yakunlandi flagini saqlash
-    await setSyncState('pbx_backfill_completed', 'true');
-    await setSyncState('last_pbx_sync_timestamp', Math.floor(Date.now() / 1000));
+    const finishNow = Math.floor(Date.now() / 1000);
+    await setSyncState("last_sync_at", finishNow);
+    await setSyncState("pbx_backfill_completed", "true");
     lastPbxSyncTime = Date.now();
     pbxStatsCacheMap.clear();
 
-    console.log(`[OnlinePBX Backfill]: Boshlang\'ich sinxronlash to\'liq yakunlandi! Jami sinxronlangan qo\'ng\'iroqlar: ${totalBackfilled} ta`);
+    console.log(`[OnlinePBX Backfill]: Bo'sh kunlarni sinxronlash yakunlandi! Jami olingan qo'ng'iroqlar: ${totalBackfilled} ta`);
   } catch (err) {
-    console.warn('[OnlinePBX Backfill error]:', err.message);
+    console.warn("[OnlinePBX Backfill error]:", err.message);
   } finally {
     isPbxSyncing = false;
   }
 }
 
 function initOnlinePbxSync() {
-  // 1. Startup: Faqat bir marta boshlang\'ich to\'liq backfill (13.10.2026 dan 05.11.2026 gacha)
+  // 1. Startup: Bo'sh qolgan kunlarni aniqlash va to'ldirish (Gap-detection backfill)
   setTimeout(async () => {
     try {
       await runInitialPbxBackfillIfNeeded();
     } catch (e) {
-      console.warn('[PBX init backfill error]:', e.message);
+      console.warn("[PBX init backfill error]:", e.message);
     }
   }, 1000);
 
-  // 2. Har 30 daqiqada yangi / o\'zgargan qo\'ng\'iroqlarni 2 soatlik overlap bilan olish
+  // 2. Har 30 daqiqada incremental sinxronlash: last_sync_at - 10 minut dan hozirgacha
   setInterval(async () => {
-    console.log('[OnlinePBX API 30-min Sync]: 30 daqiqalik davriy sinxronlash boshlandi...');
+    console.log("[OnlinePBX API 30-min Sync]: 30 daqiqalik davriy sinxronlash boshlandi...");
     try {
-      const OVERLAP_SECONDS = 2 * 3600; // 2 soatlik xavfsizlik oraliq
-      const lastSync = await getSyncState('last_pbx_sync_timestamp');
-      let fromStamp = lastSync ? Number(lastSync) - OVERLAP_SECONDS : Math.floor(Date.now() / 1000) - (24 * 3600);
-      if (isNaN(fromStamp) || fromStamp <= 0) {
-        fromStamp = Math.floor(Date.now() / 1000) - (24 * 3600);
-      }
-      const toStamp = Math.floor(Date.now() / 1000);
-      const res = await syncOnlinePbxCalls({ fromStamp, toStamp });
-      console.log('[OnlinePBX API 30-min Sync]: Yangilanish yakunlandi:', res);
+      const res = await syncOnlinePbxCalls();
+      console.log("[OnlinePBX API 30-min Sync]: Yangilanish yakunlandi:", res);
     } catch (e) {
-      console.warn('[PBX 30-min sync error]:', e.message);
+      console.warn("[PBX 30-min sync error]:", e.message);
     }
   }, 30 * 60 * 1000);
 }
@@ -1988,7 +2012,7 @@ async function getCallsList(from, to, operator, status, limit = 50, employeeId =
           WHERE emp.active = true
             AND (
               (c.operator_number IS NOT NULL AND c.operator_number <> '' AND (emp.operator_number = c.operator_number OR emp.pbx_extension = c.operator_number))
-              OR emp.id = c.employee_id
+              OR emp.id::text = c.employee_id
             )
           ORDER BY (emp.operator_number = c.operator_number) DESC, emp.updated_at DESC
           LIMIT 1

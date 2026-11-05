@@ -74,13 +74,16 @@ async function syncPbxFromApiManual() {
     if (typeof hydrateLucideIcons === 'function') hydrateLucideIcons(btn);
   }
   try {
-    if (typeof toast === 'function') toast('info', 'OnlinePBX', 'OnlinePBX dan bugungi qo\'ng\'iroqlar yuklanmoqda...');
-    const res = await fetch('/api/pbx/sync?days=1', { method: 'POST' });
+    if (typeof toast === 'function') toast('info', 'OnlinePBX', 'OnlinePBX dan yangi qo\'ng\'iroqlar yuklanmoqda...');
+    const res = await fetch('/api/pbx/sync', { method: 'POST' });
     const data = await res.json();
-    if (data && data.ok) {
-      if (typeof toast === 'function') toast('success', 'OnlinePBX', `Muvaffaqiyatli sinxronlandi: ${data.total_fetched || 0} ta qo'ng'iroq olindi`);
+    if (res.status === 429 || data?.busy) {
+      if (typeof toast === 'function') toast('warn', 'OnlinePBX', data?.message || 'Sinxronlash allaqachon bajarilmoqda');
+    } else if (data && data.ok) {
+      const addedCount = data.saved_count !== undefined ? data.saved_count : (data.total_fetched || 0);
+      if (typeof toast === 'function') toast('success', 'OnlinePBX', `${addedCount} ta yangi qo'ng'iroq qo'shildi`);
     } else {
-      const msg = data?.message || data?.error || 'Sinxronlash kutilmoqda';
+      const msg = data?.message || data?.error || 'Sinxronlashda xatolik yuz berdi';
       if (typeof toast === 'function') toast('warn', 'OnlinePBX', msg);
     }
     await fetchAndRenderPbxStats(false);
