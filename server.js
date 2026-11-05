@@ -1087,6 +1087,14 @@ async function fetchPbxRangeChunkWithPagination(interval, auth, allowedSet, empB
           rawCalls = result.data;
           break;
         } else {
+          const comment = String(result?.comment || '');
+          if (comment.includes('auth') || comment.includes('API_KEY') || comment.includes('key')) {
+            const freshAuth = await authenticateOnlinePbx();
+            if (freshAuth) {
+              auth.key = freshAuth.key;
+              auth.key_id = freshAuth.key_id;
+            }
+          }
           lastErr = new Error(result?.comment || 'Invalid API response format');
           if (attempt < 3) await new Promise(r => setTimeout(r, 1500 * attempt));
         }
@@ -1153,7 +1161,7 @@ async function fetchPbxRangeChunkWithPagination(interval, auth, allowedSet, empB
       if (isOutbound) continue;
       const direction = 'in';
 
-      if (duration <= 22) continue;
+      // Missed / unanswered va barcha kiruvchi qo'ng'iroqlar saqlanadi
 
       const matchedEmp = operatorNumber ? empByOp.get(operatorNumber) : null;
       const employeeId = matchedEmp ? matchedEmp.id : null;
@@ -1276,6 +1284,17 @@ async function syncOnlinePbxCalls(options = {}) {
   if (isPbxSyncing) {
     return { ok: false, busy: true, message: "Sinxronlash allaqachon bajarilmoqda" };
   }
+  const pool = getDbPool();
+  let advisoryLockAcquired = false;
+  if (pool) {
+    try {
+      const lockRes = await pool.query("SELECT pg_try_advisory_lock(847291) AS acquired");
+      advisoryLockAcquired = Boolean(lockRes.rows[0]?.acquired);
+      if (!advisoryLockAcquired) {
+        return { ok: false, busy: true, message: "Sinxronlash boshqa jarayonda bajarilmoqda" };
+      }
+    } catch (_) {}
+  }
   isPbxSyncing = true;
   try {
     const auth = await authenticateOnlinePbx();
@@ -1365,6 +1384,9 @@ async function syncOnlinePbxCalls(options = {}) {
     return { ok: false, error: err.message };
   } finally {
     isPbxSyncing = false;
+    if (pool && advisoryLockAcquired) {
+      try { await pool.query("SELECT pg_advisory_unlock(847291)"); } catch (_) {}
+    }
   }
 }
 
@@ -1375,6 +1397,17 @@ async function runInitialPbxBackfillIfNeeded() {
   }
 
   const pool = getDbPool();
+  let advisoryLockAcquired = false;
+  if (pool) {
+    try {
+      const lockRes = await pool.query("SELECT pg_try_advisory_lock(847291) AS acquired");
+      advisoryLockAcquired = Boolean(lockRes.rows[0]?.acquired);
+      if (!advisoryLockAcquired) {
+        console.log("[OnlinePBX Backfill]: Boshqa jarayonda sinxronlash ketmoqda, o'tkazib yuborildi.");
+        return;
+      }
+    } catch (_) {}
+  }
   const existingDaysSet = new Set();
   if (pool) {
     try {
@@ -1471,6 +1504,9 @@ async function runInitialPbxBackfillIfNeeded() {
     console.warn("[OnlinePBX Backfill error]:", err.message);
   } finally {
     isPbxSyncing = false;
+    if (pool && advisoryLockAcquired) {
+      try { await pool.query("SELECT pg_advisory_unlock(847291)"); } catch (_) {}
+    }
   }
 }
 
@@ -4153,5 +4189,8 @@ module.exports = {
   runServerScheduledChecks,
   getCallsStats,
   getCallsList,
-  handleGetAttendance
+  handleGetAttendance,
+  syncOnlinePbxCalls,
+  runInitialPbxBackfillIfNeeded,
+  getSyncState
 };
