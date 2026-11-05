@@ -994,8 +994,8 @@ function getClientIp(req) {
   return remote || '127.0.0.1';
 }
 
-const ONLINEPBX_DOMAIN = process.env.ONLINEPBX_DOMAIN || 'pbx27644.onpbx.ru';
-const ONLINEPBX_TOKEN = process.env.ONLINEPBX_TOKEN || '';
+function getOnlinePbxDomain() { return process.env.ONLINEPBX_DOMAIN || 'pbx27644.onpbx.ru'; }
+function getOnlinePbxToken() { return process.env.ONLINEPBX_TOKEN || ''; }
 
 let lastPbxSyncTime = 0;
 let isPbxSyncing = false;
@@ -1034,17 +1034,17 @@ async function setSyncState(key, value) {
 }
 
 async function authenticateOnlinePbx() {
-  if (!ONLINEPBX_TOKEN) {
-    console.warn('[OnlinePBX Sync]: ONLINEPBX_TOKEN (.env) topilmadi!');
+  if (!getOnlinePbxToken()) {
+    console.warn('[OnlinePBX Sync]: getOnlinePbxToken() (.env) topilmadi!');
     return null;
   }
-  const authUrl = `https://api2.onlinepbx.ru/${ONLINEPBX_DOMAIN}/auth.json`;
+  const authUrl = `https://api2.onlinepbx.ru/${getOnlinePbxDomain()}/auth.json`;
   for (let attempt = 1; attempt <= 3; attempt++) {
     try {
       const authRes = await fetch(authUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: `auth_key=${encodeURIComponent(ONLINEPBX_TOKEN)}`,
+        body: `auth_key=${encodeURIComponent(getOnlinePbxToken())}`,
         signal: AbortSignal.timeout(15000)
       }).catch(() => null);
       const authData = authRes && authRes.ok ? await authRes.json().catch(() => ({})) : null;
@@ -1060,9 +1060,10 @@ async function authenticateOnlinePbx() {
 }
 
 async function fetchPbxRangeChunkWithPagination(interval, auth, allowedSet, empByOp, pool) {
-  const searchUrl = `https://api2.onlinepbx.ru/${ONLINEPBX_DOMAIN}/mongo_history/search.json`;
+  const searchUrl = `https://api2.onlinepbx.ru/${getOnlinePbxDomain()}/mongo_history/search.json`;
   let totalSaved = 0;
   let totalFetched = 0;
+  let totalSkippedShort = 0;
   let page = 1;
   const PAGE_LIMIT = 100;
 
@@ -1105,8 +1106,7 @@ async function fetchPbxRangeChunkWithPagination(interval, auth, allowedSet, empB
     }
 
     if (!rawCalls) {
-      console.warn(`[OnlinePBX Sync] interval ${interval.from}..${interval.to} page ${page} failed after 3 attempts: ${lastErr?.message}`);
-      break;
+      throw new Error(`PBX fetch failed for interval ${interval.from}..${interval.to} page ${page}: ${lastErr?.message || 'Unknown network error'}`);
     }
 
     totalFetched += rawCalls.length;
@@ -1161,7 +1161,10 @@ async function fetchPbxRangeChunkWithPagination(interval, auth, allowedSet, empB
       if (isOutbound) continue;
       const direction = 'in';
 
-      // Missed / unanswered va barcha kiruvchi qo'ng'iroqlar saqlanadi
+      if (duration <= 22) {
+        totalSkippedShort++;
+        continue;
+      }
 
       const matchedEmp = operatorNumber ? empByOp.get(operatorNumber) : null;
       const employeeId = matchedEmp ? matchedEmp.id : null;
@@ -1277,7 +1280,7 @@ async function fetchPbxRangeChunkWithPagination(interval, auth, allowedSet, empB
     break;
   }
 
-  return { fetched: totalFetched, saved: totalSaved };
+  return { fetched: totalFetched, saved: totalSaved, skipped: totalSkippedShort };
 }
 
 async function syncOnlinePbxCalls(options = {}) {
@@ -1285,21 +1288,27 @@ async function syncOnlinePbxCalls(options = {}) {
     return { ok: false, busy: true, message: "Sinxronlash allaqachon bajarilmoqda" };
   }
   const pool = getDbPool();
+  let lockClient = null;
   let advisoryLockAcquired = false;
   if (pool) {
     try {
-      const lockRes = await pool.query("SELECT pg_try_advisory_lock(847291) AS acquired");
+      lockClient = await pool.connect();
+      const lockRes = await lockClient.query("SELECT pg_try_advisory_lock(847291) AS acquired");
       advisoryLockAcquired = Boolean(lockRes.rows[0]?.acquired);
       if (!advisoryLockAcquired) {
+        lockClient.release();
+        lockClient = null;
         return { ok: false, busy: true, message: "Sinxronlash boshqa jarayonda bajarilmoqda" };
       }
-    } catch (_) {}
+    } catch (_) {
+      if (lockClient) { lockClient.release(); lockClient = null; }
+    }
   }
   isPbxSyncing = true;
   try {
     const auth = await authenticateOnlinePbx();
     if (!auth) {
-      return { ok: false, error: "OnlinePBX auth error" };
+      throw new Error("OnlinePBX auth error");
     }
 
     const nowSec = Math.floor(Date.now() / 1000);
@@ -1363,7 +1372,7 @@ async function syncOnlinePbxCalls(options = {}) {
       const res = await fetchPbxRangeChunkWithPagination(interval, auth, allowedSet, empByOp, pool);
       totalFetched += res.fetched;
       totalSaved += res.saved;
-      console.log(`[OnlinePBX Sync] ${fromDateStr} → ${toDateStr}: ${res.saved} calls`);
+      console.log(`[OnlinePBX Sync] ${fromDateStr} → ${toDateStr}: fetched ${res.fetched}, skipped (<=22s) ${res.skipped || 0}, saved ${res.saved}`);
     }
 
     const syncFinishTime = Math.floor(Date.now() / 1000);
@@ -1384,8 +1393,12 @@ async function syncOnlinePbxCalls(options = {}) {
     return { ok: false, error: err.message };
   } finally {
     isPbxSyncing = false;
-    if (pool && advisoryLockAcquired) {
-      try { await pool.query("SELECT pg_advisory_unlock(847291)"); } catch (_) {}
+    if (lockClient) {
+      if (advisoryLockAcquired) {
+        try { await lockClient.query("SELECT pg_advisory_unlock(847291)"); } catch (_) {}
+      }
+      lockClient.release();
+      lockClient = null;
     }
   }
 }
@@ -4192,5 +4205,6 @@ module.exports = {
   handleGetAttendance,
   syncOnlinePbxCalls,
   runInitialPbxBackfillIfNeeded,
-  getSyncState
+  getSyncState,
+  getDbPool
 };
