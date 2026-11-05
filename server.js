@@ -333,16 +333,6 @@ const server = http.createServer(async (req, res) => {
       });
     }
 
-    // OnlinePBX Webhook (POST & GET, JSON & x-www-form-urlencoded)
-    if (
-      pathname === '/api/onlinepbx/webhook' ||
-      pathname === '/api/pbx/webhook' ||
-      pathname === '/webhook/onlinepbx' ||
-      pathname === '/api/functions/v1/onlinepbx-webhook'
-    ) {
-      return handleOnlinePbxWebhook(req, res, reqUrl);
-    }
-
     // IP aniqlash API (mijozning haqiqiy IP manzilini qaytaradi)
     if (pathname === '/api/my-ip') {
       const clientIp = getClientIp(req);
@@ -365,11 +355,6 @@ const server = http.createServer(async (req, res) => {
       const days = Number(reqUrl.searchParams.get('days') || 7);
       const syncRes = await syncOnlinePbxCalls(fromParam || days);
       return sendJson(res, 200, syncRes);
-    }
-
-    // OnlinePBX Test / Sinov API
-    if (pathname === '/api/onlinepbx/test' && req.method === 'POST') {
-      return handleTestPbxWebhook(req, res);
     }
 
     // OnlinePBX Qo'ng'iroqlarni xodimlarga qayta biriktirish (Relink) API
@@ -866,37 +851,6 @@ function writeLocalCalls(calls) {
   }
 }
 
-function readRawBody(req) {
-  return new Promise((resolve) => {
-    let body = '';
-    req.on('data', chunk => { body += chunk; });
-    req.on('end', () => resolve(body || ''));
-    req.on('error', () => resolve(''));
-  });
-}
-
-async function readParsedBody(req, reqUrl) {
-  const raw = await readRawBody(req);
-  let parsed = {};
-  if (raw && raw.trim()) {
-    try {
-      parsed = JSON.parse(raw);
-    } catch {
-      try {
-        const searchParams = new URLSearchParams(raw);
-        parsed = Object.fromEntries(searchParams.entries());
-      } catch {
-        parsed = {};
-      }
-    }
-  }
-  if (reqUrl && reqUrl.searchParams) {
-    for (const [k, v] of reqUrl.searchParams.entries()) {
-      if (parsed[k] === undefined) parsed[k] = v;
-    }
-  }
-  return { parsed, raw };
-}
 
 async function saveCallRecord(call) {
   const pool = getDbPool();
@@ -1039,12 +993,285 @@ function getClientIp(req) {
 }
 
 const ONLINEPBX_DOMAIN = process.env.ONLINEPBX_DOMAIN || 'pbx27644.onpbx.ru';
-const ONLINEPBX_TOKEN = process.env.ONLINEPBX_TOKEN || 'd3JUS3ZpNHVndlVWdXgwVXh4Wk8wR3QzSWpldjc0a1U';
+const ONLINEPBX_TOKEN = process.env.ONLINEPBX_TOKEN || '';
 
 let lastPbxSyncTime = 0;
 let isPbxSyncing = false;
 const pbxStatsCacheMap = new Map();
 const PBX_STATS_CACHE_TTL_MS = 15000; // 15 soniya kesh (server qotmasligi uchun)
+
+async function getSyncState(key) {
+  const pool = getDbPool();
+  if (pool) {
+    try {
+      const r = await pool.query('SELECT value FROM public.settings WHERE key = $1 LIMIT 1', [key]);
+      if (r.rows && r.rows[0]) return r.rows[0].value;
+    } catch (_) {}
+  }
+  const settings = readJsonData('settings.json', []);
+  const item = settings.find(s => s.key === key);
+  return item ? item.value : null;
+}
+
+async function setSyncState(key, value) {
+  const pool = getDbPool();
+  const strVal = typeof value === 'object' ? JSON.stringify(value) : String(value || '');
+  if (pool) {
+    try {
+      await pool.query(
+        'INSERT INTO public.settings (key, value, updated_at) VALUES ($1, $2, now()) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()',
+        [key, strVal]
+      );
+    } catch (_) {}
+  }
+  const settings = readJsonData('settings.json', []);
+  const idx = settings.findIndex(s => s.key === key);
+  if (idx >= 0) settings[idx] = { key, value: strVal, updated_at: new Date().toISOString() };
+  else settings.push({ key, value: strVal, updated_at: new Date().toISOString() });
+  writeJsonData('settings.json', settings);
+}
+
+async function authenticateOnlinePbx() {
+  if (!ONLINEPBX_TOKEN) {
+    console.warn('[OnlinePBX Sync]: ONLINEPBX_TOKEN (.env) topilmadi!');
+    return null;
+  }
+  const authUrl = `https://api2.onlinepbx.ru/${ONLINEPBX_DOMAIN}/auth.json`;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      const authRes = await fetch(authUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: `auth_key=${encodeURIComponent(ONLINEPBX_TOKEN)}`,
+        signal: AbortSignal.timeout(15000)
+      }).catch(() => null);
+      const authData = authRes && authRes.ok ? await authRes.json().catch(() => ({})) : null;
+      if (authData?.data?.key && authData?.data?.key_id) {
+        return { key: authData.data.key, key_id: authData.data.key_id };
+      }
+      if (attempt < 3) await new Promise(r => setTimeout(r, 2000 * attempt));
+    } catch (e) {
+      if (attempt < 3) await new Promise(r => setTimeout(r, 2000 * attempt));
+    }
+  }
+  return null;
+}
+
+async function fetchPbxRangeChunkWithPagination(interval, auth, allowedSet, empByOp, pool) {
+  const searchUrl = `https://api2.onlinepbx.ru/${ONLINEPBX_DOMAIN}/mongo_history/search.json`;
+  let totalSaved = 0;
+  let totalFetched = 0;
+  let page = 1;
+  const PAGE_LIMIT = 100;
+
+  while (true) {
+    let rawCalls = null;
+    let lastErr = null;
+
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        const bodyParams = `start_stamp_from=${interval.from}&start_stamp_to=${interval.to}&page=${page}&limit=${PAGE_LIMIT}`;
+        const res = await fetch(searchUrl, {
+          method: 'POST',
+          headers: {
+            'x-pbx-authentication': `${auth.key_id}:${auth.key}`,
+            'Content-Type': 'application/x-www-form-urlencoded'
+          },
+          body: bodyParams,
+          signal: AbortSignal.timeout(60000)
+        });
+        const result = await res.json().catch(() => ({}));
+        if (Array.isArray(result?.data)) {
+          rawCalls = result.data;
+          break;
+        } else {
+          lastErr = new Error(result?.comment || 'Invalid API response format');
+          if (attempt < 3) await new Promise(r => setTimeout(r, 1500 * attempt));
+        }
+      } catch (err) {
+        lastErr = err;
+        if (attempt < 3) await new Promise(r => setTimeout(r, 1500 * attempt));
+      }
+    }
+
+    if (!rawCalls) {
+      console.warn(`[OnlinePBX Sync] interval ${interval.from}..${interval.to} page ${page} failed after 3 attempts: ${lastErr?.message}`);
+      break;
+    }
+
+    totalFetched += rawCalls.length;
+    if (rawCalls.length === 0) {
+      break;
+    }
+
+    const chunkPreparedCalls = [];
+    for (const raw of rawCalls) {
+      const uuid = raw.uuid;
+      if (!uuid) continue;
+
+      const startStamp = Number(raw.start_stamp) || 0;
+      if (!startStamp) continue;
+      const startedAt = new Date(startStamp * 1000).toISOString();
+      const tashkentDate = new Date(startStamp * 1000 + 5 * 3600 * 1000).toISOString().split('T')[0];
+
+      const duration = Number(raw.duration) || 0;
+      const talkTime = Number(raw.user_talk_time || raw.billsec) || 0;
+      const hangupCause = String(raw.hangup_cause || '').toUpperCase();
+      const isAnswered = (hangupCause === 'NORMAL_CLEARING' && talkTime > 0) || (raw.contacted === true && talkTime > 0) || (talkTime > 0);
+      const status = isAnswered ? 'answered' : 'missed';
+
+      const caller = String(raw.caller_id_number || raw.caller || '').trim();
+      const callee = String(raw.destination_number || raw.callee || '').trim();
+
+      let operatorNumber = null;
+      if (Array.isArray(raw.events)) {
+        for (const ev of raw.events) {
+          const num = String(ev.number || ev.user || '').trim();
+          if (ev.answered_stamp && allowedSet.has(num)) {
+            operatorNumber = num;
+            break;
+          }
+        }
+      }
+      if (!operatorNumber && allowedSet.has(callee)) operatorNumber = callee;
+      if (!operatorNumber && allowedSet.has(caller)) operatorNumber = caller;
+      if (!operatorNumber && Array.isArray(raw.events)) {
+        for (const ev of raw.events) {
+          const num = String(ev.number || ev.user || '').trim();
+          if (allowedSet.has(num)) {
+            operatorNumber = num;
+            break;
+          }
+        }
+      }
+      if (!operatorNumber && raw.user && allowedSet.has(String(raw.user).trim())) operatorNumber = String(raw.user).trim();
+
+      const acct = String(raw.accountcode || '').toLowerCase();
+      const isOutbound = acct.includes('out') || (operatorNumber && caller === operatorNumber);
+      if (isOutbound) continue;
+      const direction = 'in';
+
+      if (duration <= 22) continue;
+
+      const matchedEmp = operatorNumber ? empByOp.get(operatorNumber) : null;
+      const employeeId = matchedEmp ? matchedEmp.id : null;
+      const employeeName = matchedEmp ? matchedEmp.name : (operatorNumber === '5002' ? '5002-operator' : null);
+
+      const rawScore = raw.quality_score ?? raw.rating ?? raw.score;
+      let rating = null;
+      if (rawScore !== undefined && rawScore !== null && rawScore !== '') {
+        const num = parseFloat(rawScore);
+        if (!isNaN(num) && num >= 1 && num <= 5) {
+          rating = Math.round(num * 10) / 10;
+        }
+      }
+
+      chunkPreparedCalls.push({
+        call_id: uuid,
+        caller,
+        callee,
+        operator_number: operatorNumber,
+        employee_id: employeeId,
+        employee_name: employeeName,
+        direction,
+        status,
+        duration,
+        talk_time: talkTime,
+        record_url: null,
+        rating,
+        rating_comment: rating ? 'OnlinePBX bahosi' : null,
+        raw_data: raw,
+        call_date: tashkentDate,
+        started_at: startedAt
+      });
+    }
+
+    if (pool && chunkPreparedCalls.length > 0) {
+      const BATCH_SIZE = 100;
+      for (let i = 0; i < chunkPreparedCalls.length; i += BATCH_SIZE) {
+        const chunk = chunkPreparedCalls.slice(i, i + BATCH_SIZE);
+        const valuePlaceholders = [];
+        const params = [];
+        chunk.forEach((c, idx) => {
+          const offset = idx * 15;
+          valuePlaceholders.push(`($${offset + 1}, $${offset + 2}, $${offset + 3}, $${offset + 4}, $${offset + 5}, $${offset + 6}, $${offset + 7}, $${offset + 8}, $${offset + 9}, $${offset + 10}, NULL, $${offset + 11}, $${offset + 12}, $${offset + 13}, $${offset + 14}, $${offset + 15})`);
+          params.push(
+            c.call_id, c.caller, c.callee, c.operator_number, c.employee_id, c.employee_name,
+            c.direction, c.status, c.duration, c.talk_time,
+            JSON.stringify(c.raw_data || {}), c.call_date, c.started_at, c.rating, c.rating_comment
+          );
+        });
+
+        const batchQuery = `
+          INSERT INTO public.calls (
+            call_id, caller, callee, operator_number, employee_id, employee_name, direction, status,
+            duration, talk_time, record_url, raw_data, call_date, started_at, rating, rating_comment
+          ) VALUES ${valuePlaceholders.join(', ')}
+          ON CONFLICT (call_id) DO UPDATE SET
+            caller = COALESCE(NULLIF(EXCLUDED.caller, ''), public.calls.caller),
+            callee = COALESCE(NULLIF(EXCLUDED.callee, ''), public.calls.callee),
+            operator_number = COALESCE(NULLIF(EXCLUDED.operator_number, ''), public.calls.operator_number),
+            employee_id = COALESCE(EXCLUDED.employee_id, public.calls.employee_id),
+            employee_name = COALESCE(EXCLUDED.employee_name, public.calls.employee_name),
+            direction = COALESCE(EXCLUDED.direction, public.calls.direction),
+            status = EXCLUDED.status,
+            duration = GREATEST(public.calls.duration, EXCLUDED.duration),
+            talk_time = GREATEST(public.calls.talk_time, EXCLUDED.talk_time),
+            rating = COALESCE(EXCLUDED.rating, public.calls.rating),
+            rating_comment = COALESCE(EXCLUDED.rating_comment, public.calls.rating_comment),
+            call_date = COALESCE(EXCLUDED.call_date, public.calls.call_date),
+            started_at = COALESCE(EXCLUDED.started_at, public.calls.started_at),
+            raw_data = EXCLUDED.raw_data,
+            updated_at = now();
+        `;
+        try {
+          await pool.query(batchQuery, params);
+          totalSaved += chunk.length;
+        } catch (bErr) {
+          for (const c of chunk) {
+            try {
+              await saveCallRecord(c);
+              totalSaved++;
+            } catch (_) {}
+          }
+        }
+      }
+    } else if (chunkPreparedCalls.length > 0) {
+      const list = readLocalCalls();
+      const localMap = new Map();
+      list.forEach(c => { if (c.call_id) localMap.set(c.call_id, c); });
+      let localChanged = false;
+
+      for (const c of chunkPreparedCalls) {
+        if (localMap.has(c.call_id)) {
+          const existing = localMap.get(c.call_id);
+          Object.assign(existing, c, {
+            rating: c.rating !== undefined ? c.rating : existing.rating,
+            rating_comment: c.rating_comment !== undefined ? c.rating_comment : existing.rating_comment,
+            updated_at: new Date().toISOString()
+          });
+        } else {
+          const newRec = { ...c, created_at: new Date().toISOString() };
+          list.push(newRec);
+          localMap.set(c.call_id, newRec);
+        }
+        totalSaved++;
+        localChanged = true;
+      }
+      if (localChanged) {
+        writeLocalCalls(list);
+      }
+    }
+
+    if (rawCalls.length < PAGE_LIMIT) {
+      break;
+    }
+    page++;
+    await new Promise(r => setTimeout(r, 200));
+  }
+
+  return { fetched: totalFetched, saved: totalSaved };
+}
 
 async function syncOnlinePbxCalls(daysOrOptions = 7) {
   if (isPbxSyncing) {
@@ -1052,35 +1279,10 @@ async function syncOnlinePbxCalls(daysOrOptions = 7) {
   }
   isPbxSyncing = true;
   try {
-    const authUrl = `https://api2.onlinepbx.ru/${ONLINEPBX_DOMAIN}/auth.json`;
-    let activeToken = ONLINEPBX_TOKEN;
-    const KNOWN_VALID_TOKEN = 'd3JUS3ZpNHVndlVWdXgwVXh4Wk8wR3QzSWpldjc0a1U';
-
-    let authRes = await fetch(authUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: `auth_key=${encodeURIComponent(activeToken)}`,
-      signal: AbortSignal.timeout(15000)
-    }).catch(() => null);
-
-    let authData = authRes && authRes.ok ? await authRes.json().catch(() => ({})) : null;
-
-    // Agar token xato bo'lsa va zaxira tokendan farq qilsa, zaxira rasmiy tokenni sinaymiz
-    if ((!authData?.data?.key || !authData?.data?.key_id) && activeToken !== KNOWN_VALID_TOKEN) {
-      authRes = await fetch(authUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: `auth_key=${encodeURIComponent(KNOWN_VALID_TOKEN)}`,
-        signal: AbortSignal.timeout(15000)
-      }).catch(() => null);
-      authData = authRes && authRes.ok ? await authRes.json().catch(() => ({})) : null;
-    }
-
-    if (!authData?.data?.key || !authData?.data?.key_id) {
-      console.warn('[OnlinePBX Sync]: Auth muvaffaqiyatsiz bo\'ldi:', authData);
+    const auth = await authenticateOnlinePbx();
+    if (!auth) {
       return { ok: false, error: 'OnlinePBX auth error' };
     }
-    const { key, key_id } = authData.data;
 
     let startStampFrom = null;
     let endStampTo = Math.floor(Date.now() / 1000);
@@ -1096,8 +1298,7 @@ async function syncOnlinePbxCalls(daysOrOptions = 7) {
       startStampFrom = Math.floor((Date.now() - daysBack * 24 * 3600 * 1000) / 1000);
     }
 
-    // OnlinePBX da 1 so'rovda maksimal oraliq 7 kun. Shuning uchun 5 kunlik intervallarga bo'lib chaqiramiz.
-    const CHUNK_SECONDS = 5 * 24 * 3600;
+    const CHUNK_SECONDS = 2 * 24 * 3600;
     const intervals = [];
     if (!startStampFrom || (endStampTo - startStampFrom) <= CHUNK_SECONDS) {
       intervals.push({ from: startStampFrom || Math.floor((Date.now() - 7 * 24 * 3600 * 1000) / 1000), to: endStampTo });
@@ -1111,12 +1312,10 @@ async function syncOnlinePbxCalls(daysOrOptions = 7) {
       }
     }
 
-    const searchUrl = `https://api2.onlinepbx.ru/${ONLINEPBX_DOMAIN}/mongo_history/search.json`;
     const allowedSet = new Set(ALLOWED_PBX_OPERATORS);
     const pool = getDbPool();
     let totalFetched = 0;
     let totalSaved = 0;
-    const byDay = {};
 
     let employees = [];
     if (pool) {
@@ -1137,225 +1336,17 @@ async function syncOnlinePbxCalls(daysOrOptions = 7) {
       const fromDateStr = new Date(interval.from * 1000 + 5 * 3600 * 1000).toISOString().split('T')[0];
       const toDateStr = new Date(interval.to * 1000 + 5 * 3600 * 1000).toISOString().split('T')[0];
 
-      let chunkRawCalls = null;
-      let lastChunkError = null;
-
-      for (let attempt = 1; attempt <= 3; attempt++) {
-        try {
-          const searchRes = await fetch(searchUrl, {
-            method: 'POST',
-            headers: {
-              'x-pbx-authentication': `${key_id}:${key}`,
-              'Content-Type': 'application/x-www-form-urlencoded'
-            },
-            body: `start_stamp_from=${interval.from}&start_stamp_to=${interval.to}`,
-            signal: AbortSignal.timeout(60000)
-          });
-          const result = await searchRes.json().catch(() => ({}));
-          if (Array.isArray(result?.data)) {
-            chunkRawCalls = result.data;
-            break;
-          } else {
-            lastChunkError = new Error(result?.comment || 'Invalid API response format');
-            if (attempt < 3) {
-              await new Promise(r => setTimeout(r, 2000));
-            }
-          }
-        } catch (err) {
-          lastChunkError = err;
-          if (attempt < 3) {
-            await new Promise(r => setTimeout(r, 2000));
-          }
-        }
-      }
-
-      if (!chunkRawCalls) {
-        console.warn(`[OnlinePBX Backfill] ${fromDateStr}..${toDateStr}: chunk failed after 3 attempts (${lastChunkError?.message}). Continuing...`);
-        continue;
-      }
-
-      totalFetched += chunkRawCalls.length;
-      const chunkPreparedCalls = [];
-
-      for (const raw of chunkRawCalls) {
-        const uuid = raw.uuid;
-        if (!uuid) continue;
-
-        const startStamp = Number(raw.start_stamp) || 0;
-        if (!startStamp) continue;
-        const startedAt = new Date(startStamp * 1000).toISOString();
-        const tashkentDate = new Date(startStamp * 1000 + 5 * 3600 * 1000).toISOString().split('T')[0];
-
-        const duration = Number(raw.duration) || 0;
-        const talkTime = Number(raw.user_talk_time || raw.billsec) || 0;
-        const hangupCause = String(raw.hangup_cause || '').toUpperCase();
-        const isAnswered = (hangupCause === 'NORMAL_CLEARING' && talkTime > 0) || (raw.contacted === true && talkTime > 0) || (talkTime > 0);
-        const status = isAnswered ? 'answered' : 'missed';
-
-        const caller = String(raw.caller_id_number || raw.caller || '').trim();
-        const callee = String(raw.destination_number || raw.callee || '').trim();
-
-        let operatorNumber = null;
-        if (Array.isArray(raw.events)) {
-          for (const ev of raw.events) {
-            const num = String(ev.number || ev.user || '').trim();
-            if (ev.answered_stamp && allowedSet.has(num)) {
-              operatorNumber = num;
-              break;
-            }
-          }
-        }
-        if (!operatorNumber && allowedSet.has(callee)) operatorNumber = callee;
-        if (!operatorNumber && allowedSet.has(caller)) operatorNumber = caller;
-        if (!operatorNumber && Array.isArray(raw.events)) {
-          for (const ev of raw.events) {
-            const num = String(ev.number || ev.user || '').trim();
-            if (allowedSet.has(num)) {
-              operatorNumber = num;
-              break;
-            }
-          }
-        }
-        if (!operatorNumber && raw.user && allowedSet.has(String(raw.user).trim())) operatorNumber = String(raw.user).trim();
-
-        // FILTERS (only these two, NO other filters):
-        // 1) Incoming calls only:
-        const acct = String(raw.accountcode || '').toLowerCase();
-        const isOutbound = acct.includes('out') || (operatorNumber && caller === operatorNumber);
-        if (isOutbound) continue;
-        const direction = 'in';
-
-        // 2) Only calls with duration greater than 22 seconds (> 22 s):
-        if (duration <= 22) continue;
-
-        // Do not add any other filter (operator, status, number, rating, etc.)
-        const matchedEmp = operatorNumber ? empByOp.get(operatorNumber) : null;
-        const employeeId = matchedEmp ? matchedEmp.id : null;
-        const employeeName = matchedEmp ? matchedEmp.name : (operatorNumber === '5002' ? '5002-operator' : null);
-
-        // Mijoz bahosi (OnlinePBX quality_score)
-        const rawScore = raw.quality_score ?? raw.rating ?? raw.score;
-        let rating = null;
-        if (rawScore !== undefined && rawScore !== null && rawScore !== '') {
-          const num = parseFloat(rawScore);
-          if (!isNaN(num) && num >= 1 && num <= 5) {
-            rating = Math.round(num * 10) / 10;
-          }
-        }
-
-        chunkPreparedCalls.push({
-          call_id: uuid,
-          caller,
-          callee,
-          operator_number: operatorNumber,
-          employee_id: employeeId,
-          employee_name: employeeName,
-          direction,
-          status,
-          duration,
-          talk_time: talkTime,
-          record_url: null,
-          rating,
-          rating_comment: rating ? 'OnlinePBX bahosi' : null,
-          raw_data: raw,
-          call_date: tashkentDate,
-          started_at: startedAt
-        });
-      }
-
-      // NON-DESTRUCTIVE: Upsert chunk directly into DB immediately (no deletes)
-      let chunkSaved = 0;
-      if (pool && chunkPreparedCalls.length > 0) {
-        const BATCH_SIZE = 100;
-        for (let i = 0; i < chunkPreparedCalls.length; i += BATCH_SIZE) {
-          const chunk = chunkPreparedCalls.slice(i, i + BATCH_SIZE);
-          const valuePlaceholders = [];
-          const params = [];
-          chunk.forEach((c, idx) => {
-            const offset = idx * 15;
-            valuePlaceholders.push(`($${offset + 1}, $${offset + 2}, $${offset + 3}, $${offset + 4}, $${offset + 5}, $${offset + 6}, $${offset + 7}, $${offset + 8}, $${offset + 9}, $${offset + 10}, NULL, $${offset + 11}, $${offset + 12}, $${offset + 13}, $${offset + 14}, $${offset + 15})`);
-            params.push(
-              c.call_id, c.caller, c.callee, c.operator_number, c.employee_id, c.employee_name,
-              c.direction, c.status, c.duration, c.talk_time,
-              JSON.stringify(c.raw_data || {}), c.call_date, c.started_at, c.rating, c.rating_comment
-            );
-          });
-
-          const batchQuery = `
-            INSERT INTO public.calls (
-              call_id, caller, callee, operator_number, employee_id, employee_name, direction, status,
-              duration, talk_time, record_url, raw_data, call_date, started_at, rating, rating_comment
-            ) VALUES ${valuePlaceholders.join(', ')}
-            ON CONFLICT (call_id) DO UPDATE SET
-              caller = COALESCE(NULLIF(EXCLUDED.caller, ''), public.calls.caller),
-              callee = COALESCE(NULLIF(EXCLUDED.callee, ''), public.calls.callee),
-              operator_number = COALESCE(NULLIF(EXCLUDED.operator_number, ''), public.calls.operator_number),
-              employee_id = COALESCE(EXCLUDED.employee_id, public.calls.employee_id),
-              employee_name = COALESCE(EXCLUDED.employee_name, public.calls.employee_name),
-              direction = COALESCE(EXCLUDED.direction, public.calls.direction),
-              status = EXCLUDED.status,
-              duration = GREATEST(public.calls.duration, EXCLUDED.duration),
-              talk_time = GREATEST(public.calls.talk_time, EXCLUDED.talk_time),
-              rating = COALESCE(EXCLUDED.rating, public.calls.rating),
-              rating_comment = COALESCE(EXCLUDED.rating_comment, public.calls.rating_comment),
-              call_date = COALESCE(EXCLUDED.call_date, public.calls.call_date),
-              started_at = COALESCE(EXCLUDED.started_at, public.calls.started_at),
-              raw_data = EXCLUDED.raw_data,
-              updated_at = now();
-          `;
-          try {
-            await pool.query(batchQuery, params);
-            chunkSaved += chunk.length;
-          } catch (bErr) {
-            for (const c of chunk) {
-              try {
-                await saveCallRecord(c);
-                chunkSaved++;
-              } catch (_) {}
-            }
-          }
-        }
-      } else if (chunkPreparedCalls.length > 0) {
-        const list = readLocalCalls();
-        const localMap = new Map();
-        list.forEach(c => { if (c.call_id) localMap.set(c.call_id, c); });
-        let localChanged = false;
-
-        for (const c of chunkPreparedCalls) {
-          if (localMap.has(c.call_id)) {
-            const existing = localMap.get(c.call_id);
-            Object.assign(existing, c, {
-              rating: c.rating !== undefined ? c.rating : existing.rating,
-              rating_comment: c.rating_comment !== undefined ? c.rating_comment : existing.rating_comment,
-              updated_at: new Date().toISOString()
-            });
-          } else {
-            const newRec = { ...c, created_at: new Date().toISOString() };
-            list.push(newRec);
-            localMap.set(c.call_id, newRec);
-          }
-          chunkSaved++;
-          localChanged = true;
-        }
-        if (localChanged) {
-          writeLocalCalls(list);
-        }
-      }
-
-      totalSaved += chunkSaved;
-      for (const c of chunkPreparedCalls) {
-        byDay[c.call_date] = (byDay[c.call_date] || 0) + 1;
-      }
-      pbxStatsCacheMap.clear();
-
-      console.log(`[OnlinePBX Backfill] ${fromDateStr}..${toDateStr}: fetched ${chunkRawCalls.length}, saved ${chunkSaved}`);
+      const res = await fetchPbxRangeChunkWithPagination(interval, auth, allowedSet, empByOp, pool);
+      totalFetched += res.fetched;
+      totalSaved += res.saved;
+      console.log(`[OnlinePBX Sync] ${fromDateStr} → ${toDateStr}: ${res.saved} calls`);
     }
 
     lastPbxSyncTime = Date.now();
+    await setSyncState('last_pbx_sync_timestamp', Math.floor(lastPbxSyncTime / 1000));
     pbxStatsCacheMap.clear();
-    console.log(`[OnlinePBX Backfill] Total: fetched ${totalFetched}, saved ${totalSaved}. Per-day counts:`, byDay);
 
-    return { ok: true, total_fetched: totalFetched, saved_count: totalSaved, filtered_count: totalSaved, by_day: byDay };
+    return { ok: true, total_fetched: totalFetched, saved_count: totalSaved };
   } catch (err) {
     console.warn('[OnlinePBX Sync error]:', err.message);
     return { ok: false, error: err.message };
@@ -1364,33 +1355,116 @@ async function syncOnlinePbxCalls(daysOrOptions = 7) {
   }
 }
 
+async function runInitialPbxBackfillIfNeeded() {
+  const isCompleted = await getSyncState('pbx_backfill_completed');
+  if (isCompleted === 'true' || isCompleted === true) {
+    console.log('[OnlinePBX Backfill]: Avval to\'liq bajarilgan (pbx_backfill_completed=true). Qayta o\'tkazilmaydi.');
+    return;
+  }
+
+  if (isPbxSyncing) {
+    console.log('[OnlinePBX Backfill]: Boshqa sinxronlash jarayoni faol, kutib turamiz...');
+    return;
+  }
+
+  isPbxSyncing = true;
+  console.log('[OnlinePBX Backfill]: Boshlang\'ich to\'liq sinxronlash boshlandi (Oct 13, 2026 dan Nov 5, 2026 gacha)...');
+
+  try {
+    const auth = await authenticateOnlinePbx();
+    if (!auth) {
+      console.warn('[OnlinePBX Backfill]: Auth muvaffaqiyatsiz bo\'ldi, keyingi server qayta ishga tushganda davom ettiriladi.');
+      return;
+    }
+
+    // 13.10.2026 00:00:00 Toshkent vaqti
+    const BACKFILL_START_STAMP = Math.floor(new Date('2026-10-13T00:00:00+05:00').getTime() / 1000);
+    // 05.11.2026 23:59:59 Toshkent vaqti
+    const BACKFILL_END_STAMP = Math.floor(new Date('2026-11-05T23:59:59+05:00').getTime() / 1000);
+
+    const savedLastChunk = await getSyncState('pbx_backfill_last_chunk_to');
+    let resumeFromStamp = savedLastChunk ? Number(savedLastChunk) : BACKFILL_START_STAMP;
+    if (isNaN(resumeFromStamp) || resumeFromStamp < BACKFILL_START_STAMP) {
+      resumeFromStamp = BACKFILL_START_STAMP;
+    }
+
+    const CHUNK_SECONDS = 2 * 24 * 3600; // 2 kunlik oynalar
+    const intervals = [];
+    let curr = resumeFromStamp;
+    while (curr < BACKFILL_END_STAMP) {
+      let nxt = curr + CHUNK_SECONDS;
+      if (nxt > BACKFILL_END_STAMP) nxt = BACKFILL_END_STAMP;
+      intervals.push({ from: curr, to: nxt });
+      curr = nxt;
+    }
+
+    const allowedSet = new Set(ALLOWED_PBX_OPERATORS);
+    const pool = getDbPool();
+
+    let employees = [];
+    if (pool) {
+      const eRes = await pool.query('SELECT id, name, operator_number, pbx_extension FROM public.employees WHERE active = true').catch(() => ({ rows: [] }));
+      employees = eRes.rows || [];
+    } else {
+      employees = readJsonData('employees.json', []).filter(e => e.active !== false);
+    }
+    const empByOp = new Map();
+    employees.forEach(emp => {
+      const op = String(emp.operator_number || '').trim();
+      const pbx = String(emp.pbx_extension || '').trim();
+      if (op && allowedSet.has(op) && !empByOp.has(op)) empByOp.set(op, emp);
+      if (pbx && allowedSet.has(pbx) && !empByOp.has(pbx)) empByOp.set(pbx, emp);
+    });
+
+    let totalBackfilled = 0;
+    for (const interval of intervals) {
+      const fromDateStr = new Date(interval.from * 1000 + 5 * 3600 * 1000).toISOString().split('T')[0];
+      const toDateStr = new Date(interval.to * 1000 + 5 * 3600 * 1000).toISOString().split('T')[0];
+
+      const res = await fetchPbxRangeChunkWithPagination(interval, auth, allowedSet, empByOp, pool);
+      totalBackfilled += res.saved;
+      console.log(`[OnlinePBX Backfill] ${fromDateStr} → ${toDateStr}: ${res.saved} calls`);
+
+      // Har bir interval muvaffaqiyatli tugagach holatni saqlab qo'yamiz (resumable)
+      await setSyncState('pbx_backfill_last_chunk_to', interval.to);
+    }
+
+    // Yakunlandi flagini saqlash
+    await setSyncState('pbx_backfill_completed', 'true');
+    await setSyncState('last_pbx_sync_timestamp', Math.floor(Date.now() / 1000));
+    lastPbxSyncTime = Date.now();
+    pbxStatsCacheMap.clear();
+
+    console.log(`[OnlinePBX Backfill]: Boshlang\'ich sinxronlash to\'liq yakunlandi! Jami sinxronlangan qo\'ng\'iroqlar: ${totalBackfilled} ta`);
+  } catch (err) {
+    console.warn('[OnlinePBX Backfill error]:', err.message);
+  } finally {
+    isPbxSyncing = false;
+  }
+}
 
 function initOnlinePbxSync() {
-  // 1. Startup: fetch everything from 13.10.2026 up to now once (API token orqali)
+  // 1. Startup: Faqat bir marta boshlang\'ich to\'liq backfill (13.10.2026 dan 05.11.2026 gacha)
   setTimeout(async () => {
-    console.log('[OnlinePBX API Sync]: Startup sinxronlash boshlandi (13.10.2026 00:00:00 dan hozirgacha)...');
     try {
-      const res = await syncOnlinePbxCalls({
-        fromDate: '2026-10-13T00:00:00+05:00',
-        toStamp: Math.floor(Date.now() / 1000),
-        isInitial: true
-      });
-      console.log('[OnlinePBX API Sync]: Startup sinxronlash yakunlandi. Jami saqlangan:', res?.saved_count);
+      await runInitialPbxBackfillIfNeeded();
     } catch (e) {
-      console.warn('[PBX init sync error]:', e.message);
+      console.warn('[PBX init backfill error]:', e.message);
     }
   }, 1000);
 
-  // 2. Har 30 daqiqada OnlinePBX API dan yangi ma'lumotlarni olib, mavjudlariga birlashtirish (duplicatesiz)
+  // 2. Har 30 daqiqada yangi / o\'zgargan qo\'ng\'iroqlarni 2 soatlik overlap bilan olish
   setInterval(async () => {
     console.log('[OnlinePBX API 30-min Sync]: 30 daqiqalik davriy sinxronlash boshlandi...');
     try {
-      const daysBackSeconds = 2 * 24 * 3600;
-      const fromStamp = Math.floor((Date.now() - daysBackSeconds * 1000) / 1000);
-      const res = await syncOnlinePbxCalls({
-        fromStamp,
-        toStamp: Math.floor(Date.now() / 1000)
-      });
+      const OVERLAP_SECONDS = 2 * 3600; // 2 soatlik xavfsizlik oraliq
+      const lastSync = await getSyncState('last_pbx_sync_timestamp');
+      let fromStamp = lastSync ? Number(lastSync) - OVERLAP_SECONDS : Math.floor(Date.now() / 1000) - (24 * 3600);
+      if (isNaN(fromStamp) || fromStamp <= 0) {
+        fromStamp = Math.floor(Date.now() / 1000) - (24 * 3600);
+      }
+      const toStamp = Math.floor(Date.now() / 1000);
+      const res = await syncOnlinePbxCalls({ fromStamp, toStamp });
       console.log('[OnlinePBX API 30-min Sync]: Yangilanish yakunlandi:', res);
     } catch (e) {
       console.warn('[PBX 30-min sync error]:', e.message);
@@ -2005,10 +2079,6 @@ async function getCallsList(from, to, operator, status, limit = 50, employeeId =
   return { ok: true, calls: enriched };
 }
 
-async function handleOnlinePbxWebhook(req, res, reqUrl) {
-  // SOURCE: Data must come only from the OnlinePBX API, using the API token.
-  return sendJson(res, 200, { ok: true, message: 'Webhooks disabled: calls are fetched only from OnlinePBX API via token' });
-}
 
 async function handlePbxStats(req, res, reqUrl) {
   try {
@@ -2092,39 +2162,6 @@ async function handleRatePbxCall(req, res, targetCallId = null) {
   }
 }
 
-async function handleTestPbxWebhook(req, res) {
-  const body = await readJson(req);
-  const operator = String(body.operator || body.operator_number || '100').trim();
-  const status = body.status === 'missed' ? 'missed' : 'answered';
-  const talkTime = status === 'answered' ? (parseInt(body.talk_time, 10) || Math.floor(Math.random() * 180) + 30) : 0;
-  const duration = talkTime + Math.floor(Math.random() * 15) + 5;
-  const caller = String(body.caller || `+99890${Math.floor(1000000 + Math.random() * 9000000)}`);
-  const callee = String(body.callee || '+998712000000');
-  const rating = body.rating !== undefined && body.rating !== null ? parseFloat(body.rating) : (status === 'answered' ? 5 : null);
-
-  const testPayload = {
-    uuid: `test_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
-    caller,
-    callee,
-    user: operator,
-    status: status === 'answered' ? 'ANSWER' : 'NOANSWER',
-    duration,
-    billsec: talkTime,
-    rating,
-    rating_comment: body.comment || (rating ? 'Sinov qo\'ng\'irog\'i bahosi' : null),
-    date: new Date().toISOString()
-  };
-
-  const mockReq = {
-    method: 'POST',
-    on: (evt, cb) => {
-      if (evt === 'data') cb(JSON.stringify(testPayload));
-      if (evt === 'end') cb();
-    }
-  };
-
-  return handleOnlinePbxWebhook(mockReq, res, new URL('http://localhost/api/onlinepbx/webhook'));
-}
 
 // ============================================================
 //  PRAYER TIMES API (Namoz vaqtlari - Ishonchli manbalardan)

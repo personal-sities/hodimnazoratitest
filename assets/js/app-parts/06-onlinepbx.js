@@ -604,14 +604,6 @@ function escapePbxHtml(str) {
     .replace(/'/g, '&#039;');
 }
 
-function playPbxAudio(url) {
-  if (!url) return;
-  const audio = new Audio(url);
-  audio.play().catch(e => {
-    toast('warn', 'Audio', 'Brauzer avtomatik ijro eta olmadi. Havola: ' + url);
-    window.open(url, '_blank');
-  });
-}
 
 // ============================================================
 //  WEBHOOK MODALI VA SINUVDAN O'TKAZISH (TEST CALL)
