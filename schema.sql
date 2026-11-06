@@ -19,8 +19,8 @@ CREATE TABLE IF NOT EXISTS public.admins (
 
 -- 2. EMPLOYEES (Xodimlar)
 CREATE TABLE IF NOT EXISTS public.employees (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL,
+  id TEXT PRIMARY KEY,
+  user_id TEXT,
   name TEXT NOT NULL,
   login TEXT NOT NULL,
   password TEXT,
@@ -29,7 +29,7 @@ CREATE TABLE IF NOT EXISTS public.employees (
   face_registered BOOLEAN NOT NULL DEFAULT false,
   responsible_course TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  UNIQUE(user_id)
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 -- Agar oldingi bazada ustunlar yo'q bo'lsa qo'shish

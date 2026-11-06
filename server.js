@@ -139,6 +139,11 @@ async function ensureDatabaseSchema() {
     await pool.query(`
       ALTER TABLE public.employees ADD COLUMN IF NOT EXISTS password TEXT;
       ALTER TABLE public.admins ADD COLUMN IF NOT EXISTS password TEXT;
+      ALTER TABLE public.employees DROP CONSTRAINT IF EXISTS employees_user_id_key;
+      ALTER TABLE public.employees DROP CONSTRAINT IF EXISTS employees_user_id_fkey;
+      DO $$ BEGIN ALTER TABLE public.employees ALTER COLUMN user_id DROP NOT NULL; EXCEPTION WHEN OTHERS THEN NULL; END; $$;
+      DO $$ BEGIN ALTER TABLE public.employees ALTER COLUMN user_id TYPE TEXT; EXCEPTION WHEN OTHERS THEN NULL; END; $$;
+      DO $$ BEGIN ALTER TABLE public.employees ALTER COLUMN id TYPE TEXT; EXCEPTION WHEN OTHERS THEN NULL; END; $$;
       ALTER TABLE public.calls DROP CONSTRAINT IF EXISTS calls_employee_id_fkey;
       DO $$ BEGIN ALTER TABLE public.calls ALTER COLUMN employee_id TYPE TEXT; EXCEPTION WHEN OTHERS THEN NULL; END; $$;
       ALTER TABLE public.calls ADD COLUMN IF NOT EXISTS employee_name TEXT;
@@ -676,6 +681,7 @@ async function handleCreateEmployee(res, body) {
       }
     } catch (dbErr) {
       console.error('handleCreateEmployee DB xatosi:', dbErr.message);
+      return sendJson(res, 500, { ok: false, error: 'Baza xatosi: ' + dbErr.message });
     }
   }
 
