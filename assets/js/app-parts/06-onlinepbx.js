@@ -75,7 +75,9 @@ async function syncPbxFromApiManual() {
   }
   try {
     if (typeof toast === 'function') toast('info', 'OnlinePBX', 'OnlinePBX dan yangi qo\'ng\'iroqlar yuklanmoqda...');
-    const res = await fetch('/api/pbx/sync', { method: 'POST' });
+    const fromVal = pbxDateFrom || todayISO();
+    const toVal = pbxDateTo || todayISO();
+    const res = await fetch(`/api/pbx/sync?from=${encodeURIComponent(fromVal)}&to=${encodeURIComponent(toVal)}`, { method: 'POST' });
     const data = await res.json();
     if (res.status === 429 || data?.busy) {
       if (typeof toast === 'function') toast('warn', 'OnlinePBX', data?.message || 'Sinxronlash allaqachon bajarilmoqda');
