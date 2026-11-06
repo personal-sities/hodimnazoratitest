@@ -137,18 +137,73 @@ async function ensureDatabaseSchema() {
     }
 
     await pool.query(`
-      ALTER TABLE public.employees ADD COLUMN IF NOT EXISTS password TEXT;
-      ALTER TABLE public.admins ADD COLUMN IF NOT EXISTS password TEXT;
+      -- 1. Chet kalitlar (Foreign Keys) va cheklovlarni bo'shatish
+      ALTER TABLE public.attendance DROP CONSTRAINT IF EXISTS attendance_employee_id_fkey;
+      ALTER TABLE public.calls DROP CONSTRAINT IF EXISTS calls_employee_id_fkey;
+      ALTER TABLE public.kpi_bonuses DROP CONSTRAINT IF EXISTS kpi_bonuses_employee_id_fkey;
+      ALTER TABLE public.feedback DROP CONSTRAINT IF EXISTS feedback_employee_id_fkey;
+      ALTER TABLE public.notifications DROP CONSTRAINT IF EXISTS notifications_employee_id_fkey;
+      ALTER TABLE public.lunch_plans DROP CONSTRAINT IF EXISTS lunch_plans_employee_id_fkey;
+      ALTER TABLE public.employee_leaves DROP CONSTRAINT IF EXISTS employee_leaves_employee_id_fkey;
+      ALTER TABLE public.face_profiles DROP CONSTRAINT IF EXISTS face_profiles_employee_id_fkey;
       ALTER TABLE public.employees DROP CONSTRAINT IF EXISTS employees_user_id_key;
       ALTER TABLE public.employees DROP CONSTRAINT IF EXISTS employees_user_id_fkey;
+      ALTER TABLE public.admins DROP CONSTRAINT IF EXISTS admins_user_id_key;
+      ALTER TABLE public.admins DROP CONSTRAINT IF EXISTS admins_user_id_fkey;
+
+      -- 2. EMPLOYEES: id va user_id ni TEXT ga o'tkazish
+      DO $$ BEGIN ALTER TABLE public.employees ALTER COLUMN id TYPE TEXT; EXCEPTION WHEN OTHERS THEN NULL; END; $$;
       DO $$ BEGIN ALTER TABLE public.employees ALTER COLUMN user_id DROP NOT NULL; EXCEPTION WHEN OTHERS THEN NULL; END; $$;
       DO $$ BEGIN ALTER TABLE public.employees ALTER COLUMN user_id TYPE TEXT; EXCEPTION WHEN OTHERS THEN NULL; END; $$;
-      DO $$ BEGIN ALTER TABLE public.employees ALTER COLUMN id TYPE TEXT; EXCEPTION WHEN OTHERS THEN NULL; END; $$;
-      ALTER TABLE public.calls DROP CONSTRAINT IF EXISTS calls_employee_id_fkey;
+      ALTER TABLE public.employees ADD COLUMN IF NOT EXISTS password TEXT;
+      ALTER TABLE public.employees ADD COLUMN IF NOT EXISTS operator_number TEXT;
+      ALTER TABLE public.employees ADD COLUMN IF NOT EXISTS pbx_extension TEXT;
+      ALTER TABLE public.employees ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT now();
+
+      -- 3. EMPLOYEE_LEAVES: id va employee_id ni TEXT ga o'tkazish
+      DO $$ BEGIN ALTER TABLE public.employee_leaves ALTER COLUMN id TYPE TEXT; EXCEPTION WHEN OTHERS THEN NULL; END; $$;
+      DO $$ BEGIN ALTER TABLE public.employee_leaves ALTER COLUMN employee_id TYPE TEXT; EXCEPTION WHEN OTHERS THEN NULL; END; $$;
+
+      -- 4. ATTENDANCE: id va employee_id ni TEXT ga o'tkazish
+      DO $$ BEGIN ALTER TABLE public.attendance ALTER COLUMN id TYPE TEXT; EXCEPTION WHEN OTHERS THEN NULL; END; $$;
+      DO $$ BEGIN ALTER TABLE public.attendance ALTER COLUMN employee_id TYPE TEXT; EXCEPTION WHEN OTHERS THEN NULL; END; $$;
+
+      -- 5. FEEDBACK: id va employee_id ni TEXT ga o'tkazish
+      DO $$ BEGIN ALTER TABLE public.feedback ALTER COLUMN id TYPE TEXT; EXCEPTION WHEN OTHERS THEN NULL; END; $$;
+      DO $$ BEGIN ALTER TABLE public.feedback ALTER COLUMN employee_id TYPE TEXT; EXCEPTION WHEN OTHERS THEN NULL; END; $$;
+
+      -- 6. NOTIFICATIONS: id va employee_id ni TEXT ga o'tkazish
+      DO $$ BEGIN ALTER TABLE public.notifications ALTER COLUMN id TYPE TEXT; EXCEPTION WHEN OTHERS THEN NULL; END; $$;
+      DO $$ BEGIN ALTER TABLE public.notifications ALTER COLUMN employee_id TYPE TEXT; EXCEPTION WHEN OTHERS THEN NULL; END; $$;
+
+      -- 7. LUNCH_PLANS: id va employee_id ni TEXT ga o'tkazish
+      DO $$ BEGIN ALTER TABLE public.lunch_plans ALTER COLUMN id TYPE TEXT; EXCEPTION WHEN OTHERS THEN NULL; END; $$;
+      DO $$ BEGIN ALTER TABLE public.lunch_plans ALTER COLUMN employee_id TYPE TEXT; EXCEPTION WHEN OTHERS THEN NULL; END; $$;
+
+      -- 8. KPI_BONUSES: id va employee_id ni TEXT ga o'tkazish
+      DO $$ BEGIN ALTER TABLE public.kpi_bonuses ALTER COLUMN id TYPE TEXT; EXCEPTION WHEN OTHERS THEN NULL; END; $$;
+      DO $$ BEGIN ALTER TABLE public.kpi_bonuses ALTER COLUMN employee_id TYPE TEXT; EXCEPTION WHEN OTHERS THEN NULL; END; $$;
+
+      -- 9. FACE_PROFILES: id va employee_id ni TEXT ga o'tkazish
+      DO $$ BEGIN ALTER TABLE public.face_profiles ALTER COLUMN id TYPE TEXT; EXCEPTION WHEN OTHERS THEN NULL; END; $$;
+      DO $$ BEGIN ALTER TABLE public.face_profiles ALTER COLUMN employee_id TYPE TEXT; EXCEPTION WHEN OTHERS THEN NULL; END; $$;
+
+      -- 10. CALLS: id va employee_id ni TEXT ga o'tkazish
+      DO $$ BEGIN ALTER TABLE public.calls ALTER COLUMN id TYPE TEXT; EXCEPTION WHEN OTHERS THEN NULL; END; $$;
       DO $$ BEGIN ALTER TABLE public.calls ALTER COLUMN employee_id TYPE TEXT; EXCEPTION WHEN OTHERS THEN NULL; END; $$;
       ALTER TABLE public.calls ADD COLUMN IF NOT EXISTS employee_name TEXT;
       ALTER TABLE public.calls ADD COLUMN IF NOT EXISTS rating NUMERIC;
       ALTER TABLE public.calls ADD COLUMN IF NOT EXISTS rating_comment TEXT;
+
+      -- 11. SETTINGS: id ni ixtiyoriy TEXT qilish (key allaqachon UNIQUE)
+      DO $$ BEGIN ALTER TABLE public.settings ALTER COLUMN id DROP NOT NULL; EXCEPTION WHEN OTHERS THEN NULL; END; $$;
+      DO $$ BEGIN ALTER TABLE public.settings ALTER COLUMN id TYPE TEXT; EXCEPTION WHEN OTHERS THEN NULL; END; $$;
+
+      -- 12. ADMINS: id va user_id ni TEXT ga o'tkazish
+      DO $$ BEGIN ALTER TABLE public.admins ALTER COLUMN id TYPE TEXT; EXCEPTION WHEN OTHERS THEN NULL; END; $$;
+      DO $$ BEGIN ALTER TABLE public.admins ALTER COLUMN user_id DROP NOT NULL; EXCEPTION WHEN OTHERS THEN NULL; END; $$;
+      DO $$ BEGIN ALTER TABLE public.admins ALTER COLUMN user_id TYPE TEXT; EXCEPTION WHEN OTHERS THEN NULL; END; $$;
+      ALTER TABLE public.admins ADD COLUMN IF NOT EXISTS password TEXT;
       CREATE INDEX IF NOT EXISTS idx_calls_caller ON public.calls(caller);
       CREATE INDEX IF NOT EXISTS idx_calls_callee ON public.calls(callee);
       CREATE INDEX IF NOT EXISTS idx_calls_direction ON public.calls(direction);
@@ -277,6 +332,40 @@ async function ensureDatabaseSchema() {
     } catch (migErr) {
       console.warn('[Emp auto-migration error]:', migErr.message);
     }
+
+    // Agar PostgreSQL da employee_leaves soni 0 bo'lsa, employee_leaves.json dan avtomatik ko'chirish
+    try {
+      const dbLeaveCheck = await pool.query('SELECT COUNT(*)::int AS cnt FROM public.employee_leaves');
+      if (Number(dbLeaveCheck.rows[0]?.cnt || 0) === 0) {
+        const localLeaves = readJsonData('employee_leaves.json', []);
+        for (const l of localLeaves) {
+          if (!l.employee_id || !l.leave_start_date || !l.return_date) continue;
+          const lId = String(l.id || `leave_${Date.now()}_${Math.random().toString(36).substring(2,6)}`);
+          await pool.query(
+            'INSERT INTO public.employee_leaves (id, employee_id, leave_start_date, return_date, created_at) VALUES ($1, $2, $3, $4, COALESCE($5::timestamptz, now())) ON CONFLICT DO NOTHING',
+            [lId, l.employee_id, l.leave_start_date, l.return_date, l.created_at || null]
+          ).catch(() => {});
+        }
+        if (localLeaves.length > 0) {
+          console.log(`[Auto-Migrate]: ${localLeaves.length} ta ta'til yozuvi employee_leaves.json dan PostgreSQL ga yuklandi.`);
+        }
+      }
+    } catch (_) {}
+
+    // Agar PostgreSQL da settings bo'sh bo'lsa, settings.json dan avtomatik ko'chirish
+    try {
+      const dbSetCheck = await pool.query('SELECT COUNT(*)::int AS cnt FROM public.settings');
+      if (Number(dbSetCheck.rows[0]?.cnt || 0) === 0) {
+        const localSettings = readJsonData('settings.json', []);
+        for (const s of localSettings) {
+          if (!s.key) continue;
+          await pool.query(
+            'INSERT INTO public.settings (key, value, updated_at) VALUES ($1, $2, now()) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value',
+            [s.key, typeof s.value === 'object' ? JSON.stringify(s.value) : String(s.value || '')]
+          ).catch(() => {});
+        }
+      }
+    } catch (_) {}
 
     // 6. Bugungi noto'g'ri/sinov davomat yozuvlarini tozalash (start_time bo'lmagan yoki bir vaqtda 09:03 da soxta yozilganlar)
     try {

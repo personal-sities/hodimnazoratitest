@@ -7,8 +7,8 @@ CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 -- 1. ADMINS (Administratorlar)
 CREATE TABLE IF NOT EXISTS public.admins (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL,
+  id TEXT PRIMARY KEY,
+  user_id TEXT,
   name TEXT NOT NULL,
   login TEXT,
   password TEXT,
@@ -57,8 +57,8 @@ END $$;
 
 -- 3. ATTENDANCE (Davomat va ish vaqti)
 CREATE TABLE IF NOT EXISTS public.attendance (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  employee_id UUID NOT NULL REFERENCES public.employees(id) ON DELETE CASCADE,
+  id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  employee_id TEXT NOT NULL,
   work_date DATE NOT NULL,
   start_time TIME,
   end_time TIME,
@@ -82,8 +82,8 @@ CREATE INDEX IF NOT EXISTS idx_attendance_emp_date ON public.attendance(employee
 
 -- 4. KPI_BONUSES (KPI va bonuslar)
 CREATE TABLE IF NOT EXISTS public.kpi_bonuses (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  employee_id UUID NOT NULL REFERENCES public.employees(id) ON DELETE CASCADE,
+  id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  employee_id TEXT NOT NULL,
   month TEXT NOT NULL,
   bonus INTEGER NOT NULL DEFAULT 0,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -93,7 +93,7 @@ CREATE TABLE IF NOT EXISTS public.kpi_bonuses (
 
 -- 5. SETTINGS (Tizim sozlamalari)
 CREATE TABLE IF NOT EXISTS public.settings (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  id TEXT DEFAULT gen_random_uuid()::text,
   key TEXT NOT NULL UNIQUE,
   value TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -102,8 +102,8 @@ CREATE TABLE IF NOT EXISTS public.settings (
 
 -- 6. NOTIFICATIONS (Bildirishnomalar)
 CREATE TABLE IF NOT EXISTS public.notifications (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  employee_id UUID REFERENCES public.employees(id) ON DELETE CASCADE,
+  id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  employee_id TEXT,
   title TEXT,
   body TEXT,
   type TEXT,
@@ -115,8 +115,8 @@ CREATE INDEX IF NOT EXISTS idx_notifications_sent_at ON public.notifications(sen
 
 -- 7. FEEDBACK (Fikr va shikoyatlar)
 CREATE TABLE IF NOT EXISTS public.feedback (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  employee_id UUID REFERENCES public.employees(id) ON DELETE CASCADE,
+  id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  employee_id TEXT,
   employee_name TEXT,
   type TEXT,
   message TEXT NOT NULL,
@@ -130,8 +130,8 @@ CREATE INDEX IF NOT EXISTS idx_feedback_created_at ON public.feedback(created_at
 
 -- 8. LUNCH_PLANS (Tushlik rejalari)
 CREATE TABLE IF NOT EXISTS public.lunch_plans (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  employee_id UUID NOT NULL REFERENCES public.employees(id) ON DELETE CASCADE,
+  id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  employee_id TEXT NOT NULL,
   work_date DATE NOT NULL,
   shift TEXT NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -140,8 +140,8 @@ CREATE TABLE IF NOT EXISTS public.lunch_plans (
 
 -- 9. EMPLOYEE_LEAVES (Mehnat ta'tillari / Sababli qoldirishlar)
 CREATE TABLE IF NOT EXISTS public.employee_leaves (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  employee_id UUID NOT NULL REFERENCES public.employees(id) ON DELETE CASCADE,
+  id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  employee_id TEXT NOT NULL,
   leave_start_date DATE NOT NULL,
   return_date DATE NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -151,8 +151,8 @@ CREATE INDEX IF NOT EXISTS idx_leaves_dates ON public.employee_leaves(leave_star
 
 -- 10. FACE_PROFILES (Yuz qoliplari)
 CREATE TABLE IF NOT EXISTS public.face_profiles (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  employee_id UUID NOT NULL REFERENCES public.employees(id) ON DELETE CASCADE,
+  id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  employee_id TEXT NOT NULL,
   descriptor JSONB NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -161,12 +161,12 @@ CREATE TABLE IF NOT EXISTS public.face_profiles (
 
 -- 11. CALLS (OnlinePBX qo'ng'iroqlar tarixi)
 CREATE TABLE IF NOT EXISTS public.calls (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
   call_id TEXT UNIQUE,
   caller TEXT,
   callee TEXT,
   operator_number TEXT,
-  employee_id UUID REFERENCES public.employees(id) ON DELETE SET NULL,
+  employee_id TEXT,
   direction TEXT DEFAULT 'in',
   status TEXT NOT NULL,
   duration INTEGER NOT NULL DEFAULT 0,
