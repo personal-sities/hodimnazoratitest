@@ -354,7 +354,12 @@ const server = http.createServer(async (req, res) => {
 
     // OnlinePBX Qo'ng'iroqlarni qo'lda / tezkor sinxronlash API
     if (pathname === '/api/pbx/sync' && req.method === 'POST') {
-      const syncRes = await syncOnlinePbxCalls();
+      const fromParam = reqUrl.searchParams.get('fromStamp') || reqUrl.searchParams.get('from');
+      const toParam = reqUrl.searchParams.get('toStamp') || reqUrl.searchParams.get('to');
+      const syncOpts = {};
+      if (fromParam) syncOpts.fromStamp = fromParam.length === 10 ? Number(fromParam) : Math.floor(new Date(fromParam + 'T00:00:00+05:00').getTime() / 1000);
+      if (toParam) syncOpts.toStamp = toParam.length === 10 ? Number(toParam) : Math.floor(new Date(toParam + 'T23:59:59+05:00').getTime() / 1000);
+      const syncRes = await syncOnlinePbxCalls(syncOpts);
       const statusCode = syncRes.busy ? 429 : (syncRes.ok ? 200 : 500);
       return sendJson(res, statusCode, syncRes);
     }
