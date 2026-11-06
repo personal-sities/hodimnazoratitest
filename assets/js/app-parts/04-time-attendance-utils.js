@@ -69,7 +69,17 @@ function isWorkDay(ds){const d=new Date(ds+'T12:00:00');if(d.getDay()===0)return
 let employeeLeavesTableAvailable = true;
 let latestTodayLeaveRows = [];
 const LOCAL_EMPLOYEE_LEAVES_KEY = 'aloqa_employee_leaves';
-function normalizeIsoDate(ds=''){return /^\d{4}-\d{2}-\d{2}$/.test(ds||'') ? ds : '';}
+function normalizeIsoDate(ds=''){
+  if (!ds) return '';
+  if (typeof ds === 'string') {
+    const m = ds.match(/^(\d{4}-\d{2}-\d{2})/);
+    if (m) return m[1];
+  }
+  if (ds instanceof Date && !isNaN(ds.getTime())) {
+    return ds.toISOString().split('T')[0];
+  }
+  return '';
+}
 function dateRangesOverlap(startA,endA,startB,endB){return startA<=endB && endA>=startB;}
 function getLocalEmployeeLeaves(){
   try{
@@ -174,8 +184,10 @@ async function loadEmployeeLeaveAdminList(){
     const today=todayISO();
     rows.forEach((row,i)=>{
       const tr=document.createElement('tr');
-      const status=today<=row.return_date?t('on_work_leave'):t('returned');
-      tr.innerHTML=`<td>${i+1}</td><td>${empMap.get(row.employee_id)||'-'}</td><td style="font-family:var(--mono)">${row.leave_start_date}</td><td style="font-family:var(--mono)">${row.return_date}</td><td><span class="badge bauto">${status}</span></td><td><button class="brd" onclick="removeEmployeeLeave('${row.id}')">${t('delete')}</button></td>`;
+      const startStr = normalizeIsoDate(row.leave_start_date);
+      const returnStr = normalizeIsoDate(row.return_date);
+      const status=today<=returnStr?t('on_work_leave'):t('returned');
+      tr.innerHTML=`<td>${i+1}</td><td>${empMap.get(row.employee_id)||'-'}</td><td style="font-family:var(--mono)">${startStr}</td><td style="font-family:var(--mono)">${returnStr}</td><td><span class="badge bauto">${status}</span></td><td><button class="brd" onclick="removeEmployeeLeave('${row.id}')">${t('delete')}</button></td>`;
       tbody.appendChild(tr);
     });
   }catch(e){

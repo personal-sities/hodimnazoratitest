@@ -195,9 +195,12 @@ async function ensureDatabaseSchema() {
       ALTER TABLE public.calls ADD COLUMN IF NOT EXISTS rating NUMERIC;
       ALTER TABLE public.calls ADD COLUMN IF NOT EXISTS rating_comment TEXT;
 
-      -- 11. SETTINGS: id ni ixtiyoriy TEXT qilish (key allaqachon UNIQUE)
+      -- 11. SETTINGS: primary key ni key ustuniga ko'chirish va id ni ixtiyoriy qilish
+      ALTER TABLE public.settings DROP CONSTRAINT IF EXISTS settings_pkey CASCADE;
       DO $$ BEGIN ALTER TABLE public.settings ALTER COLUMN id DROP NOT NULL; EXCEPTION WHEN OTHERS THEN NULL; END; $$;
       DO $$ BEGIN ALTER TABLE public.settings ALTER COLUMN id TYPE TEXT; EXCEPTION WHEN OTHERS THEN NULL; END; $$;
+      ALTER TABLE public.settings DROP CONSTRAINT IF EXISTS settings_key_pk;
+      ALTER TABLE public.settings ADD CONSTRAINT settings_key_pk PRIMARY KEY (key);
 
       -- 12. ADMINS: id va user_id ni TEXT ga o'tkazish
       DO $$ BEGIN ALTER TABLE public.admins ALTER COLUMN id TYPE TEXT; EXCEPTION WHEN OTHERS THEN NULL; END; $$;
@@ -4229,11 +4232,13 @@ async function handleGetEmployeeLeaves(req, res, reqUrl) {
   if (pool) {
     try {
       const q = from && to
-        ? 'SELECT * FROM public.employee_leaves WHERE return_date >= $1 AND leave_start_date <= $2 ORDER BY leave_start_date DESC'
-        : 'SELECT * FROM public.employee_leaves ORDER BY leave_start_date DESC';
+        ? `SELECT id, employee_id, to_char(leave_start_date, 'YYYY-MM-DD') AS leave_start_date, to_char(return_date, 'YYYY-MM-DD') AS return_date, created_at FROM public.employee_leaves WHERE return_date >= $1 AND leave_start_date <= $2 ORDER BY leave_start_date DESC`
+        : `SELECT id, employee_id, to_char(leave_start_date, 'YYYY-MM-DD') AS leave_start_date, to_char(return_date, 'YYYY-MM-DD') AS return_date, created_at FROM public.employee_leaves ORDER BY leave_start_date DESC`;
       const r = from && to ? await pool.query(q, [from, to]) : await pool.query(q);
       return sendJson(res, 200, { ok: true, data: r.rows || [] });
-    } catch (e) { }
+    } catch (e) {
+      console.warn('[handleGetEmployeeLeaves DB]:', e.message);
+    }
   }
 
   let list = readJsonData('employee_leaves.json', []);
@@ -4246,20 +4251,29 @@ async function handleSaveEmployeeLeave(req, res) {
   const pool = getDbPool();
   const leave = {
     id: `leave_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
-    employee_id: body.employee_id,
-    leave_start_date: body.leave_start_date,
-    return_date: body.return_date,
+    employee_id: String(body.employee_id || '').trim(),
+    leave_start_date: String(body.leave_start_date || '').substring(0, 10),
+    return_date: String(body.return_date || '').substring(0, 10),
     created_at: new Date().toISOString()
   };
+
+  if (!leave.employee_id || !leave.leave_start_date || !leave.return_date) {
+    return sendJson(res, 400, { ok: false, error: 'employee_id, leave_start_date va return_date kiritilishi shart' });
+  }
 
   if (pool) {
     try {
       const r = await pool.query(
-        'INSERT INTO public.employee_leaves (id, employee_id, leave_start_date, return_date, created_at) VALUES ($1, $2, $3, $4, now()) RETURNING *',
+        `INSERT INTO public.employee_leaves (id, employee_id, leave_start_date, return_date, created_at)
+         VALUES ($1, $2, $3::date, $4::date, now())
+         RETURNING id, employee_id, to_char(leave_start_date, 'YYYY-MM-DD') AS leave_start_date, to_char(return_date, 'YYYY-MM-DD') AS return_date, created_at`,
         [leave.id, leave.employee_id, leave.leave_start_date, leave.return_date]
       );
       if (r.rows && r.rows[0]) Object.assign(leave, r.rows[0]);
-    } catch (e) { }
+    } catch (e) {
+      console.error('[handleSaveEmployeeLeave DB]:', e.message);
+      return sendJson(res, 500, { ok: false, error: 'Bazaga saqlashda xatolik: ' + e.message });
+    }
   }
 
   const list = readJsonData('employee_leaves.json', []);
