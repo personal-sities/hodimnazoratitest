@@ -1435,7 +1435,7 @@ async function runInitialPbxBackfillIfNeeded() {
 
   const missingDays = [];
   const startDay = new Date("2026-10-13T00:00:00+05:00");
-  const endDay = new Date("2026-11-05T00:00:00+05:00");
+  const endDay = new Date(new Date().getTime() + 5*3600000);
 
   let curDay = new Date(startDay);
   while (curDay <= endDay) {
