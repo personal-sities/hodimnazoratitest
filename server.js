@@ -195,6 +195,34 @@ async function ensureDatabaseSchema() {
       ALTER TABLE public.calls ADD COLUMN IF NOT EXISTS rating NUMERIC;
       ALTER TABLE public.calls ADD COLUMN IF NOT EXISTS rating_comment TEXT;
 
+      -- 10-B. SAMARKAND_CALLS jadvali va indekslari
+      CREATE TABLE IF NOT EXISTS public.samarkand_calls (
+        id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+        call_id TEXT UNIQUE,
+        caller TEXT,
+        callee TEXT,
+        operator_number TEXT,
+        employee_id TEXT,
+        employee_name TEXT,
+        direction TEXT DEFAULT 'in',
+        status TEXT NOT NULL DEFAULT 'missed',
+        duration INTEGER NOT NULL DEFAULT 0,
+        talk_time INTEGER NOT NULL DEFAULT 0,
+        record_url TEXT,
+        rating NUMERIC,
+        rating_comment TEXT,
+        raw_data JSONB,
+        call_date DATE NOT NULL DEFAULT CURRENT_DATE,
+        started_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+      );
+      CREATE INDEX IF NOT EXISTS idx_samarkand_calls_call_date ON public.samarkand_calls(call_date);
+      CREATE INDEX IF NOT EXISTS idx_samarkand_calls_operator_number ON public.samarkand_calls(operator_number);
+      CREATE INDEX IF NOT EXISTS idx_samarkand_calls_employee_id ON public.samarkand_calls(employee_id);
+      CREATE INDEX IF NOT EXISTS idx_samarkand_calls_status ON public.samarkand_calls(status);
+      CREATE INDEX IF NOT EXISTS idx_samarkand_calls_started_at ON public.samarkand_calls(started_at);
+
       -- 11. SETTINGS: primary key ni key ustuniga ko'chirish va id ni ixtiyoriy qilish
       ALTER TABLE public.settings DROP CONSTRAINT IF EXISTS settings_pkey CASCADE;
       DO $$ BEGIN ALTER TABLE public.settings ALTER COLUMN id DROP NOT NULL; EXCEPTION WHEN OTHERS THEN NULL; END; $$;
@@ -390,6 +418,10 @@ async function ensureDatabaseSchema() {
     await relinkAllPbxCalls().catch((e) => {
       console.warn('[ensureDatabaseSchema relinkAllPbxCalls ogohlantirish]:', e.message);
     });
+
+    await relinkAllSamarkandPbxCalls().catch((e) => {
+      console.warn('[ensureDatabaseSchema relinkAllSamarkandPbxCalls ogohlantirish]:', e.message);
+    });
   } catch (err) {
     console.warn('[Database]: Schema tekshirishda ogohlantirish:', err.message);
   }
@@ -475,6 +507,44 @@ const server = http.createServer(async (req, res) => {
     if (pathname.startsWith('/api/pbx/calls/') && req.method === 'PATCH') {
       const callId = pathname.replace('/api/pbx/calls/', '').trim();
       return handleRatePbxCall(req, res, callId);
+    }
+
+    // Samarqand OnlinePBX Statistikalar API
+    if (pathname === '/api/samarkand-pbx/stats' && req.method === 'GET') {
+      return handleSamarkandPbxStats(req, res, reqUrl);
+    }
+
+    // Samarqand OnlinePBX Qo'ng'iroqlar jurnali API
+    if (pathname === '/api/samarkand-pbx/calls' && req.method === 'GET') {
+      return handleSamarkandPbxCalls(req, res, reqUrl);
+    }
+
+    // Samarqand OnlinePBX Qo'ng'iroqlarni qo'lda / tezkor sinxronlash API
+    if (pathname === '/api/samarkand-pbx/sync' && req.method === 'POST') {
+      const fromParam = reqUrl.searchParams.get('fromStamp') || reqUrl.searchParams.get('from');
+      const toParam = reqUrl.searchParams.get('toStamp') || reqUrl.searchParams.get('to');
+      const daysParam = reqUrl.searchParams.get('days');
+      const syncOpts = { manual: true };
+      if (fromParam) syncOpts.from = fromParam;
+      if (toParam) syncOpts.to = toParam;
+      if (daysParam) syncOpts.days = Number(daysParam);
+      const syncRes = await syncSamarkandOnlinePbxCalls(syncOpts);
+      const statusCode = syncRes.busy ? 429 : (syncRes.ok ? 200 : 500);
+      return sendJson(res, statusCode, syncRes);
+    }
+
+    // Samarqand OnlinePBX Qo'ng'iroqlarni xodimlarga qayta biriktirish (Relink) API
+    if (pathname === '/api/samarkand-pbx/relink' && req.method === 'POST') {
+      return handleSamarkandPbxRelink(req, res);
+    }
+
+    // Samarqand OnlinePBX Qo'ng'iroqqa baho qo'yish API
+    if ((pathname === '/api/samarkand-pbx/rate-call' || pathname === '/api/samarkand-pbx/rate') && (req.method === 'POST' || req.method === 'PATCH')) {
+      return handleRateSamarkandPbxCall(req, res);
+    }
+    if (pathname.startsWith('/api/samarkand-pbx/calls/') && req.method === 'PATCH') {
+      const callId = pathname.replace('/api/samarkand-pbx/calls/', '').trim();
+      return handleRateSamarkandPbxCall(req, res, callId);
     }
 
     // Namoz vaqtlari API (Rasmiy ishonchli manbalardan)
@@ -631,6 +701,9 @@ if (require.main === module) {
 
       // OnlinePBX 7 kunlik qo'ng'iroqlarni yuklash va har 25 soniyada yangilab turish
       initOnlinePbxSync();
+
+      // Samarqand OnlinePBX qo'ng'iroqlarni yuklash va davriy sinxronlash
+      initSamarkandOnlinePbxSync();
     });
   }
 
@@ -2321,6 +2394,1059 @@ async function handleRatePbxCall(req, res, targetCallId = null) {
       list[idx].rating_comment = comment;
       list[idx].updated_at = new Date().toISOString();
       writeLocalCalls(list);
+    }
+
+    return sendJson(res, 200, { ok: true, call_id: callId, rating, comment });
+  } catch (err) {
+    return sendJson(res, 500, { ok: false, error: err.message });
+  }
+}
+
+// ============================================================
+//  SAMARQAND ONLINEPBX INTEGRATSIYASI VA MONITORINGI
+// ============================================================
+
+const SAMARKAND_CALLS_DATA_FILE = path.join(ROOT, 'data', 'calls_samarkand.json');
+
+function getSamarkandPbxDomain() {
+  return process.env.ONLINEPBX_SAMARKAND_DOMAIN || 'pbx39081.onpbx.ru';
+}
+
+function getSamarkandPbxToken() {
+  return process.env.ONLINEPBX_SAMARKAND_TOKEN || 'aHdjTUwwR3pGbXhRMUZNYmRuOVVlU2huWWFaa1pobG4';
+}
+
+const ALLOWED_SAMARKAND_PBX_OPERATORS = [
+  '100', '101', '102', '103', '104', '105', '106', '107', '108', '109', '110', '5002'
+];
+
+let lastSamarkandPbxSyncTime = 0;
+let isSamarkandPbxSyncing = false;
+const samarkandPbxStatsCacheMap = new Map();
+const SAMARKAND_PBX_STATS_CACHE_TTL_MS = 15000;
+
+function readLocalSamarkandCalls() {
+  try {
+    if (fs.existsSync(SAMARKAND_CALLS_DATA_FILE)) {
+      const txt = fs.readFileSync(SAMARKAND_CALLS_DATA_FILE, 'utf8');
+      return JSON.parse(txt) || [];
+    }
+  } catch (e) { }
+  return [];
+}
+
+function writeLocalSamarkandCalls(calls) {
+  try {
+    const dataDir = path.join(ROOT, 'data');
+    if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
+    const trimmed = (calls || []).slice(-50000);
+    fs.writeFileSync(SAMARKAND_CALLS_DATA_FILE, JSON.stringify(trimmed, null, 2), 'utf8');
+  } catch (e) {
+    console.warn('[writeLocalSamarkandCalls xatosi]:', e.message);
+  }
+}
+
+async function saveSamarkandCallRecord(call) {
+  const pool = getDbPool();
+  if (pool) {
+    try {
+      const query = `
+        INSERT INTO public.samarkand_calls (
+          call_id, caller, callee, operator_number, employee_id, employee_name, direction, status,
+          duration, talk_time, record_url, raw_data, call_date, started_at, rating, rating_comment
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NULL, $11, $12, $13, $14, $15)
+        ON CONFLICT (call_id) DO UPDATE SET
+          caller = COALESCE(NULLIF(EXCLUDED.caller, ''), public.samarkand_calls.caller),
+          callee = COALESCE(NULLIF(EXCLUDED.callee, ''), public.samarkand_calls.callee),
+          operator_number = COALESCE(NULLIF(EXCLUDED.operator_number, ''), public.samarkand_calls.operator_number),
+          employee_id = COALESCE(EXCLUDED.employee_id, public.samarkand_calls.employee_id),
+          employee_name = COALESCE(EXCLUDED.employee_name, public.samarkand_calls.employee_name),
+          direction = COALESCE(EXCLUDED.direction, public.samarkand_calls.direction),
+          status = EXCLUDED.status,
+          duration = GREATEST(public.samarkand_calls.duration, EXCLUDED.duration),
+          talk_time = GREATEST(public.samarkand_calls.talk_time, EXCLUDED.talk_time),
+          rating = COALESCE(EXCLUDED.rating, public.samarkand_calls.rating),
+          rating_comment = COALESCE(EXCLUDED.rating_comment, public.samarkand_calls.rating_comment),
+          call_date = COALESCE(EXCLUDED.call_date, public.samarkand_calls.call_date),
+          started_at = COALESCE(EXCLUDED.started_at, public.samarkand_calls.started_at),
+          raw_data = EXCLUDED.raw_data,
+          updated_at = now()
+        RETURNING *;
+      `;
+      const res = await pool.query(query, [
+        call.call_id,
+        call.caller,
+        call.callee,
+        call.operator_number,
+        call.employee_id,
+        call.employee_name || null,
+        call.direction,
+        call.status,
+        call.duration,
+        call.talk_time,
+        JSON.stringify(call.raw_data || {}),
+        call.call_date,
+        call.started_at,
+        call.rating !== undefined ? call.rating : null,
+        call.rating_comment || null
+      ]);
+      if (res.rows && res.rows[0]) {
+        call = { ...call, ...res.rows[0] };
+      }
+    } catch (dbErr) {
+      console.warn('[saveSamarkandCallRecord DB xatosi]:', dbErr.message);
+    }
+  }
+
+  try {
+    const list = readLocalSamarkandCalls();
+    const idx = list.findIndex(c => c.call_id === call.call_id);
+    if (idx >= 0) {
+      list[idx] = {
+        ...list[idx],
+        ...call,
+        rating: call.rating !== undefined ? call.rating : list[idx].rating,
+        rating_comment: call.rating_comment !== undefined ? call.rating_comment : list[idx].rating_comment,
+        updated_at: new Date().toISOString()
+      };
+    } else {
+      list.push({ ...call, created_at: new Date().toISOString() });
+    }
+    writeLocalSamarkandCalls(list);
+  } catch (e) {
+    console.warn('[saveSamarkandCallRecord local write error]:', e.message);
+  }
+
+  try { samarkandPbxStatsCacheMap.clear(); } catch (_) {}
+  return call;
+}
+
+async function authenticateSamarkandOnlinePbx() {
+  const token = getSamarkandPbxToken();
+  if (!token) {
+    console.warn('[Samarkand OnlinePBX Sync]: getSamarkandPbxToken() topilmadi!');
+    return null;
+  }
+  const domain = getSamarkandPbxDomain();
+  const authUrl = `https://api2.onlinepbx.ru/${domain}/auth.json`;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      const authRes = await fetch(authUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: `auth_key=${encodeURIComponent(token)}`,
+        signal: AbortSignal.timeout(15000)
+      }).catch(() => null);
+      const authData = authRes && authRes.ok ? await authRes.json().catch(() => ({})) : null;
+      if (authData?.data?.key && authData?.data?.key_id) {
+        return { key: authData.data.key, key_id: authData.data.key_id };
+      }
+      if (attempt < 3) await new Promise(r => setTimeout(r, 2000 * attempt));
+    } catch (e) {
+      if (attempt < 3) await new Promise(r => setTimeout(r, 2000 * attempt));
+    }
+  }
+  return null;
+}
+
+async function fetchSamarkandPbxRangeChunkWithPagination(interval, auth, allowedSet, empByOp, pool) {
+  const domain = getSamarkandPbxDomain();
+  const searchUrl = `https://api2.onlinepbx.ru/${domain}/mongo_history/search.json`;
+  let totalSaved = 0;
+  let totalFetched = 0;
+  let totalSkippedShort = 0;
+  let page = 1;
+  const PAGE_LIMIT = 100;
+
+  while (true) {
+    let rawCalls = null;
+    let lastErr = null;
+
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        const bodyParams = `start_stamp_from=${interval.from}&start_stamp_to=${interval.to}&page=${page}&limit=${PAGE_LIMIT}`;
+        const res = await fetch(searchUrl, {
+          method: 'POST',
+          headers: {
+            'x-pbx-authentication': `${auth.key_id}:${auth.key}`,
+            'Content-Type': 'application/x-www-form-urlencoded'
+          },
+          body: bodyParams,
+          signal: AbortSignal.timeout(60000)
+        });
+        const result = await res.json().catch(() => ({}));
+        if (Array.isArray(result?.data)) {
+          rawCalls = result.data;
+          break;
+        } else {
+          const comment = String(result?.comment || '');
+          if (comment.includes('auth') || comment.includes('API_KEY') || comment.includes('key')) {
+            const freshAuth = await authenticateSamarkandOnlinePbx();
+            if (freshAuth) {
+              auth.key = freshAuth.key;
+              auth.key_id = freshAuth.key_id;
+            }
+          }
+          lastErr = new Error(result?.comment || 'Invalid API response format');
+          if (attempt < 3) await new Promise(r => setTimeout(r, 1500 * attempt));
+        }
+      } catch (err) {
+        lastErr = err;
+        if (attempt < 3) await new Promise(r => setTimeout(r, 1500 * attempt));
+      }
+    }
+
+    if (!rawCalls) {
+      throw new Error(`Samarkand PBX fetch failed for interval ${interval.from}..${interval.to} page ${page}: ${lastErr?.message || 'Unknown network error'}`);
+    }
+
+    totalFetched += rawCalls.length;
+    if (rawCalls.length === 0) break;
+
+    const chunkPreparedCalls = [];
+    for (const raw of rawCalls) {
+      const uuid = raw.uuid;
+      if (!uuid) continue;
+
+      const startStamp = Number(raw.start_stamp) || 0;
+      if (!startStamp) continue;
+      const startedAt = new Date(startStamp * 1000).toISOString();
+      const tashkentDate = new Date(startStamp * 1000 + 5 * 3600 * 1000).toISOString().split('T')[0];
+
+      const duration = Number(raw.duration) || 0;
+      const talkTime = Number(raw.user_talk_time || raw.billsec) || 0;
+      const hangupCause = String(raw.hangup_cause || '').toUpperCase();
+      const isAnswered = (hangupCause === 'NORMAL_CLEARING' && talkTime > 0) || (raw.contacted === true && talkTime > 0) || (talkTime > 0);
+      const status = isAnswered ? 'answered' : 'missed';
+
+      const caller = String(raw.caller_id_number || raw.caller || '').trim();
+      const callee = String(raw.destination_number || raw.callee || '').trim();
+
+      let operatorNumber = null;
+      if (Array.isArray(raw.events)) {
+        for (const ev of raw.events) {
+          const num = String(ev.number || ev.user || '').trim();
+          if (ev.answered_stamp && (allowedSet.has(num) || num.length === 3)) {
+            operatorNumber = num;
+            break;
+          }
+        }
+      }
+      if (!operatorNumber && allowedSet.has(callee)) operatorNumber = callee;
+      if (!operatorNumber && allowedSet.has(caller)) operatorNumber = caller;
+      if (!operatorNumber && Array.isArray(raw.events)) {
+        for (const ev of raw.events) {
+          const num = String(ev.number || ev.user || '').trim();
+          if (allowedSet.has(num) || num.length === 3) {
+            operatorNumber = num;
+            break;
+          }
+        }
+      }
+      if (!operatorNumber && raw.user) {
+        const uNum = String(raw.user).trim();
+        if (allowedSet.has(uNum) || uNum.length === 3) operatorNumber = uNum;
+      }
+
+      const acct = String(raw.accountcode || '').toLowerCase();
+      const isOutbound = acct.includes('out') || (operatorNumber && caller === operatorNumber);
+      if (isOutbound) continue;
+      const direction = 'in';
+
+      if (duration <= 22) {
+        totalSkippedShort++;
+        continue;
+      }
+
+      const matchedEmp = operatorNumber ? empByOp.get(operatorNumber) : null;
+      const employeeId = matchedEmp ? matchedEmp.id : null;
+      const employeeName = matchedEmp ? matchedEmp.name : (operatorNumber === '5002' ? '5002-operator' : null);
+
+      const rawScore = raw.quality_score ?? raw.rating ?? raw.score;
+      let rating = null;
+      if (rawScore !== undefined && rawScore !== null && rawScore !== '') {
+        const num = parseFloat(rawScore);
+        if (!isNaN(num) && num >= 1 && num <= 5) {
+          rating = Math.round(num * 10) / 10;
+        }
+      }
+
+      chunkPreparedCalls.push({
+        call_id: uuid,
+        caller,
+        callee,
+        operator_number: operatorNumber,
+        employee_id: employeeId,
+        employee_name: employeeName,
+        direction,
+        status,
+        duration,
+        talk_time: talkTime,
+        record_url: null,
+        rating,
+        rating_comment: rating ? 'Samarqand OnlinePBX bahosi' : null,
+        raw_data: raw,
+        call_date: tashkentDate,
+        started_at: startedAt
+      });
+    }
+
+    if (pool && chunkPreparedCalls.length > 0) {
+      const BATCH_SIZE = 100;
+      for (let i = 0; i < chunkPreparedCalls.length; i += BATCH_SIZE) {
+        const chunk = chunkPreparedCalls.slice(i, i + BATCH_SIZE);
+        const valuePlaceholders = [];
+        const params = [];
+        chunk.forEach((c, idx) => {
+          const offset = idx * 15;
+          valuePlaceholders.push(`($${offset + 1}, $${offset + 2}, $${offset + 3}, $${offset + 4}, $${offset + 5}, $${offset + 6}, $${offset + 7}, $${offset + 8}, $${offset + 9}, $${offset + 10}, NULL, $${offset + 11}, $${offset + 12}, $${offset + 13}, $${offset + 14}, $${offset + 15})`);
+          params.push(
+            c.call_id, c.caller, c.callee, c.operator_number, c.employee_id, c.employee_name,
+            c.direction, c.status, c.duration, c.talk_time,
+            JSON.stringify(c.raw_data || {}), c.call_date, c.started_at, c.rating, c.rating_comment
+          );
+        });
+
+        const batchQuery = `
+          INSERT INTO public.samarkand_calls (
+            call_id, caller, callee, operator_number, employee_id, employee_name, direction, status,
+            duration, talk_time, record_url, raw_data, call_date, started_at, rating, rating_comment
+          ) VALUES ${valuePlaceholders.join(', ')}
+          ON CONFLICT (call_id) DO UPDATE SET
+            caller = COALESCE(NULLIF(EXCLUDED.caller, ''), public.samarkand_calls.caller),
+            callee = COALESCE(NULLIF(EXCLUDED.callee, ''), public.samarkand_calls.callee),
+            operator_number = COALESCE(NULLIF(EXCLUDED.operator_number, ''), public.samarkand_calls.operator_number),
+            employee_id = COALESCE(EXCLUDED.employee_id, public.samarkand_calls.employee_id),
+            employee_name = COALESCE(EXCLUDED.employee_name, public.samarkand_calls.employee_name),
+            direction = COALESCE(EXCLUDED.direction, public.samarkand_calls.direction),
+            status = EXCLUDED.status,
+            duration = GREATEST(public.samarkand_calls.duration, EXCLUDED.duration),
+            talk_time = GREATEST(public.samarkand_calls.talk_time, EXCLUDED.talk_time),
+            rating = COALESCE(EXCLUDED.rating, public.samarkand_calls.rating),
+            rating_comment = COALESCE(EXCLUDED.rating_comment, public.samarkand_calls.rating_comment),
+            call_date = COALESCE(EXCLUDED.call_date, public.samarkand_calls.call_date),
+            started_at = COALESCE(EXCLUDED.started_at, public.samarkand_calls.started_at),
+            raw_data = EXCLUDED.raw_data,
+            updated_at = now();
+        `;
+        try {
+          await pool.query(batchQuery, params);
+          totalSaved += chunk.length;
+        } catch (bErr) {
+          for (const c of chunk) {
+            try {
+              await saveSamarkandCallRecord(c);
+              totalSaved++;
+            } catch (_) {}
+          }
+        }
+      }
+    } else if (chunkPreparedCalls.length > 0) {
+      const list = readLocalSamarkandCalls();
+      const localMap = new Map();
+      list.forEach(c => { if (c.call_id) localMap.set(c.call_id, c); });
+      let localChanged = false;
+
+      for (const c of chunkPreparedCalls) {
+        if (localMap.has(c.call_id)) {
+          const existing = localMap.get(c.call_id);
+          Object.assign(existing, c, {
+            rating: c.rating !== undefined ? c.rating : existing.rating,
+            rating_comment: c.rating_comment !== undefined ? c.rating_comment : existing.rating_comment,
+            updated_at: new Date().toISOString()
+          });
+        } else {
+          const newRec = { ...c, created_at: new Date().toISOString() };
+          list.push(newRec);
+          localMap.set(c.call_id, newRec);
+        }
+        totalSaved++;
+        localChanged = true;
+      }
+      if (localChanged) {
+        writeLocalSamarkandCalls(list);
+      }
+    }
+
+    break;
+  }
+
+  return { fetched: totalFetched, saved: totalSaved, skipped: totalSkippedShort };
+}
+
+async function syncSamarkandOnlinePbxCalls(options = {}) {
+  if (isSamarkandPbxSyncing) {
+    return { ok: false, busy: true, message: "Samarqand PBX sinxronlash allaqachon bajarilmoqda" };
+  }
+  const pool = getDbPool();
+  let lockClient = null;
+  let advisoryLockAcquired = false;
+  if (pool) {
+    try {
+      lockClient = await pool.connect();
+      const lockRes = await lockClient.query("SELECT pg_try_advisory_lock(847293) AS acquired");
+      advisoryLockAcquired = Boolean(lockRes.rows[0]?.acquired);
+      if (!advisoryLockAcquired) {
+        lockClient.release();
+        lockClient = null;
+        return { ok: false, busy: true, message: "Samarqand PBX sinxronlash boshqa jarayonda bajarilmoqda" };
+      }
+    } catch (_) {
+      if (lockClient) { lockClient.release(); lockClient = null; }
+    }
+  }
+  isSamarkandPbxSyncing = true;
+  try {
+    const auth = await authenticateSamarkandOnlinePbx();
+    if (!auth) {
+      throw new Error("Samarkand OnlinePBX auth error (domen yoki token tekshiring)");
+    }
+
+    const nowSec = Math.floor(Date.now() / 1000);
+    const SAFETY_OVERLAP_SEC = 10 * 60;
+    const todayDateStr = new Date(Date.now() + 5 * 3600 * 1000).toISOString().split('T')[0];
+    const todayStartSec = Math.floor(new Date(todayDateStr + 'T00:00:00+05:00').getTime() / 1000);
+
+    let startStampFrom = null;
+    let endStampTo = nowSec;
+
+    if (typeof options === "object" && options !== null) {
+      if (options.fromStamp) {
+        startStampFrom = Number(options.fromStamp);
+      } else if (options.from) {
+        startStampFrom = String(options.from).length === 10 && !options.from.includes('-')
+          ? Number(options.from)
+          : Math.floor(new Date(options.from + 'T00:00:00+05:00').getTime() / 1000);
+      } else if (options.days) {
+        startStampFrom = nowSec - (Number(options.days) * 86400);
+      }
+
+      if (options.toStamp) {
+        endStampTo = Number(options.toStamp);
+      } else if (options.to) {
+        endStampTo = String(options.to).length === 10 && !options.to.includes('-')
+          ? Number(options.to)
+          : Math.floor(new Date(options.to + 'T23:59:59+05:00').getTime() / 1000);
+        if (endStampTo > nowSec && options.to === todayDateStr) {
+          endStampTo = nowSec;
+        }
+      }
+    }
+
+    if (!startStampFrom) startStampFrom = todayStartSec;
+    if (startStampFrom >= endStampTo) startStampFrom = endStampTo - SAFETY_OVERLAP_SEC;
+
+    const CHUNK_SECONDS = 24 * 3600;
+    const intervals = [];
+    let curr = startStampFrom;
+    while (curr < endStampTo) {
+      let nxt = curr + CHUNK_SECONDS;
+      if (nxt > endStampTo) nxt = endStampTo;
+      intervals.push({ from: curr, to: nxt });
+      curr = nxt;
+    }
+
+    const allowedSet = new Set(ALLOWED_SAMARKAND_PBX_OPERATORS);
+    let employees = [];
+    if (pool) {
+      const eRes = await pool.query("SELECT id, name, operator_number, pbx_extension FROM public.employees WHERE active = true").catch(() => ({ rows: [] }));
+      employees = eRes.rows || [];
+    } else {
+      employees = readJsonData("employees.json", []).filter(e => e.active !== false);
+    }
+    const empByOp = new Map();
+    employees.forEach(emp => {
+      const op = String(emp.operator_number || "").trim();
+      const pbx = String(emp.pbx_extension || "").trim();
+      if (op && !empByOp.has(op)) empByOp.set(op, emp);
+      if (pbx && !empByOp.has(pbx)) empByOp.set(pbx, emp);
+    });
+
+    let totalFetched = 0;
+    let totalSaved = 0;
+
+    for (const interval of intervals) {
+      const fromDateStr = new Date(interval.from * 1000 + 5 * 3600 * 1000).toISOString().split("T")[0];
+      const toDateStr = new Date(interval.to * 1000 + 5 * 3600 * 1000).toISOString().split("T")[0];
+
+      const res = await fetchSamarkandPbxRangeChunkWithPagination(interval, auth, allowedSet, empByOp, pool);
+      totalFetched += res.fetched;
+      totalSaved += res.saved;
+      console.log(`[Samarkand OnlinePBX Sync] ${fromDateStr} → ${toDateStr}: fetched ${res.fetched}, saved ${res.saved}`);
+    }
+
+    const syncFinishTime = Math.floor(Date.now() / 1000);
+    await setSyncState("samarkand_last_sync_at", syncFinishTime);
+    lastSamarkandPbxSyncTime = Date.now();
+    samarkandPbxStatsCacheMap.clear();
+
+    return {
+      ok: true,
+      total_fetched: totalFetched,
+      saved_count: totalSaved,
+      from_stamp: startStampFrom,
+      to_stamp: endStampTo,
+      last_sync_at: syncFinishTime
+    };
+  } catch (err) {
+    console.warn("[Samarkand OnlinePBX Sync error]:", err.message);
+    return { ok: false, error: err.message };
+  } finally {
+    isSamarkandPbxSyncing = false;
+    if (lockClient) {
+      if (advisoryLockAcquired) {
+        try { await lockClient.query("SELECT pg_advisory_unlock(847293)"); } catch (_) {}
+      }
+      lockClient.release();
+      lockClient = null;
+    }
+  }
+}
+
+async function runInitialSamarkandPbxBackfillIfNeeded() {
+  if (isSamarkandPbxSyncing) return;
+  const pool = getDbPool();
+  let lockClient = null;
+  let advisoryLockAcquired = false;
+  if (pool) {
+    try {
+      lockClient = await pool.connect();
+      const lockRes = await lockClient.query("SELECT pg_try_advisory_lock(847293) AS acquired");
+      advisoryLockAcquired = Boolean(lockRes.rows[0]?.acquired);
+      if (!advisoryLockAcquired) {
+        lockClient.release();
+        lockClient = null;
+        return;
+      }
+    } catch (_) {
+      if (lockClient) { lockClient.release(); lockClient = null; }
+    }
+  }
+
+  try {
+    if (lockClient) {
+      if (advisoryLockAcquired) {
+        try { await lockClient.query("SELECT pg_advisory_unlock(847293)"); } catch (_) {}
+      }
+      lockClient.release();
+      lockClient = null;
+    }
+
+    const todayDateStr = new Date(Date.now() + 5 * 3600 * 1000).toISOString().split('T')[0];
+    console.log(`[Samarkand OnlinePBX Startup]: Bugungi kun (${todayDateStr}) yangilanmoqda...`);
+    await syncSamarkandOnlinePbxCalls({ from: todayDateStr, to: todayDateStr });
+  } catch (err) {
+    console.warn("[Samarkand OnlinePBX Backfill error]:", err.message);
+  } finally {
+    if (lockClient) {
+      if (advisoryLockAcquired) {
+        try { await lockClient.query("SELECT pg_advisory_unlock(847293)"); } catch (_) {}
+      }
+      lockClient.release();
+      lockClient = null;
+    }
+  }
+}
+
+function initSamarkandOnlinePbxSync() {
+  setTimeout(async () => {
+    try {
+      await runInitialSamarkandPbxBackfillIfNeeded();
+    } catch (e) {
+      console.warn("[Samarkand PBX init error]:", e.message);
+    }
+  }, 3000);
+
+  setInterval(async () => {
+    console.log("[Samarkand OnlinePBX 30-min Sync]: Davriy sinxronlash boshlandi...");
+    try {
+      await syncSamarkandOnlinePbxCalls();
+    } catch (e) {
+      console.warn("[Samarkand PBX sync error]:", e.message);
+    }
+  }, 30 * 60 * 1000);
+}
+
+async function relinkAllSamarkandPbxCalls() {
+  const pool = getDbPool();
+  let updatedCount = 0;
+
+  let employees = [];
+  if (pool) {
+    try {
+      const empRes = await pool.query('SELECT id, name, operator_number, pbx_extension FROM public.employees WHERE active = true ORDER BY updated_at DESC, created_at DESC');
+      employees = empRes.rows || [];
+    } catch (e) {
+      console.warn('[relinkAllSamarkandPbxCalls] Emp query xatosi:', e.message);
+    }
+  }
+  if (!employees.length) {
+    employees = readJsonData('employees.json', []).filter(e => e.active !== false);
+  }
+
+  const empByOp = new Map();
+  employees.forEach(emp => {
+    const op = String(emp.operator_number || '').trim();
+    const pbx = String(emp.pbx_extension || '').trim();
+    if (op && !empByOp.has(op)) empByOp.set(op, emp);
+    if (pbx && !empByOp.has(pbx)) empByOp.set(pbx, emp);
+  });
+
+  if (pool) {
+    try {
+      if (empByOp.size > 0) {
+        for (const [opNum, emp] of empByOp.entries()) {
+          if (!opNum) continue;
+          const resExistingOp = await pool.query(`
+            UPDATE public.samarkand_calls
+            SET employee_id = $2,
+                employee_name = $3,
+                updated_at = now()
+            WHERE operator_number = $1
+              AND (employee_id IS NULL OR employee_id <> $2 OR employee_name IS NULL OR employee_name <> $3)
+          `, [opNum, emp.id, emp.name]);
+          updatedCount += (resExistingOp.rowCount || 0);
+
+          const resCallee = await pool.query(`
+            UPDATE public.samarkand_calls
+            SET operator_number = $1,
+                employee_id = $2,
+                employee_name = $3,
+                direction = COALESCE(NULLIF(direction, ''), 'in'),
+                updated_at = now()
+            WHERE (operator_number IS NULL OR operator_number = '' OR operator_number = '—' OR employee_id IS NULL OR employee_id <> $2)
+              AND (callee = $1 OR callee = ('SIP/' || $1) OR callee LIKE ($1 || '@%') OR callee LIKE ('%/' || $1))
+          `, [opNum, emp.id, emp.name]);
+          updatedCount += (resCallee.rowCount || 0);
+
+          const resCaller = await pool.query(`
+            UPDATE public.samarkand_calls
+            SET operator_number = $1,
+                employee_id = $2,
+                employee_name = $3,
+                direction = 'out',
+                updated_at = now()
+            WHERE (operator_number IS NULL OR operator_number = '' OR operator_number = '—' OR employee_id IS NULL OR employee_id <> $2)
+              AND (caller = $1 OR caller = ('SIP/' || $1) OR caller LIKE ($1 || '@%') OR caller LIKE ('%/' || $1))
+          `, [opNum, emp.id, emp.name]);
+          updatedCount += (resCaller.rowCount || 0);
+        }
+      }
+    } catch (dbErr) {
+      console.warn('[relinkAllSamarkandPbxCalls DB]:', dbErr.message);
+    }
+  }
+
+  try {
+    const localCalls = readLocalSamarkandCalls();
+    let localChanged = false;
+
+    localCalls.forEach(c => {
+      let op = String(c.operator_number || '').trim();
+      const callee = String(c.callee || '').trim();
+      const caller = String(c.caller || '').trim();
+
+      let detectedOp = op || (empByOp.has(callee) ? callee : (empByOp.has(caller) ? caller : null));
+      if (detectedOp) {
+        c.operator_number = detectedOp;
+        if (empByOp.has(detectedOp)) {
+          const matchedEmp = empByOp.get(detectedOp);
+          if (c.employee_id !== matchedEmp.id || c.employee_name !== matchedEmp.name) {
+            c.employee_id = matchedEmp.id;
+            c.employee_name = matchedEmp.name;
+            localChanged = true;
+            updatedCount++;
+          }
+        }
+      }
+    });
+    if (localChanged) writeLocalSamarkandCalls(localCalls);
+  } catch (e) { }
+
+  try { samarkandPbxStatsCacheMap.clear(); } catch (_) {}
+  return { ok: true, updated_count: updatedCount };
+}
+
+async function getSamarkandCallsStats(from, to, operator = 'all', status = 'all') {
+  const cacheKey = `${from}_${to}_${operator}_${status}`;
+  const now = Date.now();
+  const cached = samarkandPbxStatsCacheMap.get(cacheKey);
+  if (cached && (now - cached.timestamp < SAMARKAND_PBX_STATS_CACHE_TTL_MS)) {
+    return cached.data;
+  }
+
+  const pool = getDbPool();
+  if (pool) {
+    try {
+      const companyQuery = `
+        SELECT
+          COUNT(c.id)::int AS total_company_incoming,
+          COUNT(c.id) FILTER (WHERE c.status = 'answered')::int AS total_company_answered,
+          COUNT(c.id) FILTER (WHERE c.status = 'missed')::int AS total_company_missed
+        FROM public.samarkand_calls c
+        WHERE c.call_date BETWEEN $1 AND $2
+          AND (LOWER(COALESCE(c.direction, 'in')) IN ('in', 'inbound', '') OR c.direction IS NULL);
+      `;
+      const companyRes = await pool.query(companyQuery, [from, to]).catch(() => ({ rows: [] }));
+      const totalCompanyIncoming = Number(companyRes.rows[0]?.total_company_incoming) || 0;
+      const totalCompanyAnswered = Number(companyRes.rows[0]?.total_company_answered) || 0;
+      const totalCompanyMissed = Number(companyRes.rows[0]?.total_company_missed) || 0;
+      const X = totalCompanyIncoming;
+
+      let statsQuery = `
+        SELECT
+          c.operator_number,
+          COUNT(c.id)::int AS assigned_calls,
+          COUNT(c.id) FILTER (WHERE c.status = 'answered')::int AS answered_calls,
+          COUNT(c.id) FILTER (WHERE c.status = 'missed')::int AS missed_calls,
+          COALESCE(SUM(c.talk_time), 0)::int AS total_talk_seconds,
+          CASE
+            WHEN COUNT(c.id) FILTER (WHERE c.status = 'answered') > 0
+            THEN ROUND(COALESCE(SUM(c.talk_time), 0) / COUNT(c.id) FILTER (WHERE c.status = 'answered'))::int
+            ELSE 0
+          END AS avg_talk_seconds,
+          ROUND(COALESCE(AVG(c.rating) FILTER (WHERE c.rating IS NOT NULL AND c.rating > 0), 0)::numeric, 1)::float AS avg_rating,
+          COUNT(c.id) FILTER (WHERE c.rating IS NOT NULL AND c.rating > 0)::int AS rated_calls_count
+        FROM public.samarkand_calls c
+        WHERE c.call_date BETWEEN $1 AND $2
+          AND (LOWER(COALESCE(c.direction, 'in')) IN ('in', 'inbound', '') OR c.direction IS NULL)
+          AND c.operator_number IS NOT NULL AND c.operator_number <> ''
+      `;
+      const params = [from, to];
+      if (operator && operator !== 'all') {
+        params.push(operator);
+        statsQuery += ` AND c.operator_number = $${params.length}`;
+      }
+      if (status && status !== 'all') {
+        params.push(status);
+        statsQuery += ` AND c.status = $${params.length}`;
+      }
+      statsQuery += ` GROUP BY c.operator_number ORDER BY answered_calls DESC, assigned_calls DESC;`;
+      const statsRes = await pool.query(statsQuery, params);
+
+      const empQuery = `SELECT id, name, operator_number, pbx_extension FROM public.employees WHERE active = true ORDER BY updated_at DESC;`;
+      const empRes = await pool.query(empQuery).catch(() => ({ rows: [] }));
+      const emps = empRes.rows || [];
+
+      const detectedOps = new Set(ALLOWED_SAMARKAND_PBX_OPERATORS);
+      (statsRes.rows || []).forEach(r => { if (r.operator_number) detectedOps.add(String(r.operator_number).trim()); });
+
+      const opMap = new Map();
+      detectedOps.forEach(opNum => {
+        const emp = emps.find(e => (String(e.operator_number || '').trim() === opNum || String(e.pbx_extension || '').trim() === opNum));
+        const is5002 = (opNum === '5002');
+        opMap.set(opNum, {
+          operator_number: opNum,
+          employee_id: emp?.id || null,
+          employee_name: emp?.name || (is5002 ? '5002-operator' : `Operator ${opNum}`),
+          total_calls: X,
+          assigned_calls: 0,
+          answered_calls: 0,
+          missed_calls: 0,
+          target_quota: is5002 ? null : 0,
+          answered_percent: is5002 ? null : 0,
+          total_talk_seconds: 0,
+          avg_talk_seconds: 0,
+          avg_rating: null,
+          rated_calls_count: 0
+        });
+      });
+
+      const humanOpsCount = Array.from(detectedOps).filter(o => o !== '5002').length || 6;
+      const Z = humanOpsCount > 0 ? (X / humanOpsCount) : 0;
+
+      (statsRes.rows || []).forEach(r => {
+        const rawOp = String(r.operator_number || '').trim();
+        if (opMap.has(rawOp)) {
+          const item = opMap.get(rawOp);
+          const is5002 = (rawOp === '5002');
+          item.total_calls = X;
+          item.assigned_calls = Number(r.assigned_calls) || 0;
+          item.answered_calls = Number(r.answered_calls) || 0;
+          item.missed_calls = Number(r.missed_calls) || 0;
+          if (is5002) {
+            item.target_quota = null;
+            item.answered_percent = null;
+          } else {
+            item.target_quota = Math.round(Z * 10) / 10;
+            item.answered_percent = Z > 0 ? Math.round((item.answered_calls / Z) * 100 * 10) / 10 : 0;
+          }
+          item.total_talk_seconds = Number(r.total_talk_seconds) || 0;
+          item.avg_talk_seconds = Number(r.avg_talk_seconds) || 0;
+          item.avg_rating = r.rated_calls_count > 0 ? Number(r.avg_rating) : null;
+          item.rated_calls_count = Number(r.rated_calls_count) || 0;
+        }
+      });
+
+      let operators = Array.from(opMap.values()).sort((a, b) => {
+        if (a.operator_number === '5002') return 1;
+        if (b.operator_number === '5002') return -1;
+        return b.answered_calls - a.answered_calls;
+      });
+      if (operator && operator !== 'all') {
+        operators = operators.filter(o => o.operator_number === operator);
+      }
+
+      const totalCalls = X;
+      const answeredCalls = totalCompanyAnswered > 0 ? totalCompanyAnswered : operators.reduce((s, x) => s + x.answered_calls, 0);
+      const missedCalls = totalCompanyMissed > 0 ? totalCompanyMissed : Math.max(0, totalCalls - answeredCalls);
+      const totalTalkSec = operators.reduce((s, x) => s + x.total_talk_seconds, 0);
+      const avgTalkSec = answeredCalls > 0 ? Math.round(totalTalkSec / answeredCalls) : 0;
+      const answeredPercent = totalCalls > 0 ? Math.round((answeredCalls / totalCalls) * 100 * 10) / 10 : 0;
+
+      const totalRatedCount = operators.reduce((s, x) => s + (x.rated_calls_count || 0), 0);
+      const totalWeightedRating = operators.reduce((s, x) => s + ((x.avg_rating || 0) * (x.rated_calls_count || 0)), 0);
+      const avgRating = totalRatedCount > 0 ? Math.round((totalWeightedRating / totalRatedCount) * 10) / 10 : null;
+
+      const responseData = {
+        ok: true,
+        from,
+        to,
+        operator,
+        status,
+        summary: {
+          total_calls: totalCalls,
+          accounts_count: humanOpsCount,
+          target_quota: Math.round(Z * 10) / 10,
+          answered_calls: answeredCalls,
+          missed_calls: missedCalls,
+          answered_percent: answeredPercent,
+          total_talk_seconds: totalTalkSec,
+          avg_talk_seconds: avgTalkSec,
+          avg_rating: avgRating,
+          rated_calls_count: totalRatedCount
+        },
+        operators
+      };
+
+      samarkandPbxStatsCacheMap.set(cacheKey, { timestamp: Date.now(), data: responseData });
+      return responseData;
+    } catch (err) {
+      console.error('[getSamarkandCallsStats DB xatosi]:', err.message);
+    }
+  }
+
+  // Fallback: local calls_samarkand.json
+  const allEmployees = readJsonData('employees.json', []);
+  const allLocalCalls = readLocalSamarkandCalls();
+
+  const allCompanyIncoming = allLocalCalls.filter(c => {
+    const cd = c.call_date || (c.started_at ? c.started_at.split('T')[0] : '');
+    const dateMatch = (!from || cd >= from) && (!to || cd <= to);
+    const dir = String(c.direction || 'in').toLowerCase().trim();
+    const isIncoming = (dir === 'in' || dir === 'inbound' || dir === '');
+    const statusMatch = (!status || status === 'all' || c.status === status);
+    return dateMatch && isIncoming && statusMatch;
+  });
+
+  const X = allCompanyIncoming.length;
+  const humanOpsCount = 6;
+  const Z = humanOpsCount > 0 ? (X / humanOpsCount) : 0;
+
+  const opMap = new Map();
+  ALLOWED_SAMARKAND_PBX_OPERATORS.forEach(opNum => {
+    const emp = allEmployees.find(e => (String(e.operator_number || '').trim() === opNum || String(e.pbx_extension || '').trim() === opNum));
+    const is5002 = (opNum === '5002');
+    opMap.set(opNum, {
+      operator_number: opNum,
+      employee_id: emp?.id || null,
+      employee_name: emp?.name || (is5002 ? '5002-operator' : `Operator ${opNum}`),
+      total_calls: X,
+      assigned_calls: 0,
+      answered_calls: 0,
+      missed_calls: 0,
+      target_quota: is5002 ? null : (Math.round(Z * 10) / 10),
+      answered_percent: is5002 ? null : 0,
+      total_talk_seconds: 0,
+      avg_talk_seconds: 0,
+      total_rating_sum: 0,
+      rated_calls_count: 0
+    });
+  });
+
+  allCompanyIncoming.forEach(c => {
+    const op = String(c.operator_number || '').trim();
+    if (opMap.has(op)) {
+      const item = opMap.get(op);
+      const is5002 = (op === '5002');
+      item.assigned_calls++;
+      if (c.status === 'answered') {
+        item.answered_calls++;
+        item.total_talk_seconds += (c.talk_time || 0);
+      } else {
+        item.missed_calls++;
+      }
+      if (!is5002) {
+        item.answered_percent = Z > 0 ? Math.round((item.answered_calls / Z) * 100 * 10) / 10 : 0;
+      }
+    }
+  });
+
+  let operators = Array.from(opMap.values()).sort((a, b) => {
+    if (a.operator_number === '5002') return 1;
+    if (b.operator_number === '5002') return -1;
+    return b.answered_calls - a.answered_calls;
+  });
+
+  const answeredCalls = allCompanyIncoming.filter(c => c.status === 'answered').length;
+  const missedCalls = allCompanyIncoming.filter(c => c.status === 'missed').length;
+  const totalTalkSec = allCompanyIncoming.reduce((s, c) => s + (c.talk_time || 0), 0);
+  const avgTalkSec = answeredCalls > 0 ? Math.round(totalTalkSec / answeredCalls) : 0;
+
+  const responseData = {
+    ok: true,
+    from,
+    to,
+    operator,
+    status,
+    summary: {
+      total_calls: X,
+      accounts_count: humanOpsCount,
+      target_quota: Math.round(Z * 10) / 10,
+      answered_calls: answeredCalls,
+      missed_calls: missedCalls,
+      answered_percent: X > 0 ? Math.round((answeredCalls / X) * 100 * 10) / 10 : 0,
+      total_talk_seconds: totalTalkSec,
+      avg_talk_seconds: avgTalkSec,
+      avg_rating: null,
+      rated_calls_count: 0
+    },
+    operators
+  };
+
+  samarkandPbxStatsCacheMap.set(cacheKey, { timestamp: Date.now(), data: responseData });
+  return responseData;
+}
+
+async function getSamarkandCallsList(from, to, operator, status, limit = 50, employeeId = null) {
+  limit = Math.min(300, Math.max(1, parseInt(limit, 10) || 50));
+  const pool = getDbPool();
+  if (pool) {
+    try {
+      let query = `
+        SELECT
+          c.id, c.call_id, c.caller, c.callee, c.operator_number,
+          COALESCE(e.name, c.employee_name, '—') AS employee_name,
+          c.direction, c.status, c.duration, c.talk_time, c.record_url,
+          c.rating, c.rating_comment, c.call_date, c.started_at
+        FROM public.samarkand_calls c
+        LEFT JOIN LATERAL (
+          SELECT name FROM public.employees emp
+          WHERE emp.active = true AND (emp.operator_number = c.operator_number OR emp.pbx_extension = c.operator_number OR emp.id::text = c.employee_id)
+          LIMIT 1
+        ) e ON true
+        WHERE 1=1
+      `;
+      const params = [];
+      if (from) {
+        params.push(from);
+        query += ` AND c.call_date >= $${params.length}`;
+      }
+      if (to) {
+        params.push(to);
+        query += ` AND c.call_date <= $${params.length}`;
+      }
+      if (operator && operator !== 'all') {
+        params.push(operator);
+        query += ` AND c.operator_number = $${params.length}`;
+      }
+      if (status && status !== 'all') {
+        params.push(status);
+        query += ` AND c.status = $${params.length}`;
+      }
+      params.push(limit);
+      query += ` ORDER BY c.started_at DESC LIMIT $${params.length}`;
+
+      const res = await pool.query(query, params);
+      return { ok: true, calls: res.rows || [] };
+    } catch (err) {
+      console.error('[getSamarkandCallsList DB xatosi]:', err.message);
+    }
+  }
+
+  let calls = readLocalSamarkandCalls();
+  if (from) calls = calls.filter(c => (c.call_date || '').substring(0, 10) >= from);
+  if (to) calls = calls.filter(c => (c.call_date || '').substring(0, 10) <= to);
+  if (operator && operator !== 'all') calls = calls.filter(c => c.operator_number === operator);
+  if (status && status !== 'all') calls = calls.filter(c => c.status === status);
+  calls.sort((a, b) => new Date(b.started_at || 0) - new Date(a.started_at || 0));
+  return { ok: true, calls: calls.slice(0, limit) };
+}
+
+async function handleSamarkandPbxStats(req, res, reqUrl) {
+  try {
+    const today = new Date().toISOString().split('T')[0];
+    const from = reqUrl.searchParams.get('from') || today;
+    const to = reqUrl.searchParams.get('to') || today;
+    const operator = reqUrl.searchParams.get('operator') || 'all';
+    const status = reqUrl.searchParams.get('status') || 'all';
+
+    const result = await getSamarkandCallsStats(from, to, operator, status);
+    return sendJson(res, 200, result);
+  } catch (e) {
+    console.error('[handleSamarkandPbxStats error]:', e);
+    return sendJson(res, 500, { ok: false, error: e.message });
+  }
+}
+
+async function handleSamarkandPbxCalls(req, res, reqUrl) {
+  try {
+    const today = new Date().toISOString().split('T')[0];
+    const from = reqUrl.searchParams.get('from') || today;
+    const to = reqUrl.searchParams.get('to') || today;
+    const operator = reqUrl.searchParams.get('operator') || 'all';
+    const status = reqUrl.searchParams.get('status') || 'all';
+    const limit = reqUrl.searchParams.get('limit') || 50;
+    const employeeId = reqUrl.searchParams.get('employee_id') || null;
+
+    const result = await getSamarkandCallsList(from, to, operator, status, limit, employeeId);
+    return sendJson(res, 200, result);
+  } catch (e) {
+    console.error('[handleSamarkandPbxCalls error]:', e);
+    return sendJson(res, 500, { ok: false, error: e.message });
+  }
+}
+
+async function handleSamarkandPbxRelink(req, res) {
+  try {
+    const result = await relinkAllSamarkandPbxCalls();
+    return sendJson(res, 200, result);
+  } catch (err) {
+    console.error('[handleSamarkandPbxRelink error]:', err);
+    return sendJson(res, 500, { ok: false, error: err.message });
+  }
+}
+
+async function handleRateSamarkandPbxCall(req, res, targetCallId = null) {
+  try {
+    const body = await readJson(req);
+    const callId = targetCallId || body.call_id || body.id;
+    const rating = Math.max(1, Math.min(5, parseFloat(body.rating || 5)));
+    const comment = String(body.comment || body.rating_comment || '').trim() || null;
+
+    if (!callId) {
+      return sendJson(res, 400, { ok: false, error: 'call_id berilmadi' });
+    }
+
+    const pool = getDbPool();
+    if (pool) {
+      try {
+        await pool.query(
+          'UPDATE public.samarkand_calls SET rating = $1, rating_comment = $2, updated_at = now() WHERE call_id = $3',
+          [rating, comment, callId]
+        );
+      } catch (e) {
+        console.warn('[handleRateSamarkandPbxCall DB xatosi]:', e.message);
+      }
+    }
+
+    const list = readLocalSamarkandCalls();
+    const idx = list.findIndex(c => c.call_id === callId);
+    if (idx >= 0) {
+      list[idx].rating = rating;
+      list[idx].rating_comment = comment;
+      list[idx].updated_at = new Date().toISOString();
+      writeLocalSamarkandCalls(list);
     }
 
     return sendJson(res, 200, { ok: true, call_id: callId, rating, comment });

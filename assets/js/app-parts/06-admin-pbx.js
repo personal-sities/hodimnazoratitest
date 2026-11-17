@@ -20,13 +20,14 @@ async function checkFeedbackBadge(){
 }
 function adminTab(tab){
   currentAdminTab = tab;
-  ['main','notif','feedback','settings','pbx'].forEach(n=>{const el=document.getElementById('tab_'+n);if(el)el.classList.toggle('hidden',n!==tab);});
-  ['nav_main','nav_feedback','nav_notif','nav_settings','nav_pbx'].forEach((id)=>{const el=document.getElementById(id);if(el)el.classList.toggle('active',id==='nav_'+tab);});
+  ['main','notif','feedback','settings','pbx','samarkand_pbx'].forEach(n=>{const el=document.getElementById('tab_'+n);if(el)el.classList.toggle('hidden',n!==tab);});
+  ['nav_main','nav_feedback','nav_notif','nav_settings','nav_pbx','nav_samarkand_pbx'].forEach((id)=>{const el=document.getElementById(id);if(el)el.classList.toggle('active',id==='nav_'+tab);});
   st('admTitle',getAdminTabTitle(tab));
   if(tab==='settings'){loadEmpList();updateIPList();loadGPSSettingsUI();loadFaceControlSettings();}
   if(tab==='feedback')loadFeedbackAdmin();
   if(tab==='notif'){loadNotificationsAdmin();loadNotifEmpSelect();}
   if(tab==='pbx'){if(typeof loadPbxDashboard==='function')loadPbxDashboard();}
+  if(tab==='samarkand_pbx'){if(typeof loadSamarkandPbxDashboard==='function')loadSamarkandPbxDashboard();}
   if(typeof hydrateLucideIcons === 'function') hydrateLucideIcons(document.getElementById('tab_' + tab));
   animateCurrentView();
 }

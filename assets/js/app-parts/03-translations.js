@@ -801,7 +801,9 @@ Object.assign(TR.en,{
 });
 Object.assign(TR.uz,{
   nav_pbx:'OnlinePBX',
+  nav_samarkand_pbx:'Samarqand OnlinePBX',
   adm_pbx:'Boshqaruv | OnlinePBX Nazorati',
+  adm_samarkand_pbx:'Boshqaruv | Samarqand OnlinePBX Nazorati',
   pbx_header_title:'OnlinePBX Qo\'ng\'iroqlar va Operatorlar nazorati',
   pbx_stat_total:'Kiruvchi qo\'ng\'iroqlar',
   pbx_stat_answered:'Gaplashilgan',
@@ -847,7 +849,9 @@ Object.assign(TR.uz,{
 });
 Object.assign(TR.ru,{
   nav_pbx:'OnlinePBX',
+  nav_samarkand_pbx:'Самарканд OnlinePBX',
   adm_pbx:'Управление | OnlinePBX Контроль',
+  adm_samarkand_pbx:'Управление | Самарканд OnlinePBX Контроль',
   pbx_header_title:'OnlinePBX Звонки и Мониторинг Операторов',
   pbx_stat_total:'Входящие звонки',
   pbx_stat_answered:'Отвечено (Разговоров)',
@@ -959,7 +963,8 @@ function getAdminTabTitle(tab){
     settings:t('adm_s'),
     notif:t('nav_notif'),
     feedback:t('nav_fb'),
-    pbx:t('adm_pbx') || 'Boshqaruv | OnlinePBX Nazorati'
+    pbx:t('adm_pbx') || 'Boshqaruv | OnlinePBX Nazorati',
+    samarkand_pbx:t('adm_samarkand_pbx') || 'Boshqaruv | Samarqand OnlinePBX Nazorati'
   };
   return titles[tab] || titles.main;
 }
@@ -1220,8 +1225,9 @@ function applyLang(){
   ['ll','al','el'].forEach(p=>{const u=document.getElementById(p+'_uz'),r=document.getElementById(p+'_ru');if(u)u.classList.toggle('active',lang==='uz');if(r)r.classList.toggle('active',lang==='ru');});
   st('lc_t',t('loginTitle'));st('lc_s',t('loginSub'));setLoginButtonLoading(false);
   sp('inp_l',t('loginPH'));sp('inp_p',t('passPH'));
-  ['n_main','n_notif','n_fb','n_set','n_pbx'].forEach((id,i)=>{st(id,t(['nav_m','nav_notif','nav_fb','nav_s','nav_pbx'][i]||''));});
+  ['n_main','n_notif','n_fb','n_set','n_pbx','n_samarkand_pbx'].forEach((id,i)=>{st(id,t(['nav_m','nav_notif','nav_fb','nav_s','nav_pbx','nav_samarkand_pbx'][i]||''));});
   if(typeof refreshPbxStaticLabels==='function')refreshPbxStaticLabels();
+  if(typeof refreshSamarkandPbxStaticLabels==='function')refreshSamarkandPbxStaticLabels();
   st('admTitle',getAdminTabTitle(currentAdminTab||'main'));
   const ae=document.getElementById('admExit');if(ae)ae.innerHTML=(typeof getLucideIcon==='function'?getLucideIcon('log-out','btn-icon',14):'')+'<span>'+t('exit')+'</span>';
   const ee=document.getElementById('empExit');if(ee)ee.innerHTML=(typeof getLucideIcon==='function'?getLucideIcon('log-out','btn-icon',14):'')+'<span>'+t('exit')+'</span>';

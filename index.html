@@ -171,6 +171,7 @@ html.user-logged-in #loginPage {
       <div class="sb-nav">
         <button class="nbtn active" id="nav_main" onclick="adminTab('main');closeSidebar()"><span class="ni" data-lucide="layout-dashboard"></span><span id="n_main">Asosiy</span></button>
         <button class="nbtn" id="nav_pbx" onclick="adminTab('pbx');closeSidebar()"><span class="ni" data-lucide="phone-call"></span><span id="n_pbx">OnlinePBX</span></button>
+        <button class="nbtn" id="nav_samarkand_pbx" onclick="adminTab('samarkand_pbx');closeSidebar()"><span class="ni" data-lucide="phone-incoming"></span><span id="n_samarkand_pbx">Samarqand OnlinePBX</span></button>
         <button class="nbtn" id="nav_feedback" onclick="adminTab('feedback');closeSidebar()"><span class="ni" data-lucide="message-square"></span><span id="n_fb">Fikrlar</span> <span id="fbBadge" class="notif-badge hidden">0</span></button>
         <button class="nbtn" id="nav_notif" onclick="adminTab('notif');closeSidebar()"><span class="ni" data-lucide="bell"></span><span id="n_notif">Bildirishnomalar</span> <span id="notifBadgeAdmin" class="notif-badge hidden">0</span></button>
         <button class="nbtn" id="nav_settings" onclick="adminTab('settings');closeSidebar()"><span class="ni" data-lucide="settings"></span><span id="n_set">Sozlamalar</span></button>
@@ -436,6 +437,161 @@ html.user-logged-in #loginPage {
                   </tr>
                 </thead>
                 <tbody id="pbx_operators_body">
+                  <tr><td colspan="9" style="text-align:center;padding:24px;color:var(--text3);">Yuklanmoqda...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- ========================================== -->
+        <!--  SAMARQAND ONLINEPBX MONITORING TABI        -->
+        <!-- ========================================== -->
+        <div id="tab_samarkand_pbx" class="hidden">
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:18px;">
+            <div>
+              <h2 id="samarkand_pbx_header_title" style="margin:0;font-size:18px;font-weight:800;display:flex;align-items:center;gap:8px;color:var(--text)">
+                <span data-lucide="phone-incoming" style="color:var(--accent);width:22px;height:22px;"></span>
+                Samarqand OnlinePBX Qo'ng'iroqlar va Operatorlar nazorati
+              </h2>
+              <p style="margin:4px 0 0 0;font-size:12px;color:var(--text3);" id="samarkand_pbx_header_sub">
+                Samarqand filiali OnlinePBX qo'ng'iroqlari va operatorlari statistikasi
+              </p>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+              <button class="bg2" id="samarkand_pbx_relink_btn" onclick="relinkSamarkandPbxCallsManual()" title="Barcha qo'ng'iroqlarni operatorlarga qayta biriktirish">
+                <span class="btn-icon" data-lucide="user-check"></span>
+                <span id="samarkand_pbx_relink_btn_text">Hodimlarga biriktirish</span>
+              </button>
+              <button class="bg2" onclick="openSamarkandPbxWebhookModal()" title="Webhook sozlamalari">
+                <span class="btn-icon" data-lucide="link"></span>
+                <span id="samarkand_pbx_webhook_info_btn_text">Webhook sozlamalari</span>
+              </button>
+              <button class="btn-export" onclick="exportSamarkandPbxExcel()" title="Excel hisobotini yuklab olish">
+                <span class="btn-icon" data-lucide="file-spreadsheet"></span>
+                <span id="b_export_samarkand_pbx_excel">Скачать в Excel</span>
+              </button>
+              <button class="bg2" id="samarkand_pbx_sync_api_btn" onclick="syncSamarkandPbxFromApiManual()" title="Samarqand OnlinePBX dan yangi qo'ng'iroqlarni sinxronlash">
+                <span class="btn-icon" data-lucide="cloud-download"></span>
+                <span id="samarkand_pbx_sync_btn_text">Sinxronlash</span>
+              </button>
+              <button class="bb" onclick="loadSamarkandPbxDashboard()" title="Yangilash">
+                <span class="btn-icon" data-lucide="refresh-cw"></span>
+                <span id="samarkand_pbx_refresh_btn_text">Yangilash</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Sanalar bo'yicha tezkor filtrlar paneli -->
+          <div class="box" style="padding:14px 18px;margin-bottom:18px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+              <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                <div class="drange" style="margin:0;">
+                  <label id="samarkand_pbx_from_l">Dan:</label>
+                  <input type="date" id="samarkand_pbx_date_from" onchange="onSamarkandPbxDateChange()">
+                  <label id="samarkand_pbx_to_l">Gacha:</label>
+                  <input type="date" id="samarkand_pbx_date_to" onchange="onSamarkandPbxDateChange()">
+                </div>
+                <button class="bg2 pbx-preset-btn active" id="samarkand_pbx_preset_today" onclick="setSamarkandPbxDatePreset('today')">
+                  <span class="btn-icon" data-lucide="calendar-check"></span>
+                  <span id="samarkand_pbx_filter_btn_today">Bugun</span>
+                </button>
+                <button class="bg2 pbx-preset-btn" id="samarkand_pbx_preset_yesterday" onclick="setSamarkandPbxDatePreset('yesterday')">
+                  <span class="btn-icon" data-lucide="calendar"></span>
+                  <span id="samarkand_pbx_filter_btn_yesterday">Kecha</span>
+                </button>
+                <button class="bg2 pbx-preset-btn" id="samarkand_pbx_preset_month" onclick="setSamarkandPbxDatePreset('month')">
+                  <span class="btn-icon" data-lucide="calendar-days"></span>
+                  <span id="samarkand_pbx_filter_btn_month">Joriy oy</span>
+                </button>
+              </div>
+
+              <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;flex:1;justify-content:flex-end;">
+                <select id="samarkand_pbx_filter_operator" onchange="onSamarkandPbxFilterChange()" style="font-size:12px;padding:7px 10px;border:1.5px solid var(--border2);border-radius:var(--radius-sm);background:var(--input-bg);color:var(--text);min-width:160px;">
+                  <option value="all" id="samarkand_pbx_opt_all">Barcha operatorlar</option>
+                </select>
+                <select id="samarkand_pbx_filter_status" onchange="onSamarkandPbxFilterChange()" style="font-size:12px;padding:7px 10px;border:1.5px solid var(--border2);border-radius:var(--radius-sm);background:var(--input-bg);color:var(--text);min-width:150px;">
+                  <option value="all" id="samarkand_pbx_st_all">Barcha holatlar</option>
+                  <option value="answered" id="samarkand_pbx_st_ans">Faqat gaplashilgan</option>
+                  <option value="missed" id="samarkand_pbx_st_mis">Faqat propushnniy</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <!-- 5 Ta KPI Kartasi -->
+          <div class="scards" style="grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));">
+            <div class="scard scard-blue">
+              <div class="scard-top">
+                <h4 id="samarkand_pbx_card_total_title">Kiruvchi qo'ng'iroqlar</h4>
+                <div class="scard-icon" data-lucide="phone"></div>
+              </div>
+              <div class="snum" id="samarkand_pbx_stat_total">0</div>
+            </div>
+            <div class="scard scard-work">
+              <div class="scard-top">
+                <h4 id="samarkand_pbx_card_answered_title">Gaplashilgan</h4>
+                <div class="scard-icon" data-lucide="phone-incoming"></div>
+              </div>
+              <div class="snum" id="samarkand_pbx_stat_answered">0 (0%)</div>
+            </div>
+            <div class="scard scard-absent">
+              <div class="scard-top">
+                <h4 id="samarkand_pbx_card_missed_title">O'tkazib yuborilgan (Propushnniy)</h4>
+                <div class="scard-icon" data-lucide="phone-missed"></div>
+              </div>
+              <div class="snum" id="samarkand_pbx_stat_missed">0</div>
+            </div>
+            <div class="scard scard-leave">
+              <div class="scard-top">
+                <h4 id="samarkand_pbx_card_duration_title">Suhbat vaqti (Jami / O'rtacha)</h4>
+                <div class="scard-icon" data-lucide="clock"></div>
+              </div>
+              <div class="snum" id="samarkand_pbx_stat_duration" style="font-size:19px;">0s / 0s</div>
+            </div>
+            <div class="scard" style="background:var(--card-bg);border:1.5px solid rgba(234,179,8,0.35);">
+              <div class="scard-top">
+                <h4 id="samarkand_pbx_card_rating_title" style="color:#ca8a04;">⭐ O'rtacha baho</h4>
+                <div class="scard-icon" data-lucide="star" style="color:#eab308;"></div>
+              </div>
+              <div class="snum" id="samarkand_pbx_stat_rating" style="color:#ca8a04;">—</div>
+            </div>
+          </div>
+
+          <!-- Samarqand Operatorlar bo'yicha umumiy reyting jadvali -->
+          <div class="box">
+            <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:14px;">
+              <span class="btitle" id="samarkand_pbx_operators_box_title" style="margin:0;">
+                <span data-lucide="users-2" style="width:18px;height:18px;color:var(--accent);"></span>
+                Samarqand operatorlar bo'yicha hisobot
+              </span>
+              <div id="samarkand_pbx_formula_badge" style="display:inline-flex;align-items:center;flex-wrap:wrap;gap:8px;font-size:12px;background:var(--card-bg);padding:6px 12px;border-radius:var(--radius-sm);border:1.5px solid var(--border2);">
+                <span title="Samarqandga kelgan jami kiruvchi qo'ng'iroqlar">Jami kiruvchi (X): <strong id="samarkand_pbx_formula_x" style="color:var(--text);">0</strong></span>
+                <span style="opacity:0.35;">•</span>
+                <span title="Operator akkauntlari">Akkauntlar: <strong id="samarkand_pbx_formula_acc_count">0 ta</strong></span>
+                <span style="opacity:0.35;">•</span>
+                <span title="Har bir operator normasi: Z = X / N">Har biriga norma (Z): <strong id="samarkand_pbx_formula_z" style="color:var(--accent);">0</strong></span>
+                <span style="opacity:0.35;">•</span>
+                <span style="color:var(--text3);font-family:var(--mono);font-size:11px;" title="Qabul foizi formulasi: Y / Z × 100%">Formula: <strong style="color:var(--text);">Y / Z × 100%</strong></span>
+              </div>
+            </div>
+            <div class="tbl-wrap">
+              <table class="tbl" style="min-width:860px;">
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>Operator</th>
+                    <th>Mas'ul xodim</th>
+                    <th>Kiruvchi</th>
+                    <th>Gaplashilgan</th>
+                    <th title="Formula: Y / Z × 100% (Y: Gaplashilgan, Z = X / N)">Qabul foizi (Y/Z)</th>
+                    <th>Jami suhbat</th>
+                    <th>O'rtacha vaqt</th>
+                    <th>Qo'yilgan baho</th>
+                  </tr>
+                </thead>
+                <tbody id="samarkand_pbx_operators_body">
                   <tr><td colspan="9" style="text-align:center;padding:24px;color:var(--text3);">Yuklanmoqda...</td></tr>
                 </tbody>
               </table>
@@ -1038,6 +1194,34 @@ html.user-logged-in #loginPage {
   </div>
 </div>
 
+<div class="ov hidden" id="m_samarkand_pbx_webhook">
+  <div class="modal modal-wide" style="max-width:580px;">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:14px;">
+      <h3 style="color:var(--accent);display:flex;align-items:center;gap:8px;margin:0;">
+        <span class="modal-ico" data-lucide="webhook"></span> <span>Samarqand OnlinePBX Webhook sozlamalari</span>
+      </h3>
+      <button class="mno" onclick="closeSamarkandPbxWebhookModal()" style="padding:4px 8px;display:inline-flex;align-items:center;justify-content:center;" title="Yopish"><span class="btn-icon" data-lucide="x"></span></button>
+    </div>
+
+    <div style="font-size:12.5px;color:var(--text2);line-height:1.6;margin-bottom:16px;">
+      <p style="margin:0 0 8px 0;">
+        Samarqand OnlinePBX kabinetingizda <strong>Интеграция / Webhook</strong> bo'limiga kiring va quyidagi manzilni kiriting:
+      </p>
+      <div style="display:flex;gap:8px;margin-bottom:8px;">
+        <input type="text" id="samarkand_pbx_webhook_url_display" readonly style="flex:1;background:var(--bg3);font-family:var(--mono);font-size:12px;padding:8px 10px;border:1.5px solid var(--border2);border-radius:var(--radius-sm);color:var(--accent);font-weight:600;">
+        <button class="bb" onclick="copySamarkandPbxWebhookUrl()"><span class="btn-icon" data-lucide="copy"></span> <span>Nusxalash</span></button>
+      </div>
+      <p style="font-size:11.5px;color:var(--text3);margin:0;">
+        Samarqand filiali OnlinePBX qo'ng'iroqlari ushbu manzil orqali qabul qilinadi va alohida saqlanadi.
+      </p>
+    </div>
+
+    <div class="mbtns" style="justify-content:flex-end;">
+      <button class="mno" onclick="closeSamarkandPbxWebhookModal()"><span class="btn-icon" data-lucide="x"></span> Yopish</button>
+    </div>
+  </div>
+</div>
+
 <script src="assets/js/app-parts/00-lucide-icons.js?v=3.3"></script>
 <script src="assets/js/app-parts/01-core.js?v=3.3" defer></script>
 <script src="assets/js/app-parts/02-access-settings.js?v=3.3" defer></script>
@@ -1046,6 +1230,7 @@ html.user-logged-in #loginPage {
 <script src="assets/js/app-parts/05-notifications-feedback-login.js?v=3.3" defer></script>
 <script src="assets/js/app-parts/06-admin-pbx.js?v=3.3" defer></script>
 <script src="assets/js/app-parts/06-onlinepbx.js?v=3.9" defer></script>
+<script src="assets/js/app-parts/06-samarkand-pbx.js?v=1.0" defer></script>
 <script src="assets/js/app-parts/07-export-employee-state-actions.js?v=3.4" defer></script>
 <script src="assets/js/app-parts/08-timers-prayer-autoend.js?v=3.3" defer></script>
 <script src="assets/js/app-parts/09-face-detection.js?v=3.3" defer></script>
