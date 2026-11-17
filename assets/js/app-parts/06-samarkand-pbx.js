@@ -21,7 +21,6 @@ function initSamarkandOnlinePbx() {
 async function loadSamarkandPbxDashboard() {
   initSamarkandOnlinePbx();
   startSamarkandPbxAutoRefresh();
-  loadSamarkandPbxOperatorFilterOptions();
   await fetchAndRenderSamarkandPbxStats(false);
 }
 
@@ -97,32 +96,32 @@ function selectSamarkandPbxOperator(opNum) {
   }
 }
 
-async function loadSamarkandPbxOperatorFilterOptions() {
+function loadSamarkandPbxOperatorFilterOptions() {
   const sel = document.getElementById('samarkand_pbx_filter_operator');
   if (!sel) return;
   const currentVal = sel.value || 'all';
 
   try {
-    let emps = [];
-    try {
-      const sRes = await serverApi('/api/employees?active_only=true');
-      if (sRes.ok && Array.isArray(sRes.data)) emps = sRes.data;
-    } catch (_) {}
-
-    const knownOps = (samarkandPbxStatsCache?.operators || []).map(o => o.operator_number).filter(Boolean);
-    const opList = Array.from(new Set(['100', '101', '102', '103', '104', '105', '106', '5002', ...knownOps]));
-
+    const ops = samarkandPbxStatsCache?.operators || [];
     sel.innerHTML = `<option value="all">${t('pbx_filter_all_ops') || 'Barcha operatorlar'}</option>`;
-    opList.forEach(opNum => {
-      const emp = emps.find(e => String(e.operator_number || e.pbx_extension || '').trim() === opNum);
-      const name = emp ? emp.name : (opNum === '5002' ? '5002-operator' : 'Operator');
+
+    if (!ops.length) {
+      sel.value = 'all';
+      samarkandPbxFilterOperator = 'all';
+      return;
+    }
+
+    ops.forEach(op => {
+      const opNum = op.operator_number;
+      if (!opNum) return;
+      const name = op.employee_name || (opNum === '5002' ? '5002-operator' : `Operator ${opNum}`);
       const opt = document.createElement('option');
       opt.value = opNum;
       opt.textContent = `${opNum} — ${name}`;
       sel.appendChild(opt);
     });
 
-    if (currentVal && (currentVal === 'all' || opList.includes(currentVal))) {
+    if (currentVal && (currentVal === 'all' || ops.some(o => o.operator_number === currentVal))) {
       sel.value = currentVal;
     } else {
       sel.value = 'all';
@@ -232,6 +231,7 @@ async function fetchAndRenderSamarkandPbxStats(isBackground = false) {
     if (data && data.ok) {
       samarkandPbxStatsCache = data;
       renderSamarkandPbxStatsUI(data);
+      loadSamarkandPbxOperatorFilterOptions();
     }
   } catch (err) {
     console.error('fetchAndRenderSamarkandPbxStats error:', err);
@@ -252,7 +252,7 @@ function renderSamarkandPbxOperatorsTable(operators) {
   }
 
   if (!list || list.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:24px;color:var(--text3);">${t('no_data') || 'Ma\'lumot yo\'q'}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:36px 20px;color:var(--text3);"><div style="font-size:14px;font-weight:600;margin-bottom:6px;">Samarqand PBX bo'yicha ma'lumotlar mavjud emas</div><div style="font-size:12px;opacity:0.8;">Samarqand OnlinePBX qo'ng'iroqlari kelishi yoki sinxronlanishi bilan operatorlar bu yerda alohida ko'rinadi. Toshkent xodimlari aralashtirilmaydi.</div></td></tr>`;
     return;
   }
 
@@ -279,9 +279,9 @@ function renderSamarkandPbxOperatorsTable(operators) {
       ? `<span class="badge bsm ${isCurrentOpSelected ? 'bb' : 'bg'}" style="font-family:var(--mono);display:inline-flex;align-items:center;gap:4px;cursor:pointer;" onclick="selectSamarkandPbxOperator('${op.operator_number}')" title="Faqat shu operatorni filtrlash">${typeof getLucideIcon === 'function' ? getLucideIcon('phone', '', 12) : '📞'} ${op.operator_number}</span>`
       : `<span class="badge bsm bgr">—</span>`;
 
-    const empNameHtml = op.employee_id
+    const empNameHtml = op.employee_name
       ? `<strong>${escapePbxHtml(op.employee_name)}</strong>`
-      : `<span style="color:var(--text3);font-style:italic;">${escapePbxHtml(op.employee_name || 'Biriktirilmagan')}</span>`;
+      : `<span style="color:var(--text3);font-style:italic;">Operator ${escapePbxHtml(op.operator_number || '')}</span>`;
 
     const rc = getSamarkandPbxRatingColor(op.avg_rating);
     const ratingBadge = op.avg_rating
@@ -367,7 +367,7 @@ async function relinkSamarkandPbxCallsManual() {
   const origHtml = btn ? btn.innerHTML : '';
   if (btn) {
     btn.disabled = true;
-    btn.innerHTML = `<span class="btn-icon spin" data-lucide="loader-2"></span><span>Biriktirilmoqda...</span>`;
+    btn.innerHTML = `<span class="btn-icon spin" data-lucide="loader-2"></span><span>Yangilanmoqda...</span>`;
     if (typeof hydrateLucideIcons === 'function') hydrateLucideIcons(btn);
   }
   try {
@@ -375,9 +375,9 @@ async function relinkSamarkandPbxCallsManual() {
     const data = await res.json();
     if (data && data.ok) {
       const cnt = data.updated_count || 0;
-      toast('success', 'Samarqand OnlinePBX', `${cnt} ta qo'ng'iroq xodimlarga qayta biriktirildi`);
+      toast('success', 'Samarqand OnlinePBX', `${cnt} ta qo'ng'iroq operator ma'lumotlari yangilandi`);
     } else {
-      toast('warn', 'Samarqand OnlinePBX', data?.error || 'Biriktirishda xatolik');
+      toast('warn', 'Samarqand OnlinePBX', data?.error || 'Yangilashda xatolik');
     }
     await fetchAndRenderSamarkandPbxStats(false);
   } catch (err) {
