@@ -2496,12 +2496,16 @@ async function fetchSamarkandOnlinePbxUsers(auth) {
     });
     const json = await res.json().catch(() => ({}));
     if (Array.isArray(json?.data)) {
-      const users = json.data.map(u => ({
-        id: u.id,
-        auth_name: String(u.auth_name || u.number || '').trim(),
-        name: String(u.name || u.auth_name || '').trim(),
-        email: u.email || null
-      })).filter(u => u.auth_name);
+      const users = json.data.map(u => {
+        const ext = String(u.num || u.auth_name || u.number || u.extension || u.login || '').trim();
+        const fullName = String(u.name || u.fullname || u.full_name || u.fio || ext || '').trim();
+        return {
+          id: u.id || ext,
+          auth_name: ext,
+          name: fullName,
+          email: u.email || null
+        };
+      }).filter(u => u.auth_name);
       writeLocalSamarkandUsers(users);
       console.log(`[Samarkand OnlinePBX]: ${users.length} ta foydalanuvchi akkaunti topildi.`);
       return users;
