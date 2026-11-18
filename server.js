@@ -760,7 +760,7 @@ function loadEnv() {
         if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
           val = val.slice(1, -1);
         }
-        if (process.env[key] === undefined) {
+        if (process.env[key] === undefined || (key.startsWith('ONLINEPBX_SAMARKAND_') && val)) {
           process.env[key] = val;
         }
       }
@@ -2769,10 +2769,10 @@ async function fetchSamarkandPbxRangeChunkWithPagination(interval, auth, samarka
         const valuePlaceholders = [];
         const params = [];
         chunk.forEach((c, idx) => {
-          const offset = idx * 15;
-          valuePlaceholders.push(`($${offset + 1}, $${offset + 2}, $${offset + 3}, $${offset + 4}, NULL, $${offset + 6}, $${offset + 7}, $${offset + 8}, $${offset + 9}, $${offset + 10}, NULL, $${offset + 11}, $${offset + 12}, $${offset + 13}, $${offset + 14}, $${offset + 15})`);
+          const offset = idx * 14;
+          valuePlaceholders.push(`($${offset + 1}, $${offset + 2}, $${offset + 3}, $${offset + 4}, NULL, $${offset + 5}, $${offset + 6}, $${offset + 7}, $${offset + 8}, $${offset + 9}, NULL, $${offset + 10}, $${offset + 11}, $${offset + 12}, $${offset + 13}, $${offset + 14})`);
           params.push(
-            c.call_id, c.caller, c.callee, c.operator_number, null, c.employee_name,
+            c.call_id, c.caller, c.callee, c.operator_number, c.employee_name,
             c.direction, c.status, c.duration, c.talk_time,
             JSON.stringify(c.raw_data || {}), c.call_date, c.started_at, c.rating, c.rating_comment
           );
@@ -2840,9 +2840,8 @@ async function fetchSamarkandPbxRangeChunkWithPagination(interval, auth, samarka
       }
     }
 
-    if (rawCalls.length < PAGE_LIMIT) break;
-    page++;
-    if (page > 50) break;
+    // OnlinePBX da so'rov berilgan barcha qo'ng'iroqlar to'liq bitta javobda qaytadi
+    break;
   }
 
   return { fetched: totalFetched, saved: totalSaved, skipped: totalSkippedShort };
@@ -3581,19 +3580,34 @@ async function handleSamarkandPbxWebhook(req, res) {
       }
     }
 
+    const eventType = String(body.event || '').toLowerCase().trim();
+    if (body.domain) {
+      console.log(`[Samarkand Webhook]: domain=${body.domain}, event=${eventType || 'unknown'}, uuid=${body.uuid || body.call_id || ''}`);
+    }
+
+    // Faqat qo'ng'iroq boshlanishi (call_start) hodisasini saqlab qolmaslik, yakuniy/javob berilgan hodisalarni yozish
+    if (eventType === 'call_start' || eventType === 'call_user_start') {
+      return sendJson(res, 200, { ok: true, comment: 'Ignored start event' });
+    }
+
     const callId = body.uuid || body.call_id || body.id;
     if (!callId) {
       return sendJson(res, 200, { ok: true, comment: 'No uuid/call_id received' });
     }
 
-    const startStamp = Number(body.start_stamp || body.timestamp) || Math.floor(Date.now() / 1000);
+    const startStamp = Number(body.start_stamp || body.date || body.timestamp) || Math.floor(Date.now() / 1000);
     const startedAt = body.started_at ? new Date(body.started_at).toISOString() : new Date(startStamp * 1000).toISOString();
     const tashkentDate = body.call_date || new Date(startStamp * 1000 + 5 * 3600 * 1000).toISOString().split('T')[0];
 
-    const duration = Number(body.duration) || 0;
-    const talkTime = Number(body.user_talk_time || body.billsec || body.talk_time) || 0;
-    const hangupCause = String(body.hangup_cause || '').toUpperCase();
-    const isAnswered = (hangupCause === 'NORMAL_CLEARING' && talkTime > 0) || (body.contacted === true && talkTime > 0) || (talkTime > 0);
+    const duration = Number(body.call_duration ?? body.duration) || 0;
+    const talkTime = Number(body.dialog_duration ?? body.user_talk_time ?? body.billsec ?? body.talk_time) || 0;
+    const hangupCause = String(body.hangup_cause || body.state || '').toUpperCase();
+    const isAnswered =
+      eventType === 'call_answered' ||
+      eventType === 'call_user_answered' ||
+      (hangupCause === 'NORMAL_CLEARING' && talkTime > 0) ||
+      (body.contacted === true && talkTime > 0) ||
+      (talkTime > 0);
     const status = isAnswered ? 'answered' : 'missed';
 
     const caller = String(body.caller_id_number || body.caller || '').trim();
@@ -3617,7 +3631,7 @@ async function handleSamarkandPbxWebhook(req, res) {
     const dirRaw = String(body.direction || body.accountcode || 'in').toLowerCase();
     const direction = (dirRaw.includes('out') || (operatorNumber && caller === operatorNumber)) ? 'out' : 'in';
 
-    if (duration <= 22 && status === 'missed') {
+    if (duration > 0 && duration <= 22 && status === 'missed') {
       return sendJson(res, 200, { ok: true, comment: 'Skipped short missed call (<= 22s)' });
     }
 
@@ -3644,7 +3658,7 @@ async function handleSamarkandPbxWebhook(req, res) {
       status,
       duration,
       talk_time: talkTime,
-      record_url: body.record_url || null,
+      record_url: body.download_url || body.record_url || null,
       rating,
       rating_comment: body.rating_comment || (rating ? 'Samarqand OnlinePBX bahosi' : null),
       raw_data: body,
@@ -3654,6 +3668,7 @@ async function handleSamarkandPbxWebhook(req, res) {
 
     await saveSamarkandCallRecord(record);
     samarkandPbxStatsCacheMap.clear();
+    console.log(`[Samarkand Webhook]: Saqlandi uuid=${callId}, op=${operatorNumber || '-'}, dir=${direction}, status=${status}, dur=${duration}s, talk=${talkTime}s`);
     return sendJson(res, 200, { ok: true, status: 1 });
   } catch (err) {
     console.error('[handleSamarkandPbxWebhook xatosi]:', err);
