@@ -128,6 +128,7 @@ async function ensureDatabaseSchema() {
 
   const pool = getDbPool();
   if (!pool) return;
+  await ensureSamarkandCallsTable(pool);
   try {
     const schemaFile = path.join(ROOT, 'schema.sql');
     if (fs.existsSync(schemaFile)) {
@@ -2511,9 +2512,51 @@ async function fetchSamarkandOnlinePbxUsers(auth) {
   return readLocalSamarkandUsers();
 }
 
+let samarkandTableReady = false;
+async function ensureSamarkandCallsTable(pool) {
+  const db = pool || getDbPool();
+  if (!db || samarkandTableReady) return;
+  try {
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS public.samarkand_calls (
+        id TEXT PRIMARY KEY DEFAULT md5(random()::text || clock_timestamp()::text),
+        call_id TEXT UNIQUE,
+        caller TEXT,
+        callee TEXT,
+        operator_number TEXT,
+        employee_id TEXT,
+        employee_name TEXT,
+        direction TEXT DEFAULT 'in',
+        status TEXT NOT NULL DEFAULT 'missed',
+        duration INTEGER NOT NULL DEFAULT 0,
+        talk_time INTEGER NOT NULL DEFAULT 0,
+        record_url TEXT,
+        rating NUMERIC,
+        rating_comment TEXT,
+        raw_data JSONB,
+        call_date DATE NOT NULL DEFAULT CURRENT_DATE,
+        started_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+      );
+    `);
+    await db.query(`CREATE INDEX IF NOT EXISTS idx_samarkand_calls_call_date ON public.samarkand_calls(call_date);`).catch(() => {});
+    await db.query(`CREATE INDEX IF NOT EXISTS idx_samarkand_calls_operator_number ON public.samarkand_calls(operator_number);`).catch(() => {});
+    await db.query(`CREATE INDEX IF NOT EXISTS idx_samarkand_calls_employee_id ON public.samarkand_calls(employee_id);`).catch(() => {});
+    await db.query(`CREATE INDEX IF NOT EXISTS idx_samarkand_calls_status ON public.samarkand_calls(status);`).catch(() => {});
+    await db.query(`CREATE INDEX IF NOT EXISTS idx_samarkand_calls_started_at ON public.samarkand_calls(started_at);`).catch(() => {});
+    await db.query(`UPDATE public.samarkand_calls SET employee_id = NULL, employee_name = NULL WHERE employee_id IS NOT NULL;`).catch(() => {});
+    samarkandTableReady = true;
+    console.log('[PostgreSQL]: public.samarkand_calls jadvali alohida yaratildi va tayyor.');
+  } catch (err) {
+    console.error('[ensureSamarkandCallsTable xatosi]:', err.message);
+  }
+}
+
 async function saveSamarkandCallRecord(call) {
   const pool = getDbPool();
   if (pool) {
+    await ensureSamarkandCallsTable(pool);
     try {
       const query = `
         INSERT INTO public.samarkand_calls (
@@ -2852,6 +2895,9 @@ async function syncSamarkandOnlinePbxCalls(options = {}) {
     return { ok: false, busy: true, message: "Samarqand PBX sinxronlash allaqachon bajarilmoqda" };
   }
   const pool = getDbPool();
+  if (pool) {
+    await ensureSamarkandCallsTable(pool);
+  }
   let lockClient = null;
   let advisoryLockAcquired = false;
   if (pool) {
@@ -2978,6 +3024,9 @@ async function runInitialSamarkandPbxBackfillIfNeeded() {
   if (!domain) return;
   if (isSamarkandPbxSyncing) return;
   const pool = getDbPool();
+  if (pool) {
+    await ensureSamarkandCallsTable(pool);
+  }
   let lockClient = null;
   let advisoryLockAcquired = false;
   if (pool) {
@@ -2996,6 +3045,35 @@ async function runInitialSamarkandPbxBackfillIfNeeded() {
   }
 
   try {
+    const existingDaysSet = new Set();
+    if (pool) {
+      try {
+        const r = await pool.query("SELECT to_char(call_date, 'YYYY-MM-DD') as day, count(*) as cnt FROM public.samarkand_calls GROUP BY call_date");
+        (r.rows || []).forEach(row => {
+          if (Number(row.cnt) > 0 && row.day) existingDaysSet.add(row.day);
+        });
+      } catch (e) {
+        console.warn("[Samarkand Backfill DB check]:", e.message);
+      }
+    }
+
+    const missingDays = [];
+    const startDay = new Date("2026-10-13T00:00:00+05:00");
+    const todayDateStr = new Date(Date.now() + 5 * 3600 * 1000).toISOString().split('T')[0];
+    const todayDate = new Date(todayDateStr + "T00:00:00+05:00");
+
+    let curDay = new Date(startDay);
+    while (curDay < todayDate) {
+      const y = curDay.getFullYear();
+      const m = String(curDay.getMonth() + 1).padStart(2, "0");
+      const d = String(curDay.getDate()).padStart(2, "0");
+      const dayStr = `${y}-${m}-${d}`;
+      if (!existingDaysSet.has(dayStr)) {
+        missingDays.push(dayStr);
+      }
+      curDay.setDate(curDay.getDate() + 1);
+    }
+
     if (lockClient) {
       if (advisoryLockAcquired) {
         try { await lockClient.query("SELECT pg_advisory_unlock(847293)"); } catch (_) {}
@@ -3004,9 +3082,16 @@ async function runInitialSamarkandPbxBackfillIfNeeded() {
       lockClient = null;
     }
 
-    const todayDateStr = new Date(Date.now() + 5 * 3600 * 1000).toISOString().split('T')[0];
     console.log(`[Samarkand OnlinePBX Startup]: Bugungi kun (${todayDateStr}) yangilanmoqda...`);
     await syncSamarkandOnlinePbxCalls({ from: todayDateStr, to: todayDateStr });
+
+    if (missingDays.length > 0) {
+      console.log(`[Samarkand OnlinePBX Backfill]: Topilgan bo'sh kunlar (${missingDays.length} ta) yuklanmoqda...`);
+      for (const mDay of missingDays) {
+        await syncSamarkandOnlinePbxCalls({ from: mDay, to: mDay });
+      }
+      console.log(`[Samarkand OnlinePBX Backfill]: Barcha bo'sh kunlar to'ldirildi!`);
+    }
   } catch (err) {
     console.warn("[Samarkand OnlinePBX Backfill error]:", err.message);
   } finally {
@@ -3110,6 +3195,7 @@ async function getSamarkandCallsStats(from, to, operator = 'all', status = 'all'
 
   const pool = getDbPool();
   if (pool) {
+    await ensureSamarkandCallsTable(pool);
     try {
       const companyQuery = `
         SELECT
@@ -3432,6 +3518,7 @@ async function getSamarkandCallsList(from, to, operator, status, limit = 50, emp
   limit = Math.min(300, Math.max(1, parseInt(limit, 10) || 50));
   const pool = getDbPool();
   if (pool) {
+    await ensureSamarkandCallsTable(pool);
     try {
       let query = `
         SELECT
