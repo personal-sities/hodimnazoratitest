@@ -2503,6 +2503,7 @@ async function handleRatePbxCall(req, res, targetCallId = null) {
 
 const SAMARKAND_CALLS_DATA_FILE = path.join(ROOT, 'data', 'calls_samarkand.json');
 const SAMARKAND_USERS_DATA_FILE = path.join(ROOT, 'data', 'samarkand_users.json');
+const EXCLUDED_SAMARKAND_PBX_OPERATORS = new Set(['5100']);
 
 function getSamarkandPbxDomain() {
   const domain = (process.env.ONLINEPBX_SAMARKAND_DOMAIN || '').trim();
@@ -2544,7 +2545,8 @@ function readLocalSamarkandUsers() {
   try {
     if (fs.existsSync(SAMARKAND_USERS_DATA_FILE)) {
       const txt = fs.readFileSync(SAMARKAND_USERS_DATA_FILE, 'utf8');
-      return JSON.parse(txt) || [];
+      const arr = JSON.parse(txt) || [];
+      return arr.filter(u => !EXCLUDED_SAMARKAND_PBX_OPERATORS.has(String(u?.auth_name || u?.number || '').trim()));
     }
   } catch (e) { }
   return [];
@@ -2585,7 +2587,7 @@ async function fetchSamarkandOnlinePbxUsers(auth) {
           name: fullName,
           email: u.email || null
         };
-      }).filter(u => u.auth_name);
+      }).filter(u => u.auth_name && !EXCLUDED_SAMARKAND_PBX_OPERATORS.has(u.auth_name));
       writeLocalSamarkandUsers(users);
       console.log(`[Samarkand OnlinePBX]: ${users.length} ta foydalanuvchi akkaunti topildi.`);
       return users;
@@ -2640,6 +2642,7 @@ async function ensureSamarkandCallsTable(pool) {
           WHERE e.id = sc.employee_id AND e.pbx_branch = 'samarkand' AND e.active = true
         );
     `).catch(() => {});
+    await db.query(`DELETE FROM public.samarkand_calls WHERE operator_number = '5100' OR callee = '5100';`).catch(() => {});
     samarkandTableReady = true;
     console.log('[PostgreSQL]: public.samarkand_calls jadvali va pbx_branch ustuni tayyor.');
   } catch (err) {
@@ -2855,6 +2858,10 @@ async function fetchSamarkandPbxRangeChunkWithPagination(interval, auth, samarka
       if (!operatorNumber) {
         if (callee && callee.length <= 4) operatorNumber = callee;
         else if (caller && caller.length <= 4) operatorNumber = caller;
+      }
+
+      if (EXCLUDED_SAMARKAND_PBX_OPERATORS.has(String(operatorNumber || '').trim()) || EXCLUDED_SAMARKAND_PBX_OPERATORS.has(callee)) {
+        continue;
       }
 
       const acct = String(raw.accountcode || '').toLowerCase();
@@ -3284,6 +3291,9 @@ async function relinkAllSamarkandPbxCalls() {
       `);
       updatedCount += (cleanRes.rowCount || 0);
 
+      // 1-B. Keraksiz texnik raqamlarni (5100) o'chiramiz
+      await pool.query("DELETE FROM public.samarkand_calls WHERE operator_number = '5100' OR callee = '5100'").catch(() => {});
+
       // 2. Faqat Samarqand filiali aktiv xodimlariga biriktiramiz
       for (const [opNum, emp] of empByOp.entries()) {
         const r = await pool.query(
@@ -3371,7 +3381,9 @@ async function getSamarkandCallsStats(from, to, operator = 'all', status = 'all'
           COUNT(c.id) FILTER (WHERE c.status = 'missed')::int AS total_company_missed
         FROM public.samarkand_calls c
         WHERE c.call_date BETWEEN $1 AND $2
-          AND (LOWER(COALESCE(c.direction, 'in')) IN ('in', 'inbound', '') OR c.direction IS NULL);
+          AND (LOWER(COALESCE(c.direction, 'in')) IN ('in', 'inbound', '') OR c.direction IS NULL)
+          AND COALESCE(c.operator_number, '') <> '5100'
+          AND COALESCE(c.callee, '') <> '5100';
       `;
       const companyRes = await pool.query(companyQuery, [from, to]).catch(() => ({ rows: [] }));
       const totalCompanyIncoming = Number(companyRes.rows[0]?.total_company_incoming) || 0;
@@ -3397,6 +3409,8 @@ async function getSamarkandCallsStats(from, to, operator = 'all', status = 'all'
         WHERE c.call_date BETWEEN $1 AND $2
           AND (LOWER(COALESCE(c.direction, 'in')) IN ('in', 'inbound', '') OR c.direction IS NULL)
           AND c.operator_number IS NOT NULL AND c.operator_number <> '' AND c.operator_number <> '—'
+          AND c.operator_number <> '5100'
+          AND COALESCE(c.callee, '') <> '5100'
       `;
       const params = [from, to];
       if (operator && operator !== 'all') {
@@ -3439,6 +3453,7 @@ async function getSamarkandCallsStats(from, to, operator = 'all', status = 'all'
       (statsRes.rows || []).forEach(r => {
         if (r.operator_number) detectedOps.add(String(r.operator_number).trim());
       });
+      EXCLUDED_SAMARKAND_PBX_OPERATORS.forEach(ex => detectedOps.delete(ex));
 
       // Agar birorta ham Samarqand operatori yoki qo'ng'irog'i mavjud bo'lmasa:
       // Bo'sh holat qaytaramiz (Toshkent xodimlari 100% aralashtirilmaydi)
@@ -3574,6 +3589,9 @@ async function getSamarkandCallsStats(from, to, operator = 'all', status = 'all'
   const allLocalCalls = readLocalSamarkandCalls();
   const samarkandUsers = readLocalSamarkandUsers();
   const allCompanyIncoming = allLocalCalls.filter(c => {
+    const opNum = String(c.operator_number || '').trim();
+    const calleeNum = String(c.callee || '').trim();
+    if (EXCLUDED_SAMARKAND_PBX_OPERATORS.has(opNum) || EXCLUDED_SAMARKAND_PBX_OPERATORS.has(calleeNum)) return false;
     const cd = c.call_date || (c.started_at ? c.started_at.split('T')[0] : '');
     const dateMatch = (!from || cd >= from) && (!to || cd <= to);
     const dir = String(c.direction || 'in').toLowerCase().trim();
@@ -3726,7 +3744,8 @@ async function getSamarkandCallsList(from, to, operator, status, limit = 50, emp
           ORDER BY (emp.operator_number = c.operator_number) DESC, emp.updated_at DESC
           LIMIT 1
         ) e ON true
-        WHERE 1=1
+        WHERE COALESCE(c.operator_number, '') <> '5100'
+          AND COALESCE(c.callee, '') <> '5100'
       `;
       const params = [];
       if (from) {
@@ -3912,6 +3931,10 @@ async function handleSamarkandPbxWebhook(req, res) {
     if (!operatorNumber) {
       if (callee && callee.length <= 4) operatorNumber = callee;
       else if (caller && caller.length <= 4) operatorNumber = caller;
+    }
+
+    if (EXCLUDED_SAMARKAND_PBX_OPERATORS.has(String(operatorNumber || '').trim()) || EXCLUDED_SAMARKAND_PBX_OPERATORS.has(callee)) {
+      return sendJson(res, 200, { ok: true, comment: 'Excluded operator 5100' });
     }
 
     const dirRaw = String(body.direction || body.accountcode || 'in').toLowerCase();
