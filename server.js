@@ -2642,7 +2642,7 @@ async function ensureSamarkandCallsTable(pool) {
           WHERE e.id = sc.employee_id AND e.pbx_branch = 'samarkand' AND e.active = true
         );
     `).catch(() => {});
-    await db.query(`DELETE FROM public.samarkand_calls WHERE operator_number = '5100' OR callee = '5100';`).catch(() => {});
+    await db.query(`UPDATE public.samarkand_calls SET operator_number = NULL WHERE operator_number = '5100';`).catch(() => {});
     samarkandTableReady = true;
     console.log('[PostgreSQL]: public.samarkand_calls jadvali va pbx_branch ustuni tayyor.');
   } catch (err) {
@@ -2832,47 +2832,43 @@ async function fetchSamarkandPbxRangeChunkWithPagination(interval, auth, samarka
       const caller = String(raw.caller_id_number || raw.caller || '').trim();
       const callee = String(raw.destination_number || raw.callee || '').trim();
 
+      const isExcludedOp = (n) => !n || EXCLUDED_SAMARKAND_PBX_OPERATORS.has(n);
       let operatorNumber = null;
+      // 1. Javob bergan haqiqiy operator (5100 ni tashlab o'tamiz)
       if (Array.isArray(raw.events)) {
         for (const ev of raw.events) {
           const num = String(ev.number || ev.user || '').trim();
-          if (ev.answered_stamp && num) {
+          if (ev.answered_stamp && !isExcludedOp(num)) {
             operatorNumber = num;
             break;
           }
         }
       }
+      // 2. OnlinePBX ning o'zi belgilagan user (Кому ustuni)
+      if (!operatorNumber && raw.user) {
+        const uNum = String(raw.user).trim();
+        if (!isExcludedOp(uNum)) operatorNumber = uNum;
+      }
+      // 3. Events ichidan haqiqiy operator (5100 kabi navbat raqamlarini tashlab o'tamiz)
       if (!operatorNumber && Array.isArray(raw.events)) {
         for (const ev of raw.events) {
           const num = String(ev.number || ev.user || '').trim();
-          if (num && (num.length <= 4 || (samarkandUserMap && samarkandUserMap.has(num)))) {
+          if (!isExcludedOp(num) && (num.length <= 4 || (samarkandUserMap && samarkandUserMap.has(num)) || (samarkandEmpByOp && samarkandEmpByOp.has(num)))) {
             operatorNumber = num;
             break;
           }
         }
       }
-      if (!operatorNumber && raw.user) {
-        const uNum = String(raw.user).trim();
-        if (uNum) operatorNumber = uNum;
-      }
+      // 4. Callee (faqat 5100 bo'lmagan qisqa ichki raqam)
       if (!operatorNumber) {
-        if (callee && callee.length <= 4) operatorNumber = callee;
-        else if (caller && caller.length <= 4) operatorNumber = caller;
-      }
-
-      if (EXCLUDED_SAMARKAND_PBX_OPERATORS.has(String(operatorNumber || '').trim()) || EXCLUDED_SAMARKAND_PBX_OPERATORS.has(callee)) {
-        continue;
+        if (callee && callee.length <= 4 && !isExcludedOp(callee)) operatorNumber = callee;
+        else if (caller && caller.length <= 4 && !isExcludedOp(caller)) operatorNumber = caller;
       }
 
       const acct = String(raw.accountcode || '').toLowerCase();
-      const isOutbound = acct.includes('out') || (operatorNumber && caller === operatorNumber);
+      const isOutbound = acct.includes('out') || acct === 'local' || (operatorNumber && caller === operatorNumber);
       if (isOutbound) continue;
       const direction = 'in';
-
-      if (duration <= 22 && status === 'missed') {
-        totalSkippedShort++;
-        continue;
-      }
 
       const is5002 = (operatorNumber === '5002');
       const matchedEmp = (operatorNumber && samarkandEmpByOp) ? samarkandEmpByOp.get(operatorNumber) : null;
@@ -3291,8 +3287,8 @@ async function relinkAllSamarkandPbxCalls() {
       `);
       updatedCount += (cleanRes.rowCount || 0);
 
-      // 1-B. Keraksiz texnik raqamlarni (5100) o'chiramiz
-      await pool.query("DELETE FROM public.samarkand_calls WHERE operator_number = '5100' OR callee = '5100'").catch(() => {});
+      // 1-B. Texnik navbat raqami (5100) ni operator sifatida ko'rsatmaslik
+      await pool.query("UPDATE public.samarkand_calls SET operator_number = NULL WHERE operator_number = '5100'").catch(() => {});
 
       // 2. Faqat Samarqand filiali aktiv xodimlariga biriktiramiz
       for (const [opNum, emp] of empByOp.entries()) {
@@ -3381,9 +3377,7 @@ async function getSamarkandCallsStats(from, to, operator = 'all', status = 'all'
           COUNT(c.id) FILTER (WHERE c.status = 'missed')::int AS total_company_missed
         FROM public.samarkand_calls c
         WHERE c.call_date BETWEEN $1 AND $2
-          AND (LOWER(COALESCE(c.direction, 'in')) IN ('in', 'inbound', '') OR c.direction IS NULL)
-          AND COALESCE(c.operator_number, '') <> '5100'
-          AND COALESCE(c.callee, '') <> '5100';
+          AND (LOWER(COALESCE(c.direction, 'in')) IN ('in', 'inbound', '') OR c.direction IS NULL);
       `;
       const companyRes = await pool.query(companyQuery, [from, to]).catch(() => ({ rows: [] }));
       const totalCompanyIncoming = Number(companyRes.rows[0]?.total_company_incoming) || 0;
@@ -3410,7 +3404,6 @@ async function getSamarkandCallsStats(from, to, operator = 'all', status = 'all'
           AND (LOWER(COALESCE(c.direction, 'in')) IN ('in', 'inbound', '') OR c.direction IS NULL)
           AND c.operator_number IS NOT NULL AND c.operator_number <> '' AND c.operator_number <> '—'
           AND c.operator_number <> '5100'
-          AND COALESCE(c.callee, '') <> '5100'
       `;
       const params = [from, to];
       if (operator && operator !== 'all') {
@@ -3589,9 +3582,6 @@ async function getSamarkandCallsStats(from, to, operator = 'all', status = 'all'
   const allLocalCalls = readLocalSamarkandCalls();
   const samarkandUsers = readLocalSamarkandUsers();
   const allCompanyIncoming = allLocalCalls.filter(c => {
-    const opNum = String(c.operator_number || '').trim();
-    const calleeNum = String(c.callee || '').trim();
-    if (EXCLUDED_SAMARKAND_PBX_OPERATORS.has(opNum) || EXCLUDED_SAMARKAND_PBX_OPERATORS.has(calleeNum)) return false;
     const cd = c.call_date || (c.started_at ? c.started_at.split('T')[0] : '');
     const dateMatch = (!from || cd >= from) && (!to || cd <= to);
     const dir = String(c.direction || 'in').toLowerCase().trim();
@@ -3745,7 +3735,6 @@ async function getSamarkandCallsList(from, to, operator, status, limit = 50, emp
           LIMIT 1
         ) e ON true
         WHERE COALESCE(c.operator_number, '') <> '5100'
-          AND COALESCE(c.callee, '') <> '5100'
       `;
       const params = [];
       if (from) {
@@ -3918,31 +3907,25 @@ async function handleSamarkandPbxWebhook(req, res) {
     const caller = String(body.caller_id_number || body.caller || '').trim();
     const callee = String(body.destination_number || body.callee || '').trim();
 
+    const isExcludedOp = (n) => !n || EXCLUDED_SAMARKAND_PBX_OPERATORS.has(n);
     let operatorNumber = String(body.user || body.operator || body.auth_name || '').trim();
+    if (isExcludedOp(operatorNumber)) operatorNumber = '';
     if (!operatorNumber && Array.isArray(body.events)) {
       for (const ev of body.events) {
         const num = String(ev.number || ev.user || '').trim();
-        if (ev.answered_stamp || num) {
+        if (!isExcludedOp(num) && (ev.answered_stamp || num)) {
           operatorNumber = num;
           break;
         }
       }
     }
     if (!operatorNumber) {
-      if (callee && callee.length <= 4) operatorNumber = callee;
-      else if (caller && caller.length <= 4) operatorNumber = caller;
-    }
-
-    if (EXCLUDED_SAMARKAND_PBX_OPERATORS.has(String(operatorNumber || '').trim()) || EXCLUDED_SAMARKAND_PBX_OPERATORS.has(callee)) {
-      return sendJson(res, 200, { ok: true, comment: 'Excluded operator 5100' });
+      if (callee && callee.length <= 4 && !isExcludedOp(callee)) operatorNumber = callee;
+      else if (caller && caller.length <= 4 && !isExcludedOp(caller)) operatorNumber = caller;
     }
 
     const dirRaw = String(body.direction || body.accountcode || 'in').toLowerCase();
     const direction = (dirRaw.includes('out') || (operatorNumber && caller === operatorNumber)) ? 'out' : 'in';
-
-    if (duration > 0 && duration <= 22 && status === 'missed') {
-      return sendJson(res, 200, { ok: true, comment: 'Skipped short missed call (<= 22s)' });
-    }
 
     let matchedEmp = null;
     if (operatorNumber) {
