@@ -460,9 +460,9 @@ html.user-logged-in #loginPage {
               </p>
             </div>
             <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-              <button class="bg2" id="samarkand_pbx_relink_btn" onclick="relinkSamarkandPbxCallsManual()" title="Samarqand operatorlari ma'lumotlarini yangilash">
+              <button class="bg2" id="samarkand_pbx_relink_btn" onclick="relinkSamarkandPbxCallsManual()" title="Samarqand qo'ng'iroqlarini Samarqand xodimlariga qayta biriktirish">
                 <span class="btn-icon" data-lucide="user-check"></span>
-                <span id="samarkand_pbx_relink_btn_text">Operatorlarni yangilash</span>
+                <span id="samarkand_pbx_relink_btn_text">Hodimlarga biriktirish</span>
               </button>
               <button class="bg2" onclick="openSamarkandPbxWebhookModal()" title="Webhook sozlamalari">
                 <span class="btn-icon" data-lucide="link"></span>
@@ -654,6 +654,10 @@ html.user-logged-in #loginPage {
               <input type="text" id="ne_n" placeholder="Ism familiya">
               <input type="email" id="ne_l" placeholder="Email">
               <input type="password" id="ne_p" placeholder="Parol">
+              <select id="ne_branch" title="OnlinePBX filiali" style="padding:9px;border:1.5px solid var(--border2);border-radius:var(--radius-sm);background:var(--input-bg);color:var(--text);font-family:var(--font);font-size:13px;">
+                <option value="tashkent" selected>Toshkent PBX</option>
+                <option value="samarkand">Samarqand PBX</option>
+              </select>
               <input type="text" id="ne_op" placeholder="Operator raqami (masalan: 100)" style="max-width:180px;">
               <select id="ne_k" style="padding:9px;border:1.5px solid var(--border2);border-radius:var(--radius-sm);background:var(--input-bg);color:var(--text);font-family:var(--font);font-size:13px;">
                 <option value="manager">Menejer</option>
@@ -1052,7 +1056,13 @@ html.user-logged-in #loginPage {
       Xodim: <strong id="edit_op_emp_name" style="color:var(--text)">—</strong>
     </p>
     <input type="hidden" id="edit_op_emp_id">
-    <div class="iw" style="margin:14px 0">
+    <div class="iw" style="margin:10px 0 8px 0">
+      <select id="edit_op_branch" style="width:100%;padding:10px;border:1.5px solid var(--border2);border-radius:var(--radius-sm);background:var(--input-bg);color:var(--text);font-family:var(--font);font-size:14px;">
+        <option value="tashkent">Toshkent OnlinePBX</option>
+        <option value="samarkand">Samarqand OnlinePBX</option>
+      </select>
+    </div>
+    <div class="iw" style="margin:10px 0 14px 0">
       <input type="text" id="edit_op_number" placeholder="Operator raqami (masalan: 100)" style="background:var(--input-bg);color:var(--text);font-family:var(--mono);text-align:center;font-size:15px;letter-spacing:1px;">
     </div>
     <div class="mbtns">
@@ -1228,10 +1238,10 @@ html.user-logged-in #loginPage {
 <script src="assets/js/app-parts/03-translations.js?v=3.3" defer></script>
 <script src="assets/js/app-parts/04-time-attendance-utils.js?v=3.3" defer></script>
 <script src="assets/js/app-parts/05-notifications-feedback-login.js?v=3.3" defer></script>
-<script src="assets/js/app-parts/06-admin-pbx.js?v=3.3" defer></script>
-<script src="assets/js/app-parts/06-onlinepbx.js?v=3.9" defer></script>
-<script src="assets/js/app-parts/06-samarkand-pbx.js?v=1.0" defer></script>
-<script src="assets/js/app-parts/07-export-employee-state-actions.js?v=3.4" defer></script>
+<script src="assets/js/app-parts/06-admin-pbx.js?v=3.4" defer></script>
+<script src="assets/js/app-parts/06-onlinepbx.js?v=4.0" defer></script>
+<script src="assets/js/app-parts/06-samarkand-pbx.js?v=1.1" defer></script>
+<script src="assets/js/app-parts/07-export-employee-state-actions.js?v=3.5" defer></script>
 <script src="assets/js/app-parts/08-timers-prayer-autoend.js?v=3.3" defer></script>
 <script src="assets/js/app-parts/09-face-detection.js?v=3.3" defer></script>
 <script src="assets/js/app-parts/10-employee-ui-init.js?v=3.3" defer></script>

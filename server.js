@@ -159,6 +159,7 @@ async function ensureDatabaseSchema() {
       ALTER TABLE public.employees ADD COLUMN IF NOT EXISTS password TEXT;
       ALTER TABLE public.employees ADD COLUMN IF NOT EXISTS operator_number TEXT;
       ALTER TABLE public.employees ADD COLUMN IF NOT EXISTS pbx_extension TEXT;
+      ALTER TABLE public.employees ADD COLUMN IF NOT EXISTS pbx_branch TEXT DEFAULT 'tashkent';
       ALTER TABLE public.employees ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT now();
 
       -- 3. EMPLOYEE_LEAVES: id va employee_id ni TEXT ga o'tkazish
@@ -224,8 +225,14 @@ async function ensureDatabaseSchema() {
       CREATE INDEX IF NOT EXISTS idx_samarkand_calls_status ON public.samarkand_calls(status);
       CREATE INDEX IF NOT EXISTS idx_samarkand_calls_started_at ON public.samarkand_calls(started_at);
 
-      -- 10-C. Samarqand qo'ng'iroqlarini Toshkent xodimlaridan tozalash (aralashmaslik kafolati)
-      UPDATE public.samarkand_calls SET employee_id = NULL, employee_name = NULL WHERE employee_id IS NOT NULL;
+      -- 10-C. Samarqand qo'ng'iroqlarini faqat Toshkent xodimlaridan tozalash (Samarqand xodimlarini saqlab qolish)
+      UPDATE public.samarkand_calls sc
+      SET employee_id = NULL, employee_name = NULL
+      WHERE sc.employee_id IS NOT NULL
+        AND NOT EXISTS (
+          SELECT 1 FROM public.employees e
+          WHERE e.id = sc.employee_id AND e.pbx_branch = 'samarkand' AND e.active = true
+        );
 
       -- 11. SETTINGS: primary key ni key ustuniga ko'chirish va id ni ixtiyoriy qilish
       ALTER TABLE public.settings DROP CONSTRAINT IF EXISTS settings_pkey CASCADE;
@@ -267,7 +274,7 @@ async function ensureDatabaseSchema() {
       SET operator_number = NULL, pbx_extension = NULL
       WHERE active = false AND (operator_number IS NOT NULL OR pbx_extension IS NOT NULL);
 
-      -- 2. Agar bitta operator raqamiga bir nechta active xodim birikib qolsa, faqat oxirgisida qoldirish
+      -- 2. Agar bitta filialda bitta operator raqamiga bir nechta active xodim birikib qolsa, faqat oxirgisida qoldirish
       UPDATE public.employees e1
       SET operator_number = NULL, pbx_extension = NULL
       WHERE active = true
@@ -275,6 +282,7 @@ async function ensureDatabaseSchema() {
         AND EXISTS (
           SELECT 1 FROM public.employees e2
           WHERE e2.active = true
+            AND COALESCE(e2.pbx_branch, 'tashkent') = COALESCE(e1.pbx_branch, 'tashkent')
             AND (e2.operator_number = e1.operator_number OR e2.pbx_extension = e1.operator_number)
             AND e2.id <> e1.id
             AND (COALESCE(e2.updated_at, e2.created_at) > COALESCE(e1.updated_at, e1.created_at))
@@ -825,6 +833,12 @@ async function handleFunction(req, res, name) {
   return sendJson(res, 404, { ok: false, error: `Noma'lum funksiya: ${name}` });
 }
 
+function normalizePbxBranch(val) {
+  const s = String(val || '').trim().toLowerCase();
+  if (s === 'samarkand' || s === 'samarqand') return 'samarkand';
+  return 'tashkent';
+}
+
 async function handleCreateEmployee(res, body) {
   const name = String(body.name || '').trim();
   const email = String(body.email || body.login || '').trim().toLowerCase();
@@ -833,6 +847,7 @@ async function handleCreateEmployee(res, body) {
   const rawRole = String(body.role || body.kpi_type || 'operator').toLowerCase();
   const kpiType = validRoles.includes(rawRole) ? rawRole : 'operator';
   const operatorNumber = String(body.operator_number || body.pbx_extension || '').trim() || null;
+  const pbxBranch = normalizePbxBranch(body.pbx_branch || body.branch);
 
   if (!name || !email || !password) {
     return sendJson(res, 400, { ok: false, error: 'Ism, email va parol kiritilishi shart' });
@@ -843,20 +858,37 @@ async function handleCreateEmployee(res, body) {
   let created = null;
 
   if (pool) {
+    await ensureSamarkandCallsTable(pool);
     try {
+      // Faqat shu filial (Toshkent yoki Samarqand) ichida bir xil operator raqamini bo'shatamiz
+      if (operatorNumber) {
+        await pool.query(
+          "UPDATE public.employees SET operator_number = NULL, pbx_extension = NULL WHERE (operator_number = $1 OR pbx_extension = $1) AND COALESCE(pbx_branch, 'tashkent') = $2",
+          [operatorNumber, pbxBranch]
+        );
+      }
+
       const query = `
-        INSERT INTO public.employees (id, user_id, name, login, password, kpi_type, operator_number, pbx_extension, active, face_registered, created_at, updated_at)
-        VALUES ($1, $1, $2, $3, $4, $5, $6, $6, true, false, now(), now())
-        RETURNING id, name, login, password, kpi_type, operator_number, pbx_extension, active;
+        INSERT INTO public.employees (id, user_id, name, login, password, kpi_type, operator_number, pbx_extension, pbx_branch, active, face_registered, created_at, updated_at)
+        VALUES ($1, $1, $2, $3, $4, $5, $6, $6, $7, true, false, now(), now())
+        RETURNING id, name, login, password, kpi_type, operator_number, pbx_extension, pbx_branch, active;
       `;
-      const result = await pool.query(query, [newEmpId, name, email, password, kpiType, operatorNumber]);
+      const result = await pool.query(query, [newEmpId, name, email, password, kpiType, operatorNumber, pbxBranch]);
       created = result.rows[0];
       if (created?.id && operatorNumber) {
-        await pool.query(
-          'UPDATE public.calls SET employee_id = $1, employee_name = $2 WHERE operator_number = $3 AND (employee_id IS NULL OR employee_id <> $1)',
-          [created.id, name, operatorNumber]
-        ).catch(() => {});
-        await relinkAllPbxCalls().catch(() => {});
+        if (pbxBranch === 'samarkand') {
+          await pool.query(
+            'UPDATE public.samarkand_calls SET employee_id = $1, employee_name = $2, updated_at = now() WHERE operator_number = $3',
+            [created.id, name, operatorNumber]
+          ).catch(() => {});
+          await relinkAllSamarkandPbxCalls().catch(() => {});
+        } else {
+          await pool.query(
+            'UPDATE public.calls SET employee_id = $1, employee_name = $2, updated_at = now() WHERE operator_number = $3 AND (employee_id IS NULL OR employee_id <> $1)',
+            [created.id, name, operatorNumber]
+          ).catch(() => {});
+          await relinkAllPbxCalls().catch(() => {});
+        }
       }
     } catch (dbErr) {
       console.error('handleCreateEmployee DB xatosi:', dbErr.message);
@@ -873,6 +905,7 @@ async function handleCreateEmployee(res, body) {
     kpi_type: kpiType,
     operator_number: operatorNumber,
     pbx_extension: operatorNumber,
+    pbx_branch: pbxBranch,
     active: true,
     face_registered: false,
     created_at: new Date().toISOString(),
@@ -880,6 +913,14 @@ async function handleCreateEmployee(res, body) {
   };
 
   const emps = readJsonData('employees.json', []);
+  if (operatorNumber) {
+    emps.forEach(e => {
+      if (normalizePbxBranch(e.pbx_branch) === pbxBranch && (e.operator_number === operatorNumber || e.pbx_extension === operatorNumber)) {
+        e.operator_number = null;
+        e.pbx_extension = null;
+      }
+    });
+  }
   emps.push(localItem);
   writeJsonData('employees.json', emps);
 
@@ -913,8 +954,9 @@ async function handleDeleteEmployee(res, body) {
     writeJsonData('employees.json', emps);
   }
 
-  // Barcha PBX qo'ng'iroqlarni va operatorlar bog'lanishini yangilaymiz
+  // Barcha PBX qo'ng'iroqlarni va operatorlar bog'lanishini yangilaymiz (har biri o'z filialida)
   await relinkAllPbxCalls().catch(() => {});
+  await relinkAllSamarkandPbxCalls().catch(() => {});
 
   return sendJson(res, 200, { ok: true });
 }
@@ -949,6 +991,8 @@ async function handleResetEmployeePassword(res, body) {
 async function handleUpdateEmployeeOperator(res, body) {
   const employeeId = body.employee_id || body.id;
   const operatorNumber = String(body.operator_number || body.pbx_extension || '').trim() || null;
+  const hasBranchParam = (body.pbx_branch !== undefined || body.branch !== undefined);
+  let pbxBranch = hasBranchParam ? normalizePbxBranch(body.pbx_branch || body.branch) : null;
   if (!employeeId) {
     return sendJson(res, 400, { ok: false, error: 'employee_id berilmadi' });
   }
@@ -958,29 +1002,42 @@ async function handleUpdateEmployeeOperator(res, body) {
   // 1. PostgreSQL DB
   const pool = getDbPool();
   if (pool) {
+    await ensureSamarkandCallsTable(pool);
     try {
-      // Agar operator raqami berilgan bo'lsa, boshqa har qanday xodimdan (aktiv yoki inaktiv) bu raqamni bo'shatamiz
+      if (!pbxBranch) {
+        const curRes = await pool.query('SELECT pbx_branch FROM public.employees WHERE id = $1 LIMIT 1', [employeeId]).catch(() => ({ rows: [] }));
+        pbxBranch = normalizePbxBranch(curRes.rows?.[0]?.pbx_branch);
+      }
+
+      // Faqat SHU FILIAL ichida boshqa xodimdan bu operator raqamini bo'shatamiz (Toshkent va Samarqand aralashmaydi!)
       if (operatorNumber) {
         await pool.query(
-          'UPDATE public.employees SET operator_number = NULL, pbx_extension = NULL WHERE (operator_number = $1 OR pbx_extension = $1) AND id <> $2',
-          [operatorNumber, employeeId]
+          "UPDATE public.employees SET operator_number = NULL, pbx_extension = NULL WHERE (operator_number = $1 OR pbx_extension = $1) AND COALESCE(pbx_branch, 'tashkent') = $2 AND id <> $3",
+          [operatorNumber, pbxBranch, employeeId]
         );
       }
 
       const uRes = await pool.query(
-        'UPDATE public.employees SET operator_number = $1, pbx_extension = $1, updated_at = now() WHERE id = $2 RETURNING id, name',
-        [operatorNumber, employeeId]
+        'UPDATE public.employees SET operator_number = $1, pbx_extension = $1, pbx_branch = $2, updated_at = now() WHERE id = $3 RETURNING id, name, pbx_branch',
+        [operatorNumber, pbxBranch, employeeId]
       );
       if (uRes.rows && uRes.rows[0]) {
         employeeName = uRes.rows[0].name;
       }
 
-      // Agar xodimga operator biriktirilsa, uning barcha qo'ng'iroqlarida employee_id va employee_name ni darhol yangilaymiz
+      // Xodimning o'z filialidagi qo'ng'iroqlarida employee_id va employee_name ni darhol yangilaymiz
       if (operatorNumber && employeeName) {
-        await pool.query(
-          'UPDATE public.calls SET employee_id = $1, employee_name = $2, updated_at = now() WHERE operator_number = $3',
-          [employeeId, employeeName, operatorNumber]
-        ).catch(() => { });
+        if (pbxBranch === 'samarkand') {
+          await pool.query(
+            'UPDATE public.samarkand_calls SET employee_id = $1, employee_name = $2, updated_at = now() WHERE operator_number = $3',
+            [employeeId, employeeName, operatorNumber]
+          ).catch(() => {});
+        } else {
+          await pool.query(
+            'UPDATE public.calls SET employee_id = $1, employee_name = $2, updated_at = now() WHERE operator_number = $3',
+            [employeeId, employeeName, operatorNumber]
+          ).catch(() => {});
+        }
       }
     } catch (dbErr) {
       console.error('[handleUpdateEmployeeOperator DB xatosi]:', dbErr.message);
@@ -989,32 +1046,40 @@ async function handleUpdateEmployeeOperator(res, body) {
 
   // 2. Local employees.json
   const emps = readJsonData('employees.json', []);
+  const empIdx = emps.findIndex(e => e.id === employeeId);
+  if (!pbxBranch) {
+    pbxBranch = normalizePbxBranch(empIdx >= 0 ? emps[empIdx].pbx_branch : 'tashkent');
+  }
   if (operatorNumber) {
     emps.forEach(e => {
-      if (e.id !== employeeId && (e.operator_number === operatorNumber || e.pbx_extension === operatorNumber)) {
+      if (e.id !== employeeId && normalizePbxBranch(e.pbx_branch) === pbxBranch && (e.operator_number === operatorNumber || e.pbx_extension === operatorNumber)) {
         e.operator_number = null;
         e.pbx_extension = null;
       }
     });
   }
-  const empIdx = emps.findIndex(e => e.id === employeeId);
   if (empIdx >= 0) {
     emps[empIdx].operator_number = operatorNumber;
     emps[empIdx].pbx_extension = operatorNumber;
+    emps[empIdx].pbx_branch = pbxBranch;
     emps[empIdx].updated_at = new Date().toISOString();
     employeeName = employeeName || emps[empIdx].name;
     writeJsonData('employees.json', emps);
   }
 
-  // 3. Ushbu operator bo'yicha barcha qo'ng'iroqlarni bazada va lokal faylda to'liq qayta bog'laymiz
-  const relinkResult = await relinkAllPbxCalls().catch(() => ({ updated_count: 0 }));
+  // 3. Ikkala filial qo'ng'iroqlarini ham o'z filiali xodimlariga qayta bog'laymiz (agar xodim filial o'zgartirgan bo'lsa eskisi tozalanadi)
+  const relinkTash = await relinkAllPbxCalls().catch(() => ({ updated_count: 0 }));
+  const relinkSam = await relinkAllSamarkandPbxCalls().catch(() => ({ updated_count: 0 }));
+  pbxStatsCacheMap.clear();
+  samarkandPbxStatsCacheMap.clear();
 
   return sendJson(res, 200, {
     ok: true,
     employee_id: employeeId,
     operator_number: operatorNumber,
+    pbx_branch: pbxBranch,
     employee_name: employeeName,
-    relinked: relinkResult ? relinkResult.updated_count : 0
+    relinked: (relinkTash?.updated_count || 0) + (relinkSam?.updated_count || 0)
   });
 }
 
@@ -1561,10 +1626,11 @@ async function syncOnlinePbxCalls(options = {}) {
 
     let employees = [];
     if (pool) {
-      const eRes = await pool.query("SELECT id, name, operator_number, pbx_extension FROM public.employees WHERE active = true").catch(() => ({ rows: [] }));
+      await ensureSamarkandCallsTable(pool);
+      const eRes = await pool.query("SELECT id, name, operator_number, pbx_extension FROM public.employees WHERE active = true AND COALESCE(pbx_branch, 'tashkent') = 'tashkent'").catch(() => ({ rows: [] }));
       employees = eRes.rows || [];
     } else {
-      employees = readJsonData("employees.json", []).filter(e => e.active !== false);
+      employees = readJsonData("employees.json", []).filter(e => e.active !== false && normalizePbxBranch(e.pbx_branch) === 'tashkent');
     }
     const empByOp = new Map();
     employees.forEach(emp => {
@@ -1741,18 +1807,19 @@ async function relinkAllPbxCalls() {
     } catch (_) {}
   }
 
-  // 1. Xodimlar ro'yxatini olamiz (faqat ACTIVE xodimlar!)
+  // 1. Xodimlar ro'yxatini olamiz (faqat TOSHKENT ACTIVE xodimlari!)
   let employees = [];
   if (pool) {
+    await ensureSamarkandCallsTable(pool);
     try {
-      const empRes = await pool.query('SELECT id, name, operator_number, pbx_extension FROM public.employees WHERE active = true ORDER BY updated_at DESC, created_at DESC');
+      const empRes = await pool.query("SELECT id, name, operator_number, pbx_extension FROM public.employees WHERE active = true AND COALESCE(pbx_branch, 'tashkent') = 'tashkent' ORDER BY updated_at DESC, created_at DESC");
       employees = empRes.rows || [];
     } catch (e) {
       console.warn('[relinkAllPbxCalls] Emp query xatosi:', e.message);
     }
   }
   if (!employees.length) {
-    employees = readJsonData('employees.json', []).filter(e => e.active !== false);
+    employees = readJsonData('employees.json', []).filter(e => e.active !== false && normalizePbxBranch(e.pbx_branch) === 'tashkent');
   }
 
   // Xodimlar xaritasi: faqat ruxsat berilgan 7 ta operator bo'yicha (eng yangi aktiv xodim)
@@ -1774,6 +1841,17 @@ async function relinkAllPbxCalls() {
         WHERE operator_number IS NOT NULL
           AND NOT (operator_number = ANY($1::text[]))
       `, [ALLOWED_PBX_OPERATORS]).catch(() => {});
+
+      // Samarqand filialiga o'tkazilgan xodimlarni Toshkent calls jadvalidan uzish
+      await pool.query(`
+        UPDATE public.calls c
+        SET employee_id = NULL, employee_name = NULL
+        WHERE c.employee_id IS NOT NULL
+          AND EXISTS (
+            SELECT 1 FROM public.employees e
+            WHERE e.id = c.employee_id AND e.pbx_branch = 'samarkand'
+          )
+      `).catch(() => {});
 
       if (empByOp.size > 0) {
         for (const [opNum, emp] of empByOp.entries()) {
@@ -1981,6 +2059,7 @@ async function getCallsStats(from, to, operator = 'all', status = 'all') {
         SELECT id, name, operator_number, pbx_extension
         FROM public.employees
         WHERE active = true
+          AND COALESCE(pbx_branch, 'tashkent') = 'tashkent'
         ORDER BY updated_at DESC, created_at DESC;
       `;
       const empRes = await pool.query(empQuery).catch(() => ({ rows: [] }));
@@ -2240,6 +2319,7 @@ async function getCallsList(from, to, operator, status, limit = 50, employeeId =
           SELECT name
           FROM public.employees emp
           WHERE emp.active = true
+            AND COALESCE(emp.pbx_branch, 'tashkent') = 'tashkent'
             AND (
               (c.operator_number IS NOT NULL AND c.operator_number <> '' AND (emp.operator_number = c.operator_number OR emp.pbx_extension = c.operator_number))
               OR emp.id::text = c.employee_id
@@ -2521,6 +2601,8 @@ async function ensureSamarkandCallsTable(pool) {
   const db = pool || getDbPool();
   if (!db || samarkandTableReady) return;
   try {
+    await db.query(`ALTER TABLE public.employees ADD COLUMN IF NOT EXISTS pbx_branch TEXT DEFAULT 'tashkent';`).catch(() => {});
+    await db.query(`UPDATE public.employees SET pbx_branch = 'tashkent' WHERE pbx_branch IS NULL OR pbx_branch = '';`).catch(() => {});
     await db.query(`
       CREATE TABLE IF NOT EXISTS public.samarkand_calls (
         id TEXT PRIMARY KEY DEFAULT md5(random()::text || clock_timestamp()::text),
@@ -2549,9 +2631,17 @@ async function ensureSamarkandCallsTable(pool) {
     await db.query(`CREATE INDEX IF NOT EXISTS idx_samarkand_calls_employee_id ON public.samarkand_calls(employee_id);`).catch(() => {});
     await db.query(`CREATE INDEX IF NOT EXISTS idx_samarkand_calls_status ON public.samarkand_calls(status);`).catch(() => {});
     await db.query(`CREATE INDEX IF NOT EXISTS idx_samarkand_calls_started_at ON public.samarkand_calls(started_at);`).catch(() => {});
-    await db.query(`UPDATE public.samarkand_calls SET employee_id = NULL, employee_name = NULL WHERE employee_id IS NOT NULL;`).catch(() => {});
+    await db.query(`
+      UPDATE public.samarkand_calls sc
+      SET employee_id = NULL, employee_name = NULL
+      WHERE sc.employee_id IS NOT NULL
+        AND NOT EXISTS (
+          SELECT 1 FROM public.employees e
+          WHERE e.id = sc.employee_id AND e.pbx_branch = 'samarkand' AND e.active = true
+        );
+    `).catch(() => {});
     samarkandTableReady = true;
-    console.log('[PostgreSQL]: public.samarkand_calls jadvali alohida yaratildi va tayyor.');
+    console.log('[PostgreSQL]: public.samarkand_calls jadvali va pbx_branch ustuni tayyor.');
   } catch (err) {
     console.error('[ensureSamarkandCallsTable xatosi]:', err.message);
   }
@@ -2566,12 +2656,12 @@ async function saveSamarkandCallRecord(call) {
         INSERT INTO public.samarkand_calls (
           call_id, caller, callee, operator_number, employee_id, employee_name, direction, status,
           duration, talk_time, record_url, raw_data, call_date, started_at, rating, rating_comment
-        ) VALUES ($1, $2, $3, $4, NULL, $5, $6, $7, $8, $9, NULL, $10, $11, $12, $13, $14)
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NULL, $11, $12, $13, $14, $15)
         ON CONFLICT (call_id) DO UPDATE SET
           caller = COALESCE(NULLIF(EXCLUDED.caller, ''), public.samarkand_calls.caller),
           callee = COALESCE(NULLIF(EXCLUDED.callee, ''), public.samarkand_calls.callee),
           operator_number = COALESCE(NULLIF(EXCLUDED.operator_number, ''), public.samarkand_calls.operator_number),
-          employee_id = NULL,
+          employee_id = COALESCE(EXCLUDED.employee_id, public.samarkand_calls.employee_id),
           employee_name = COALESCE(EXCLUDED.employee_name, public.samarkand_calls.employee_name),
           direction = COALESCE(EXCLUDED.direction, public.samarkand_calls.direction),
           status = EXCLUDED.status,
@@ -2590,6 +2680,7 @@ async function saveSamarkandCallRecord(call) {
         call.caller,
         call.callee,
         call.operator_number,
+        call.employee_id || null,
         call.employee_name || null,
         call.direction,
         call.status,
@@ -2616,13 +2707,13 @@ async function saveSamarkandCallRecord(call) {
       list[idx] = {
         ...list[idx],
         ...call,
-        employee_id: null,
+        employee_id: call.employee_id !== undefined ? call.employee_id : list[idx].employee_id,
         rating: call.rating !== undefined ? call.rating : list[idx].rating,
         rating_comment: call.rating_comment !== undefined ? call.rating_comment : list[idx].rating_comment,
         updated_at: new Date().toISOString()
       };
     } else {
-      list.push({ ...call, employee_id: null, created_at: new Date().toISOString() });
+      list.push({ ...call, employee_id: call.employee_id || null, created_at: new Date().toISOString() });
     }
     writeLocalSamarkandCalls(list);
   } catch (e) {
@@ -2665,7 +2756,7 @@ async function authenticateSamarkandOnlinePbx() {
   return null;
 }
 
-async function fetchSamarkandPbxRangeChunkWithPagination(interval, auth, samarkandUserMap, pool) {
+async function fetchSamarkandPbxRangeChunkWithPagination(interval, auth, samarkandUserMap, samarkandEmpByOp, pool) {
   const domain = getSamarkandPbxDomain();
   const searchUrl = `https://api2.onlinepbx.ru/${domain}/mongo_history/search.json`;
   let totalSaved = 0;
@@ -2777,8 +2868,10 @@ async function fetchSamarkandPbxRangeChunkWithPagination(interval, auth, samarka
       }
 
       const is5002 = (operatorNumber === '5002');
+      const matchedEmp = (operatorNumber && samarkandEmpByOp) ? samarkandEmpByOp.get(operatorNumber) : null;
       const samarkandUser = (operatorNumber && samarkandUserMap) ? samarkandUserMap.get(operatorNumber) : null;
-      const employeeName = samarkandUser?.name || (is5002 ? '5002-operator' : (operatorNumber ? `Operator ${operatorNumber}` : null));
+      const employeeId = matchedEmp ? matchedEmp.id : null;
+      const employeeName = matchedEmp?.name || samarkandUser?.name || (is5002 ? '5002-operator' : (operatorNumber ? `Operator ${operatorNumber}` : null));
 
       const rawScore = raw.quality_score ?? raw.rating ?? raw.score;
       let rating = null;
@@ -2794,7 +2887,7 @@ async function fetchSamarkandPbxRangeChunkWithPagination(interval, auth, samarka
         caller,
         callee,
         operator_number: operatorNumber,
-        employee_id: null, // Samarqandda hech qachon Toshkent xodimi ulanmaydi
+        employee_id: employeeId, // Faqat Samarqand filiali xodimi (Toshkent xodimi hech qachon ulanmaydi)
         employee_name: employeeName,
         direction,
         status,
@@ -2816,10 +2909,10 @@ async function fetchSamarkandPbxRangeChunkWithPagination(interval, auth, samarka
         const valuePlaceholders = [];
         const params = [];
         chunk.forEach((c, idx) => {
-          const offset = idx * 14;
-          valuePlaceholders.push(`($${offset + 1}, $${offset + 2}, $${offset + 3}, $${offset + 4}, NULL, $${offset + 5}, $${offset + 6}, $${offset + 7}, $${offset + 8}, $${offset + 9}, NULL, $${offset + 10}, $${offset + 11}, $${offset + 12}, $${offset + 13}, $${offset + 14})`);
+          const offset = idx * 15;
+          valuePlaceholders.push(`($${offset + 1}, $${offset + 2}, $${offset + 3}, $${offset + 4}, $${offset + 5}, $${offset + 6}, $${offset + 7}, $${offset + 8}, $${offset + 9}, $${offset + 10}, NULL, $${offset + 11}, $${offset + 12}, $${offset + 13}, $${offset + 14}, $${offset + 15})`);
           params.push(
-            c.call_id, c.caller, c.callee, c.operator_number, c.employee_name,
+            c.call_id, c.caller, c.callee, c.operator_number, c.employee_id, c.employee_name,
             c.direction, c.status, c.duration, c.talk_time,
             JSON.stringify(c.raw_data || {}), c.call_date, c.started_at, c.rating, c.rating_comment
           );
@@ -2834,7 +2927,7 @@ async function fetchSamarkandPbxRangeChunkWithPagination(interval, auth, samarka
             caller = COALESCE(NULLIF(EXCLUDED.caller, ''), public.samarkand_calls.caller),
             callee = COALESCE(NULLIF(EXCLUDED.callee, ''), public.samarkand_calls.callee),
             operator_number = COALESCE(NULLIF(EXCLUDED.operator_number, ''), public.samarkand_calls.operator_number),
-            employee_id = NULL,
+            employee_id = COALESCE(EXCLUDED.employee_id, public.samarkand_calls.employee_id),
             employee_name = COALESCE(EXCLUDED.employee_name, public.samarkand_calls.employee_name),
             direction = COALESCE(EXCLUDED.direction, public.samarkand_calls.direction),
             status = EXCLUDED.status,
@@ -2869,13 +2962,13 @@ async function fetchSamarkandPbxRangeChunkWithPagination(interval, auth, samarka
         if (localMap.has(c.call_id)) {
           const existing = localMap.get(c.call_id);
           Object.assign(existing, c, {
-            employee_id: null,
+            employee_id: c.employee_id || existing.employee_id || null,
             rating: c.rating !== undefined ? c.rating : existing.rating,
             rating_comment: c.rating_comment !== undefined ? c.rating_comment : existing.rating_comment,
             updated_at: new Date().toISOString()
           });
         } else {
-          const newRec = { ...c, employee_id: null, created_at: new Date().toISOString() };
+          const newRec = { ...c, employee_id: c.employee_id || null, created_at: new Date().toISOString() };
           list.push(newRec);
           localMap.set(c.call_id, newRec);
         }
@@ -2937,6 +3030,24 @@ async function syncSamarkandOnlinePbxCalls(options = {}) {
       if (num) samarkandUserMap.set(num, u);
     });
 
+    // Faqat SAMARQAND filialiga tegishli aktiv xodimlarni yuklaymiz (Toshkent xodimlari aralashmaydi!)
+    let samarkandEmps = [];
+    if (pool) {
+      const eRes = await pool.query(
+        "SELECT id, name, operator_number, pbx_extension FROM public.employees WHERE active = true AND pbx_branch = 'samarkand' ORDER BY updated_at DESC, created_at DESC"
+      ).catch(() => ({ rows: [] }));
+      samarkandEmps = eRes.rows || [];
+    } else {
+      samarkandEmps = readJsonData('employees.json', []).filter(e => e.active !== false && normalizePbxBranch(e.pbx_branch) === 'samarkand');
+    }
+    const samarkandEmpByOp = new Map();
+    samarkandEmps.forEach(emp => {
+      const op = String(emp.operator_number || '').trim();
+      const pbx = String(emp.pbx_extension || '').trim();
+      if (op && !samarkandEmpByOp.has(op)) samarkandEmpByOp.set(op, emp);
+      if (pbx && !samarkandEmpByOp.has(pbx)) samarkandEmpByOp.set(pbx, emp);
+    });
+
     const nowSec = Math.floor(Date.now() / 1000);
     const SAFETY_OVERLAP_SEC = 10 * 60;
     const todayDateStr = new Date(Date.now() + 5 * 3600 * 1000).toISOString().split('T')[0];
@@ -2988,7 +3099,7 @@ async function syncSamarkandOnlinePbxCalls(options = {}) {
       const fromDateStr = new Date(interval.from * 1000 + 5 * 3600 * 1000).toISOString().split("T")[0];
       const toDateStr = new Date(interval.to * 1000 + 5 * 3600 * 1000).toISOString().split("T")[0];
 
-      const res = await fetchSamarkandPbxRangeChunkWithPagination(interval, auth, samarkandUserMap, pool);
+      const res = await fetchSamarkandPbxRangeChunkWithPagination(interval, auth, samarkandUserMap, samarkandEmpByOp, pool);
       totalFetched += res.fetched;
       totalSaved += res.saved;
       console.log(`[Samarkand OnlinePBX Sync] ${fromDateStr} → ${toDateStr}: fetched ${res.fetched}, saved ${res.saved}`);
@@ -3134,19 +3245,61 @@ function initSamarkandOnlinePbxSync() {
 async function relinkAllSamarkandPbxCalls() {
   const pool = getDbPool();
   let updatedCount = 0;
+
+  let samarkandEmps = [];
+  if (pool) {
+    await ensureSamarkandCallsTable(pool);
+    try {
+      const empRes = await pool.query(
+        "SELECT id, name, operator_number, pbx_extension FROM public.employees WHERE active = true AND pbx_branch = 'samarkand' ORDER BY updated_at DESC, created_at DESC"
+      );
+      samarkandEmps = empRes.rows || [];
+    } catch (e) {
+      console.warn('[relinkAllSamarkandPbxCalls Emp]:', e.message);
+    }
+  }
+  if (!samarkandEmps.length) {
+    samarkandEmps = readJsonData('employees.json', []).filter(e => e.active !== false && normalizePbxBranch(e.pbx_branch) === 'samarkand');
+  }
+
+  const empByOp = new Map();
+  samarkandEmps.forEach(emp => {
+    const op = String(emp.operator_number || '').trim();
+    const pbx = String(emp.pbx_extension || '').trim();
+    if (op && !empByOp.has(op)) empByOp.set(op, emp);
+    if (pbx && !empByOp.has(pbx)) empByOp.set(pbx, emp);
+  });
+
   if (pool) {
     try {
-      // 1. Agar oldin adashib Toshkent xodimiga bog'langan bo'lsa, tozalaymiz
-      const cleanRes = await pool.query('UPDATE public.samarkand_calls SET employee_id = NULL WHERE employee_id IS NOT NULL');
+      // 1. Agar oldin Toshkent xodimiga yoki o'chirilgan xodimga bog'langan bo'lsa, tozalaymiz
+      const cleanRes = await pool.query(`
+        UPDATE public.samarkand_calls sc
+        SET employee_id = NULL, employee_name = NULL
+        WHERE sc.employee_id IS NOT NULL
+          AND NOT EXISTS (
+            SELECT 1 FROM public.employees e
+            WHERE e.id = sc.employee_id AND e.pbx_branch = 'samarkand' AND e.active = true
+          )
+      `);
       updatedCount += (cleanRes.rowCount || 0);
 
-      // 2. Samarqand OnlinePBX foydalanuvchilari bo'yicha operator nomlarini yangilaymiz
+      // 2. Faqat Samarqand filiali aktiv xodimlariga biriktiramiz
+      for (const [opNum, emp] of empByOp.entries()) {
+        const r = await pool.query(
+          'UPDATE public.samarkand_calls SET employee_id = $1, employee_name = $2, updated_at = now() WHERE operator_number = $3 AND (employee_id IS NULL OR employee_id <> $1 OR employee_name IS NULL OR employee_name <> $2)',
+          [emp.id, emp.name, opNum]
+        );
+        updatedCount += (r.rowCount || 0);
+      }
+
+      // 3. Xodimga biriktirilmagan operatorlar uchun Samarqand OnlinePBX foydalanuvchilari nomini qo'yamiz
       const samarkandUsers = readLocalSamarkandUsers();
       for (const u of samarkandUsers) {
         const num = String(u.auth_name || u.number || '').trim();
-        if (num && u.name) {
+        if (num && u.name && !empByOp.has(num)) {
           const r = await pool.query(
-            'UPDATE public.samarkand_calls SET employee_name = $1, updated_at = now() WHERE operator_number = $2 AND (employee_name IS NULL OR employee_name <> $1)',
+            'UPDATE public.samarkand_calls SET employee_name = $1, updated_at = now() WHERE operator_number = $2 AND employee_id IS NULL AND (employee_name IS NULL OR employee_name <> $1)',
             [u.name, num]
           );
           updatedCount += (r.rowCount || 0);
@@ -3168,17 +3321,27 @@ async function relinkAllSamarkandPbxCalls() {
 
     let localChanged = false;
     localCalls.forEach(c => {
-      if (c.employee_id) {
-        c.employee_id = null;
-        localChanged = true;
-      }
       const op = String(c.operator_number || '').trim();
-      if (op && userMap.has(op)) {
-        const expectedName = userMap.get(op);
-        if (c.employee_name !== expectedName) {
-          c.employee_name = expectedName;
+      if (op && empByOp.has(op)) {
+        const emp = empByOp.get(op);
+        if (c.employee_id !== emp.id || c.employee_name !== emp.name) {
+          c.employee_id = emp.id;
+          c.employee_name = emp.name;
           localChanged = true;
           updatedCount++;
+        }
+      } else {
+        if (c.employee_id) {
+          c.employee_id = null;
+          localChanged = true;
+        }
+        if (op && userMap.has(op)) {
+          const expectedName = userMap.get(op);
+          if (c.employee_name !== expectedName) {
+            c.employee_name = expectedName;
+            localChanged = true;
+            updatedCount++;
+          }
         }
       }
     });
@@ -3247,11 +3410,30 @@ async function getSamarkandCallsStats(from, to, operator = 'all', status = 'all'
       statsQuery += ` GROUP BY c.operator_number ORDER BY answered_calls DESC, assigned_calls DESC;`;
       const statsRes = await pool.query(statsQuery, params).catch(() => ({ rows: [] }));
 
-      // Samarqand foydalanuvchilari (OnlinePBX dan yuklangan haqiqiy SIP akkauntlar)
+      // Faqat SAMARQAND filiali aktiv xodimlarini yuklaymiz (Toshkent xodimlari aralashmaydi!)
+      const samEmpRes = await pool.query(`
+        SELECT id, name, operator_number, pbx_extension
+        FROM public.employees
+        WHERE active = true AND pbx_branch = 'samarkand'
+        ORDER BY updated_at DESC, created_at DESC;
+      `).catch(() => ({ rows: [] }));
+      const samarkandEmps = samEmpRes.rows || [];
+      const samarkandEmpByOp = new Map();
+      samarkandEmps.forEach(emp => {
+        const op = String(emp.operator_number || '').trim();
+        const pbx = String(emp.pbx_extension || '').trim();
+        if (op && !samarkandEmpByOp.has(op)) samarkandEmpByOp.set(op, emp);
+        if (pbx && !samarkandEmpByOp.has(pbx)) samarkandEmpByOp.set(pbx, emp);
+      });
+
+      // Samarqand foydalanuvchilari (OnlinePBX dan yuklangan haqiqiy SIP akkauntlar + Samarqand xodimlari)
       const samarkandUsers = readLocalSamarkandUsers();
       const detectedOps = new Set();
       (samarkandUsers || []).forEach(u => {
         const num = String(u.auth_name || u.number || '').trim();
+        if (num) detectedOps.add(num);
+      });
+      samarkandEmpByOp.forEach((_, num) => {
         if (num) detectedOps.add(num);
       });
       (statsRes.rows || []).forEach(r => {
@@ -3298,10 +3480,11 @@ async function getSamarkandCallsStats(from, to, operator = 'all', status = 'all'
       const opMap = new Map();
       detectedOps.forEach(opNum => {
         const is5002 = (opNum === '5002');
-        const customName = samarkandUserMap.get(opNum) || (is5002 ? '5002-operator' : `Operator ${opNum}`);
+        const matchedEmp = samarkandEmpByOp.get(opNum);
+        const customName = matchedEmp?.name || samarkandUserMap.get(opNum) || (is5002 ? '5002-operator' : `Operator ${opNum}`);
         opMap.set(opNum, {
           operator_number: opNum,
-          employee_id: null,
+          employee_id: matchedEmp?.id || null,
           employee_name: customName,
           total_calls: X,
           assigned_calls: 0,
@@ -3527,10 +3710,22 @@ async function getSamarkandCallsList(from, to, operator, status, limit = 50, emp
       let query = `
         SELECT
           c.id, c.call_id, c.caller, c.callee, c.operator_number,
-          COALESCE(c.employee_name, ('Operator ' || c.operator_number), '—') AS employee_name,
+          COALESCE(e.name, c.employee_name, ('Operator ' || c.operator_number), '—') AS employee_name,
           c.direction, c.status, c.duration, c.talk_time, c.record_url,
           c.rating, c.rating_comment, c.call_date, c.started_at
         FROM public.samarkand_calls c
+        LEFT JOIN LATERAL (
+          SELECT name
+          FROM public.employees emp
+          WHERE emp.active = true
+            AND emp.pbx_branch = 'samarkand'
+            AND (
+              (c.operator_number IS NOT NULL AND c.operator_number <> '' AND (emp.operator_number = c.operator_number OR emp.pbx_extension = c.operator_number))
+              OR emp.id::text = c.employee_id
+            )
+          ORDER BY (emp.operator_number = c.operator_number) DESC, emp.updated_at DESC
+          LIMIT 1
+        ) e ON true
         WHERE 1=1
       `;
       const params = [];
@@ -3726,10 +3921,29 @@ async function handleSamarkandPbxWebhook(req, res) {
       return sendJson(res, 200, { ok: true, comment: 'Skipped short missed call (<= 22s)' });
     }
 
+    let matchedEmp = null;
+    if (operatorNumber) {
+      const pool = getDbPool();
+      if (pool) {
+        await ensureSamarkandCallsTable(pool);
+        const eRes = await pool.query(
+          "SELECT id, name FROM public.employees WHERE active = true AND pbx_branch = 'samarkand' AND (operator_number = $1 OR pbx_extension = $1) ORDER BY updated_at DESC LIMIT 1",
+          [operatorNumber]
+        ).catch(() => ({ rows: [] }));
+        matchedEmp = eRes.rows?.[0] || null;
+      } else {
+        matchedEmp = readJsonData('employees.json', []).find(e =>
+          e.active !== false && normalizePbxBranch(e.pbx_branch) === 'samarkand' &&
+          (String(e.operator_number || '').trim() === operatorNumber || String(e.pbx_extension || '').trim() === operatorNumber)
+        ) || null;
+      }
+    }
+
     const samarkandUsers = readLocalSamarkandUsers();
     const sUser = samarkandUsers.find(u => String(u.auth_name || u.number || '').trim() === operatorNumber);
     const is5002 = (operatorNumber === '5002');
-    const employeeName = sUser?.name || (is5002 ? '5002-operator' : (operatorNumber ? `Operator ${operatorNumber}` : null));
+    const employeeId = matchedEmp?.id || null;
+    const employeeName = matchedEmp?.name || sUser?.name || (is5002 ? '5002-operator' : (operatorNumber ? `Operator ${operatorNumber}` : null));
 
     const rawScore = body.quality_score ?? body.rating ?? body.score;
     let rating = null;
@@ -3743,7 +3957,7 @@ async function handleSamarkandPbxWebhook(req, res) {
       caller,
       callee,
       operator_number: operatorNumber || null,
-      employee_id: null,
+      employee_id: employeeId,
       employee_name: employeeName,
       direction,
       status,
@@ -5293,21 +5507,32 @@ async function handleUpdateEmployeeByIdApi(req, res, empId, preBody = null) {
     body.pbx_extension = null;
   }
 
+  if (body.pbx_branch !== undefined || body.branch !== undefined) {
+    body.pbx_branch = normalizePbxBranch(body.pbx_branch || body.branch);
+  }
+
   const opVal = String(body.operator_number || body.pbx_extension || '').trim() || null;
+  let effectiveBranch = body.pbx_branch || null;
 
   if (pool) {
+    await ensureSamarkandCallsTable(pool);
     try {
-      // Agar operator raqami berilgan bo'lsa, boshqa xodimlardan bo'shatamiz
+      if (!effectiveBranch) {
+        const curRes = await pool.query('SELECT pbx_branch FROM public.employees WHERE id = $1 LIMIT 1', [empId]).catch(() => ({ rows: [] }));
+        effectiveBranch = normalizePbxBranch(curRes.rows?.[0]?.pbx_branch);
+      }
+
+      // Faqat SHU FILIAL ichidagi boshqa xodimlardan operator raqamini bo'shatamiz
       if (opVal) {
         await pool.query(
-          'UPDATE public.employees SET operator_number = NULL, pbx_extension = NULL WHERE (operator_number = $1 OR pbx_extension = $1) AND id <> $2',
-          [opVal, empId]
+          "UPDATE public.employees SET operator_number = NULL, pbx_extension = NULL WHERE (operator_number = $1 OR pbx_extension = $1) AND COALESCE(pbx_branch, 'tashkent') = $2 AND id <> $3",
+          [opVal, effectiveBranch, empId]
         );
       }
 
       const fields = [];
       const values = [];
-      const allowed = ['name', 'login', 'password', 'kpi_type', 'operator_number', 'pbx_extension', 'active', 'face_registered'];
+      const allowed = ['name', 'login', 'password', 'kpi_type', 'operator_number', 'pbx_extension', 'pbx_branch', 'active', 'face_registered'];
       allowed.forEach(k => {
         if (body[k] !== undefined) {
           values.push(body[k]);
@@ -5319,16 +5544,26 @@ async function handleUpdateEmployeeByIdApi(req, res, empId, preBody = null) {
         await pool.query(`UPDATE public.employees SET ${fields.join(', ')}, updated_at = now() WHERE id = $${values.length}`, values);
       }
 
-      // Agar operator yoki ism o'zgargan bo'lsa, calls jadvalini ham yangilaymiz
+      // Agar operator yoki ism o'zgargan bo'lsa, o'z filialidagi jadvalni ham yangilaymiz
       if (opVal && body.name) {
-        await pool.query(
-          'UPDATE public.calls SET employee_id = $1, employee_name = $2, updated_at = now() WHERE operator_number = $3',
-          [empId, body.name, opVal]
-        ).catch(() => {});
+        if (effectiveBranch === 'samarkand') {
+          await pool.query(
+            'UPDATE public.samarkand_calls SET employee_id = $1, employee_name = $2, updated_at = now() WHERE operator_number = $3',
+            [empId, body.name, opVal]
+          ).catch(() => {});
+        } else {
+          await pool.query(
+            'UPDATE public.calls SET employee_id = $1, employee_name = $2, updated_at = now() WHERE operator_number = $3',
+            [empId, body.name, opVal]
+          ).catch(() => {});
+        }
       }
 
-      if (body.operator_number !== undefined || body.pbx_extension !== undefined || body.active !== undefined || body.name !== undefined) {
+      if (body.operator_number !== undefined || body.pbx_extension !== undefined || body.pbx_branch !== undefined || body.active !== undefined || body.name !== undefined) {
         await relinkAllPbxCalls().catch(() => {});
+        await relinkAllSamarkandPbxCalls().catch(() => {});
+        pbxStatsCacheMap.clear();
+        samarkandPbxStatsCacheMap.clear();
       }
     } catch (e) {
       console.warn('[handleUpdateEmployeeByIdApi DB]:', e.message);
@@ -5338,18 +5573,20 @@ async function handleUpdateEmployeeByIdApi(req, res, empId, preBody = null) {
   const list = readJsonData('employees.json', []);
   const idx = list.findIndex(e => e.id === empId);
   if (idx >= 0) {
+    const branchForLocal = effectiveBranch || normalizePbxBranch(list[idx].pbx_branch);
     if (opVal) {
       list.forEach(e => {
-        if (e.id !== empId && (e.operator_number === opVal || e.pbx_extension === opVal)) {
+        if (e.id !== empId && normalizePbxBranch(e.pbx_branch) === branchForLocal && (e.operator_number === opVal || e.pbx_extension === opVal)) {
           e.operator_number = null;
           e.pbx_extension = null;
         }
       });
     }
-    list[idx] = { ...list[idx], ...body, updated_at: new Date().toISOString() };
+    list[idx] = { ...list[idx], ...body, pbx_branch: branchForLocal, updated_at: new Date().toISOString() };
     writeJsonData('employees.json', list);
-    if (body.operator_number !== undefined || body.pbx_extension !== undefined || body.active !== undefined || body.name !== undefined) {
+    if (body.operator_number !== undefined || body.pbx_extension !== undefined || body.pbx_branch !== undefined || body.active !== undefined || body.name !== undefined) {
       await relinkAllPbxCalls().catch(() => {});
+      await relinkAllSamarkandPbxCalls().catch(() => {});
     }
     return sendJson(res, 200, { ok: true, employee: list[idx] });
   }

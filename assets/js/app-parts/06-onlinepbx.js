@@ -195,7 +195,7 @@ async function loadPbxOperatorFilterOptions() {
       } catch (_) {}
     }
 
-    const activeEmps = (emps || []).filter(e => e.active !== false);
+    const activeEmps = (emps || []).filter(e => e.active !== false && String(e.pbx_branch || 'tashkent').toLowerCase() !== 'samarkand');
     try {
       const localOps = JSON.parse(localStorage.getItem('aloqa_operator_numbers') || '{}');
       activeEmps.forEach(emp => {
@@ -656,7 +656,7 @@ async function loadPbxTestOperatorOptions() {
       if (!res.error && res.data) emps = res.data;
     }
 
-    const activeEmps = (emps || []).filter(e => e.active !== false);
+    const activeEmps = (emps || []).filter(e => e.active !== false && String(e.pbx_branch || 'tashkent').toLowerCase() !== 'samarkand');
     try {
       const localOps = JSON.parse(localStorage.getItem('aloqa_operator_numbers') || '{}');
       activeEmps.forEach(emp => {

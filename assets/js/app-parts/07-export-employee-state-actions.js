@@ -341,8 +341,11 @@ async function loadEmployeeTodayCalls() {
     if (subEl) subEl.textContent = opNum ? `Operator: #${opNum}` : 'Operator: —';
 
     let answeredCount = 0;
-    // Admin statistikasidan aynan kiruvchi gaplashilganlar sonini olish
-    const res = await serverApi(`/api/pbx/stats?from=${encodeURIComponent(today)}&to=${encodeURIComponent(today)}`);
+    // Admin statistikasidan aynan kiruvchi gaplashilganlar sonini olish (xodim filialiga qarab)
+    const pbxStatsUrl = (String(CU.pbx_branch || 'tashkent').toLowerCase() === 'samarkand')
+      ? `/api/samarkand-pbx/stats?from=${encodeURIComponent(today)}&to=${encodeURIComponent(today)}`
+      : `/api/pbx/stats?from=${encodeURIComponent(today)}&to=${encodeURIComponent(today)}`;
+    const res = await serverApi(pbxStatsUrl);
     if (res && res.ok && Array.isArray(res.operators)) {
       const myOp = res.operators.find(op => {
         const oNum = String(op.operator_number || '').trim();

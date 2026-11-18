@@ -723,9 +723,15 @@ async function loadEmpList() {
 
     const safeName = (emp.name || '').replace(/'/g, "\\'");
     const safeOp = (emp.operator_number || '').replace(/'/g, "\\'");
+    const empBranch = String(emp.pbx_branch || 'tashkent').toLowerCase() === 'samarkand' ? 'samarkand' : 'tashkent';
+    const branchLabel = empBranch === 'samarkand' ? 'Samarqand' : 'Toshkent';
+    const branchBadgeStyle = empBranch === 'samarkand'
+      ? 'background:rgba(139,92,246,0.14);color:#7c3aed;border:1px solid rgba(139,92,246,0.28);'
+      : 'background:rgba(59,130,246,0.12);color:#2563eb;border:1px solid rgba(59,130,246,0.24);';
+    const branchBadge = `<span class="badge bsm" style="font-size:10px;padding:2px 6px;margin-right:4px;${branchBadgeStyle}">${branchLabel}</span>`;
     const opDisplay = emp.operator_number
-      ? `<span class="badge bsm bg" style="font-family:var(--mono);cursor:pointer;display:inline-flex;align-items:center;gap:4px;" onclick="openEditOperatorModal('${emp.id}','${safeName}','${safeOp}')" title="Operator raqamini tahrirlash">${getLucideIcon('phone', '', 12)} ${emp.operator_number} ${getLucideIcon('pencil', '', 11)}</span>`
-      : `<span class="badge bsm bgr" style="cursor:pointer;display:inline-flex;align-items:center;gap:4px;" onclick="openEditOperatorModal('${emp.id}','${safeName}','')" title="Operator raqami biriktirish">${getLucideIcon('plus', '', 11)} ${t('assign_op') || 'Biriktirish'}</span>`;
+      ? `<span style="display:inline-flex;align-items:center;gap:4px;flex-wrap:wrap;cursor:pointer;" onclick="openEditOperatorModal('${emp.id}','${safeName}','${safeOp}','${empBranch}')" title="Filial va operator raqamini tahrirlash">${branchBadge}<span class="badge bsm bg" style="font-family:var(--mono);display:inline-flex;align-items:center;gap:4px;">${getLucideIcon('phone', '', 12)} ${emp.operator_number} ${getLucideIcon('pencil', '', 11)}</span></span>`
+      : `<span style="display:inline-flex;align-items:center;gap:4px;flex-wrap:wrap;cursor:pointer;" onclick="openEditOperatorModal('${emp.id}','${safeName}','','${empBranch}')" title="Filial va operator raqami biriktirish">${branchBadge}<span class="badge bsm bgr" style="display:inline-flex;align-items:center;gap:4px;">${getLucideIcon('plus', '', 11)} ${t('assign_op') || 'Biriktirish'}</span></span>`;
 
     const tr = document.createElement('tr');
     tr.innerHTML = `
@@ -796,6 +802,7 @@ async function delEmp(id) {
     // 5. Serverda qayta biriktirishni ishga tushirish
     try {
       await fetch('/api/pbx/relink', { method: 'POST' });
+      await fetch('/api/samarkand-pbx/relink', { method: 'POST' });
     } catch (_) {}
 
     toast('success', t('employee_title'), t('employee_removed'));
@@ -804,6 +811,9 @@ async function delEmp(id) {
     if (mVisible) loadMonthly();
     if (typeof loadPbxDashboard === 'function') {
       loadPbxDashboard();
+    }
+    if (typeof loadSamarkandPbxDashboard === 'function') {
+      loadSamarkandPbxDashboard();
     }
   } catch (e) {
     console.error('delEmp error:', e);
@@ -817,6 +827,7 @@ async function addEmp() {
   const ps = document.getElementById('ne_p').value.trim();
   const selectedRole = (document.getElementById('ne_k')?.value || 'operator').trim();
   const op = (document.getElementById('ne_op')?.value || '').trim();
+  const pbxBranch = (document.getElementById('ne_branch')?.value || 'tashkent').trim();
 
   if (!nm || !email || !ps) {
     toast('warn', t('error_title'), t('fill_required_short'));
@@ -829,7 +840,8 @@ async function addEmp() {
     password: ps,
     kpi_type: selectedRole,
     role: selectedRole,
-    operator_number: op || null
+    operator_number: op || null,
+    pbx_branch: pbxBranch
   };
 
   const onSuccess = async () => {
@@ -839,6 +851,7 @@ async function addEmp() {
     if (document.getElementById('ne_op')) document.getElementById('ne_op').value = '';
     await loadEmpList();
     if (typeof loadPbxDashboard === 'function' && currentAdminTab === 'pbx') loadPbxDashboard();
+    if (typeof loadSamarkandPbxDashboard === 'function' && currentAdminTab === 'samarkand_pbx') loadSamarkandPbxDashboard();
     toast('success', t('employee_title'), t('employee_added'));
   };
 
@@ -962,12 +975,16 @@ async function addEmp() {
 }
 
 
-function openEditOperatorModal(id, name, currentOp) {
+function openEditOperatorModal(id, name, currentOp, currentBranch) {
   const modal = document.getElementById('m_edit_operator');
   if (!modal) return;
   document.getElementById('edit_op_emp_id').value = id;
   document.getElementById('edit_op_emp_name').textContent = name;
   document.getElementById('edit_op_number').value = currentOp || '';
+  const branchEl = document.getElementById('edit_op_branch');
+  if (branchEl) {
+    branchEl.value = (String(currentBranch || 'tashkent').toLowerCase() === 'samarkand') ? 'samarkand' : 'tashkent';
+  }
   modal.classList.remove('hidden');
 }
 
@@ -979,6 +996,7 @@ function closeEditOperatorModal() {
 async function saveEmployeeOperator() {
   const empId = document.getElementById('edit_op_emp_id').value;
   const opNum = document.getElementById('edit_op_number').value.trim();
+  const pbxBranch = (document.getElementById('edit_op_branch')?.value || 'tashkent').trim();
 
   if (!empId) {
     toast('warn', t('edit_op_title') || 'Operator', 'Xodim tanlanmagan');
@@ -986,13 +1004,10 @@ async function saveEmployeeOperator() {
   }
 
   try {
-    // 1. Mahalliy keshga saqlash (ushbu operator raqami boshqa xodimda bo'lsa tozalash)
+    // 1. Mahalliy keshga saqlash (faqat ushbu xodim uchun; boshqa filialdagi xodimlarni o'chirmaslik!)
     try {
       const localOps = JSON.parse(localStorage.getItem('aloqa_operator_numbers') || '{}');
       if (opNum) {
-        Object.keys(localOps).forEach(k => {
-          if (localOps[k] === opNum && k !== empId) delete localOps[k];
-        });
         localOps[empId] = opNum;
       } else {
         delete localOps[empId];
@@ -1000,54 +1015,36 @@ async function saveEmployeeOperator() {
       localStorage.setItem('aloqa_operator_numbers', JSON.stringify(localOps));
     } catch (_) {}
 
-    // 2. Server API orqali bir zumda saqlash va PBX qo'ng'iroqlarini bog'lash
+    // 2. Server API orqali bir zumda saqlash va filial bo'yicha PBX qo'ng'iroqlarini bog'lash
     try {
       await serverApi('/api/functions/v1/update-employee-operator', {
         method: 'POST',
-        body: JSON.stringify({ employee_id: empId, operator_number: opNum || null })
+        body: JSON.stringify({ employee_id: empId, operator_number: opNum || null, pbx_branch: pbxBranch })
       });
     } catch (e) {}
 
     try {
       await serverApi(`/api/employees/${empId}`, {
         method: 'PATCH',
-        body: JSON.stringify({ operator_number: opNum || null, pbx_extension: opNum || null })
+        body: JSON.stringify({ operator_number: opNum || null, pbx_extension: opNum || null, pbx_branch: pbxBranch })
       });
     } catch (e) {}
 
-    // 3. Supabase REST API ga ham urinish
-    try {
-      if (opNum) {
-        await sb
-          .from('employees')
-          .update({ operator_number: null, pbx_extension: null })
-          .eq('operator_number', opNum)
-          .neq('id', empId);
-      }
-      await sb
-        .from('employees')
-        .update({
-          operator_number: opNum || null,
-          pbx_extension: opNum || null
-        })
-        .eq('id', empId);
-
-      if (opNum) {
-        await sb.from('calls').update({ employee_id: empId }).eq('operator_number', opNum);
-      }
-    } catch (_) {}
-
-    // 4. Serverda barcha qo'ng'iroqlarni va statistikani yangilash
+    // 3. Serverda ikkala filial qo'ng'iroqlarini ham o'z filiali bo'yicha yangilash
     try {
       await fetch('/api/pbx/relink', { method: 'POST' });
+      await fetch('/api/samarkand-pbx/relink', { method: 'POST' });
     } catch (_) {}
 
     closeEditOperatorModal();
-    toast('success', t('edit_op_title') || 'Operator', t('edit_op_success') || 'Operator raqami saqlandi');
+    toast('success', t('edit_op_title') || 'Operator', t('edit_op_success') || 'Operator raqami va filial saqlandi');
 
     await loadEmpList();
     if (typeof loadPbxDashboard === 'function') {
       await loadPbxDashboard();
+    }
+    if (typeof loadSamarkandPbxDashboard === 'function') {
+      await loadSamarkandPbxDashboard();
     }
   } catch (err) {
     console.error('saveEmployeeOperator error:', err);
