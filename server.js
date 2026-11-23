@@ -682,14 +682,18 @@ if (require.main === module) {
   function startListening(portToTry, attempt = 0) {
     const onError = (err) => {
       if (err.code === 'EADDRINUSE') {
-        if (attempt < 5) {
+        console.error(`\n====================================================`);
+        console.error(`[XATOLIK]: ${portToTry}-port band! Eski yoki qolib ketgan node jarayoni ushbu portni band qilib turibdi.`);
+        console.error(`Eski jarayonni to'xtatib, serverni to'g'ri ishga tushirish uchun terminalda bajaring:`);
+        console.error(`  sudo fuser -k ${portToTry}/tcp`);
+        console.error(`  pm2 restart aloqapro --update-env`);
+        console.error(`====================================================\n`);
+        if (attempt < 5 && process.env.ALLOW_PORT_FALLBACK === 'true') {
           const nextPort = portToTry + 1;
-          console.warn(`[DIQQAT]: ${portToTry}-port band! Keyingi ${nextPort}-portda ishga tushirishga harakat qilinmoqda...`);
+          console.warn(`[DIQQAT]: Keyingi ${nextPort}-portda sinab ko'rilmoqda...`);
           server.removeListener('error', onError);
           startListening(nextPort, attempt + 1);
         } else {
-          console.error(`\n[DIQQAT]: ${PORT} dan ${portToTry} gacha bo'lgan portlar band!`);
-          console.error(`Eski jarayonlarni to'xtatish uchun terminalda: sudo fuser -k ${PORT}/tcp yoki sudo killall -9 node`);
           process.exit(1);
         }
       } else {
@@ -4270,7 +4274,11 @@ function serveStatic(requestPath, res) {
       if (res.writableEnded) return;
 
       if (err || !stats.isFile()) {
-        // index.html fallback SPA uchun
+        // API marshrutlari uchun HECH QACHON HTML (index.html) qaytarmaslik
+        if (safePath.startsWith('/api/')) {
+          return sendJson(res, 404, { ok: false, error: `API marshruti topilmadi: ${safePath}` });
+        }
+        // index.html fallback faqat SPA frontend sahifalari uchun
         if (!path.extname(safePath)) {
           return fs.readFile(path.join(ROOT, 'index.html'), (err2, data) => {
             if (res.writableEnded) return;

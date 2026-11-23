@@ -226,7 +226,23 @@ async function fetchAndRenderSamarkandPbxStats(isBackground = false) {
   try {
     const url = `/api/samarkand-pbx/stats?from=${encodeURIComponent(samarkandPbxDateFrom)}&to=${encodeURIComponent(samarkandPbxDateTo)}&operator=${encodeURIComponent(samarkandPbxFilterOperator)}&status=${encodeURIComponent(samarkandPbxFilterStatus)}`;
     const res = await fetch(url);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const contentType = res.headers.get('content-type') || '';
+
+    if (!res.ok) {
+      let errMsg = `HTTP ${res.status}`;
+      try {
+        if (contentType.includes('application/json')) {
+          const errData = await res.json();
+          if (errData && errData.error) errMsg = errData.error;
+        }
+      } catch (_) {}
+      throw new Error(errMsg);
+    }
+
+    if (!contentType.includes('application/json')) {
+      throw new Error("Serverdan JSON kutilgan edi, ammo HTML sahifasi qaytdi. Server (PM2) qayta ishga tushirilishi kerak (sudo fuser -k 3000/tcp && pm2 restart aloqapro).");
+    }
+
     const data = await res.json();
     if (data && data.ok) {
       samarkandPbxStatsCache = data;
@@ -339,6 +355,10 @@ async function syncSamarkandPbxFromApiManual() {
     const fromVal = samarkandPbxDateFrom || todayISO();
     const toVal = samarkandPbxDateTo || todayISO();
     const res = await fetch(`/api/samarkand-pbx/sync?from=${encodeURIComponent(fromVal)}&to=${encodeURIComponent(toVal)}`, { method: 'POST' });
+    const cType = res.headers.get('content-type') || '';
+    if (!cType.includes('application/json')) {
+      throw new Error(`Serverdan kutilmagan javob qaytdi (${res.status}). Serverni qayta ishga tushiring.`);
+    }
     const data = await res.json();
     if (res.status === 429 || data?.busy) {
       if (typeof toast === 'function') toast('warn', 'Samarqand OnlinePBX', data?.message || 'Sinxronlash allaqachon bajarilmoqda');
@@ -372,6 +392,10 @@ async function relinkSamarkandPbxCallsManual() {
   }
   try {
     const res = await fetch('/api/samarkand-pbx/relink', { method: 'POST' });
+    const cType = res.headers.get('content-type') || '';
+    if (!cType.includes('application/json')) {
+      throw new Error(`Serverdan kutilmagan javob qaytdi (${res.status}). Serverni qayta ishga tushiring.`);
+    }
     const data = await res.json();
     if (data && data.ok) {
       const cnt = data.updated_count || 0;

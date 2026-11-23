@@ -41,7 +41,7 @@ async function syncNewPbxCallsInBackground(showFallbackSpinner = false) {
   try {
     // Serverdan faqat bugungi jonli yangi ma'lumotlarni olish
     await fetchAndRenderPbxStats(!showFallbackSpinner);
-  } catch (_) {}
+  } catch (_) { }
 }
 
 async function loadPbxDashboard() {
@@ -62,7 +62,7 @@ async function triggerPbxServerSync() {
         fetchAndRenderPbxStats(true);
       }
     }
-  } catch (_) {}
+  } catch (_) { }
 }
 
 async function syncPbxFromApiManual() {
@@ -186,13 +186,13 @@ async function loadPbxOperatorFilterOptions() {
       if (sRes.ok && Array.isArray(sRes.data)) {
         emps = sRes.data;
       }
-    } catch (_) {}
+    } catch (_) { }
 
     if (!emps.length) {
       try {
         const res = await sb.from('employees').select('id,name,operator_number,pbx_extension').eq('active', true).order('name');
         if (!res.error && res.data) emps = res.data;
-      } catch (_) {}
+      } catch (_) { }
     }
 
     const activeEmps = (emps || []).filter(e => e.active !== false && String(e.pbx_branch || 'tashkent').toLowerCase() !== 'samarkand');
@@ -203,7 +203,7 @@ async function loadPbxOperatorFilterOptions() {
           emp.operator_number = localOps[emp.id];
         }
       });
-    } catch (_) {}
+    } catch (_) { }
 
     sel.innerHTML = `<option value="all">${t('pbx_filter_all_ops') || 'Barcha operatorlar'}</option>`;
     const added = new Set();
@@ -347,7 +347,23 @@ async function fetchAndRenderPbxStats(isBackground = false) {
   try {
     const url = `/api/pbx/stats?from=${encodeURIComponent(pbxDateFrom)}&to=${encodeURIComponent(pbxDateTo)}&operator=${encodeURIComponent(pbxFilterOperator)}&status=${encodeURIComponent(pbxFilterStatus)}`;
     const res = await fetch(url);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const contentType = res.headers.get('content-type') || '';
+
+    if (!res.ok) {
+      let errMsg = `HTTP ${res.status}`;
+      try {
+        if (contentType.includes('application/json')) {
+          const errData = await res.json();
+          if (errData && errData.error) errMsg = errData.error;
+        }
+      } catch (_) {}
+      throw new Error(errMsg);
+    }
+
+    if (!contentType.includes('application/json')) {
+      throw new Error("Serverdan JSON kutilgan edi, ammo HTML sahifasi qaytdi. Server (PM2) qayta ishga tushirilishi kerak.");
+    }
+
     const data = await res.json();
     if (data && data.ok) {
       pbxStatsCache = data;
@@ -378,8 +394,8 @@ function renderPbxOperatorsTable(operators) {
 
   const totalX = pbxStatsCache?.summary?.total_calls || 0;
   const accountsCount = pbxStatsCache?.summary?.accounts_count || 6;
-  const targetQuotaPerAccount = pbxStatsCache?.summary?.target_quota != null 
-    ? pbxStatsCache.summary.target_quota 
+  const targetQuotaPerAccount = pbxStatsCache?.summary?.target_quota != null
+    ? pbxStatsCache.summary.target_quota
     : (Math.round((totalX / accountsCount) * 10) / 10);
 
   list.forEach((op, idx) => {
@@ -500,8 +516,8 @@ function renderPbxCallsTable(calls) {
       try {
         const d = new Date(c.started_at);
         timeStr = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) + ' ' +
-                  String(d.getDate()).padStart(2, '0') + '.' + String(d.getMonth() + 1).padStart(2, '0');
-      } catch (e) {}
+          String(d.getDate()).padStart(2, '0') + '.' + String(d.getMonth() + 1).padStart(2, '0');
+      } catch (e) { }
     }
 
     const isAnswered = c.status === 'answered';
@@ -517,9 +533,9 @@ function renderPbxCallsTable(calls) {
     let ratingHtml = '';
     if (!isNaN(rVal) && rVal > 0) {
       const rc = getPbxRatingColor(rVal);
-      ratingHtml = `<button class="bsm" onclick="openRateCallModal('${c.call_id}','${escapePbxHtml(c.caller||'')}','${escapePbxHtml(c.employee_name||'')}',${rVal},'${escapePbxHtml(c.rating_comment||'')}')" style="background:${rc.bg};color:${rc.text};border:1px solid ${rc.border};font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:4px;border-radius:var(--radius-sm);padding:3px 8px;" title="${c.rating_comment ? escapePbxHtml(c.rating_comment) : 'Mijoz bahosi'}">★ ${rVal}</button>`;
+      ratingHtml = `<button class="bsm" onclick="openRateCallModal('${c.call_id}','${escapePbxHtml(c.caller || '')}','${escapePbxHtml(c.employee_name || '')}',${rVal},'${escapePbxHtml(c.rating_comment || '')}')" style="background:${rc.bg};color:${rc.text};border:1px solid ${rc.border};font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:4px;border-radius:var(--radius-sm);padding:3px 8px;" title="${c.rating_comment ? escapePbxHtml(c.rating_comment) : 'Mijoz bahosi'}">★ ${rVal}</button>`;
     } else {
-      ratingHtml = `<button class="bsm bg2" onclick="openRateCallModal('${c.call_id}','${escapePbxHtml(c.caller||'')}','${escapePbxHtml(c.employee_name||'')}',5,'')" style="font-size:11px;padding:3px 7px;cursor:pointer;opacity:0.75;" title="Baho qo'yish">+ Baholash</button>`;
+      ratingHtml = `<button class="bsm bg2" onclick="openRateCallModal('${c.call_id}','${escapePbxHtml(c.caller || '')}','${escapePbxHtml(c.employee_name || '')}',5,'')" style="font-size:11px;padding:3px 7px;cursor:pointer;opacity:0.75;" title="Baho qo'yish">+ Baholash</button>`;
     }
 
     const isOut = (c.direction === 'out' || (c.caller && String(c.caller).length <= 4 && c.callee && String(c.callee).length > 4));
@@ -650,7 +666,7 @@ async function loadPbxTestOperatorOptions() {
     try {
       const sRes = await serverApi('/api/employees?active_only=true');
       if (sRes.ok && Array.isArray(sRes.data)) emps = sRes.data;
-    } catch (_) {}
+    } catch (_) { }
     if (!emps.length) {
       const res = await sb.from('employees').select('id,name,operator_number,pbx_extension').eq('active', true).order('name');
       if (!res.error && res.data) emps = res.data;
@@ -664,7 +680,7 @@ async function loadPbxTestOperatorOptions() {
           emp.operator_number = localOps[emp.id];
         }
       });
-    } catch (_) {}
+    } catch (_) { }
 
     sel.innerHTML = '';
     ALLOWED_PBX_OPERATORS.forEach(opNum => {
@@ -828,8 +844,8 @@ function exportPbxExcel() {
 
   const totalX = pbxStatsCache?.summary?.total_calls || 0;
   const accountsCount = pbxStatsCache?.summary?.accounts_count || 6;
-  const targetQuota = pbxStatsCache?.summary?.target_quota != null 
-    ? pbxStatsCache.summary.target_quota 
+  const targetQuota = pbxStatsCache?.summary?.target_quota != null
+    ? pbxStatsCache.summary.target_quota
     : (Math.round((totalX / accountsCount) * 10) / 10);
 
   const headers = [
