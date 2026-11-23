@@ -753,6 +753,77 @@ html.user-logged-in #loginPage {
               </table>
             </div>
           </div>
+
+          <!-- Tashqi tizimlar uchun API Token va Integratsiya sozlamalari -->
+          <div class="box" id="box_api_integration" style="margin-top:18px;">
+            <div class="btitle" id="set_box_api">
+              <span class="title-ico" data-lucide="key" style="width:18px;height:18px;min-width:18px;min-height:18px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;"></span>
+              <span id="api_token_title">Tashqi dasturlar uchun API Integratsiya (API Token)</span>
+            </div>
+
+            <p style="font-size:12.5px;color:var(--text2);margin:0 0 14px 0;line-height:1.5;">
+              AloqaPro tizimidagi xodimlar, davomat va qo'ng'iroqlar ma'lumotlarini boshqa tashqi dasturlarga (CRM, 1C, Telegram bot yoki boshqa veb-servislarga) xavfsiz ulash uchun quyidagi API tokendan foydalaning.
+            </p>
+
+            <div style="background:var(--bg3);border:1.5px solid var(--border2);border-radius:var(--radius-sm);padding:14px 16px;margin-bottom:16px;">
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px;flex-wrap:wrap;">
+                <label style="font-size:12px;font-weight:700;color:var(--text);display:flex;align-items:center;gap:6px;">
+                  <span data-lucide="shield-check" style="width:15px;height:15px;color:var(--accent);"></span>
+                  Sizning maxfiy API Tokeningiz:
+                </label>
+                <span id="api_token_badge" style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:12px;background:rgba(16,185,129,0.15);color:#10b981;border:1px solid rgba(16,185,129,0.35);">Faol</span>
+              </div>
+
+              <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                <div style="position:relative;flex:1;min-width:260px;">
+                  <input type="password" id="api_token_input" readonly style="width:100%;font-family:var(--mono);font-size:13px;padding:9px 40px 9px 12px;border:1.5px solid var(--border2);border-radius:var(--radius-sm);background:var(--input-bg);color:var(--accent);font-weight:600;box-sizing:border-box;">
+                  <button type="button" onclick="toggleApiTokenVisibility()" id="btn_toggle_api_token" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text3);padding:4px;display:inline-flex;align-items:center;" title="Ko'rsatish / Yashirish">
+                    <span data-lucide="eye" id="api_token_eye_icon" style="width:16px;height:16px;"></span>
+                  </button>
+                </div>
+                <button class="bb" onclick="copyApiToken()" id="btn_copy_api_token" title="Tokenni nusxalash">
+                  <span class="btn-icon" data-lucide="copy"></span>
+                  <span id="btn_copy_api_token_text">Nusxalash</span>
+                </button>
+                <button class="bg2" onclick="generateNewApiTokenPrompt()" id="btn_regen_api_token" title="Yangi token yaratish (eskisi bekor bo'ladi)">
+                  <span class="btn-icon" data-lucide="refresh-cw"></span>
+                  <span>Yangi token olish</span>
+                </button>
+              </div>
+              <div style="font-size:11px;color:var(--text3);margin-top:6px;" id="api_token_created_info">
+                Yaratilgan vaqti: yuklanmoqda...
+              </div>
+            </div>
+
+            <!-- Tezkor dasturchi qo'llanmasi (Quick Docs) -->
+            <div style="background:var(--card-bg);border:1.5px solid var(--border2);border-radius:var(--radius-sm);padding:14px 16px;">
+              <div style="font-size:12.5px;font-weight:700;color:var(--text);margin-bottom:8px;display:flex;align-items:center;gap:6px;">
+                <span data-lucide="book-open" style="width:16px;height:16px;color:var(--accent);"></span>
+                Integratsiya qilish bo'yicha tezkor qo'llanma (Dasturchilar uchun)
+              </div>
+              
+              <div style="font-size:12px;color:var(--text2);line-height:1.6;">
+                <p style="margin:0 0 6px 0;">
+                  So'rov yuborishda yuqoridagi tokenni <code>Header</code> orqali yuboring:
+                </p>
+                <pre style="background:var(--bg3);padding:8px 12px;border-radius:var(--radius-sm);border:1px solid var(--border2);font-family:var(--mono);font-size:11.5px;color:var(--accent);margin:0 0 10px 0;overflow-x:auto;">Authorization: Bearer SIZNING_API_TOKENINGIZ
+# Yoki:
+x-api-token: SIZNING_API_TOKENINGIZ</pre>
+
+                <p style="margin:0 0 6px 0;font-weight:600;color:var(--text);">Mavjud asosiy API havolalari (Endpoints):</p>
+                <ul style="margin:0 0 10px 0;padding-left:18px;display:flex;flex-direction:column;gap:5px;">
+                  <li><code>GET /api/external/employees</code> — Barcha faol xodimlar ro'yxati (filial, lavozim, login)</li>
+                  <li><code>GET /api/external/attendance?from=2026-11-01&to=2026-11-23</code> — Davomat, kelish/ketish va ishlagan vaqtlari</li>
+                  <li><code>GET /api/external/calls?branch=samarkand&from=2026-11-23</code> — Samarqand PBX qo'ng'iroqlari jurnali</li>
+                  <li><code>GET /api/external/calls?branch=tashkent&from=2026-11-23</code> — Toshkent PBX qo'ng'iroqlari jurnali</li>
+                  <li><code>GET /api/external/stats?branch=samarkand</code> — Samarqand operatorlarining kunlik umumiy statistikasi</li>
+                </ul>
+
+                <p style="margin:0 0 4px 0;font-weight:600;color:var(--text);">cURL orqali sinab ko'rish namunasi:</p>
+                <pre style="background:var(--bg3);padding:8px 12px;border-radius:var(--radius-sm);border:1px solid var(--border2);font-family:var(--mono);font-size:11.5px;color:var(--accent);margin:0;overflow-x:auto;" id="api_token_curl_example">curl -H "Authorization: Bearer SIZNING_TOKENINGIZ" https://workmeter.uz/api/external/employees</pre>
+              </div>
+            </div>
+          </div>
         </div>
 
 
@@ -1234,11 +1305,11 @@ html.user-logged-in #loginPage {
 
 <script src="assets/js/app-parts/00-lucide-icons.js?v=3.3"></script>
 <script src="assets/js/app-parts/01-core.js?v=3.3" defer></script>
-<script src="assets/js/app-parts/02-access-settings.js?v=3.3" defer></script>
+<script src="assets/js/app-parts/02-access-settings.js?v=3.4" defer></script>
 <script src="assets/js/app-parts/03-translations.js?v=3.3" defer></script>
 <script src="assets/js/app-parts/04-time-attendance-utils.js?v=3.3" defer></script>
 <script src="assets/js/app-parts/05-notifications-feedback-login.js?v=3.3" defer></script>
-<script src="assets/js/app-parts/06-admin-pbx.js?v=3.4" defer></script>
+<script src="assets/js/app-parts/06-admin-pbx.js?v=3.5" defer></script>
 <script src="assets/js/app-parts/06-onlinepbx.js?v=4.0" defer></script>
 <script src="assets/js/app-parts/06-samarkand-pbx.js?v=1.1" defer></script>
 <script src="assets/js/app-parts/07-export-employee-state-actions.js?v=3.5" defer></script>
