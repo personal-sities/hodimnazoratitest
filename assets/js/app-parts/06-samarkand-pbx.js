@@ -240,7 +240,7 @@ async function fetchAndRenderSamarkandPbxStats(isBackground = false) {
     }
 
     if (!contentType.includes('application/json')) {
-      throw new Error("Serverdan JSON kutilgan edi, ammo HTML sahifasi qaytdi. Server (PM2) qayta ishga tushirilishi kerak (sudo fuser -k 3000/tcp && pm2 restart aloqapro).");
+      throw new Error("Serverdan JSON kutilgan edi, ammo HTML sahifasi qaytdi. Nginx konfiguratsiyasida port (3001) to'g'ri sozlanganini va server (PM2) qayta ishga tushirilganini tekshiring.");
     }
 
     const data = await res.json();

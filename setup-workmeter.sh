@@ -40,9 +40,9 @@ server {
     add_header X-XSS-Protection "1; mode=block" always;
     add_header Referrer-Policy "strict-origin-when-cross-origin" always;
 
-    # Node.js ilovasiga yo'naltirish
+    # Node.js ilovasiga yo'naltirish (PORT 3001)
     location / {
-        proxy_pass http://127.0.0.1:3000;
+        proxy_pass http://127.0.0.1:3001;
         proxy_http_version 1.1;
 
         proxy_set_header Upgrade $http_upgrade;
