@@ -102,7 +102,8 @@ function loadSamarkandPbxOperatorFilterOptions() {
   const currentVal = sel.value || 'all';
 
   try {
-    const ops = samarkandPbxStatsCache?.operators || [];
+    const isExcluded = (n) => !n || n === '10' || n === '5000' || n === '5100' || n === '5101' || /^5\d{3}$/.test(n) || String(n).length <= 2;
+    const ops = (samarkandPbxStatsCache?.operators || []).filter(op => !isExcluded(op.operator_number));
     sel.innerHTML = `<option value="all">${t('pbx_filter_all_ops') || 'Barcha operatorlar'}</option>`;
 
     if (!ops.length) {
@@ -262,7 +263,8 @@ function renderSamarkandPbxOperatorsTable(operators) {
   if (!tbody) return;
   tbody.innerHTML = '';
 
-  let list = operators || [];
+  const isExcluded = (n) => !n || n === '10' || n === '5000' || n === '5100' || n === '5101' || /^5\d{3}$/.test(n) || String(n).length <= 2;
+  let list = (operators || []).filter(op => !isExcluded(op.operator_number));
   if (samarkandPbxFilterOperator && samarkandPbxFilterOperator !== 'all') {
     list = list.filter(op => String(op.operator_number || '').trim() === String(samarkandPbxFilterOperator).trim());
   }
