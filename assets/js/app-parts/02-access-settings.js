@@ -457,9 +457,10 @@ async function generateNewApiTokenPrompt() {
       toast('success', 'Muvaffaqiyatli', "Yangi API Token yaratildi!");
       loadApiTokenSettingsUI();
     } else {
-      toast('error', 'Xatolik', res?.error || "Tokenni yaratishda xatolik yuz berdi");
+      toast('error', 'Xatolik', res?.error || "Server javobida token topilmadi. Server yangilanganini tekshiring.");
     }
   } catch (err) {
+    console.error('generateNewApiTokenPrompt error:', err);
     toast('error', 'Xatolik', err.message || "Server bilan aloqa uzildi");
   }
 }
