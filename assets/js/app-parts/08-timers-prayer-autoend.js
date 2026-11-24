@@ -20,6 +20,12 @@ function startWT(){
       return;
     }
 
+    // 2. 18:30 ga yetganda darhol avtomatik yakunlash (brauzer yopilmay ketsa ham o'zi to'xtaydi)
+    if (getTzTotalMinutes() >= ((AUTO_END_HOUR * 60) + AUTO_END_MIN)) {
+      if (typeof empEnd === 'function') empEnd(true);
+      return;
+    }
+
     let tot=wAccum;
     if(wStart){
       const elapsed = Math.floor((tzNow()-wStart)/1000);
@@ -40,10 +46,25 @@ function startWT(){
 function stopWT(){if(wIv){clearInterval(wIv);wIv=null;}}
 function startLT(){
   stopLT();
-  lIv=setInterval(()=>{let tot=lAccum;if(lStart)tot+=Math.floor((tzNow()-lStart)/1000);setTV(tot,'tl');updateBreakBar();},1000);
+  lIv=setInterval(()=>{
+    if (getTzTotalMinutes() >= ((AUTO_END_HOUR * 60) + AUTO_END_MIN)) {
+      if (typeof empEnd === 'function') empEnd(true);
+      return;
+    }
+    let tot=lAccum;if(lStart)tot+=Math.floor((tzNow()-lStart)/1000);setTV(tot,'tl');updateBreakBar();
+  },1000);
 }
 function stopLT(){if(lIv){clearInterval(lIv);lIv=null;}}
-function startPT(){stopPT();pIv=setInterval(()=>{let tot=prayerAccum;if(prayerStart)tot+=Math.floor((tzNow()-prayerStart)/1000);setTV(tot,'tp');saveLS();},1000);}
+function startPT(){
+  stopPT();
+  pIv=setInterval(()=>{
+    if (getTzTotalMinutes() >= ((AUTO_END_HOUR * 60) + AUTO_END_MIN)) {
+      if (typeof empEnd === 'function') empEnd(true);
+      return;
+    }
+    let tot=prayerAccum;if(prayerStart)tot+=Math.floor((tzNow()-prayerStart)/1000);setTV(tot,'tp');saveLS();
+  },1000);
+}
 function stopPT(){if(pIv){clearInterval(pIv);pIv=null;}}
 function setTV(sec,id){const e=document.getElementById(id);if(e)e.textContent=fmtSec(sec);}
 function stopAll(){stopWT();stopLT();stopPT();}

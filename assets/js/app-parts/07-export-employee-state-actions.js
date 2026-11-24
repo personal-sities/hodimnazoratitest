@@ -428,7 +428,7 @@ async function empStart(){
   const el=document.getElementById('e_ltag');if(el)el.textContent=t('lt_pre')+' '+lm+' '+t('lt_u');
   const ss=getLS()||{};ss.lateMin=lm;ss.employee_id=CU.id;localStorage.setItem(getLSKey(),JSON.stringify(ss));
   await loadFaceControlSettings();
-  updateEmpBtns();updateEmpStatusTag();startWT();saveLS();maybeStartFaceDetection();
+  updateEmpBtns();updateEmpStatusTag();startWT();saveLS();maybeStartFaceDetection();startAutoEndCheck();
   await savePartial();
   toast('success',t('bs'),t('work_started_success'));
 }
@@ -480,7 +480,7 @@ async function empContinue(){
   empState='working';
   wStart=tzNow();
   document.getElementById('bc').classList.add('hidden');
-  updateEmpBtns();updateEmpStatusTag();startWT();saveLS();maybeStartFaceDetection();
+  updateEmpBtns();updateEmpStatusTag();startWT();saveLS();maybeStartFaceDetection();startAutoEndCheck();
   await savePartial();
 }
 function pauseWorkForPlatformExit({saveRemote=false}={}){
