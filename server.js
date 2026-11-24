@@ -4629,6 +4629,15 @@ async function runServerScheduledChecks() {
 
       if (pool) {
         try {
+          // 1. Kechagi va undan oldingi kunlardan qolib ketgan ochiq sessiyalarni to'g'irlash
+          await pool.query(`
+            UPDATE public.attendance
+            SET end_time = '18:30:00',
+                auto_ended = true,
+                updated_at = now()
+            WHERE work_date < $1 AND start_time IS NOT NULL AND end_time IS NULL
+          `, [dStr]);
+
           const res = await pool.query(`
             SELECT id, employee_id, start_time, work_seconds, lunch_seconds, late_minutes
             FROM public.attendance
@@ -5278,14 +5287,14 @@ async function handleGetAttendance(req, res, reqUrl) {
             e.name AS employee_name,
             e.login AS employee_login,
             e.operator_number,
-            COALESCE(a.work_date, $1::date) AS work_date,
+            COALESCE(a.work_date::text, $1::text) AS work_date,
             a.start_time,
             a.end_time,
             a.lunch_start,
             a.lunch_end,
             COALESCE(a.late_minutes, 0)::int AS late_minutes,
-            COALESCE(a.work_seconds, 0)::int AS worked_seconds,
-            COALESCE(a.work_seconds, 0)::int AS work_seconds,
+            LEAST(COALESCE(a.work_seconds, 0)::int, 57600) AS worked_seconds,
+            LEAST(COALESCE(a.work_seconds, 0)::int, 57600) AS work_seconds,
             COALESCE(a.afk_seconds, 0)::int AS afk_seconds,
             COALESCE(a.afk_count, 0)::int AS afk_count,
             CASE 
@@ -5305,10 +5314,12 @@ async function handleGetAttendance(req, res, reqUrl) {
 
       let query = `
         SELECT a.*,
+          a.work_date::text AS work_date,
           e.name AS employee_name,
           e.login AS employee_login,
           e.operator_number,
-          COALESCE(a.work_seconds, 0)::int AS worked_seconds
+          LEAST(COALESCE(a.work_seconds, 0)::int, 57600) AS worked_seconds,
+          LEAST(COALESCE(a.work_seconds, 0)::int, 57600) AS work_seconds
         FROM public.attendance a
         LEFT JOIN public.employees e ON a.employee_id = e.id
         WHERE 1=1

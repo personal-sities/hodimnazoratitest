@@ -3,7 +3,37 @@
 function startWT(){
   stopWT();let cnt=0;
   wIv=setInterval(()=>{
-    let tot=wAccum;if(wStart)tot+=Math.floor((tzNow()-wStart)/1000);setTV(tot,'tw');
+    // 1. Yangi kun tekshiruvi (Midnight rollover): agar brauzer tuni bilan ochiq qolgan bo'lsa
+    const curDate = todayISO();
+    const ss = getLS() || {};
+    if (ss.date && ss.date !== curDate) {
+      stopAll();
+      empState = 'not_started';
+      wStart = null; wAccum = 0;
+      lStart = null; lAccum = 0;
+      prayerStart = null; prayerAccum = 0;
+      setTV(0, 'tw'); setTV(0, 'tl'); setTV(0, 'tp');
+      st('i_s', '-'); st('i_e', '-'); st('i_ls', '-'); st('i_le', '-');
+      updateEmpBtns();
+      updateEmpStatusTag();
+      saveLS();
+      return;
+    }
+
+    let tot=wAccum;
+    if(wStart){
+      const elapsed = Math.floor((tzNow()-wStart)/1000);
+      if (elapsed > 16 * 3600 || tot + elapsed > 16 * 3600) {
+        stopAll();
+        empState = 'ended';
+        wStart = null;
+        updateEmpBtns();
+        updateEmpStatusTag();
+        return;
+      }
+      tot += elapsed;
+    }
+    setTV(tot,'tw');
     cnt++;if(cnt%30===0){saveLS();savePartial();}
   },1000);
 }
@@ -228,11 +258,17 @@ function startPrayerClock() {
 // ============================================================
 function startAutoEndCheck(){
   if(autoEndIv)clearInterval(autoEndIv);
-  autoEndIv=setInterval(()=>{
-    if(autoEndDone)return;
-    if(!['working','lunch','paused','prayer'].includes(empState))return;
-    if(getTzTotalMinutes()>=((AUTO_END_HOUR*60)+AUTO_END_MIN))empEnd(true);
-  },15000);
-  if(!autoEndDone&&['working','lunch','paused','prayer'].includes(empState)&&getTzTotalMinutes()>=((AUTO_END_HOUR*60)+AUTO_END_MIN))empEnd(true);
+  const check = () => {
+    if(autoEndDone) return;
+    if(!['working','lunch','paused','prayer'].includes(empState)) return;
+    const curMin = getTzTotalMinutes();
+    const autoMin = (AUTO_END_HOUR*60)+AUTO_END_MIN;
+    const isOverLimit = wStart && Math.floor((tzNow() - wStart)/1000) > (14 * 3600);
+    if(curMin >= autoMin || isOverLimit) {
+      empEnd(true);
+    }
+  };
+  autoEndIv = setInterval(check, 15000);
+  check();
 }
 

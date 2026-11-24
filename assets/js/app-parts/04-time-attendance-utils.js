@@ -30,6 +30,16 @@ function getTzTotalMinutes(date=new Date()){
 }
 function tzNow(){return new Date();}
 function fmtD(d){const p=getTzParts(d);return String(p.day).padStart(2,'0')+'.'+String(p.month).padStart(2,'0')+'.'+p.year;}
+function formatWorkDateDisplay(val){
+  if(!val) return '—';
+  const str = String(val).trim();
+  const datePart = str.split('T')[0];
+  const parts = datePart.split('-');
+  if(parts.length === 3){
+    return parts[2] + '.' + parts[1] + '.' + parts[0];
+  }
+  return str;
+}
 function todayISO(){const p=getTzParts();return p.year+'-'+String(p.month).padStart(2,'0')+'-'+String(p.day).padStart(2,'0');}
 function curM(){const p=getTzParts();return p.year+'-'+String(p.month).padStart(2,'0');}
 function fmtHM(d){const p=getTzParts(d);return String(p.hour).padStart(2,'0')+':'+String(p.minute).padStart(2,'0');}

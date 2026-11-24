@@ -100,7 +100,7 @@ async function restoreLS(){
   const ss = getLS();
   try { localStorage.removeItem('aloqa_emp_state'); } catch(_) {}
 
-  if(!ss || ss.date !== todayISO() || (CU && CU.id && ss.employee_id && ss.employee_id !== CU.id)){
+  if(!ss || ss.date !== todayISO() || (CU && CU.id && ss.employee_id && ss.employee_id !== CU.id) || (ss.wAccum && ss.wAccum > 16 * 3600)){
     try { localStorage.removeItem(key); } catch(_) {}
     empState = 'not_started';
     wStart = null; wAccum = 0;
@@ -238,7 +238,7 @@ async function initEmp(){
   loadHist();
   updateDates();
   document.getElementById('m_welcome').classList.remove('hidden');
-  const mt=document.getElementById('e_mtag');if(mt)mt.textContent=curM();
+  const mt=document.getElementById('e_mtag');if(mt)mt.textContent=fmtD(tzNow());
 
   // Serverdagi bugungi davomat holatini tekshirish (agar ish yakunlangan bo'lsa, qayta boshlashni qat'iy bloklash)
   try {
@@ -267,10 +267,35 @@ async function initEmp(){
           saveLS();
         } else if (rec.start_time) {
           // Xodim bugun ishni avvalroq boshlagan bo'lsa
-          if (empState === 'not_started') {
+          const sec = Number(rec.work_seconds || rec.worked_seconds || 0);
+          if (sec > 16 * 3600) {
+            // 16 soatdan oshib ketgan (kechadan qolib ketgan xato taimer): tozalaymiz
+            empState = 'not_started';
+            wStart = null;
+            wAccum = 0;
+            lAccum = 0;
+            setTV(0, 'tw');
+            setTV(0, 'tl');
+            st('i_s', '-');
+            st('i_e', '-');
+            updateEmpBtns();
+            updateEmpStatusTag();
+            saveLS();
+            serverApi('/api/attendance', {
+              method: 'POST',
+              body: JSON.stringify({
+                employee_id: CU.id,
+                work_date: today,
+                start_time: null,
+                end_time: null,
+                work_seconds: 0,
+                status: 'kelmadi'
+              })
+            }).catch(() => {});
+          } else if (empState === 'not_started') {
             wStart = tzNow();
             empState = 'working';
-            wAccum = rec.work_seconds || rec.worked_seconds || 0;
+            wAccum = sec;
             lAccum = rec.lunch_seconds || 0;
             setTV(wAccum, 'tw');
             setTV(lAccum, 'tl');
@@ -278,8 +303,8 @@ async function initEmp(){
             updateEmpStatusTag();
             saveLS();
           } else {
-            if (rec.work_seconds && rec.work_seconds > wAccum) {
-              wAccum = rec.work_seconds;
+            if (sec > wAccum) {
+              wAccum = sec;
               setTV(wAccum, 'tw');
             }
           }
@@ -560,9 +585,11 @@ async function savePartial(){
   // Ish boshlanmagan bo'lsa hech qachon bazaga kirmasin!
   if(!startHM && !wStart && wAccum <= 0) return;
   const today = todayISO();
+  if (ss.date && ss.date !== today) return;
   const lm = ss.lateMin || 0;
   let cw = wAccum;
   if(empState === 'working' && wStart) cw += Math.floor((tzNow() - wStart) / 1000);
+  if (cw > 16 * 3600) cw = 16 * 3600;
   let cl = lAccum;
   if(empState === 'lunch' && lStart) cl += Math.floor((tzNow() - lStart) / 1000);
   let afkNow = afkSeconds;
