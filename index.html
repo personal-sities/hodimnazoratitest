@@ -753,6 +753,62 @@ html.user-logged-in #loginPage {
               </table>
             </div>
           </div>
+
+          <div class="box" id="box_api_integration" style="margin-top:18px;">
+            <div class="btitle" id="set_box_api">
+              <span class="title-ico" data-lucide="key" style="width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;"></span>
+              <span id="api_token_title">API Integratsiya (API Token)</span>
+            </div>
+            <p style="font-size:12.5px;color:var(--text2);margin:0 0 14px 0;line-height:1.5;">
+              Ushbu tizimdagi ma'lumotlarni (xodimlar, davomat, qo'ng'iroqlar, statistika) boshqa platforma yoki dasturlarga (masalan, tashqi dashboard, CRM yoki 1C) integratsiya qilish uchun quyidagi maxfiy API tokendan foydalaning.
+            </p>
+            <div style="background:var(--bg3);border:1.5px solid var(--border2);border-radius:var(--radius-sm);padding:14px 16px;margin-bottom:16px;">
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px;flex-wrap:wrap;">
+                <label style="font-size:12px;font-weight:700;color:var(--text);display:flex;align-items:center;gap:6px;">
+                  <span data-lucide="shield-check" style="width:15px;height:15px;color:var(--accent);"></span>
+                  Sizning maxfiy API Tokeningiz:
+                </label>
+                <span id="api_token_badge" style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:12px;background:rgba(16,185,129,0.15);color:#10b981;border:1px solid rgba(16,185,129,0.35);">Faol</span>
+              </div>
+              <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                <div style="position:relative;flex:1;min-width:260px;">
+                  <input type="password" id="api_token_input" readonly style="width:100%;font-family:var(--mono);font-size:13px;padding:9px 40px 9px 12px;border:1.5px solid var(--border2);border-radius:var(--radius-sm);background:var(--input-bg);color:var(--accent);font-weight:600;box-sizing:border-box;">
+                  <button type="button" onclick="toggleApiTokenVisibility()" id="btn_toggle_api_token" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text3);padding:4px;display:inline-flex;align-items:center;" title="Ko'rsatish / Yashirish">
+                    <span data-lucide="eye" id="api_token_eye_icon" style="width:16px;height:16px;"></span>
+                  </button>
+                </div>
+                <button class="bb" onclick="copyApiToken()" id="btn_copy_api_token" title="Tokenni nusxalash">
+                  <span class="btn-icon" data-lucide="copy"></span>
+                  <span id="btn_copy_api_token_text">Nusxalash</span>
+                </button>
+                <button class="bg2" onclick="generateNewApiTokenPrompt()" id="btn_regen_api_token" title="Yangi token yaratish (eskisi bekor bo'ladi)">
+                  <span class="btn-icon" data-lucide="refresh-cw"></span>
+                  <span>Yangi token olish</span>
+                </button>
+              </div>
+              <div style="font-size:11px;color:var(--text3);margin-top:6px;" id="api_token_created_info">
+                Yaratilgan vaqti: yuklanmoqda...
+              </div>
+            </div>
+
+            <div style="background:var(--card-bg);border:1.5px solid var(--border2);border-radius:var(--radius-sm);padding:14px 16px;">
+              <div style="font-size:12.5px;font-weight:700;color:var(--text);margin-bottom:8px;display:flex;align-items:center;gap:6px;">
+                <span data-lucide="terminal" style="width:16px;height:16px;color:var(--accent);"></span>
+                Integratsiya uchun tayyor havolalar (API Endpoints):
+              </div>
+              <div style="font-size:12px;color:var(--text2);line-height:1.6;">
+                <ul style="margin:0 0 10px 0;padding-left:18px;">
+                  <li><code>GET /api/external/employees</code> — Barcha faol xodimlar ro'yxati</li>
+                  <li><code>GET /api/external/attendance?date=YYYY-MM-DD</code> — Xodimlar davomati va ish vaqti</li>
+                  <li><code>GET /api/external/calls?branch=samarkand|tashkent</code> — Qo'ng'iroqlar jurnali</li>
+                  <li><code>GET /api/external/stats?branch=samarkand|tashkent</code> — Umumiy statistika (qo'ng'iroqlar, foizlar)</li>
+                  <li><code>GET /rest/v1/employees</code> — To'g'ridan-to'g'ri JSON massiv (Boshqa dashboardlar uchun)</li>
+                </ul>
+                <div style="font-size:11.5px;color:var(--text3);margin-bottom:6px;">So'rov namunasi:</div>
+                <pre style="background:var(--bg);padding:10px 12px;border-radius:6px;font-family:var(--mono);font-size:11.5px;overflow-x:auto;margin:0;border:1px solid var(--border);" id="api_token_curl_example">curl -H "Authorization: Bearer &lt;TOKEN&gt;" https://workmeter.uz/api/external/employees</pre>
+              </div>
+            </div>
+          </div>
         </div>
 
 
@@ -1234,11 +1290,11 @@ html.user-logged-in #loginPage {
 
 <script src="assets/js/app-parts/00-lucide-icons.js?v=3.3"></script>
 <script src="assets/js/app-parts/01-core.js?v=3.3" defer></script>
-<script src="assets/js/app-parts/02-access-settings.js?v=3.3" defer></script>
+<script src="assets/js/app-parts/02-access-settings.js?v=3.5" defer></script>
 <script src="assets/js/app-parts/03-translations.js?v=3.3" defer></script>
 <script src="assets/js/app-parts/04-time-attendance-utils.js?v=3.3" defer></script>
 <script src="assets/js/app-parts/05-notifications-feedback-login.js?v=3.3" defer></script>
-<script src="assets/js/app-parts/06-admin-pbx.js?v=3.4" defer></script>
+<script src="assets/js/app-parts/06-admin-pbx.js?v=3.7" defer></script>
 <script src="assets/js/app-parts/06-onlinepbx.js?v=4.0" defer></script>
 <script src="assets/js/app-parts/06-samarkand-pbx.js?v=3.0" defer></script>
 <script src="assets/js/app-parts/07-export-employee-state-actions.js?v=3.5" defer></script>

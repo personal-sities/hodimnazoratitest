@@ -357,3 +357,110 @@ function showIPBlock(value,title,msg){
 }
 
 // ============================================================
+// API INTEGRATSIYA (API TOKEN)
+// ============================================================
+let cachedApiToken = '';
+
+async function loadApiTokenSettingsUI() {
+  const tokenInput = document.getElementById('api_token_input');
+  if (!tokenInput) return;
+  const createdEl = document.getElementById('api_token_created_info');
+  const badgeEl = document.getElementById('api_token_badge');
+  const curlEl = document.getElementById('api_token_curl_example');
+
+  try {
+    const res = await serverApi('/api/settings/api-token');
+    if (res && res.ok && res.token) {
+      cachedApiToken = res.token;
+      tokenInput.value = res.token;
+      if (badgeEl) {
+        badgeEl.textContent = 'Faol';
+        badgeEl.style.color = '#10b981';
+        badgeEl.style.background = 'rgba(16,185,129,0.15)';
+        badgeEl.style.borderColor = 'rgba(16,185,129,0.35)';
+      }
+      if (createdEl) {
+        const d = res.created_at ? new Date(res.created_at) : new Date();
+        const dateStr = d.toLocaleDateString('uz-UZ') + ' ' + d.toLocaleTimeString('uz-UZ', { hour: '2-digit', minute: '2-digit' });
+        createdEl.textContent = "Token holati: Faol | Oxirgi yangilangan: " + dateStr;
+      }
+      if (curlEl) {
+        const host = window.location.origin || 'https://workmeter.uz';
+        curlEl.textContent = `curl -H "Authorization: Bearer ${res.token}" ${host}/api/external/employees`;
+      }
+    } else {
+      tokenInput.value = '';
+      if (badgeEl) {
+        badgeEl.textContent = 'Mavjud emas';
+        badgeEl.style.color = '#ef4444';
+        badgeEl.style.background = 'rgba(239,68,68,0.15)';
+      }
+      if (createdEl) createdEl.textContent = "Hozircha API token yaratilmagan. 'Yangi token olish' tugmasini bosing.";
+    }
+  } catch (err) {
+    console.error('loadApiTokenSettingsUI error:', err);
+  }
+}
+
+function toggleApiTokenVisibility() {
+  const tokenInput = document.getElementById('api_token_input');
+  const eyeIcon = document.getElementById('api_token_eye_icon');
+  if (!tokenInput) return;
+  if (tokenInput.type === 'password') {
+    tokenInput.type = 'text';
+    if (eyeIcon) eyeIcon.setAttribute('data-lucide', 'eye-off');
+  } else {
+    tokenInput.type = 'password';
+    if (eyeIcon) eyeIcon.setAttribute('data-lucide', 'eye');
+  }
+  if (typeof hydrateLucideIcons === 'function') {
+    hydrateLucideIcons(document.getElementById('btn_toggle_api_token'));
+  }
+}
+
+async function copyApiToken() {
+  const tokenInput = document.getElementById('api_token_input');
+  const copyBtnText = document.getElementById('btn_copy_api_token_text');
+  const token = (tokenInput && tokenInput.value) || cachedApiToken;
+  if (!token) {
+    toast('warn', 'API Token', "Nusxalash uchun token mavjud emas!");
+    return;
+  }
+  try {
+    await navigator.clipboard.writeText(token);
+    toast('success', 'Nusxalandi', "API Token buferga nusxalandi!");
+    if (copyBtnText) {
+      const orig = copyBtnText.textContent;
+      copyBtnText.textContent = "Nusxalandi!";
+      setTimeout(() => { if (copyBtnText) copyBtnText.textContent = orig; }, 2000);
+    }
+  } catch (_) {
+    if (tokenInput) {
+      tokenInput.type = 'text';
+      tokenInput.select();
+      document.execCommand('copy');
+      toast('success', 'Nusxalandi', "API Token nusxalandi!");
+    }
+  }
+}
+
+async function generateNewApiTokenPrompt() {
+  const confirmMsg = "Haqiqatan ham yangi API Token olmoqchimisiz?\n\nESLATMA: Yangi token olsangiz, avvalgi token bilan ishlayotgan barcha tashqi tizimlar va integratsiyalarda tokenni yangilashingiz kerak bo'ladi!";
+  if (!confirm(confirmMsg)) return;
+
+  try {
+    const res = await serverApi('/api/settings/api-token', { method: 'POST' });
+    if (res && res.ok && res.token) {
+      cachedApiToken = res.token;
+      const tokenInput = document.getElementById('api_token_input');
+      if (tokenInput) tokenInput.value = res.token;
+      toast('success', 'Muvaffaqiyatli', "Yangi API Token yaratildi!");
+      loadApiTokenSettingsUI();
+    } else {
+      toast('error', 'Xatolik', res?.error || "Tokenni yaratishda xatolik yuz berdi");
+    }
+  } catch (err) {
+    toast('error', 'Xatolik', err.message || "Server bilan aloqa uzildi");
+  }
+}
+

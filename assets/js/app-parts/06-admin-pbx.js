@@ -23,7 +23,7 @@ function adminTab(tab){
   ['main','notif','feedback','settings','pbx','samarkand_pbx'].forEach(n=>{const el=document.getElementById('tab_'+n);if(el)el.classList.toggle('hidden',n!==tab);});
   ['nav_main','nav_feedback','nav_notif','nav_settings','nav_pbx','nav_samarkand_pbx'].forEach((id)=>{const el=document.getElementById(id);if(el)el.classList.toggle('active',id==='nav_'+tab);});
   st('admTitle',getAdminTabTitle(tab));
-  if(tab==='settings'){loadEmpList();updateIPList();loadGPSSettingsUI();loadFaceControlSettings();}
+  if(tab==='settings'){loadEmpList();updateIPList();loadGPSSettingsUI();loadFaceControlSettings();if(typeof loadApiTokenSettingsUI==='function')loadApiTokenSettingsUI();}
   if(tab==='feedback')loadFeedbackAdmin();
   if(tab==='notif'){loadNotificationsAdmin();loadNotifEmpSelect();}
   if(tab==='pbx'){if(typeof loadPbxDashboard==='function')loadPbxDashboard();}

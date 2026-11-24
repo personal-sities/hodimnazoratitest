@@ -2,6 +2,7 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const url = require('url');
+const crypto = require('crypto');
 
 // Server to'xtab qolmasligi uchun barcha kutilmagan xatolarni ushlab qolish (Crash-Proof)
 process.on('uncaughtException', (err) => {
@@ -631,6 +632,37 @@ const server = http.createServer(async (req, res) => {
     if (pathname === '/api/settings') {
       if (req.method === 'GET') return handleGetSettings(req, res, reqUrl);
       if (req.method === 'POST') return handleSaveSettings(req, res);
+    }
+
+    // API Token boshqaruvi (Sozlamalar uchun)
+    if (pathname === '/api/settings/api-token') {
+      if (req.method === 'GET') return handleGetApiToken(req, res);
+      if (req.method === 'POST') return handleGenerateApiToken(req, res);
+      if (req.method === 'DELETE') return handleRevokeApiToken(req, res);
+    }
+
+    // Tashqi tizimlar uchun ommaviy API (/api/external/*)
+    if (pathname.startsWith('/api/external/')) {
+      const isAuthorized = await verifyApiTokenRequest(req, reqUrl);
+      if (!isAuthorized) {
+        return sendJson(res, 401, {
+          ok: false,
+          error: "Avtorizatsiyadan o'tilmadi. 'Authorization: Bearer <TOKEN>', 'apikey: <TOKEN>' yoki '?token=<TOKEN>' parametrini yuboring."
+        });
+      }
+      return handleExternalApi(req, res, pathname, reqUrl);
+    }
+
+    // Tashqi tizimlar uchun PostgREST / Supabase mos REST API (/rest/v1/*)
+    if (pathname.startsWith('/rest/v1/')) {
+      const isAuthorized = await verifyApiTokenRequest(req, reqUrl);
+      if (!isAuthorized) {
+        return sendJson(res, 401, {
+          error: "Avtorizatsiyadan o'tilmadi. 'Authorization: Bearer <TOKEN>' yoki 'apikey: <TOKEN>' yuboring."
+        });
+      }
+      const table = pathname.replace('/rest/v1/', '').split('/')[0].split('?')[0].trim();
+      return handleRestV1Api(req, res, table, reqUrl);
     }
 
     // 6. Notifications API (Bildirishnomalar)
@@ -6139,6 +6171,465 @@ async function handleDeleteEmployeeLeave(req, res, leaveId) {
   writeJsonData('employee_leaves.json', list);
 
   return sendJson(res, 200, { ok: true });
+}
+
+// ============================================================
+//  TASHQI DASTURLAR UCHUN API TOKEN VA INTEGRATSIYA ENDPOINTLARI
+// ============================================================
+
+async function getActiveApiToken() {
+  const pool = getDbPool();
+  if (pool) {
+    try {
+      const r = await pool.query("SELECT value FROM public.settings WHERE key = 'api_token' LIMIT 1");
+      if (r.rows[0]?.value) return String(r.rows[0].value).trim();
+    } catch (_) {}
+  }
+  const settings = readJsonData('settings.json', []);
+  const item = settings.find(s => s.key === 'api_token');
+  if (item?.value) return String(item.value).trim();
+  return (process.env.API_TOKEN || '').trim();
+}
+
+async function verifyApiTokenRequest(req, reqUrl) {
+  const authHeader = req.headers['authorization'] || '';
+  const xToken = req.headers['x-api-token'] || req.headers['x-api-key'] || req.headers['apikey'] || '';
+  const qToken = reqUrl?.searchParams?.get('api_token') || reqUrl?.searchParams?.get('token') || '';
+
+  let givenToken = '';
+  if (authHeader.startsWith('Bearer ')) {
+    givenToken = authHeader.slice(7).trim();
+  } else if (authHeader) {
+    givenToken = authHeader.trim();
+  } else if (xToken) {
+    givenToken = String(xToken).trim();
+  } else if (qToken) {
+    givenToken = String(qToken).trim();
+  }
+
+  if (!givenToken) return false;
+  const activeToken = await getActiveApiToken();
+  if (!activeToken) return false;
+  return givenToken === activeToken;
+}
+
+function generateSecureApiToken() {
+  const rand = crypto.randomBytes(24).toString('hex');
+  return `aloqa_live_${rand}`;
+}
+
+async function saveActiveApiToken(token) {
+  const pool = getDbPool();
+  if (pool) {
+    try {
+      await pool.query(
+        "INSERT INTO public.settings (key, value, updated_at) VALUES ('api_token', $1, now()) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()",
+        [token]
+      );
+    } catch (_) {}
+  }
+  const list = readJsonData('settings.json', []);
+  const idx = list.findIndex(s => s.key === 'api_token');
+  if (idx >= 0) list[idx] = { key: 'api_token', value: token, updated_at: new Date().toISOString() };
+  else list.push({ key: 'api_token', value: token, created_at: new Date().toISOString() });
+  writeJsonData('settings.json', list);
+}
+
+async function handleGetApiToken(req, res) {
+  try {
+    let token = await getActiveApiToken();
+    let createdAt = null;
+    const pool = getDbPool();
+    if (pool) {
+      try {
+        const r = await pool.query("SELECT value, updated_at, created_at FROM public.settings WHERE key = 'api_token' LIMIT 1");
+        if (r.rows[0]) {
+          token = r.rows[0].value;
+          createdAt = r.rows[0].updated_at || r.rows[0].created_at;
+        }
+      } catch (_) {}
+    }
+    if (!token) {
+      token = generateSecureApiToken();
+      createdAt = new Date().toISOString();
+      await saveActiveApiToken(token);
+    }
+    return sendJson(res, 200, { ok: true, token, created_at: createdAt });
+  } catch (err) {
+    return sendJson(res, 500, { ok: false, error: err.message });
+  }
+}
+
+async function handleGenerateApiToken(req, res) {
+  try {
+    const newToken = generateSecureApiToken();
+    await saveActiveApiToken(newToken);
+    return sendJson(res, 200, { ok: true, token: newToken, created_at: new Date().toISOString() });
+  } catch (err) {
+    return sendJson(res, 500, { ok: false, error: err.message });
+  }
+}
+
+async function handleRevokeApiToken(req, res) {
+  try {
+    const pool = getDbPool();
+    if (pool) {
+      try {
+        await pool.query("DELETE FROM public.settings WHERE key = 'api_token'");
+      } catch (_) {}
+    }
+    const list = readJsonData('settings.json', []).filter(s => s.key !== 'api_token');
+    writeJsonData('settings.json', list);
+    return sendJson(res, 200, { ok: true, message: 'API Token bekor qilindi' });
+  } catch (err) {
+    return sendJson(res, 500, { ok: false, error: err.message });
+  }
+}
+
+async function handleExternalApi(req, res, pathname, reqUrl) {
+  const sub = pathname.replace('/api/external/', '').split('?')[0].trim();
+
+  if (sub === 'ping' || sub === 'me' || sub === 'check') {
+    return sendJson(res, 200, {
+      ok: true,
+      message: "AloqaPro API integratsiyasi faol va token to'g'ri tasdiqlandi",
+      server_time: new Date().toISOString(),
+      version: '2.0.0',
+      domain: process.env.APP_DOMAIN || 'workmeter.uz'
+    });
+  }
+
+  if (sub === 'employees') {
+    return handleExternalGetEmployees(req, res, reqUrl);
+  }
+
+  if (sub === 'attendance') {
+    return handleExternalGetAttendance(req, res, reqUrl);
+  }
+
+  if (sub === 'calls') {
+    return handleExternalGetCalls(req, res, reqUrl);
+  }
+
+  if (sub === 'stats') {
+    return handleExternalGetStats(req, res, reqUrl);
+  }
+
+  return sendJson(res, 404, { ok: false, error: `External API marshruti topilmadi: ${sub}` });
+}
+
+async function handleExternalGetEmployees(req, res, reqUrl) {
+  try {
+    const branch = String(reqUrl.searchParams.get('branch') || 'all').toLowerCase();
+    const activeParam = reqUrl.searchParams.get('active');
+
+    let employees = [];
+    const pool = getDbPool();
+    if (pool) {
+      try {
+        let q = `
+          SELECT id, name, login, kpi_type, operator_number, pbx_extension, pbx_branch, active, face_registered, created_at, updated_at
+          FROM public.employees
+          WHERE 1=1
+        `;
+        const params = [];
+        if (activeParam !== 'all') {
+          const isActive = (activeParam !== 'false');
+          params.push(isActive);
+          q += ` AND active = $${params.length}`;
+        }
+        if (branch && branch !== 'all') {
+          params.push(branch);
+          q += ` AND LOWER(COALESCE(pbx_branch, 'tashkent')) = $${params.length}`;
+        }
+        q += ' ORDER BY name ASC';
+        const r = await pool.query(q, params);
+        employees = r.rows || [];
+      } catch (dbErr) {
+        console.warn('[handleExternalGetEmployees DB]:', dbErr.message);
+      }
+    }
+
+    if (!employees.length) {
+      let list = readJsonData('employees.json', []);
+      if (activeParam !== 'all') {
+        const isActive = (activeParam !== 'false');
+        list = list.filter(e => (e.active !== false) === isActive);
+      }
+      if (branch && branch !== 'all') {
+        list = list.filter(e => String(e.pbx_branch || 'tashkent').toLowerCase() === branch);
+      }
+      employees = list.map(e => {
+        const copy = { ...e };
+        delete copy.password;
+        return copy;
+      });
+    }
+
+    return sendJson(res, 200, {
+      ok: true,
+      count: employees.length,
+      data: employees
+    });
+  } catch (err) {
+    return sendJson(res, 500, { ok: false, error: err.message });
+  }
+}
+
+async function handleExternalGetAttendance(req, res, reqUrl) {
+  try {
+    const today = todayISO();
+    const dateParam = reqUrl.searchParams.get('date');
+    const from = dateParam || reqUrl.searchParams.get('from') || today;
+    const to = dateParam || reqUrl.searchParams.get('to') || today;
+    const employeeId = reqUrl.searchParams.get('employee_id');
+
+    let attendance = [];
+    const pool = getDbPool();
+    if (pool) {
+      try {
+        let q = `
+          SELECT
+            a.id, a.employee_id, COALESCE(e.name, '—') AS employee_name,
+            e.operator_number, e.pbx_branch,
+            a.work_date::text AS work_date, a.start_time, a.end_time,
+            a.lunch_start, a.lunch_end,
+            LEAST(COALESCE(a.work_seconds, 0)::int, 57600) AS work_seconds,
+            a.afk_seconds, a.status, a.late_minutes, a.auto_ended,
+            a.created_at, a.updated_at
+          FROM public.attendance a
+          LEFT JOIN public.employees e ON a.employee_id = e.id
+          WHERE a.work_date >= $1 AND a.work_date <= $2
+        `;
+        const params = [from, to];
+        if (employeeId) {
+          params.push(employeeId);
+          q += ` AND a.employee_id = $${params.length}`;
+        }
+        q += ' ORDER BY a.work_date DESC, a.start_time ASC';
+        const r = await pool.query(q, params);
+        attendance = r.rows || [];
+      } catch (dbErr) {
+        console.warn('[handleExternalGetAttendance DB]:', dbErr.message);
+      }
+    }
+
+    if (!attendance.length) {
+      const emps = readJsonData('employees.json', []);
+      const empMap = new Map(emps.map(e => [e.id, e]));
+      let list = readJsonData('attendance.json', []);
+      list = list.filter(a => {
+        const d = String(a.work_date || '').substring(0, 10);
+        return d >= from && d <= to && (!employeeId || a.employee_id === employeeId);
+      });
+      attendance = list.map(a => {
+        const emp = empMap.get(a.employee_id);
+        return {
+          ...a,
+          employee_name: emp?.name || '—',
+          operator_number: emp?.operator_number || null,
+          pbx_branch: emp?.pbx_branch || 'tashkent'
+        };
+      });
+    }
+
+    return sendJson(res, 200, {
+      ok: true,
+      from,
+      to,
+      count: attendance.length,
+      data: attendance
+    });
+  } catch (err) {
+    return sendJson(res, 500, { ok: false, error: err.message });
+  }
+}
+
+async function handleExternalGetCalls(req, res, reqUrl) {
+  try {
+    const branch = String(reqUrl.searchParams.get('branch') || 'all').toLowerCase();
+    const today = todayISO();
+    const from = reqUrl.searchParams.get('from') || reqUrl.searchParams.get('date') || today;
+    const to = reqUrl.searchParams.get('to') || reqUrl.searchParams.get('date') || today;
+    const operator = reqUrl.searchParams.get('operator') || 'all';
+    const status = reqUrl.searchParams.get('status') || 'all';
+    const limit = Math.min(500, Math.max(1, Number(reqUrl.searchParams.get('limit') || 100)));
+
+    let calls = [];
+    const pool = getDbPool();
+
+    if (branch === 'samarkand') {
+      if (pool) {
+        let q = `
+          SELECT id, started_at, caller, callee, gateway, operator_number, duration, talk_time, status, call_date, recording_url
+          FROM public.samarkand_calls
+          WHERE call_date >= $1 AND call_date <= $2
+        `;
+        const params = [from, to];
+        if (operator !== 'all') {
+          params.push(operator);
+          q += ` AND operator_number = $${params.length}`;
+        }
+        if (status !== 'all') {
+          params.push(status);
+          q += ` AND status = $${params.length}`;
+        }
+        q += ' ORDER BY started_at DESC LIMIT ' + limit;
+        const r = await pool.query(q, params).catch(() => ({ rows: [] }));
+        calls = r.rows || [];
+      } else {
+        calls = readLocalSamarkandCalls().slice(0, limit);
+      }
+    } else {
+      if (pool) {
+        let q = `
+          SELECT id, started_at, caller, callee, gateway, operator_number, duration, talk_time, status, call_date, recording_url
+          FROM public.calls
+          WHERE call_date >= $1 AND call_date <= $2
+        `;
+        const params = [from, to];
+        if (operator !== 'all') {
+          params.push(operator);
+          q += ` AND operator_number = $${params.length}`;
+        }
+        if (status !== 'all') {
+          params.push(status);
+          q += ` AND status = $${params.length}`;
+        }
+        q += ' ORDER BY started_at DESC LIMIT ' + limit;
+        const r = await pool.query(q, params).catch(() => ({ rows: [] }));
+        calls = r.rows || [];
+      } else {
+        calls = readJsonData('calls.json', []).slice(0, limit);
+      }
+    }
+
+    return sendJson(res, 200, {
+      ok: true,
+      branch,
+      from,
+      to,
+      count: calls.length,
+      data: calls
+    });
+  } catch (err) {
+    return sendJson(res, 500, { ok: false, error: err.message });
+  }
+}
+
+async function handleExternalGetStats(req, res, reqUrl) {
+  try {
+    const branch = String(reqUrl.searchParams.get('branch') || 'tashkent').toLowerCase();
+    const today = todayISO();
+    const from = reqUrl.searchParams.get('from') || reqUrl.searchParams.get('date') || today;
+    const to = reqUrl.searchParams.get('to') || reqUrl.searchParams.get('date') || today;
+
+    if (branch === 'samarkand') {
+      const stats = await getSamarkandCallsStats(from, to);
+      return sendJson(res, 200, { ok: true, branch: 'samarkand', stats });
+    } else {
+      const stats = await getCallsStats(from, to);
+      return sendJson(res, 200, { ok: true, branch: 'tashkent', stats });
+    }
+  } catch (err) {
+    return sendJson(res, 500, { ok: false, error: err.message });
+  }
+}
+
+async function handleRestV1Api(req, res, table, reqUrl) {
+  const allowedTables = [
+    'admins', 'employees', 'attendance', 'kpi_bonuses', 'settings',
+    'notifications', 'feedback', 'lunch_plans', 'employee_leaves', 'face_profiles', 'calls', 'samarkand_calls'
+  ];
+  if (!allowedTables.includes(table)) {
+    return sendJson(res, 404, { error: `Noma'lum jadval: ${table}` });
+  }
+
+  const pool = getDbPool();
+  if (!pool) {
+    return sendJson(res, 200, []);
+  }
+
+  try {
+    const selectParam = reqUrl.searchParams.get('select') || '*';
+    const orderParam = reqUrl.searchParams.get('order');
+    const limitParam = reqUrl.searchParams.get('limit');
+    const offsetParam = reqUrl.searchParams.get('offset');
+
+    const whereClauses = [];
+    const params = [];
+
+    for (const [key, val] of reqUrl.searchParams.entries()) {
+      if (['select', 'order', 'limit', 'offset', 'on_conflict', 'token', 'api_token', 'apikey'].includes(key)) continue;
+      if (val.startsWith('eq.')) {
+        params.push(val.slice(3));
+        whereClauses.push(`t."${key}" = $${params.length}`);
+      } else if (val.startsWith('neq.')) {
+        params.push(val.slice(4));
+        whereClauses.push(`t."${key}" != $${params.length}`);
+      } else if (val.startsWith('gte.')) {
+        params.push(val.slice(4));
+        whereClauses.push(`t."${key}" >= $${params.length}`);
+      } else if (val.startsWith('lte.')) {
+        params.push(val.slice(4));
+        whereClauses.push(`t."${key}" <= $${params.length}`);
+      } else if (val.startsWith('gt.')) {
+        params.push(val.slice(3));
+        whereClauses.push(`t."${key}" > $${params.length}`);
+      } else if (val.startsWith('lt.')) {
+        params.push(val.slice(3));
+        whereClauses.push(`t."${key}" < $${params.length}`);
+      } else if (val.startsWith('like.')) {
+        params.push(val.slice(5));
+        whereClauses.push(`t."${key}" LIKE $${params.length}`);
+      } else if (val.startsWith('ilike.')) {
+        params.push(val.slice(6));
+        whereClauses.push(`t."${key}" ILIKE $${params.length}`);
+      } else if (val === 'is.null') {
+        whereClauses.push(`t."${key}" IS NULL`);
+      } else if (val === 'not.is.null') {
+        whereClauses.push(`t."${key}" IS NOT NULL`);
+      }
+    }
+
+    let selectClause = 't.*';
+    if (selectParam !== '*') {
+      const cols = selectParam.split(',').map(c => c.trim()).filter(Boolean);
+      selectClause = cols.map(c => c.includes('(') ? c : `t."${c}"`).join(', ');
+    }
+
+    let query = `SELECT ${selectClause} FROM public."${table}" t`;
+    if (whereClauses.length > 0) {
+      query += ` WHERE ${whereClauses.join(' AND ')}`;
+    }
+    if (orderParam) {
+      const [oCol, oDir] = orderParam.split('.');
+      const dir = (oDir && oDir.toLowerCase() === 'desc') ? 'DESC' : 'ASC';
+      query += ` ORDER BY t."${oCol}" ${dir}`;
+    }
+    if (limitParam && !isNaN(Number(limitParam))) {
+      params.push(Number(limitParam));
+      query += ` LIMIT $${params.length}`;
+    }
+    if (offsetParam && !isNaN(Number(offsetParam))) {
+      params.push(Number(offsetParam));
+      query += ` OFFSET $${params.length}`;
+    }
+
+    const dbRes = await pool.query(query, params);
+    const rows = (dbRes.rows || []).map(r => {
+      if (r.password) delete r.password;
+      if (r.work_date instanceof Date) {
+        r.work_date = r.work_date.toISOString().split('T')[0];
+      }
+      return r;
+    });
+
+    return sendJson(res, 200, rows);
+  } catch (err) {
+    console.warn(`[handleRestV1Api GET ${table} DB xatosi]:`, err.message);
+    return sendJson(res, 500, { error: err.message });
+  }
 }
 
 module.exports = {
