@@ -180,9 +180,10 @@ function renderSamarkandPbxStatsUI(data) {
   const formulaAcc = document.getElementById('samarkand_pbx_formula_acc_count');
   const formulaZ = document.getElementById('samarkand_pbx_formula_z');
   if (formulaX) formulaX.textContent = (summary.total_calls || 0).toLocaleString();
-  if (formulaAcc) formulaAcc.textContent = `${summary.accounts_count || 0} ta`;
+  const accCount = summary.accounts_count || 2;
+  if (formulaAcc) formulaAcc.textContent = `${accCount} ta`;
   if (formulaZ) {
-    const zVal = summary.target_quota != null ? summary.target_quota : (Math.round(((summary.total_calls || 0) / Math.max(1, summary.accounts_count || 1)) * 10) / 10);
+    const zVal = summary.target_quota != null ? summary.target_quota : (Math.round(((summary.total_calls || 0) / accCount) * 10) / 10);
     formulaZ.textContent = (zVal || 0).toLocaleString();
   }
 
@@ -275,7 +276,7 @@ function renderSamarkandPbxOperatorsTable(operators) {
   }
 
   const totalX = samarkandPbxStatsCache?.summary?.total_calls || 0;
-  const accountsCount = Math.max(1, samarkandPbxStatsCache?.summary?.accounts_count || list.length);
+  const accountsCount = samarkandPbxStatsCache?.summary?.accounts_count || 2;
   const targetQuotaPerAccount = samarkandPbxStatsCache?.summary?.target_quota != null 
     ? samarkandPbxStatsCache.summary.target_quota 
     : (Math.round((totalX / accountsCount) * 10) / 10);
@@ -429,7 +430,7 @@ function exportSamarkandPbxExcel() {
   }
 
   const totalX = samarkandPbxStatsCache?.summary?.total_calls || 0;
-  const accountsCount = Math.max(1, samarkandPbxStatsCache?.summary?.accounts_count || operators.length);
+  const accountsCount = samarkandPbxStatsCache?.summary?.accounts_count || 2;
   const targetQuota = samarkandPbxStatsCache?.summary?.target_quota != null 
     ? samarkandPbxStatsCache.summary.target_quota 
     : (Math.round((totalX / accountsCount) * 10) / 10);

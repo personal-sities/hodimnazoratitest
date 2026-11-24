@@ -3525,9 +3525,9 @@ async function getSamarkandCallsStats(from, to, operator = 'all', status = 'all'
         if (num) samarkandUserMap.set(num, u.name || `Operator ${num}`);
       });
 
-      const humanOps = Array.from(detectedOps).filter(o => o !== '5002');
-      const humanOpsCount = humanOps.length;
-      const Z = humanOpsCount > 0 ? (X / humanOpsCount) : 0;
+      const SAMARKAND_OPERATOR_ACCOUNTS_COUNT = 2; // Samarqandda qat'iy 2 ta operatorga bo'linadi (Z = X / 2)
+      const humanOpsCount = SAMARKAND_OPERATOR_ACCOUNTS_COUNT;
+      const Z = SAMARKAND_OPERATOR_ACCOUNTS_COUNT > 0 ? (X / SAMARKAND_OPERATOR_ACCOUNTS_COUNT) : 0;
 
       const opMap = new Map();
       detectedOps.forEach(opNum => {
@@ -3668,9 +3668,9 @@ async function getSamarkandCallsStats(from, to, operator = 'all', status = 'all'
     };
   }
 
-  const humanOps = Array.from(detectedOps).filter(o => o !== '5002');
-  const humanOpsCount = humanOps.length;
-  const Z = humanOpsCount > 0 ? (X / humanOpsCount) : 0;
+  const SAMARKAND_OPERATOR_ACCOUNTS_COUNT = 2; // Samarqandda qat'iy 2 ta operatorga bo'linadi (Z = X / 2)
+  const humanOpsCount = SAMARKAND_OPERATOR_ACCOUNTS_COUNT;
+  const Z = SAMARKAND_OPERATOR_ACCOUNTS_COUNT > 0 ? (X / SAMARKAND_OPERATOR_ACCOUNTS_COUNT) : 0;
 
   const samarkandUserMap = new Map();
   (samarkandUsers || []).forEach(u => {
