@@ -180,10 +180,12 @@ function renderSamarkandPbxStatsUI(data) {
   const formulaAcc = document.getElementById('samarkand_pbx_formula_acc_count');
   const formulaZ = document.getElementById('samarkand_pbx_formula_z');
   if (formulaX) formulaX.textContent = (summary.total_calls || 0).toLocaleString();
-  const accCount = summary.accounts_count || 2;
-  if (formulaAcc) formulaAcc.textContent = `${accCount} ta`;
+  const accCount = 2; // Samarqandda qat'iy 2 ta operator
+  summary.accounts_count = 2;
+  const zVal = Math.round(((summary.total_calls || 0) / 2) * 10) / 10;
+  summary.target_quota = zVal;
+  if (formulaAcc) formulaAcc.textContent = `2 ta`;
   if (formulaZ) {
-    const zVal = summary.target_quota != null ? summary.target_quota : (Math.round(((summary.total_calls || 0) / accCount) * 10) / 10);
     formulaZ.textContent = (zVal || 0).toLocaleString();
   }
 
@@ -276,17 +278,16 @@ function renderSamarkandPbxOperatorsTable(operators) {
   }
 
   const totalX = samarkandPbxStatsCache?.summary?.total_calls || 0;
-  const accountsCount = samarkandPbxStatsCache?.summary?.accounts_count || 2;
-  const targetQuotaPerAccount = samarkandPbxStatsCache?.summary?.target_quota != null 
-    ? samarkandPbxStatsCache.summary.target_quota 
-    : (Math.round((totalX / accountsCount) * 10) / 10);
+  const accountsCount = 2; // Samarqandda qat'iy 2 ta operator
+  const targetQuotaPerAccount = Math.round((totalX / 2) * 10) / 10;
 
   list.forEach((op, idx) => {
     const tr = document.createElement('tr');
     const is5002 = (String(op.operator_number || '').trim() === '5002');
-    const targetQuota = is5002 ? null : (op.target_quota != null ? op.target_quota : targetQuotaPerAccount);
-    const pct = op.answered_percent;
-    const pctVal = typeof pct === 'number' ? pct : 0;
+    const targetQuota = is5002 ? null : targetQuotaPerAccount;
+    const answeredCalls = op.answered_calls || 0;
+    // Samarqandda qat'iy Z = X / 2 normasi bo'yicha foiz (Y / Z * 100%)
+    const pctVal = (is5002 || !targetQuota) ? 0 : Math.round((answeredCalls / targetQuota) * 100 * 10) / 10;
     const pctColor = pctVal >= 80 ? 'var(--success)' : (pctVal >= 50 ? 'var(--warn)' : 'var(--danger)');
     const barWidth = Math.min(100, Math.max(0, pctVal));
 
@@ -309,10 +310,10 @@ function renderSamarkandPbxOperatorsTable(operators) {
 
     const normaSubtitle = is5002
       ? ''
-      : `<div style="font-size:10.5px;color:var(--text3);margin-top:2px;" title="Har bir akkaunt normasi: Z = X (${totalX}) / ${accountsCount} = ${targetQuota}">norma: ${targetQuota}</div>`;
+      : `<div style="font-size:10.5px;color:var(--text3);margin-top:2px;" title="Har bir akkaunt normasi: Z = X (${totalX}) / 2 = ${targetQuota}">norma: ${targetQuota}</div>`;
 
     let percentColHtml = '';
-    if (is5002 || targetQuota == null || pct == null) {
+    if (is5002 || targetQuota == null) {
       percentColHtml = `<span style="color:var(--text3);font-size:12px;">—</span>`;
     } else {
       percentColHtml = `
@@ -320,9 +321,8 @@ function renderSamarkandPbxOperatorsTable(operators) {
           <div style="flex:1;height:8px;background:var(--border2);border-radius:4px;overflow:hidden;" title="${pctVal}%">
             <div style="width:${barWidth}%;height:100%;background:${pctColor};border-radius:4px;transition:width .3s;"></div>
           </div>
-          <span style="font-size:12px;font-weight:700;color:${pctColor};min-width:44px;">${pctVal}%</span>
-        </div>
-      `;
+          <span style="font-size:11.5px;font-weight:700;font-family:var(--mono);color:${pctColor};min-width:44px;text-align:right;">${pctVal}%</span>
+        </div>`;
     }
 
     const incomingDisplay = (op.total_calls && op.total_calls > 0) ? op.total_calls : totalX;
